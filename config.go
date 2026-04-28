@@ -7,7 +7,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 )
+
+var configWriteMu sync.Mutex
 
 // ========== 配置数据结构 ==========
 
@@ -24,11 +27,11 @@ type ModelConfig struct {
 
 // ModelEntry 前端展示用的模型条目（agent 或 category）。
 type ModelEntry struct {
-	Key      string `json:"key"`      // agent/category 名称
-	Type     string `json:"type"`     // "agent" 或 "category"
-	Model    string `json:"model"`    // 当前模型
-	Label    string `json:"label"`    // 中文简称（从注释提取，≤5字）
-	Comment  string `json:"comment"`  // 原始注释文本
+	Key     string `json:"key"`     // agent/category 名称
+	Type    string `json:"type"`    // "agent" 或 "category"
+	Model   string `json:"model"`   // 当前模型
+	Label   string `json:"label"`   // 中文简称（从注释提取，≤5字）
+	Comment string `json:"comment"` // 原始注释文本
 }
 
 // ========== 配置路径 & 加载 ==========
@@ -63,9 +66,33 @@ func loadConfig() (*OpenAgentConfig, string, map[string]string, error) {
 	return &config, rawText, comments, nil
 }
 
-// saveConfig 将模型变更写回 JSONC 文件，保留原有格式和注释。
-// 使用行级匹配替换，保证非模型字段和注释不受影响。
+// GetFullConfig 返回完整 JSONC 字符串（前端解析后只显示 agents/categories）
+func (a *App) GetFullConfig() string {
+	path := configPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
+}
+
+// SaveFullConfig 将前端修改后的完整 JSON 字符串直接写入文件
+func (a *App) SaveFullConfig(jsonStr string) SaveResult {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+
+	path := configPath()
+	if err := writeConfigFile(path, []byte(jsonStr), 0644); err != nil {
+		return SaveResult{Success: false, Error: err.Error()}
+	}
+	return SaveResult{Success: true}
+}
+
+// saveConfig 保存模型配置，只替换已存在条目的 model 值，避免重建整段配置导致注释或未知字段丢失。
 func saveConfig(entries []ModelEntry) error {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+
 	path := configPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -74,37 +101,301 @@ func saveConfig(entries []ModelEntry) error {
 
 	lines := strings.Split(string(data), "\n")
 	modelRe := regexp.MustCompile(`("model"\s*:\s*)"[^"]*"`)
+	var cfg OpenAgentConfig
+	if err := json.Unmarshal([]byte(stripComments(string(data))), &cfg); err != nil {
+		return fmt.Errorf("解析配置失败: %w", err)
+	}
 
-	for i, line := range lines {
-		for _, entry := range entries {
-			// 查找包含当前 entry key 的行（如 "oracle": { 开头）
+	lines, err = removeMissingModelEntries(lines, cfg.Agents, entries, "agent")
+	if err != nil {
+		return err
+	}
+	lines, err = removeMissingModelEntries(lines, cfg.Categories, entries, "category")
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		var updated bool
+		var keyExists bool
+		keyPattern := fmt.Sprintf(`"%s":`, entry.Key)
+		for i, line := range lines {
 			trimmed := strings.TrimSpace(line)
-			keyPattern := fmt.Sprintf(`"%s":`, entry.Key)
+			if !strings.Contains(trimmed, keyPattern) || !strings.Contains(trimmed, "{") {
+				continue
+			}
+			keyExists = true
 
-			// 标记是否进入目标 block
-			if strings.Contains(trimmed, keyPattern) && strings.Contains(trimmed, "{") {
-				// model 可能在同一行
-				if modelRe.MatchString(line) {
-					lines[i] = modelRe.ReplaceAllString(line, fmt.Sprintf(`${1}"%s"`, entry.Model))
+			if modelRe.MatchString(line) {
+				lines[i] = replaceModelValue(line, modelRe, entry.Model)
+				updated = true
+				break
+			}
+
+			for j := i + 1; j < len(lines) && j < i+8; j++ {
+				if modelRe.MatchString(lines[j]) {
+					lines[j] = replaceModelValue(lines[j], modelRe, entry.Model)
+					updated = true
 					break
 				}
-				// 也可能在后续行
-				for j := i + 1; j < len(lines) && j < i+5; j++ {
-					if modelRe.MatchString(lines[j]) {
-						lines[j] = modelRe.ReplaceAllString(lines[j], fmt.Sprintf(`${1}"%s"`, entry.Model))
-						break
-					}
-					// 遇到 } 则 block 结束
-					if strings.Contains(lines[j], "}") {
-						break
-					}
+				if strings.Contains(lines[j], "}") {
+					break
 				}
-				break
+			}
+			break
+		}
+		if !updated {
+			if keyExists {
+				return fmt.Errorf("未找到 %s 配置项 %q 的 model 字段", entry.Type, entry.Key)
+			}
+			lines, err = insertModelEntry(lines, entry)
+			if err != nil {
+				return err
 			}
 		}
 	}
 
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+	return writeConfigFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+func removeMissingModelEntries(lines []string, existing map[string]ModelConfig, entries []ModelEntry, entryType string) ([]string, error) {
+	keep := make(map[string]bool)
+	for _, entry := range entries {
+		if entry.Type == entryType {
+			keep[entry.Key] = true
+		}
+	}
+
+	var err error
+	for key := range existing {
+		if keep[key] {
+			continue
+		}
+		var removed bool
+		lines, removed, err = removeModelEntry(lines, key, entryType)
+		if err != nil {
+			return nil, err
+		}
+		if !removed {
+			return nil, fmt.Errorf("未找到待删除的 %s 配置项 %q", entryType, key)
+		}
+	}
+	return lines, nil
+}
+
+func replaceModelValue(line string, modelRe *regexp.Regexp, model string) string {
+	match := modelRe.FindStringSubmatchIndex(line)
+	if match == nil || len(match) < 4 {
+		return line
+	}
+	return line[:match[3]] + fmt.Sprintf("%q", model) + line[match[1]:]
+}
+
+func insertModelEntry(lines []string, entry ModelEntry) ([]string, error) {
+	section := `"agents"`
+	if entry.Type == "category" {
+		section = `"categories"`
+	}
+
+	for i, line := range lines {
+		if !strings.Contains(strings.TrimSpace(line), section) {
+			continue
+		}
+
+		depth := 0
+		for j := i; j < len(lines); j++ {
+			for _, ch := range lines[j] {
+				switch ch {
+				case '{':
+					depth++
+				case '}':
+					depth--
+				}
+			}
+			if depth == 0 && j > i {
+				return insertBeforeSectionClose(lines, j, entry), nil
+			}
+		}
+		break
+	}
+
+	return nil, fmt.Errorf("未找到 %s section", entry.Type)
+}
+
+func insertBeforeSectionClose(lines []string, closeIndex int, entry ModelEntry) []string {
+	prevIndex := previousContentLine(lines, closeIndex)
+	if prevIndex >= 0 {
+		trimmed := strings.TrimSpace(lines[prevIndex])
+		if !strings.Contains(trimmed, "{") && !strings.HasSuffix(trimmed, ",") {
+			lines[prevIndex] += ","
+		}
+	}
+
+	indent := leadingWhitespace(lines[closeIndex]) + "  "
+	newEntry := []string{
+		fmt.Sprintf(`%s%q: {`, indent, entry.Key),
+		fmt.Sprintf(`%s  "model": %q%s`, indent, entry.Model, formatInlineComment(entry.Comment)),
+		fmt.Sprintf(`%s}`, indent),
+	}
+
+	updated := make([]string, 0, len(lines)+len(newEntry))
+	updated = append(updated, lines[:closeIndex]...)
+	updated = append(updated, newEntry...)
+	updated = append(updated, lines[closeIndex:]...)
+	return updated
+}
+
+func formatInlineComment(comment string) string {
+	comment = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(comment, "\r", " "), "\n", " "))
+	if comment == "" {
+		return ""
+	}
+	return " // " + comment
+}
+
+func removeModelEntry(lines []string, key, entryType string) ([]string, bool, error) {
+	sectionStart, sectionEnd := findSectionRange(lines, entryType)
+	if sectionStart < 0 {
+		return nil, false, fmt.Errorf("未找到 %s section", entryType)
+	}
+
+	keyPattern := fmt.Sprintf(`"%s":`, key)
+	for i := sectionStart + 1; i < sectionEnd; i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if !strings.Contains(trimmed, keyPattern) || !strings.Contains(trimmed, "{") {
+			continue
+		}
+
+		blockEnd, err := findObjectBlockEnd(lines, i)
+		if err != nil {
+			return nil, false, err
+		}
+		updated := append([]string{}, lines[:i]...)
+		updated = append(updated, lines[blockEnd+1:]...)
+		trimTrailingCommaBeforeSectionClose(updated, sectionEnd-(blockEnd-i+1))
+		return updated, true, nil
+	}
+
+	return lines, false, nil
+}
+
+func findSectionRange(lines []string, entryType string) (int, int) {
+	section := `"agents"`
+	if entryType == "category" {
+		section = `"categories"`
+	}
+
+	for i, line := range lines {
+		if !strings.Contains(strings.TrimSpace(line), section) {
+			continue
+		}
+		depth := 0
+		for j := i; j < len(lines); j++ {
+			for _, ch := range lines[j] {
+				switch ch {
+				case '{':
+					depth++
+				case '}':
+					depth--
+				}
+			}
+			if depth == 0 && j > i {
+				return i, j
+			}
+		}
+		break
+	}
+	return -1, -1
+}
+
+func findObjectBlockEnd(lines []string, start int) (int, error) {
+	depth := 0
+	for i := start; i < len(lines); i++ {
+		for _, ch := range lines[i] {
+			switch ch {
+			case '{':
+				depth++
+			case '}':
+				depth--
+			}
+		}
+		if depth == 0 && i >= start {
+			return i, nil
+		}
+	}
+	return -1, fmt.Errorf("未找到配置项闭合括号")
+}
+
+func trimTrailingCommaBeforeSectionClose(lines []string, sectionEnd int) {
+	if sectionEnd < 0 || sectionEnd >= len(lines) {
+		return
+	}
+	prev := previousContentLine(lines, sectionEnd)
+	if prev >= 0 {
+		lines[prev] = strings.TrimSuffix(lines[prev], ",")
+	}
+}
+
+func previousContentLine(lines []string, before int) int {
+	for i := before - 1; i >= 0; i-- {
+		if strings.TrimSpace(lines[i]) != "" {
+			return i
+		}
+	}
+	return -1
+}
+
+func leadingWhitespace(line string) string {
+	return line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+}
+
+func writeConfigFile(path string, data []byte, perm os.FileMode) error {
+	if strings.TrimSpace(string(data)) == "" {
+		return fmt.Errorf("拒绝写入空配置文件: %s", path)
+	}
+	if err := validateJSONC(data); err != nil {
+		return fmt.Errorf("拒绝写入无效配置文件 %s: %w", path, err)
+	}
+
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("创建临时配置文件失败: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return fmt.Errorf("写入临时配置文件失败: %w", err)
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		return fmt.Errorf("设置临时配置文件权限失败: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return fmt.Errorf("同步临时配置文件失败: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("关闭临时配置文件失败: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("替换配置文件失败: %w", err)
+	}
+	return nil
+}
+
+func validateJSONC(data []byte) error {
+	cleaned := strings.TrimSpace(stripComments(string(data)))
+	if cleaned == "" {
+		return fmt.Errorf("配置内容为空")
+	}
+	if !json.Valid([]byte(cleaned)) {
+		return fmt.Errorf("配置内容不是有效 JSON/JSONC")
+	}
+	return nil
 }
 
 // stripComments 移除 JSONC 中的单行注释（// ...）。
@@ -124,6 +415,76 @@ func stripComments(text string) string {
 		result = append(result, line)
 	}
 	return strings.Join(result, "\n")
+}
+
+// ========== 增删 Agent/Category ==========
+
+func addConfigEntry(key, model, entryType string) error {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+
+	path := configPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	lines, err = insertModelEntry(lines, ModelEntry{Key: key, Model: model, Type: entryType})
+	if err != nil {
+		return err
+	}
+
+	return writeConfigFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+func deleteConfigEntry(key, entryType string) error {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+
+	path := configPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+
+	lines, removed, err := removeModelEntry(lines, key, entryType)
+	if err != nil {
+		return err
+	}
+	if !removed {
+		return fmt.Errorf("未找到 %s 配置项 %q", entryType, key)
+	}
+
+	return writeConfigFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+// loadConfigRaw 读取配置（不解析注释）
+func loadConfigRaw() (*OpenAgentConfig, error) {
+	path := configPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	cleaned := stripComments(string(data))
+	var cfg OpenAgentConfig
+	if err := json.Unmarshal([]byte(cleaned), &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+// saveConfigRaw 写回配置
+func saveConfigRaw(cfg *OpenAgentConfig) error {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+
+	path := configPath()
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeConfigFile(path, data, 0644)
 }
 
 // ========== 配置转前端结构 ==========

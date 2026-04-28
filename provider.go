@@ -11,11 +11,11 @@ import (
 
 // OpenCodeConfig opencode.jsonc 顶层结构
 type OpenCodeConfig struct {
-	Schema           string                       `json:"$schema,omitempty"`
-	Plugin           []string                     `json:"plugin,omitempty"`
-	Provider         map[string]*ProviderEntry     `json:"provider,omitempty"`
-	EnabledProviders []string                      `json:"enabled_providers,omitempty"`
-	Server           map[string]interface{}        `json:"server,omitempty"`
+	Schema           string                    `json:"$schema,omitempty"`
+	Plugin           []string                  `json:"plugin,omitempty"`
+	Provider         map[string]*ProviderEntry `json:"provider,omitempty"`
+	EnabledProviders []string                  `json:"enabled_providers,omitempty"`
+	Server           map[string]interface{}    `json:"server,omitempty"`
 }
 
 // ProviderEntry 单个供应商配置
@@ -35,12 +35,12 @@ type ModelDef struct {
 
 // ProviderInfo 前端展示用供应商信息
 type ProviderInfo struct {
-	Key      string             `json:"key"`      // 供应商 key（如 "deepseek"）
-	Name     string             `json:"name"`     // 显示名称
-	BaseURL  string             `json:"baseURL"`  // 请求地址
-	ApiKey   string             `json:"apiKey"`   // API Key（脱敏显示后4位）
-	Enabled  bool               `json:"enabled"`  // 是否启用
-	Models   []ModelInfo        `json:"models"`   // 模型列表
+	Key     string      `json:"key"`     // 供应商 key（如 "deepseek"）
+	Name    string      `json:"name"`    // 显示名称
+	BaseURL string      `json:"baseURL"` // 请求地址
+	ApiKey  string      `json:"apiKey"`  // API Key（脱敏显示后4位）
+	Enabled bool        `json:"enabled"` // 是否启用
+	Models  []ModelInfo `json:"models"`  // 模型列表
 }
 
 // ModelInfo 前端展示用模型信息
@@ -90,7 +90,7 @@ func saveOpenCodeConfig(cfg *OpenCodeConfig) error {
 	if err != nil {
 		return fmt.Errorf("序列化失败: %w", err)
 	}
-	return os.WriteFile(path, data, 0644)
+	return writeConfigFile(path, data, 0644)
 }
 
 // ========== 业务逻辑 ==========
@@ -146,6 +146,9 @@ func getProviders() []ProviderInfo {
 
 // saveProvider 保存单个供应商（新增或更新）
 func saveProvider(ps ProviderSave) error {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+
 	cfg, err := loadOpenCodeConfig()
 	if err != nil {
 		return err
@@ -158,9 +161,9 @@ func saveProvider(ps ProviderSave) error {
 		Npm:  "@ai-sdk/openai-compatible",
 		Name: ps.Name,
 		Options: map[string]interface{}{
-			"baseURL":      ps.BaseURL,
-			"apiKey":       ps.ApiKey,
-			"setCacheKey":  true,
+			"baseURL":     ps.BaseURL,
+			"apiKey":      ps.ApiKey,
+			"setCacheKey": true,
 		},
 	}
 	if ps.Models != nil {
@@ -186,6 +189,9 @@ func saveProvider(ps ProviderSave) error {
 
 // deleteProvider 删除供应商
 func deleteProvider(key string) error {
+	configWriteMu.Lock()
+	defer configWriteMu.Unlock()
+
 	cfg, err := loadOpenCodeConfig()
 	if err != nil {
 		return err
