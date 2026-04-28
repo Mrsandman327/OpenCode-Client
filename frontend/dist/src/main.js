@@ -122,6 +122,13 @@ const api = (() => {
         ToggleAllSkills: async (target, enable) => ({ target, enabled: enable, success: true, errors: [] }),
         Refresh: async () => {},
         OpenDir: async (path) => { console.log('mock open:', path); showToast(`模拟打开目录: ${path}`, 'info'); },
+    StartTerminal: async () => { console.log('mock terminal start'); },
+    TerminalWrite: async (data) => { console.log('mock term write:', data); },
+    GetSessions: async () => [
+        { id: 'ses_abc123', title: '开发 Skill 桌面管理工具' },
+        { id: 'ses_def456', title: 'OpenCode 模型配置管理' },
+    ],
+    RunOpenCode: async (sid, cont) => { console.log('mock launch:', sid, cont); },
         // 模型配置
         GetModelConfig: async () => [
             { key: 'sisyphus', type: 'agent', model: 'deepseek/deepseek-v4-pro', label: '执行者', comment: '执行者：负责执行具体任务' },
@@ -205,7 +212,8 @@ function switchView(viewId) {
     } else if (viewId === 'view-commands') {
         loadCommands();
     } else if (viewId === 'view-opencode') {
-        loadOpenCodeOptions();
+        // 初始化终端
+        if (!terminalInstance) setTimeout(initTerminal, 300);
     }
 }
 
@@ -218,87 +226,8 @@ document.getElementById('sidebar').addEventListener('click', (e) => {
 });
 
 // ============================================================
-// View 1: OpenCode
+// View 1: OpenCode (终端)
 // ============================================================
-
-// 加载模型和 Agent 选项
-async function loadOpenCodeOptions() {
-    const modelSelect = document.getElementById('ocModelSelect');
-    const agentSelect = document.getElementById('ocAgentSelect');
-
-    // 仅在未加载时填充
-    if (modelSelect.options.length > 1) return;
-
-    try {
-        const [models, configEntries] = await Promise.all([
-            api.GetAvailableModels().catch(() => []),
-            api.GetModelConfig().catch(() => []),
-        ]);
-
-        // 模型下拉
-        if (models && models.length > 0) {
-            models.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m;
-                opt.textContent = m;
-                modelSelect.appendChild(opt);
-            });
-        }
-
-        // Agent 下拉（从模型配置中提取 agent 类型条目）
-        if (configEntries && configEntries.length > 0) {
-            const agents = configEntries.filter(e => e.type === 'agent');
-            agents.forEach(a => {
-                const opt = document.createElement('option');
-                opt.value = a.key;
-                opt.textContent = a.label ? `${a.key} (${a.label})` : a.key;
-                agentSelect.appendChild(opt);
-            });
-        }
-    } catch (err) {
-        console.warn('加载启动选项失败:', err);
-    }
-}
-
-// 浏览工作目录
-document.getElementById('ocBrowseBtn').addEventListener('click', async () => {
-    try {
-        const dir = await api.OpenDirectoryDialog();
-        if (dir) {
-            document.getElementById('ocWorkDir').value = dir;
-        }
-    } catch (err) {
-        showToast('选择目录失败: ' + (err.message || err), 'error');
-    }
-});
-
-// 启动 OpenCode
-document.getElementById('ocLaunchBtn').addEventListener('click', async () => {
-    const dir = document.getElementById('ocWorkDir').value;
-    const model = document.getElementById('ocModelSelect').value;
-    const agent = document.getElementById('ocAgentSelect').value;
-    const continueFlag = document.getElementById('ocContinueSession').checked;
-    const sessionId = document.getElementById('ocSessionId').value;
-
-    if (!dir) {
-        showToast('请先选择工作目录', 'error');
-        return;
-    }
-
-    const btn = document.getElementById('ocLaunchBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳ 启动中...';
-
-    try {
-        await api.RunOpenCode(dir, model, agent, continueFlag, sessionId);
-        showToast('OpenCode 已启动', 'success');
-    } catch (err) {
-        showToast('启动失败: ' + (err.message || err), 'error');
-    }
-
-    btn.disabled = false;
-    btn.textContent = '🚀 启动 OpenCode';
-});
 
 // ============================================================
 // 嵌入式终端 (xterm.js)
@@ -310,7 +239,6 @@ function initTerminal() {
     if (!container) return;
     if (terminalInstance) return;
 
-    // 确保 xterm 已加载
     if (typeof Terminal === 'undefined') {
         console.warn('xterm.js 未加载');
         return;
@@ -319,103 +247,79 @@ function initTerminal() {
     terminalInstance = new Terminal({
         cursorBlink: true,
         cursorStyle: 'block',
-        fontSize: 13,
+        fontSize: 14,
         fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
         theme: {
             background: '#1e1e1e',
             foreground: '#cccccc',
             cursor: '#007acc',
             selectionBackground: '#264f78',
-            black: '#1e1e1e',
-            red: '#f44747',
-            green: '#4ec9b0',
-            yellow: '#dcdcaa',
-            blue: '#569cd6',
-            magenta: '#c586c0',
-            cyan: '#4fc1ff',
-            white: '#d4d4d4',
-            brightBlack: '#808080',
-            brightRed: '#f44747',
-            brightGreen: '#4ec9b0',
-            brightYellow: '#dcdcaa',
-            brightBlue: '#569cd6',
-            brightMagenta: '#c586c0',
-            brightCyan: '#4fc1ff',
-            brightWhite: '#d4d4d4',
         },
-        rows: 24,
         allowTransparency: false,
     });
 
     terminalInstance.open(container);
 
-    // 写个欢迎信息
-    terminalInstance.writeln('\x1b[36m╔══════════════════════════════════════╗\x1b[0m');
-    terminalInstance.writeln('\x1b[36m║  \x1b[1mOpenCode 管理中心 - 嵌入式终端\x1b[0m\x1b[36m    ║\x1b[0m');
-    terminalInstance.writeln('\x1b[36m║  输入命令与 OpenCode 后端交互        ║\x1b[0m');
-    terminalInstance.writeln('\x1b[36m╚══════════════════════════════════════╝\x1b[0m');
-    terminalInstance.write('\r\n$ ');
+    setTimeout(() => terminalInstance.focus(), 300);
+    container.addEventListener('click', () => terminalInstance.focus());
 
-    // 发送用户输入到后端
-    terminalInstance.onData(data => {
-        if (window.runtime) {
-            window.runtime.EventsEmit('terminal-input', data);
-        }
-        // 本地回显（mock 模式）
-        if (!window.runtime) {
-            if (data === '\r') {
-                terminalInstance.write('\r\n$ ');
-            } else {
-                terminalInstance.write(data);
-            }
-        }
-    });
+    terminalInstance.writeln('\x1b[36mTerminal ready\x1b[0m');
+    terminalInstance.write('$ ');
 
-    // 监听后端输出
-    if (window.runtime) {
-        window.runtime.EventsOn('terminal-output', (output) => {
-            if (terminalInstance && output) {
-                terminalInstance.write(output);
-            }
-        });
-
-        window.runtime.EventsOn('terminal-error', (errMsg) => {
-            if (terminalInstance && errMsg) {
-                terminalInstance.writeln('\r\n\x1b[31m[终端错误] ' + errMsg + '\x1b[0m');
-            }
-        });
-    }
-
-    // 尝试启动终端
-    if (api.startTerminal) {
-        api.startTerminal().catch(err => {
-            console.warn('启动终端失败:', err);
-        });
-    }
-
-    // 自适应大小
-    const resizeTerminal = () => {
-        if (terminalInstance && container) {
-            const cols = Math.floor(container.clientWidth / 9.5);
-            const rows = Math.floor(container.clientHeight / 18);
-            if (cols > 10 && rows > 3) {
-                terminalInstance.resize(cols, rows);
-            }
+    // 自适应大小 + ConPTY 同步
+    const fitTerminal = () => {
+        if (!terminalInstance || !container) return;
+        const h = container.clientHeight;
+        const w = container.clientWidth;
+        if (h < 30 || w < 30) return;
+        const cols = Math.max(10, Math.floor(w / 8.6));
+        const rows = Math.max(3, Math.floor(h / 18));
+        terminalInstance.resize(cols, rows);
+        // 同步 ConPTY 大小
+        if (api.ResizeTerminal) {
+            api.ResizeTerminal(cols, rows);
         }
     };
 
-    // 延迟等渲染完成后再 resize
-    setTimeout(resizeTerminal, 100);
-    window.addEventListener('resize', resizeTerminal);
-
-    // 使用 ResizeObserver 更精确地监听容器大小变化
+    setTimeout(fitTerminal, 200);
+    setTimeout(fitTerminal, 500);
+    window.addEventListener('resize', fitTerminal);
     if (window.ResizeObserver) {
-        const observer = new ResizeObserver(() => resizeTerminal());
-        observer.observe(container);
+        new ResizeObserver(() => fitTerminal()).observe(container);
     }
 
-    const status = document.getElementById('terminalStatus');
-    if (status) status.textContent = '已连接';
+    // PTY 先启再绑事件
+    const startAndBind = async () => {
+        if (api.StartTerminal) {
+            const result = await api.StartTerminal();
+            terminalInstance.writeln('\r\n\x1b[33m[StartTerminal: ' + result + ']\x1b[0m');
+        } else {
+            terminalInstance.writeln('\r\n\x1b[31m[StartTerminal not found]\x1b[0m');
+        }
+
+        // Go → 前端输出
+        if (window.runtime) {
+            window.runtime.EventsOn('terminal-output', (output) => {
+                if (terminalInstance && output) terminalInstance.write(output);
+            });
+            window.runtime.EventsOn('terminal-error', (errMsg) => {
+                if (terminalInstance && errMsg)
+                    terminalInstance.writeln('\r\n\x1b[31m[错误] ' + errMsg + '\x1b[0m');
+            });
+        }
+
+        // 用户输入 → Go PTY
+        terminalInstance.onData(data => {
+            if (api.TerminalWrite) {
+                api.TerminalWrite(data);
+            }
+        });
+
+        const status = document.getElementById('terminalStatus');
+        if (status) status.textContent = '已连接';
+    };
+
+    startAndBind();
 }
 
 // OpenCode 视图显示时初始化终端（仅一次）
@@ -1004,14 +908,8 @@ document.addEventListener('keydown', (e) => {
 // 应用启动
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 默认视图为 OpenCode，加载其选项
-    loadOpenCodeOptions();
-
-    // 如果 OpenCode 视图默认激活，立即初始化终端
-    const opencodePanel = document.getElementById('view-opencode');
-    if (opencodePanel && opencodePanel.classList.contains('active')) {
-        setTimeout(initTerminal, 300);
-    }
+    loadSkillsData();
+    initTerminal();
 });
 
 // ============================================================

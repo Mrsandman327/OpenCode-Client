@@ -3,7 +3,7 @@ module skill-manager
 go 1.25
 
 require (
-	github.com/creack/pty v1.1.24
+	github.com/UserExistsError/conpty v0.1.4
 	github.com/wailsapp/wails/v2 v2.12.0
 )
 

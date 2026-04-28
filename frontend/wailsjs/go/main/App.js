@@ -30,6 +30,10 @@ export function GetProviders() {
   return window['go']['main']['App']['GetProviders']();
 }
 
+export function GetSessions() {
+  return window['go']['main']['App']['GetSessions']();
+}
+
 export function GetSkills() {
   return window['go']['main']['App']['GetSkills']();
 }
@@ -62,12 +66,24 @@ export function RefreshAvailableModels() {
   return window['go']['main']['App']['RefreshAvailableModels']();
 }
 
-export function RunOpenCode(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['RunOpenCode'](arg1, arg2, arg3, arg4, arg5);
+export function ResizeTerminal(arg1, arg2) {
+  return window['go']['main']['App']['ResizeTerminal'](arg1, arg2);
+}
+
+export function RunOpenCode(arg1, arg2) {
+  return window['go']['main']['App']['RunOpenCode'](arg1, arg2);
 }
 
 export function SaveProvider(arg1) {
   return window['go']['main']['App']['SaveProvider'](arg1);
+}
+
+export function StartTerminal() {
+  return window['go']['main']['App']['StartTerminal']();
+}
+
+export function TerminalWrite(arg1) {
+  return window['go']['main']['App']['TerminalWrite'](arg1);
 }
 
 export function ToggleAllSkills(arg1, arg2) {

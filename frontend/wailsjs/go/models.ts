@@ -213,6 +213,20 @@ export namespace main {
 	        this.error = source["error"];
 	    }
 	}
+	export class SessionInfo {
+	    id: string;
+	    title: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	    }
+	}
 	export class SkillInfo {
 	    name: string;
 	    description: string;

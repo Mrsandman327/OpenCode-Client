@@ -1,75 +1,97 @@
 package main
 
 import (
-	"io"
-	"os"
+	"encoding/json"
 	"os/exec"
+	"strings"
+	"sync"
+	"syscall"
 
-	"github.com/creack/pty"
+	"github.com/UserExistsError/conpty"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// startTerminal 启动嵌入式终端 (cmd.exe)，通过 Wails Events 与前端 xterm.js 通信
-func (a *App) startTerminal() {
-	cmd := exec.Command("cmd")
-	cmd.Env = append(os.Environ(), "TERM=xterm")
+var (
+	globalTty   *conpty.ConPty
+	globalTtyMu sync.Mutex
+)
 
-	tty, err := pty.Start(cmd)
+func (a *App) StartTerminal() string {
+	globalTtyMu.Lock()
+	if globalTty != nil {
+		globalTtyMu.Unlock()
+		return "already started"
+	}
+	globalTtyMu.Unlock()
+
+	cpty, err := conpty.Start("cmd.exe")
 	if err != nil {
-		runtime.EventsEmit(a.ctx, "terminal-error", err.Error())
-		return
+		return "error: " + err.Error()
 	}
 
-	// 读取 PTY 输出 → 发送到前端
+	globalTtyMu.Lock()
+	globalTty = cpty
+	globalTtyMu.Unlock()
+
+	// 读输出 → 前端
 	go func() {
 		buf := make([]byte, 1024)
 		for {
-			n, err := tty.Read(buf)
+			n, err := cpty.Read(buf)
 			if n > 0 {
 				runtime.EventsEmit(a.ctx, "terminal-output", string(buf[:n]))
 			}
 			if err != nil {
-				if err != io.EOF {
-					runtime.EventsEmit(a.ctx, "terminal-error", err.Error())
-				}
 				return
 			}
 		}
 	}()
 
-	// 接收前端输入 → 写入 PTY
-	// 注意: 此方法在前端按键时调用
-	runtime.EventsOn(a.ctx, "terminal-input", func(optionalData ...interface{}) {
-		if len(optionalData) > 0 {
-			if data, ok := optionalData[0].(string); ok {
-				tty.Write([]byte(data))
-			}
-		}
-	})
+	return "ok"
 }
 
-// runOpenCode 启动 opencode（外部终端窗口）
-func (a *App) RunOpenCode(dir string, model string, agent string, continueFlag bool, sessionId string) error {
-	args := []string{}
-	if dir != "" {
-		args = append(args, dir)
+// TerminalWrite 向终端写入数据
+func (a *App) TerminalWrite(data string) {
+	globalTtyMu.Lock()
+	cpty := globalTty
+	globalTtyMu.Unlock()
+	if cpty != nil {
+		cpty.Write([]byte(data))
 	}
-	if model != "" {
-		args = append(args, "-m", model)
+}
+
+// ResizeTerminal 调整终端大小
+func (a *App) ResizeTerminal(cols int, rows int) {
+	globalTtyMu.Lock()
+	cpty := globalTty
+	globalTtyMu.Unlock()
+	if cpty != nil {
+		cpty.Resize(cols, rows)
 	}
-	if agent != "" {
-		args = append(args, "--agent", agent)
-	}
-	if continueFlag {
-		args = append(args, "-c")
-	}
-	if sessionId != "" {
-		args = append(args, "-s", sessionId)
+}
+
+// runOpenCode 在嵌入式终端中启动 opencode
+// sessionId 优先，其次 continueFlag
+func (a *App) RunOpenCode(sessionId string, continueFlag bool) error {
+	globalTtyMu.Lock()
+	cpty := globalTty
+	globalTtyMu.Unlock()
+
+	if cpty == nil {
+		return nil
 	}
 
-	cmd := exec.Command("cmd", "/c", "start", "opencode")
-	cmd.Args = append(cmd.Args, args...)
-	return cmd.Start()
+	var cmd string
+	if sessionId != "" {
+		cmd = "opencode -s " + sessionId + "\r\n"
+	} else if continueFlag {
+		cmd = "opencode -c\r\n"
+	} else {
+		cmd = "opencode\r\n"
+	}
+
+	_, err := cpty.Write([]byte(cmd))
+	return err
 }
 
 // OpenDirectoryDialog 打开目录选择对话框
@@ -81,4 +103,48 @@ func (a *App) OpenDirectoryDialog() string {
 		return ""
 	}
 	return dir
+}
+
+// ========== 会话管理 ==========
+
+// SessionInfo 会话记录
+type SessionInfo struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// GetSessions 获取最近 15 个 OpenCode 会话记录
+func (a *App) GetSessions() ([]SessionInfo, error) {
+	sessions, err := fetchSessions()
+	if err != nil {
+		return []SessionInfo{{ID: "", Title: "加载失败: " + err.Error()[:50]}}, nil
+	}
+	return sessions, nil
+}
+
+func fetchSessions() ([]SessionInfo, error) {
+	cmd := exec.Command("opencode", "session", "list", "-n", "15", "--format", "json")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var raw []struct {
+		ID    string `json:"id"`
+		Title string `json:"title"`
+	}
+	if err := json.Unmarshal(output, &raw); err != nil {
+		return nil, err
+	}
+
+	sessions := make([]SessionInfo, 0, len(raw))
+	for _, r := range raw {
+		title := strings.ReplaceAll(r.Title, "\n", " ")
+		if len([]rune(title)) > 60 {
+			title = string([]rune(title)[:60]) + "..."
+		}
+		sessions = append(sessions, SessionInfo{ID: r.ID, Title: title})
+	}
+	return sessions, nil
 }

@@ -16,6 +16,8 @@ export function GetProviderConfigPath():Promise<string>;
 
 export function GetProviders():Promise<Array<main.ProviderInfo>>;
 
+export function GetSessions():Promise<Array<main.SessionInfo>>;
+
 export function GetSkills():Promise<Array<main.SkillInfo>>;
 
 export function GetSourceDir():Promise<string>;
@@ -32,9 +34,15 @@ export function Refresh():Promise<void>;
 
 export function RefreshAvailableModels():Promise<Array<string>>;
 
-export function RunOpenCode(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:string):Promise<void>;
+export function ResizeTerminal(arg1:number,arg2:number):Promise<void>;
+
+export function RunOpenCode(arg1:string,arg2:boolean):Promise<void>;
 
 export function SaveProvider(arg1:main.ProviderSave):Promise<main.SaveResult>;
+
+export function StartTerminal():Promise<string>;
+
+export function TerminalWrite(arg1:string):Promise<void>;
 
 export function ToggleAllSkills(arg1:string,arg2:boolean):Promise<main.BatchResult>;
 

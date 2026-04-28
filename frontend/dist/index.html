@@ -47,52 +47,6 @@
 
             <!-- ===== View 1: OpenCode ===== -->
             <div class="view-panel active" id="view-opencode">
-                <div class="view-opencode-top">
-                    <!-- 工作目录 -->
-                    <section class="oc-section">
-                        <label class="oc-section-label">工作目录</label>
-                        <div class="oc-row">
-                            <input type="text" class="oc-input oc-input-readonly" id="ocWorkDir" readonly placeholder="请选择工作目录..." value="" />
-                            <button class="btn btn-sm btn-open" id="ocBrowseBtn">📂 浏览</button>
-                        </div>
-                    </section>
-
-                    <!-- 启动参数 -->
-                    <section class="oc-section">
-                        <label class="oc-section-label">启动参数</label>
-                        <div class="oc-params-grid">
-                            <div class="oc-field">
-                                <span class="oc-field-label">模型</span>
-                                <select class="oc-select" id="ocModelSelect">
-                                    <option value="">-- 默认 --</option>
-                                </select>
-                            </div>
-                            <div class="oc-field">
-                                <span class="oc-field-label">Agent</span>
-                                <select class="oc-select" id="ocAgentSelect">
-                                    <option value="">-- 默认 --</option>
-                                </select>
-                            </div>
-                            <div class="oc-field oc-field-check">
-                                <label class="oc-checkbox-label">
-                                    <input type="checkbox" id="ocContinueSession" />
-                                    <span class="oc-checkbox-mark"></span>
-                                    <span>继续上次会话</span>
-                                </label>
-                            </div>
-                            <div class="oc-field">
-                                <span class="oc-field-label">Session ID</span>
-                                <input type="text" class="oc-input" id="ocSessionId" placeholder="可选" />
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- 启动按钮 -->
-                    <div class="oc-launch-row">
-                        <button class="btn btn-primary btn-launch" id="ocLaunchBtn">🚀 启动 OpenCode</button>
-                    </div>
-                </div>
-
                 <!-- 终端 -->
                 <div class="terminal-wrapper" id="terminalWrapper">
                     <div class="terminal-bar">

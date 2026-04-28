@@ -373,6 +373,30 @@ html, body {
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+    padding: 0;
+}
+
+/* 终端填满整个 OpenCode 视图 */
+.terminal-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: #1e1e1e;
+}
+
+.terminal-container {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.terminal-container .xterm {
+    height: 100%;
+    width: 100%;
+}
+.terminal-container .xterm-viewport {
+    overflow-y: auto;
 }
 
 /* 常用命令视图：整体滚动 */
@@ -569,13 +593,13 @@ html, body {
 
 .terminal-container {
     flex: 1;
-    padding: 4px;
     overflow: hidden;
+    min-height: 0;
 }
 
 .terminal-container .xterm {
     height: 100%;
-    padding: 4px;
+    width: 100%;
 }
 
 /* ============================================================
