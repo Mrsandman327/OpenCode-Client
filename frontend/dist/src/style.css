@@ -42,7 +42,7 @@
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
 
     --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-    --sidebar-width: 220px;
+    --sidebar-width: 180px;
     --header-height: 52px;
 }
 
@@ -332,12 +332,21 @@ html, body {
 .view-panel {
     display: none;
     flex-direction: column;
-    height: 100%;
-    overflow: hidden;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
 }
 
 .view-panel.active {
     display: flex;
+}
+
+/* 视图内子元素不再单独设 flex:1/overflow，统一由 view-panel 滚动 */
+.view-panel .skill-list,
+.view-panel .model-list {
+    flex: none;
+    overflow-y: visible;
 }
 
 /* ============================================================
@@ -542,12 +551,12 @@ html, body {
    View 2: 模型配置
    ============================================================ */
 .model-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px 24px;
+    padding: 12px 18px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
+    flex: none;
+    overflow-y: visible;
 }
 
 .model-group {
@@ -817,12 +826,12 @@ html, body {
 
 /* 技能列表 */
 .skill-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px 24px;
+    flex: none;
+    overflow-y: visible;
+    padding: 8px 16px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 /* 技能卡片 */
@@ -844,8 +853,8 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 18px;
-    gap: 16px;
+    padding: 8px 12px;
+    gap: 8px;
 }
 
 .skill-info {
@@ -854,25 +863,25 @@ html, body {
 }
 
 .skill-name {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 2px;
+    margin-bottom: 1px;
 }
 
 .skill-desc {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
-    line-height: 1.4;
+    line-height: 1.3;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
 .skill-toggles {
     display: flex;
-    gap: 12px;
+    gap: 4px;
     flex-shrink: 0;
 }
 
@@ -880,18 +889,19 @@ html, body {
 .toggle {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     cursor: pointer;
 }
 
 .toggle-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 10px;
+    font-weight: 500;
     color: var(--text-muted);
-    min-width: 60px;
+    white-space: nowrap;
+    width: 52px;
     text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .toggle input {
@@ -1171,7 +1181,7 @@ html, body {
         gap: 8px;
     }
     .skill-list {
-        padding: 12px 16px;
+        padding: 8px 12px;
     }
     .model-row-top {
         flex-wrap: wrap;
