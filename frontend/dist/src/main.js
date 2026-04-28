@@ -214,6 +214,7 @@ function switchView(viewId) {
     } else if (viewId === 'view-opencode') {
         // 初始化终端
         if (!terminalInstance) setTimeout(initTerminal, 300);
+        scheduleTerminalFit();
     }
 }
 
@@ -251,6 +252,10 @@ function initTerminal() {
         cursorStyle: 'block',
         fontSize: 14,
         fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+        scrollback: 10000,
+        fastScrollModifier: 'alt',
+        fastScrollSensitivity: 8,
+        smoothScrollDuration: 80,
         theme: {
             background: '#1e1e1e',
             foreground: '#cccccc',
@@ -266,11 +271,17 @@ function initTerminal() {
     if (typeof FitAddon !== 'undefined') {
         terminalFitAddon = new FitAddon.FitAddon();
         terminalInstance.loadAddon(terminalFitAddon);
-        fitTerminalToContainer();
+        scheduleTerminalFit();
     }
 
     setTimeout(() => terminalInstance.focus(), 300);
     container.addEventListener('click', () => terminalInstance.focus());
+    container.addEventListener('wheel', (event) => {
+        if (!terminalInstance) return;
+        const lineDelta = Math.max(1, Math.ceil(Math.abs(event.deltaY) / 18));
+        terminalInstance.scrollLines(event.deltaY > 0 ? lineDelta : -lineDelta);
+        event.preventDefault();
+    }, { passive: false });
 
     terminalInstance.writeln('\x1b[36mTerminal ready\x1b[0m');
     terminalInstance.write('$ ');
@@ -282,6 +293,7 @@ function initTerminal() {
 
     setTimeout(doFit, 200);
     setTimeout(doFit, 600);
+    setTimeout(doFit, 1200);
     window.addEventListener('resize', doFit);
     if (window.ResizeObserver && container) {
         new ResizeObserver(() => doFit()).observe(container);
@@ -322,7 +334,7 @@ function initTerminal() {
                     if (!terminalReady && api.StartTerminal) {
                         await api.StartTerminal();
                         terminalReady = true;
-                        fitTerminalToContainer();
+                        scheduleTerminalFit();
                     }
                     await api.TerminalWrite(data);
                 } catch (err) {
@@ -337,14 +349,22 @@ function initTerminal() {
 }
 
 function fitTerminalToContainer() {
-    if (!terminalFitAddon) return;
+    if (!terminalFitAddon || !terminalInstance) return;
     requestAnimationFrame(() => {
         terminalFitAddon.fit();
-        const dims = terminalFitAddon.proposeDimensions();
-        if (dims && api.ResizeTerminal) {
-            api.ResizeTerminal(dims.cols, dims.rows);
+        const cols = terminalInstance.cols;
+        const rows = terminalInstance.rows;
+        if (cols > 0 && rows > 0 && api.ResizeTerminal) {
+            api.ResizeTerminal(cols, rows);
         }
     });
+}
+
+function scheduleTerminalFit() {
+    requestAnimationFrame(() => fitTerminalToContainer());
+    setTimeout(fitTerminalToContainer, 80);
+    setTimeout(fitTerminalToContainer, 240);
+    setTimeout(fitTerminalToContainer, 600);
 }
 
 // ============================================================
@@ -1242,6 +1262,9 @@ if (window.runtime) {
         const opencodePanel = document.getElementById('view-opencode');
         if (opencodePanel && opencodePanel.classList.contains('active') && !terminalInstance) {
             setTimeout(initTerminal, 300);
+        }
+        if (opencodePanel && opencodePanel.classList.contains('active')) {
+            scheduleTerminalFit();
         }
     });
 }

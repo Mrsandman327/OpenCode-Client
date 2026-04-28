@@ -375,17 +375,11 @@ html, body {
     display: flex !important;
     flex-direction: column;
     height: 100%;
+    width: 100%;
+    min-height: 0;
+    min-width: 0;
     overflow: hidden;
     padding: 0;
-    background: #1e1e1e;
-}
-
-/* 终端填满 */
-.terminal-wrapper {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
     background: #1e1e1e;
 }
 
@@ -544,7 +538,7 @@ html, body {
 
 /* ========== 终端 ========== */
 .terminal-wrapper {
-    flex: 1;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -552,9 +546,12 @@ html, body {
     min-height: 0;
     min-width: 0;
     background: #1e1e1e;
+    overflow: hidden;
 }
 .terminal-container {
-    flex: 1;
+    flex: 1 1 0;
+    display: block;
+    position: relative;
     height: 100%;
     width: 100%;
     overflow: hidden;
@@ -564,27 +561,49 @@ html, body {
     background: #1e1e1e;
 }
 .terminal-container .xterm {
+    display: block;
+    position: absolute !important;
+    inset: 0;
     height: 100% !important;
     width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
+    background: #1e1e1e !important;
 }
 .terminal-container .xterm-viewport {
-    overflow-y: auto;
+    height: 100% !important;
+    overflow-y: auto !important;
     width: 100% !important;
-    scrollbar-width: none;
+    background: #1e1e1e !important;
+    scrollbar-width: thin;
+    scrollbar-color: #3c3c3c #1e1e1e;
 }
 .terminal-container .xterm-viewport::-webkit-scrollbar {
-    display: none;
+    display: block;
+    width: 8px;
+}
+.terminal-container .xterm-viewport::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+.terminal-container .xterm-viewport::-webkit-scrollbar-thumb {
+    background: #3c3c3c;
+    border-radius: 4px;
 }
 .terminal-container .xterm-screen {
-    width: 100% !important;
+    min-height: 100% !important;
+    background: #1e1e1e !important;
+}
+.terminal-container .xterm-screen canvas {
+    background: #1e1e1e !important;
 }
 .terminal-container .xterm-rows {
+    min-height: 100% !important;
     padding: 0 !important;
+    background: #1e1e1e !important;
 }
 .terminal-container .xterm-rows > div {
     padding: 0 !important;
+    background: #1e1e1e !important;
 }
 
 /* ========== 模型配置批量栏 ========== */
