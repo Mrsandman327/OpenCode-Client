@@ -233,6 +233,8 @@ document.getElementById('sidebar').addEventListener('click', (e) => {
 // 嵌入式终端 (xterm.js)
 // ============================================================
 let terminalInstance = null;
+let terminalFitAddon = null;
+let terminalReady = false;
 
 function initTerminal() {
     const container = document.getElementById('terminalContainer');
@@ -261,11 +263,10 @@ function initTerminal() {
     terminalInstance.open(container);
 
     // FitAddon 精确填充容器
-    let fitAddon;
     if (typeof FitAddon !== 'undefined') {
-        fitAddon = new FitAddon.FitAddon();
-        terminalInstance.loadAddon(fitAddon);
-        fitAddon.fit();
+        terminalFitAddon = new FitAddon.FitAddon();
+        terminalInstance.loadAddon(terminalFitAddon);
+        fitTerminalToContainer();
     }
 
     setTimeout(() => terminalInstance.focus(), 300);
@@ -276,14 +277,7 @@ function initTerminal() {
 
     // 自适应大小 + ConPTY 同步
     const doFit = () => {
-        if (fitAddon) {
-            fitAddon.fit();
-            // 获取实际行列，同步 ConPTY
-            const dims = fitAddon.proposeDimensions();
-            if (dims && api.ResizeTerminal) {
-                api.ResizeTerminal(dims.cols, dims.rows);
-            }
-        }
+        fitTerminalToContainer();
     };
 
     setTimeout(doFit, 200);
@@ -297,6 +291,7 @@ function initTerminal() {
     const startAndBind = async () => {
         if (api.StartTerminal) {
             const result = await api.StartTerminal();
+            terminalReady = true;
             terminalInstance.writeln('\r\n\x1b[33m[StartTerminal: ' + result + ']\x1b[0m');
         } else {
             terminalInstance.writeln('\r\n\x1b[31m[StartTerminal not found]\x1b[0m');
@@ -311,17 +306,45 @@ function initTerminal() {
                 if (terminalInstance && errMsg)
                     terminalInstance.writeln('\r\n\x1b[31m[错误] ' + errMsg + '\x1b[0m');
             });
+            window.runtime.EventsOn('terminal-closed', (msg) => {
+                terminalReady = false;
+                if (terminalInstance) {
+                    terminalInstance.writeln('\r\n\x1b[33m[' + (msg || '终端已退出，按任意键自动重启') + ']\x1b[0m');
+                    terminalInstance.write('\r\n$ ');
+                }
+            });
         }
 
         // 用户输入 → Go PTY
-        terminalInstance.onData(data => {
+        terminalInstance.onData(async data => {
             if (api.TerminalWrite) {
-                api.TerminalWrite(data);
+                try {
+                    if (!terminalReady && api.StartTerminal) {
+                        await api.StartTerminal();
+                        terminalReady = true;
+                        fitTerminalToContainer();
+                    }
+                    await api.TerminalWrite(data);
+                } catch (err) {
+                    terminalReady = false;
+                    terminalInstance.writeln('\r\n\x1b[31m[输入失败] ' + (err.message || err) + '\x1b[0m');
+                }
             }
         });
     };
 
     startAndBind();
+}
+
+function fitTerminalToContainer() {
+    if (!terminalFitAddon) return;
+    requestAnimationFrame(() => {
+        terminalFitAddon.fit();
+        const dims = terminalFitAddon.proposeDimensions();
+        if (dims && api.ResizeTerminal) {
+            api.ResizeTerminal(dims.cols, dims.rows);
+        }
+    });
 }
 
 // ============================================================
@@ -332,33 +355,82 @@ let availableModels = [];
 let originalEntries = [];
 let modelSectionsLoaded = false;
 
+let fullConfigJson = {};
+let fullConfigRaw = '';  // 原始文本，用于替换模型值
+
 async function loadModelConfig() {
     const container = document.getElementById('modelConfig');
 
     container.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在加载模型配置...</p></div>';
 
     try {
-        const [entries, models, confPath] = await Promise.all([
-            api.GetModelConfig(),
+        const [fullConfig, models, confPath] = await Promise.all([
+            api.GetFullConfig(),
             api.GetAvailableModels(),
             api.GetConfigPath(),
         ]);
 
-        modelEntries = entries.map(e => ({ ...e }));
-        originalEntries = entries.map(e => ({ ...e }));
+        fullConfigRaw = fullConfig || '';
+        fullConfigJson = JSON.parse(stripJsonComments(fullConfig) || '{}');
         availableModels = models || [];
+
+        modelEntries = [];
+        // 提取注释（从原始文本中解析）
+        const commentMap = extractComments(fullConfigRaw);
+        if (fullConfigJson.agents) {
+            for (const [key, val] of Object.entries(fullConfigJson.agents)) {
+                modelEntries.push({ key, type: 'agent', model: val.model || '', comment: commentMap[key] || '' });
+            }
+        }
+        if (fullConfigJson.categories) {
+            for (const [key, val] of Object.entries(fullConfigJson.categories)) {
+                modelEntries.push({ key, type: 'category', model: val.model || '', comment: commentMap[key] || '' });
+            }
+        }
+        originalEntries = modelEntries.map(e => ({ ...e }));
 
         document.getElementById('configPath').textContent = confPath || '未知';
         renderModelConfig();
     } catch (err) {
-        container.innerHTML = `<div class="error">
-            <p>⚠️ 加载模型配置失败</p>
-            <p class="error-detail">${escapeHtml(err.message || err)}</p>
-            <button class="btn btn-primary" onclick="loadModelConfig()">重试</button>
-        </div>`;
+        container.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeHtml(err.message||err)}</p><button class="btn btn-primary" onclick="loadModelConfig()">重试</button></div>`;
     }
 }
 
+function stripJsonComments(jsonStr) {
+    return jsonStr.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+// 从原始 JSONC 文本中提取每个 key 后的注释
+function extractComments(text) {
+    const map = {};
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // 匹配 "key": { 模式
+        const keyMatch = line.match(/"([^"]+)"\s*:\s*\{/);
+        if (!keyMatch) continue;
+
+        const key = keyMatch[1];
+        // 在当前行及后续几行中查找 // 注释
+        for (let j = i; j < lines.length && j < i + 5; j++) {
+            const cmtIdx = lines[j].indexOf('//');
+            if (cmtIdx >= 0) {
+                // 确保 // 在引号外
+                const before = lines[j].substring(0, cmtIdx);
+                if ((before.match(/"/g) || []).length % 2 === 0) {
+                    map[key] = lines[j].substring(cmtIdx + 2).trim();
+                    break;
+                }
+            }
+            if (lines[j].includes('}') && !lines[j].includes('{')) break;
+        }
+    }
+    return map;
+}
+
+// ============================================================
+// 渲染模型配置
+// ============================================================
 function renderModelConfig() {
     const container = document.getElementById('modelConfig');
     const actions = document.getElementById('modelActions');
@@ -379,9 +451,7 @@ function renderModelConfig() {
     const bar = document.createElement('div');
     bar.className = 'batch-model-bar';
     bar.innerHTML = `
-        <label class="batch-check">
-            <input type="checkbox" id="selectAllModels" /> <span>全选</span>
-        </label>
+        <label class="batch-check"><input type="checkbox" id="selectAllModels" /> <span>全选</span></label>
         <select class="batch-model-select" id="batchModelSelect">
             <option value="">-- 批量设置模型 --</option>
             ${availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}
@@ -405,16 +475,9 @@ function renderModelConfig() {
         updateSaveStatus();
     });
 
-    // Agents
-    if (agents.length > 0) {
-        container.appendChild(createModelGroup('🤖 Agents', agents));
-    }
-    // Categories
-    if (categories.length > 0) {
-        container.appendChild(createModelGroup('📦 Categories', categories));
-    }
+    if (agents.length > 0) container.appendChild(createModelGroup('🤖 Agents', agents, 'agent'));
+    if (categories.length > 0) container.appendChild(createModelGroup('📦 Categories', categories, 'category'));
 
-    // 绑定选择事件
     container.querySelectorAll('.model-select').forEach(select => {
         select.addEventListener('change', e => {
             const entry = modelEntries.find(en => en.key === e.target.dataset.key);
@@ -425,13 +488,24 @@ function renderModelConfig() {
     updateSaveStatus();
 }
 
-function createModelGroup(title, entries) {
+function createModelGroup(title, entries, entryType) {
     const group = document.createElement('div');
     group.className = 'model-group';
 
     const header = document.createElement('h3');
     header.className = 'model-group-title';
-    header.textContent = title;
+    header.innerHTML = `${title} <button class="btn-add-entry" data-type="${entryType}" title="添加">+</button>`;
+
+    header.querySelector('.btn-add-entry').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        showAddEntryModal(entryType);
+    });
+
+    header.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-add-entry')) return;
+        header.classList.toggle('collapsed');
+        body.classList.toggle('collapsed');
+    });
 
     const body = document.createElement('div');
     body.className = 'model-group-body';
@@ -445,7 +519,6 @@ function createModelGroup(title, entries) {
         const topRow = document.createElement('div');
         topRow.className = 'model-row-top';
 
-        // 勾选框
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.className = 'model-check';
@@ -458,11 +531,9 @@ function createModelGroup(title, entries) {
         const select = document.createElement('select');
         select.className = 'model-select';
         select.dataset.key = entry.key;
-
         availableModels.forEach(m => {
             const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
+            opt.value = m; opt.textContent = m;
             if (m === entry.model) opt.selected = true;
             select.appendChild(opt);
         });
@@ -471,17 +542,29 @@ function createModelGroup(title, entries) {
         badge.className = 'model-type-badge';
         badge.textContent = entry.type;
 
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-del';
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('click', () => {
+            if (!confirm(`确定删除 ${entry.key}?`)) return;
+            modelEntries = modelEntries.filter(e => e.key !== entry.key);
+            renderModelConfig();
+            updateSaveStatus();
+            showToast(`已标记删除 ${entry.key}（点击保存生效）`, 'info');
+        });
+
         topRow.appendChild(cb);
         topRow.appendChild(nameSpan);
         topRow.appendChild(select);
         topRow.appendChild(badge);
+        topRow.appendChild(delBtn);
         row.appendChild(topRow);
 
         if (entry.comment) {
-            const comment = document.createElement('div');
-            comment.className = 'model-comment';
-            comment.textContent = entry.comment;
-            row.appendChild(comment);
+            const commentDiv = document.createElement('div');
+            commentDiv.className = 'model-comment';
+            commentDiv.textContent = entry.comment;
+            row.appendChild(commentDiv);
         }
 
         body.appendChild(row);
@@ -492,15 +575,48 @@ function createModelGroup(title, entries) {
     return group;
 }
 
+// 添加弹窗
+function showAddEntryModal(entryType) {
+    const old = document.querySelector('.modal-overlay');
+    if (old) old.remove();
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3>添加 ${entryType === 'agent' ? 'Agent' : 'Category'}</h3>
+            <div class="modal-field"><label>Key（唯一标识）</label><input id="modalEntryKey" placeholder="如 my-agent" /></div>
+            <div class="modal-field"><label>模型</label><select id="modalEntryModel" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)">${availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
+            <div class="modal-field"><label>描述（作为注释）</label><input id="modalEntryComment" placeholder="简要描述用途" /></div>
+            <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAdd">取消</button><button class="btn btn-primary" id="btnConfirmAdd">💾 添加</button></div>
+        </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', () => overlay.remove());
+    overlay.querySelector('#btnCancelAdd').addEventListener('click', () => overlay.remove());
+    overlay.querySelector('#btnConfirmAdd').addEventListener('click', () => {
+        const key = overlay.querySelector('#modalEntryKey').value.trim();
+        const model = overlay.querySelector('#modalEntryModel').value;
+        const comment = overlay.querySelector('#modalEntryComment').value.trim();
+        if (!key) { showToast('Key 不能为空', 'error'); return; }
+        if (modelEntries.find(e => e.key === key)) { showToast('Key 已存在', 'error'); return; }
+        modelEntries.push({ key, type: entryType, model: model || 'deepseek-v4-flash', comment });
+        overlay.remove();
+        renderModelConfig();
+        updateSaveStatus();
+        showToast(`已添加 ${key}（点击保存生效）`, 'info');
+    });
+}
+
 function updateSaveStatus() {
-    const changedCount = modelEntries.filter(e => {
+    const changed = modelEntries.filter(e => {
         const orig = originalEntries.find(o => o.key === e.key);
-        return orig && orig.model !== e.model;
+        return !orig || orig.model !== e.model;
     }).length;
+    const deleted = originalEntries.filter(o => !modelEntries.find(e => e.key === o.key)).length;
+    const total = changed + deleted;
 
     const status = document.getElementById('saveStatus');
-    if (changedCount > 0) {
-        status.textContent = `${changedCount} 项未保存`;
+    if (total > 0) {
+        status.textContent = `${total} 项未保存 (改${changed} 删${deleted})`;
         status.className = 'save-status changed';
     } else {
         status.textContent = '已是最新';
@@ -531,19 +647,21 @@ document.getElementById('btnRefreshModels').addEventListener('click', async () =
     btn.textContent = '🔄 刷新列表';
 });
 
-// 保存模型配置
-document.getElementById('btnSaveModels').addEventListener('click', async () => {
-    const changedEntries = modelEntries.filter(e => {
+// 保存模型配置（事件委托，确保元素存在）
+document.getElementById('modelActions').addEventListener('click', async (e) => {
+    if (e.target.id !== 'btnSaveModels') return;
+    showToast('保存中...', 'info');
+    const totalChanges = modelEntries.filter(e => {
         const orig = originalEntries.find(o => o.key === e.key);
-        return orig && orig.model !== e.model;
-    });
+        return !orig || orig.model !== e.model;
+    }).length + originalEntries.filter(o => !modelEntries.find(e => e.key === o.key)).length;
 
-    if (changedEntries.length === 0) {
+    if (totalChanges === 0) {
         showToast('没有需要保存的更改', 'info');
         return;
     }
 
-    const btn = document.getElementById('btnSaveModels');
+    const btn = e.target;
     btn.disabled = true;
     btn.textContent = '⏳ 保存中...';
 
@@ -552,7 +670,7 @@ document.getElementById('btnSaveModels').addEventListener('click', async () => {
         if (result.success) {
             originalEntries = modelEntries.map(e => ({ ...e }));
             updateSaveStatus();
-            showToast(`已保存 ${changedEntries.length} 项更改`, 'success');
+            showToast(`已保存 ${totalChanges} 项更改`, 'success');
             renderModelConfig();
         } else {
             showToast('保存失败: ' + (result.error || '未知错误'), 'error');

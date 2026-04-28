@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -12,8 +15,10 @@ import (
 )
 
 var (
-	globalTty   *conpty.ConPty
-	globalTtyMu sync.Mutex
+	globalTty    *conpty.ConPty
+	globalTtyMu  sync.Mutex
+	terminalCols = 120
+	terminalRows = 36
 )
 
 func (a *App) StartTerminal() string {
@@ -29,8 +34,18 @@ func (a *App) StartTerminal() string {
 }
 
 func startPTY(a *App) {
-	// /k 保持 cmd 进程存活，子进程退出后不关闭
-	cpty, err := conpty.Start("cmd.exe /k")
+	cmdPath := os.Getenv("COMSPEC")
+	if cmdPath == "" {
+		cmdPath = "cmd.exe"
+	}
+
+	globalTtyMu.Lock()
+	cols := terminalCols
+	rows := terminalRows
+	globalTtyMu.Unlock()
+
+	// /k 保持 cmd 进程存活，子进程退出后不关闭。
+	cpty, err := conpty.Start(fmt.Sprintf(`%s /k`, cmdPath), conpty.ConPtyDimensions(cols, rows))
 	if err != nil {
 		runtime.EventsEmit(a.ctx, "terminal-output", "\r\n\x1b[31m[PTY启动失败]\x1b[0m\r\n")
 		return
@@ -41,6 +56,7 @@ func startPTY(a *App) {
 	globalTtyMu.Unlock()
 
 	go func() {
+		defer markTerminalClosed(a, cpty, "终端已退出，按任意键自动重启")
 		buf := make([]byte, 1024)
 		for {
 			n, err := cpty.Read(buf)
@@ -52,21 +68,58 @@ func startPTY(a *App) {
 			}
 		}
 	}()
+
+	go func() {
+		_, _ = cpty.Wait(context.Background())
+		markTerminalClosed(a, cpty, "终端进程已结束，按任意键自动重启")
+	}()
+}
+
+func markTerminalClosed(a *App, cpty *conpty.ConPty, message string) {
+	globalTtyMu.Lock()
+	if globalTty != cpty {
+		globalTtyMu.Unlock()
+		return
+	}
+	globalTty = nil
+	globalTtyMu.Unlock()
+
+	_ = cpty.Close()
+	if a != nil && a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "terminal-closed", message)
+	}
 }
 
 // TerminalWrite 向终端写入数据
-func (a *App) TerminalWrite(data string) {
+func (a *App) TerminalWrite(data string) error {
 	globalTtyMu.Lock()
 	cpty := globalTty
 	globalTtyMu.Unlock()
-	if cpty != nil {
-		cpty.Write([]byte(data))
+	if cpty == nil {
+		startPTY(a)
+		globalTtyMu.Lock()
+		cpty = globalTty
+		globalTtyMu.Unlock()
 	}
+	if cpty != nil {
+		_, err := cpty.Write([]byte(data))
+		if err != nil {
+			markTerminalClosed(a, cpty, "终端写入失败，按任意键自动重启")
+			return err
+		}
+	}
+	return nil
 }
 
 // ResizeTerminal 调整终端大小
 func (a *App) ResizeTerminal(cols int, rows int) {
 	globalTtyMu.Lock()
+	if cols > 0 {
+		terminalCols = cols
+	}
+	if rows > 0 {
+		terminalRows = rows
+	}
 	cpty := globalTty
 	globalTtyMu.Unlock()
 	if cpty != nil {
