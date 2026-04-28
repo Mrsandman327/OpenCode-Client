@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function GetAvailableModels():Promise<Array<string>>;
 
+export function GetCommands():Promise<Array<main.CmdGroup>>;
+
 export function GetConfigPath():Promise<string>;
 
 export function GetModelConfig():Promise<Array<main.ModelEntry>>;
@@ -18,7 +20,11 @@ export function GetTargets():Promise<Array<main.TargetInfo>>;
 
 export function OpenDir(arg1:string):Promise<void>;
 
+export function OpenDirectoryDialog():Promise<string>;
+
 export function Refresh():Promise<void>;
+
+export function RunOpenCode(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:string):Promise<void>;
 
 export function ToggleAllSkills(arg1:string,arg2:boolean):Promise<main.BatchResult>;
 

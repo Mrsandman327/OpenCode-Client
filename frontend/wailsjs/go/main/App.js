@@ -6,6 +6,10 @@ export function GetAvailableModels() {
   return window['go']['main']['App']['GetAvailableModels']();
 }
 
+export function GetCommands() {
+  return window['go']['main']['App']['GetCommands']();
+}
+
 export function GetConfigPath() {
   return window['go']['main']['App']['GetConfigPath']();
 }
@@ -34,8 +38,16 @@ export function OpenDir(arg1) {
   return window['go']['main']['App']['OpenDir'](arg1);
 }
 
+export function OpenDirectoryDialog() {
+  return window['go']['main']['App']['OpenDirectoryDialog']();
+}
+
 export function Refresh() {
   return window['go']['main']['App']['Refresh']();
+}
+
+export function RunOpenCode(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['RunOpenCode'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function ToggleAllSkills(arg1, arg2) {

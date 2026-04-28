@@ -1,86 +1,176 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Skill 管理器</title>
+    <title>🧩 OpenCode 管理中心</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
-    <!-- 顶部导航栏 -->
+    <!-- ======== 顶部导航栏 ======== -->
     <header class="header">
-        <div class="header-left">
-            <h1 class="app-title">🧩 Skill 管理器</h1>
-        </div>
+        <h1 class="app-title">🧩 OpenCode 管理中心</h1>
         <div class="header-right">
             <button class="btn btn-theme" id="btnTheme" title="切换主题">🌙</button>
         </div>
     </header>
 
-    <!-- 技能管理视图 -->
-    <div class="main-layout" id="mainLayout">
-        <div class="content-area" id="contentArea">
-            <!-- 统计栏 -->
-            <section class="stats-bar" id="statsBar">
-                <div class="stat-item">
-                    <span class="stat-value" id="statTotal">0</span>
-                    <span class="stat-label">个技能</span>
-                </div>
-                <div class="stats-spacer"></div>
-                <button class="btn btn-refresh" id="btnRefresh" title="刷新技能列表">🔄 刷新</button>
-            </section>
-
-            <!-- 源路径 -->
-            <section class="path-bar">
-                <span class="path-label">源目录：</span>
-                <span class="path-value" id="sourcePath">加载中...</span>
-                <button class="btn btn-sm btn-open" id="btnOpenDir" title="在资源管理器中打开">📂 打开</button>
-            </section>
-
-            <!-- 批量操作栏 -->
-            <section class="batch-bar">
-                <span class="batch-label">批量操作：</span>
-                <div class="batch-buttons" id="batchButtons"></div>
-                <div class="batch-extra">
-                    <button class="btn btn-sm btn-config" id="btnOpenConfig" title="OpenCode 模型配置">⚙️ OpenCode 模型配置</button>
-                </div>
-            </section>
-
-            <!-- 技能列表 -->
-            <main class="skill-list" id="skillList">
-                <div class="loading"><div class="spinner"></div><p>正在加载技能列表...</p></div>
-            </main>
-        </div>
-
-        <!-- OpenCode 模型配置侧边抽屉 -->
-        <aside class="drawer" id="configDrawer">
-            <div class="drawer-header">
-                <h2 class="drawer-title">⚙️ OpenCode 模型配置</h2>
-                <button class="btn btn-close" id="btnCloseDrawer">✕</button>
+    <!-- ======== 主布局 ======== -->
+    <div class="main-layout">
+        <!-- 侧边栏 -->
+        <nav class="sidebar" id="sidebar">
+            <div class="nav-item active" data-view="view-opencode">
+                <span class="nav-icon">📂</span>
+                <span class="nav-label">OpenCode</span>
             </div>
-            <div class="drawer-body">
+            <div class="nav-item" data-view="view-models">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">模型配置</span>
+            </div>
+            <div class="nav-item" data-view="view-skills">
+                <span class="nav-icon">🔗</span>
+                <span class="nav-label">技能管理</span>
+            </div>
+            <div class="nav-item" data-view="view-commands">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label">常用命令</span>
+            </div>
+        </nav>
+
+        <!-- 内容区域 -->
+        <div class="content-area" id="contentArea">
+
+            <!-- ===== View 1: OpenCode ===== -->
+            <div class="view-panel active" id="view-opencode">
+                <div class="view-opencode-top">
+                    <!-- 工作目录 -->
+                    <section class="oc-section">
+                        <label class="oc-section-label">工作目录</label>
+                        <div class="oc-row">
+                            <input type="text" class="oc-input oc-input-readonly" id="ocWorkDir" readonly placeholder="请选择工作目录..." value="" />
+                            <button class="btn btn-sm btn-open" id="ocBrowseBtn">📂 浏览</button>
+                        </div>
+                    </section>
+
+                    <!-- 启动参数 -->
+                    <section class="oc-section">
+                        <label class="oc-section-label">启动参数</label>
+                        <div class="oc-params-grid">
+                            <div class="oc-field">
+                                <span class="oc-field-label">模型</span>
+                                <select class="oc-select" id="ocModelSelect">
+                                    <option value="">-- 默认 --</option>
+                                </select>
+                            </div>
+                            <div class="oc-field">
+                                <span class="oc-field-label">Agent</span>
+                                <select class="oc-select" id="ocAgentSelect">
+                                    <option value="">-- 默认 --</option>
+                                </select>
+                            </div>
+                            <div class="oc-field oc-field-check">
+                                <label class="oc-checkbox-label">
+                                    <input type="checkbox" id="ocContinueSession" />
+                                    <span class="oc-checkbox-mark"></span>
+                                    <span>继续上次会话</span>
+                                </label>
+                            </div>
+                            <div class="oc-field">
+                                <span class="oc-field-label">Session ID</span>
+                                <input type="text" class="oc-input" id="ocSessionId" placeholder="可选" />
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 启动按钮 -->
+                    <div class="oc-launch-row">
+                        <button class="btn btn-primary btn-launch" id="ocLaunchBtn">🚀 启动 OpenCode</button>
+                    </div>
+                </div>
+
+                <!-- 终端 -->
+                <div class="terminal-wrapper" id="terminalWrapper">
+                    <div class="terminal-bar">
+                        <span class="terminal-bar-label">终端</span>
+                        <div class="terminal-bar-actions">
+                            <span class="terminal-status" id="terminalStatus">就绪</span>
+                        </div>
+                    </div>
+                    <div class="terminal-container" id="terminalContainer"></div>
+                </div>
+            </div>
+
+            <!-- ===== View 2: 模型配置 ===== -->
+            <div class="view-panel" id="view-models">
                 <section class="path-bar">
+                    <span class="path-label">配置文件：</span>
                     <span class="path-value" id="configPath">加载中...</span>
                     <button class="btn btn-sm btn-refresh" id="btnRefreshModels">🔄 刷新列表</button>
                 </section>
 
-                <main class="model-list" id="modelConfig">
-                    <div class="loading"><div class="spinner"></div><p>正在加载...</p></div>
+                <div class="model-list" id="modelConfig">
+                    <div class="loading"><div class="spinner"></div><p>正在加载模型配置...</p></div>
+                </div>
+
+                <div class="model-actions" id="modelActions" style="display:none">
+                    <button class="btn btn-primary btn-save" id="btnSaveModels">💾 保存</button>
+                    <span class="save-status" id="saveStatus"></span>
+                </div>
+            </div>
+
+            <!-- ===== View 3: 技能管理 ===== -->
+            <div class="view-panel" id="view-skills">
+                <!-- 统计栏 -->
+                <section class="stats-bar">
+                    <div class="stat-item">
+                        <span class="stat-value" id="statTotal">0</span>
+                        <span class="stat-label">个技能</span>
+                    </div>
+                    <div class="stats-spacer"></div>
+                    <button class="btn btn-sm btn-refresh" id="btnRefresh" title="刷新技能列表">🔄 刷新</button>
+                </section>
+
+                <!-- 源路径 -->
+                <section class="path-bar">
+                    <span class="path-label">源目录：</span>
+                    <span class="path-value" id="sourcePath">加载中...</span>
+                    <button class="btn btn-sm btn-open" id="btnOpenDir" title="在资源管理器中打开">📂 打开</button>
+                </section>
+
+                <!-- 批量操作栏 -->
+                <section class="batch-bar">
+                    <span class="batch-label">批量操作：</span>
+                    <div class="batch-buttons" id="batchButtons"></div>
+                    <div class="batch-extra">
+                        <button class="btn btn-sm btn-config" id="btnOpenConfig" title="OpenCode 模型配置">⚙️ OpenCode 配置</button>
+                    </div>
+                </section>
+
+                <!-- 技能列表 -->
+                <main class="skill-list" id="skillList">
+                    <div class="loading"><div class="spinner"></div><p>正在加载技能列表...</p></div>
                 </main>
             </div>
-            <div class="drawer-footer" id="modelActions" style="display:none">
-                <button class="btn btn-primary btn-save" id="btnSaveModels">💾 保存</button>
-                <span class="save-status" id="saveStatus"></span>
-            </div>
-        </aside>
 
-        <!-- 抽屉遮罩 -->
-        <div class="drawer-overlay" id="drawerOverlay"></div>
+            <!-- ===== View 4: 常用命令 ===== -->
+            <div class="view-panel" id="view-commands">
+                <div class="cmd-tabs">
+                    <button class="cmd-tab active" data-cmd-tab="cli">CLI 命令</button>
+                    <button class="cmd-tab" data-cmd-tab="tui">TUI 命令</button>
+                </div>
+                <div class="cmd-content" id="cmdContent">
+                    <div class="loading"><div class="spinner"></div><p>正在加载命令列表...</p></div>
+                </div>
+            </div>
+
+        </div>
     </div>
 
-    <!-- Toast -->
+    <!-- Toast 通知 -->
     <div class="toast" id="toast"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="/src/main.js"></script>
 </body>
 </html>
