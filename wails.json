@@ -4,7 +4,7 @@
   "outputfilename": "skill-manager",
   "frontend:install": "",
   "frontend:build": "",
-  "frontend:dev:watcher": "",
+  "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
     "name": "Skill Manager",
