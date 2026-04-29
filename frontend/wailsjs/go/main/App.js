@@ -6,8 +6,16 @@ export function AddModelEntry(arg1, arg2, arg3) {
   return window['go']['main']['App']['AddModelEntry'](arg1, arg2, arg3);
 }
 
+export function AddModelType(arg1) {
+  return window['go']['main']['App']['AddModelType'](arg1);
+}
+
 export function DeleteModelEntry(arg1, arg2) {
   return window['go']['main']['App']['DeleteModelEntry'](arg1, arg2);
+}
+
+export function DeleteModelType(arg1) {
+  return window['go']['main']['App']['DeleteModelType'](arg1);
 }
 
 export function DeleteProvider(arg1) {

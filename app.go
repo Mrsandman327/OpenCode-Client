@@ -58,8 +58,8 @@ func (a *App) OpenDir(path string) error {
 func (a *App) GetStats() Stats {
 	skills := a.sm.GetAllSkills()
 	s := Stats{
-		TotalSkills:  len(skills),
-		TargetStats:  make(map[string]int),
+		TotalSkills: len(skills),
+		TargetStats: make(map[string]int),
 	}
 
 	targets := a.sm.GetTargets()
@@ -148,6 +148,22 @@ func (a *App) UpdateModels(entries []ModelEntry) ModelSaveResult {
 // AddModelEntry 添加 agent 或 category 条目。
 func (a *App) AddModelEntry(key, model, entryType string) ModelSaveResult {
 	if err := addConfigEntry(key, model, entryType); err != nil {
+		return ModelSaveResult{Success: false, Error: err.Error()}
+	}
+	return ModelSaveResult{Success: true}
+}
+
+// AddModelType 添加模型配置类型分组。
+func (a *App) AddModelType(entryType string) ModelSaveResult {
+	if err := addModelType(entryType); err != nil {
+		return ModelSaveResult{Success: false, Error: err.Error()}
+	}
+	return ModelSaveResult{Success: true}
+}
+
+// DeleteModelType 删除整个模型配置类型分组。
+func (a *App) DeleteModelType(entryType string) ModelSaveResult {
+	if err := deleteModelType(entryType); err != nil {
 		return ModelSaveResult{Success: false, Error: err.Error()}
 	}
 	return ModelSaveResult{Success: true}

@@ -4,7 +4,11 @@ import {main} from '../models';
 
 export function AddModelEntry(arg1:string,arg2:string,arg3:string):Promise<main.ModelSaveResult>;
 
+export function AddModelType(arg1:string):Promise<main.ModelSaveResult>;
+
 export function DeleteModelEntry(arg1:string,arg2:string):Promise<main.ModelSaveResult>;
+
+export function DeleteModelType(arg1:string):Promise<main.ModelSaveResult>;
 
 export function DeleteProvider(arg1:string):Promise<main.SaveResult>;
 
