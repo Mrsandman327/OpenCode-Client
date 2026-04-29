@@ -153,9 +153,11 @@ const api = (() => {
         { key: 'deepseek', name: 'DeepSeek', baseURL: 'https://api.deepseek.com/v1', apiKey: 'sk-ec****ffe1', enabled: true, models: [{id:'deepseek-v4-pro',name:'DeepSeek-V4-Pro'}] },
         { key: 'siliconflow', name: 'SiliconFlow', baseURL: 'https://api.siliconflow.cn/v1', apiKey: 'sk-vg****bshs', enabled: false, models: [] },
     ],
-    SaveProvider: async (p) => ({ success: true }),
-    DeleteProvider: async (key) => ({ success: true }),
-    GetProviderConfigPath: async () => '~/.config/opencode/opencode.jsonc',
+        SaveProvider: async (p) => ({ success: true }),
+        DeleteProvider: async (key) => ({ success: true }),
+        GetProviderConfigPath: async () => '~/.config/opencode/opencode.jsonc',
+        AddModelType: async () => ({ success: true }),
+        DeleteModelType: async () => ({ success: true }),
 };
 })();
 
@@ -218,6 +220,12 @@ function switchView(viewId) {
     }
 }
 
+async function syncTerminalSize() {
+    fitTerminalToContainer();
+    await new Promise(resolve => requestAnimationFrame(() => resolve()));
+    fitTerminalToContainer();
+}
+
 // 侧边栏点击事件（事件委托）
 document.getElementById('sidebar').addEventListener('click', (e) => {
     const navItem = e.target.closest('.nav-item');
@@ -236,6 +244,11 @@ document.getElementById('sidebar').addEventListener('click', (e) => {
 let terminalInstance = null;
 let terminalFitAddon = null;
 let terminalReady = false;
+let terminalResizeObserver = null;
+let lastTerminalSize = { cols: 0, rows: 0 };
+const TERMINAL_FONT_SIZE = 14;
+const TERMINAL_FONT_FAMILY = "'Cascadia Mono', 'Consolas', 'Courier New', monospace";
+const TERMINAL_LINE_HEIGHT = 1.15;
 
 function initTerminal() {
     const container = document.getElementById('terminalContainer');
@@ -247,11 +260,18 @@ function initTerminal() {
         return;
     }
 
-    terminalInstance = new Terminal({
+    try {
+        terminalInstance = new Terminal({
         cursorBlink: true,
         cursorStyle: 'block',
-        fontSize: 14,
-        fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+        cols: 160,
+        rows: 40,
+        fontSize: TERMINAL_FONT_SIZE,
+        fontFamily: TERMINAL_FONT_FAMILY,
+        fontWeight: 'normal',
+        fontWeightBold: 'bold',
+        letterSpacing: 0,
+        lineHeight: TERMINAL_LINE_HEIGHT,
         scrollback: 10000,
         fastScrollModifier: 'alt',
         fastScrollSensitivity: 8,
@@ -263,9 +283,23 @@ function initTerminal() {
             selectionBackground: '#264f78',
         },
         allowTransparency: false,
-    });
+        });
+    } catch (err) {
+        container.textContent = '终端初始化失败: ' + (err.message || err);
+        return;
+    }
 
     terminalInstance.open(container);
+
+    if (typeof Unicode11Addon !== 'undefined') {
+        try {
+            const unicode11Addon = new Unicode11Addon.Unicode11Addon();
+            terminalInstance.loadAddon(unicode11Addon);
+            terminalInstance.unicode.activeVersion = '11';
+        } catch (err) {
+            console.warn('Unicode11Addon 加载失败，使用 xterm 默认宽度表', err);
+        }
+    }
 
     // FitAddon 精确填充容器
     if (typeof FitAddon !== 'undefined') {
@@ -294,22 +328,19 @@ function initTerminal() {
     setTimeout(doFit, 200);
     setTimeout(doFit, 600);
     setTimeout(doFit, 1200);
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => scheduleTerminalFit()).catch(() => {});
+    }
     window.addEventListener('resize', doFit);
     if (window.ResizeObserver && container) {
-        new ResizeObserver(() => doFit()).observe(container);
+        if (terminalResizeObserver) terminalResizeObserver.disconnect();
+        terminalResizeObserver = new ResizeObserver(() => scheduleTerminalFit());
+        terminalResizeObserver.observe(container);
     }
 
-    // PTY 先启再绑事件
+    // PTY 先绑事件再启动，避免启动瞬间输出丢失。
     const startAndBind = async () => {
-        if (api.StartTerminal) {
-            const result = await api.StartTerminal();
-            terminalReady = true;
-            terminalInstance.writeln('\r\n\x1b[33m[StartTerminal: ' + result + ']\x1b[0m');
-        } else {
-            terminalInstance.writeln('\r\n\x1b[31m[StartTerminal not found]\x1b[0m');
-        }
-
-        // Go → 前端输出
+        // Go → 前端输出。先绑定事件再启动 PTY，避免启动瞬间输出丢失。
         if (window.runtime) {
             window.runtime.EventsOn('terminal-output', (output) => {
                 if (terminalInstance && output) terminalInstance.write(output);
@@ -327,7 +358,7 @@ function initTerminal() {
             });
         }
 
-        // 用户输入 → Go PTY
+        // 用户输入 → Go PTY。先绑定输入，即使 StartTerminal 失败，下一次输入也会尝试重启。
         terminalInstance.onData(async data => {
             if (api.TerminalWrite) {
                 try {
@@ -343,6 +374,20 @@ function initTerminal() {
                 }
             }
         });
+
+        if (api.StartTerminal) {
+            try {
+                const result = await api.StartTerminal();
+                terminalReady = true;
+                scheduleTerminalFit();
+                terminalInstance.writeln('\r\n\x1b[33m[StartTerminal: ' + result + ']\x1b[0m');
+            } catch (err) {
+                terminalReady = false;
+                terminalInstance.writeln('\r\n\x1b[31m[StartTerminal failed] ' + (err.message || err) + '\x1b[0m');
+            }
+        } else {
+            terminalInstance.writeln('\r\n\x1b[31m[StartTerminal not found]\x1b[0m');
+        }
     };
 
     startAndBind();
@@ -351,13 +396,34 @@ function initTerminal() {
 function fitTerminalToContainer() {
     if (!terminalFitAddon || !terminalInstance) return;
     requestAnimationFrame(() => {
-        terminalFitAddon.fit();
+        const proposed = typeof terminalFitAddon.proposeDimensions === 'function'
+            ? terminalFitAddon.proposeDimensions()
+            : null;
+        if (proposed && proposed.cols > 0 && proposed.rows > 0) {
+            terminalInstance.resize(proposed.cols, proposed.rows);
+        } else {
+            terminalFitAddon.fit();
+        }
         const cols = terminalInstance.cols;
         const rows = terminalInstance.rows;
         if (cols > 0 && rows > 0 && api.ResizeTerminal) {
             api.ResizeTerminal(cols, rows);
         }
+        if (cols !== lastTerminalSize.cols || rows !== lastTerminalSize.rows) {
+            lastTerminalSize = { cols, rows };
+            console.info(`Terminal resized: ${cols}x${rows}`);
+        }
     });
+}
+
+async function runOpenCodeInTerminal(sessionId = '', continueFlag = false) {
+    if (!terminalInstance) initTerminal();
+    await syncTerminalSize();
+    if (api.RunOpenCode) {
+        await api.RunOpenCode(sessionId, continueFlag);
+        setTimeout(fitTerminalToContainer, 120);
+        setTimeout(fitTerminalToContainer, 500);
+    }
 }
 
 function scheduleTerminalFit() {
@@ -371,6 +437,7 @@ function scheduleTerminalFit() {
 // View 2: 模型配置
 // ============================================================
 let modelEntries = [];
+let modelTypes = [];
 let availableModels = [];
 let originalEntries = [];
 let modelSectionsLoaded = false;
@@ -395,16 +462,14 @@ async function loadModelConfig() {
         availableModels = models || [];
 
         modelEntries = [];
+        modelTypes = [];
         // 提取注释（从原始文本中解析）
         const commentMap = extractComments(fullConfigRaw);
-        if (fullConfigJson.agents) {
-            for (const [key, val] of Object.entries(fullConfigJson.agents)) {
-                modelEntries.push({ key, type: 'agent', model: val.model || '', comment: commentMap[key] || '' });
-            }
-        }
-        if (fullConfigJson.categories) {
-            for (const [key, val] of Object.entries(fullConfigJson.categories)) {
-                modelEntries.push({ key, type: 'category', model: val.model || '', comment: commentMap[key] || '' });
+        for (const [type, section] of Object.entries(fullConfigJson)) {
+            if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
+            modelTypes.push(type);
+            for (const [key, val] of Object.entries(section)) {
+                modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: commentMap[key] || '' });
             }
         }
         originalEntries = modelEntries.map(e => ({ ...e }));
@@ -414,6 +479,27 @@ async function loadModelConfig() {
     } catch (err) {
         container.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeHtml(err.message||err)}</p><button class="btn btn-primary" onclick="loadModelConfig()">重试</button></div>`;
     }
+}
+
+function modelEntryId(type, key) {
+    return `${type}\u0000${key}`;
+}
+
+function sameModelEntry(a, b) {
+    return a && b && a.type === b.type && a.key === b.key;
+}
+
+function isModelSection(section) {
+    if (!section || Array.isArray(section) || typeof section !== 'object') return false;
+    const values = Object.values(section);
+    if (values.length === 0) return false;
+    return values.every(value => value && typeof value === 'object' && !Array.isArray(value) && Object.prototype.hasOwnProperty.call(value, 'model'));
+}
+
+function isEmptyModelSectionName(type) {
+    if (type === 'agents' || type === 'categories') return true;
+    if (['mcp', 'provider', 'providers', 'commands', 'settings'].includes(type)) return false;
+    return type.length > 3 && type.endsWith('s');
 }
 
 function stripJsonComments(jsonStr) {
@@ -455,17 +541,14 @@ function renderModelConfig() {
     const container = document.getElementById('modelConfig');
     const actions = document.getElementById('modelActions');
 
-    if (modelEntries.length === 0) {
-        container.innerHTML = '<div class="empty"><p>📭 未找到模型配置</p></div>';
-        actions.style.display = 'none';
-        return;
-    }
-
-    const agents = modelEntries.filter(e => e.type === 'agent');
-    const categories = modelEntries.filter(e => e.type === 'category');
-
     container.innerHTML = '';
     actions.style.display = 'flex';
+
+    if (modelTypes.length === 0) {
+        container.innerHTML = '<div class="empty"><p>📭 未找到模型配置类型</p><p class="empty-hint">点击底部“添加类型”创建 agents、categories 等分组</p></div>';
+        updateSaveStatus();
+        return;
+    }
 
     // 全选栏
     const bar = document.createElement('div');
@@ -487,25 +570,31 @@ function renderModelConfig() {
         const model = document.getElementById('batchModelSelect').value;
         if (!model) return;
         document.querySelectorAll('.model-check:checked').forEach(cb => {
-            const key = cb.dataset.key;
-            const entry = modelEntries.find(e => e.key === key);
+            const entry = modelEntries.find(e => e.id === cb.dataset.id);
             if (entry) entry.model = model;
         });
         renderModelConfig();
         updateSaveStatus();
     });
 
-    if (agents.length > 0) container.appendChild(createModelGroup('🤖 Agents', agents, 'agent'));
-    if (categories.length > 0) container.appendChild(createModelGroup('📦 Categories', categories, 'category'));
+    modelTypes.forEach(type => {
+        const entries = modelEntries.filter(e => e.type === type);
+        container.appendChild(createModelGroup(modelTypeTitle(type), entries, type));
+    });
 
     container.querySelectorAll('.model-select').forEach(select => {
         select.addEventListener('change', e => {
-            const entry = modelEntries.find(en => en.key === e.target.dataset.key);
+            const entry = modelEntries.find(en => en.id === e.target.dataset.id);
             if (entry) { entry.model = e.target.value; updateSaveStatus(); }
         });
     });
 
     updateSaveStatus();
+}
+
+function modelTypeTitle(type) {
+    const builtIn = { agents: '🤖 Agents', categories: '📦 Categories' };
+    return builtIn[type] || `🧩 ${type}`;
 }
 
 function createModelGroup(title, entries, entryType) {
@@ -514,15 +603,38 @@ function createModelGroup(title, entries, entryType) {
 
     const header = document.createElement('h3');
     header.className = 'model-group-title';
-    header.innerHTML = `${title} <button class="btn-add-entry" data-type="${entryType}" title="添加">+</button>`;
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'model-group-label';
+    titleSpan.textContent = title;
+    const headerActions = document.createElement('span');
+    headerActions.className = 'model-group-actions';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-add-entry';
+    addBtn.dataset.type = entryType;
+    addBtn.title = '添加条目';
+    addBtn.textContent = '+';
+    const deleteTypeBtn = document.createElement('button');
+    deleteTypeBtn.className = 'btn-delete-type';
+    deleteTypeBtn.dataset.type = entryType;
+    deleteTypeBtn.title = '删除类型';
+    deleteTypeBtn.textContent = '✕';
+    headerActions.appendChild(addBtn);
+    headerActions.appendChild(deleteTypeBtn);
+    header.appendChild(titleSpan);
+    header.appendChild(headerActions);
 
-    header.querySelector('.btn-add-entry').addEventListener('click', async (e) => {
+    addBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         showAddEntryModal(entryType);
     });
 
+    deleteTypeBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await deleteModelType(entryType, entries.length);
+    });
+
     header.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-add-entry')) return;
+        if (e.target.closest('.model-group-actions')) return;
         header.classList.toggle('collapsed');
         body.classList.toggle('collapsed');
     });
@@ -531,10 +643,11 @@ function createModelGroup(title, entries, entryType) {
     body.className = 'model-group-body';
 
     entries.forEach(entry => {
-        const isChanged = originalEntries.find(o => o.key === entry.key)?.model !== entry.model;
+        const isChanged = originalEntries.find(o => sameModelEntry(o, entry))?.model !== entry.model;
         const row = document.createElement('div');
         row.className = 'model-row' + (isChanged ? ' changed' : '');
         row.dataset.key = entry.key;
+        row.dataset.id = entry.id;
 
         const topRow = document.createElement('div');
         topRow.className = 'model-row-top';
@@ -543,6 +656,7 @@ function createModelGroup(title, entries, entryType) {
         cb.type = 'checkbox';
         cb.className = 'model-check';
         cb.dataset.key = entry.key;
+        cb.dataset.id = entry.id;
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'model-key';
@@ -551,6 +665,7 @@ function createModelGroup(title, entries, entryType) {
         const select = document.createElement('select');
         select.className = 'model-select';
         select.dataset.key = entry.key;
+        select.dataset.id = entry.id;
         availableModels.forEach(m => {
             const opt = document.createElement('option');
             opt.value = m; opt.textContent = m;
@@ -567,7 +682,7 @@ function createModelGroup(title, entries, entryType) {
         delBtn.textContent = '✕';
         delBtn.addEventListener('click', () => {
             if (!confirm(`确定删除 ${entry.key}?`)) return;
-            modelEntries = modelEntries.filter(e => e.key !== entry.key);
+            modelEntries = modelEntries.filter(e => !sameModelEntry(e, entry));
             renderModelConfig();
             updateSaveStatus();
             showToast(`已标记删除 ${entry.key}（点击保存生效）`, 'info');
@@ -590,9 +705,60 @@ function createModelGroup(title, entries, entryType) {
         body.appendChild(row);
     });
 
+    if (entries.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'model-group-empty';
+        empty.textContent = '暂无条目，点击标题右侧 + 添加';
+        body.appendChild(empty);
+    }
+
     group.appendChild(header);
     group.appendChild(body);
     return group;
+}
+
+async function deleteModelType(entryType, entryCount) {
+    const warning = entryCount > 0 ? `，其中包含 ${entryCount} 个条目` : '';
+    if (!confirm(`确定删除类型 ${entryType}${warning}？此操作会立即写入配置文件。`)) return;
+    const result = await api.DeleteModelType(entryType);
+    if (!result.success) {
+        showToast('删除类型失败: ' + (result.error || '未知错误'), 'error');
+        return;
+    }
+    modelTypes = modelTypes.filter(type => type !== entryType);
+    modelEntries = modelEntries.filter(entry => entry.type !== entryType);
+    originalEntries = originalEntries.filter(entry => entry.type !== entryType);
+    delete fullConfigJson[entryType];
+    renderModelConfig();
+    showToast(`已删除类型 ${entryType}`, 'success');
+}
+
+function showAddTypeModal() {
+    const old = document.querySelector('.modal-overlay');
+    if (old) old.remove();
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3>添加模型配置类型</h3>
+            <div class="modal-field"><label>类型名称（顶层 section）</label><input id="modalTypeKey" placeholder="如 agents / categories / reviewers" /></div>
+            <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAddType">取消</button><button class="btn btn-primary" id="btnConfirmAddType">➕ 添加类型</button></div>
+        </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', () => overlay.remove());
+    overlay.querySelector('#btnCancelAddType').addEventListener('click', () => overlay.remove());
+    overlay.querySelector('#btnConfirmAddType').addEventListener('click', async () => {
+        const type = overlay.querySelector('#modalTypeKey').value.trim();
+        if (!type) { showToast('类型名称不能为空', 'error'); return; }
+        if (modelTypes.includes(type)) { showToast('类型已存在', 'error'); return; }
+        const result = await api.AddModelType(type);
+        if (!result.success) { showToast('添加类型失败: ' + (result.error || '未知错误'), 'error'); return; }
+        modelTypes.push(type);
+        fullConfigJson[type] = {};
+        overlay.remove();
+        renderModelConfig();
+        showToast(`已添加类型 ${type}`, 'success');
+    });
 }
 
 // 添加弹窗
@@ -603,7 +769,7 @@ function showAddEntryModal(entryType) {
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
         <div class="modal" onclick="event.stopPropagation()">
-            <h3>添加 ${entryType === 'agent' ? 'Agent' : 'Category'}</h3>
+            <h3>添加 ${modelTypeTitle(entryType).replace(/^[^\w\u4e00-\u9fa5]+\s*/, '')}</h3>
             <div class="modal-field"><label>Key（唯一标识）</label><input id="modalEntryKey" placeholder="如 my-agent" /></div>
             <div class="modal-field"><label>模型</label><select id="modalEntryModel" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)">${availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
             <div class="modal-field"><label>描述（作为注释）</label><input id="modalEntryComment" placeholder="简要描述用途" /></div>
@@ -617,8 +783,8 @@ function showAddEntryModal(entryType) {
         const model = overlay.querySelector('#modalEntryModel').value;
         const comment = overlay.querySelector('#modalEntryComment').value.trim();
         if (!key) { showToast('Key 不能为空', 'error'); return; }
-        if (modelEntries.find(e => e.key === key)) { showToast('Key 已存在', 'error'); return; }
-        modelEntries.push({ key, type: entryType, model: model || 'deepseek-v4-flash', comment });
+        if (modelEntries.find(e => e.type === entryType && e.key === key)) { showToast('当前类型下 Key 已存在', 'error'); return; }
+        modelEntries.push({ id: modelEntryId(entryType, key), key, type: entryType, model: model || 'deepseek-v4-flash', comment });
         overlay.remove();
         renderModelConfig();
         updateSaveStatus();
@@ -628,10 +794,10 @@ function showAddEntryModal(entryType) {
 
 function updateSaveStatus() {
     const changed = modelEntries.filter(e => {
-        const orig = originalEntries.find(o => o.key === e.key);
+        const orig = originalEntries.find(o => sameModelEntry(o, e));
         return !orig || orig.model !== e.model;
     }).length;
-    const deleted = originalEntries.filter(o => !modelEntries.find(e => e.key === o.key)).length;
+    const deleted = originalEntries.filter(o => !modelEntries.find(e => sameModelEntry(e, o))).length;
     const total = changed + deleted;
 
     const status = document.getElementById('saveStatus');
@@ -652,13 +818,8 @@ document.getElementById('btnRefreshModels').addEventListener('click', async () =
     try {
         const newModels = await api.RefreshAvailableModels();
         if (newModels) availableModels = newModels;
-        // 重新获取配置（可能外部已修改）
-        const [entries] = await Promise.all([
-            api.GetModelConfig(),
-        ]);
-        modelEntries = entries.map(e => ({ ...e }));
-        originalEntries = entries.map(e => ({ ...e }));
-        renderModelConfig();
+        // 重新获取完整配置（可能外部已修改，也能保留空类型分组）
+        await loadModelConfig();
         showToast(`获取到 ${availableModels.length} 个可用模型`, 'success');
     } catch (err) {
         showToast('刷新模型列表失败: ' + (err.message || err), 'error');
@@ -667,14 +828,16 @@ document.getElementById('btnRefreshModels').addEventListener('click', async () =
     btn.textContent = '🔄 刷新列表';
 });
 
+document.getElementById('btnAddModelType').addEventListener('click', showAddTypeModal);
+
 // 保存模型配置（事件委托，确保元素存在）
 document.getElementById('modelActions').addEventListener('click', async (e) => {
     if (e.target.id !== 'btnSaveModels') return;
     showToast('保存中...', 'info');
     const totalChanges = modelEntries.filter(e => {
-        const orig = originalEntries.find(o => o.key === e.key);
-        return !orig || orig.model !== e.model;
-    }).length + originalEntries.filter(o => !modelEntries.find(e => e.key === o.key)).length;
+            const orig = originalEntries.find(o => sameModelEntry(o, e));
+            return !orig || orig.model !== e.model;
+    }).length + originalEntries.filter(o => !modelEntries.find(e => sameModelEntry(e, o))).length;
 
     if (totalChanges === 0) {
         showToast('没有需要保存的更改', 'info');

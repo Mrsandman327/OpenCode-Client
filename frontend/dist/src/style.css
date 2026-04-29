@@ -564,40 +564,29 @@ html, body {
     display: block;
     position: absolute !important;
     inset: 0;
-    height: 100% !important;
-    width: 100% !important;
+    height: 100%;
+    width: 100%;
     padding: 0 !important;
     margin: 0 !important;
     background: #1e1e1e !important;
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
 }
 .terminal-container .xterm-viewport {
-    height: 100% !important;
-    overflow-y: auto !important;
-    width: 100% !important;
+    overflow-y: hidden !important;
     background: #1e1e1e !important;
-    scrollbar-width: thin;
-    scrollbar-color: #3c3c3c #1e1e1e;
+    scrollbar-width: none;
 }
 .terminal-container .xterm-viewport::-webkit-scrollbar {
-    display: block;
-    width: 8px;
+    display: none;
+    width: 0;
+    height: 0;
 }
-.terminal-container .xterm-viewport::-webkit-scrollbar-track {
-    background: #1e1e1e;
-}
-.terminal-container .xterm-viewport::-webkit-scrollbar-thumb {
-    background: #3c3c3c;
-    border-radius: 4px;
-}
-.terminal-container .xterm-screen {
-    min-height: 100% !important;
-    background: #1e1e1e !important;
-}
+.terminal-container .xterm-screen,
 .terminal-container .xterm-screen canvas {
     background: #1e1e1e !important;
 }
 .terminal-container .xterm-rows {
-    min-height: 100% !important;
     padding: 0 !important;
     background: #1e1e1e !important;
 }
@@ -769,6 +758,34 @@ html, body {
     transition: transform var(--transition);
 }
 
+.model-group-label {
+    flex: 1;
+}
+
+.model-group-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.btn-delete-type {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--danger, #ef4444);
+    background: transparent;
+    color: var(--danger, #ef4444);
+    cursor: pointer;
+    line-height: 1;
+    font-size: 12px;
+}
+
+.btn-delete-type:hover {
+    background: var(--danger, #ef4444);
+    color: white;
+}
+
 .model-group-title.collapsed::before {
     transform: rotate(-90deg);
 }
@@ -874,6 +891,15 @@ html, body {
     line-height: 1.4;
 }
 
+.model-group-empty {
+    padding: 14px 18px;
+    color: var(--text-muted);
+    font-size: 12px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--accent-ghost);
+}
+
 .model-actions {
     display: flex;
     align-items: center;
@@ -887,6 +913,17 @@ html, body {
 .btn-save {
     padding: 8px 24px;
     font-size: 14px;
+}
+
+.btn-add-type {
+    background: var(--bg-input);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+
+.btn-add-type:hover:not(:disabled) {
+    background: var(--accent);
+    color: white;
 }
 
 .save-status {
