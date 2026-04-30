@@ -74,8 +74,12 @@ export function GetWebStatus() {
   return window['go']['main']['App']['GetWebStatus']();
 }
 
-export function LaunchWindowsTerminal(arg1, arg2) {
-  return window['go']['main']['App']['LaunchWindowsTerminal'](arg1, arg2);
+export function GetWorkDir() {
+  return window['go']['main']['App']['GetWorkDir']();
+}
+
+export function LaunchWindowsTerminal(arg1, arg2, arg3) {
+  return window['go']['main']['App']['LaunchWindowsTerminal'](arg1, arg2, arg3);
 }
 
 export function OpenDir(arg1) {

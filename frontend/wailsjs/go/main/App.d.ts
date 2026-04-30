@@ -38,7 +38,9 @@ export function GetTargets():Promise<Array<main.TargetInfo>>;
 
 export function GetWebStatus():Promise<main.WebResult>;
 
-export function LaunchWindowsTerminal(arg1:string,arg2:string):Promise<main.WebResult>;
+export function GetWorkDir():Promise<string>;
+
+export function LaunchWindowsTerminal(arg1:string,arg2:string,arg3:string):Promise<main.WebResult>;
 
 export function OpenDir(arg1:string):Promise<void>;
 

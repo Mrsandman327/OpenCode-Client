@@ -145,9 +145,9 @@ const api = (() => {
         GetWebStatus: async () => {
             return { running: webRunning, port: webPort, url: webPort ? `http://127.0.0.1:${webPort}` : '' };
         },
-        LaunchWindowsTerminal: async (mode, url) => {
-            console.log('mock launch wt:', mode, url);
-            showToast('模拟启动 Windows Terminal', 'info');
+        LaunchWindowsTerminal: async (mode, url, dir) => {
+            console.log('mock launch wt:', mode, url, dir);
+            showToast('模拟启动终端' + (dir ? ' 目录:' + dir : ''), 'info');
             return { success: true };
         },
         // 模型配置
@@ -177,6 +177,7 @@ const api = (() => {
         SaveProvider: async (p) => ({ success: true }),
         DeleteProvider: async (key) => ({ success: true }),
         GetProviderConfigPath: async () => '~/.config/opencode/opencode.jsonc',
+        GetWorkDir: async () => 'E:\\data\\ai_test\\feishu\\skill-manager',
         AddModelType: async () => ({ success: true }),
         DeleteModelType: async () => ({ success: true }),
 };
@@ -254,6 +255,39 @@ document.getElementById('sidebar').addEventListener('click', (e) => {
 
 let webPort = 0;
 let webRunning = false;
+let workDir = '';
+
+async function pickDirectory() {
+    try {
+        const dir = await api.OpenDirectoryDialog();
+        if (dir) {
+            workDir = dir;
+            updateDirDisplay();
+        }
+    } catch (e) {
+        console.warn('OpenDirectoryDialog failed:', e);
+    }
+}
+
+function updateDirDisplay() {
+    const el = document.getElementById('dirPath');
+    if (el) {
+        el.value = workDir || '';
+        el.className = 'oc-dir-input' + (workDir ? ' set' : '');
+    }
+}
+
+async function initWorkDir() {
+    try {
+        const dir = await api.GetWorkDir();
+        if (dir) {
+            workDir = dir;
+            updateDirDisplay();
+        }
+    } catch (e) {
+        console.warn('GetWorkDir failed:', e);
+    }
+}
 
 async function checkWebStatus() {
     try {
@@ -309,7 +343,7 @@ async function stopWeb() {
 async function launchTerminal() {
     try {
         const url = webPort ? `http://127.0.0.1:${webPort}` : '';
-        const result = await api.LaunchWindowsTerminal('attach', url);
+        const result = await api.LaunchWindowsTerminal('attach', url, workDir);
         if (!result.success && result.error) {
             showToast('启动失败: ' + result.error, 'error');
         }
@@ -340,6 +374,7 @@ function updateWebUI() {
     const btnStart = document.getElementById('btnStartWeb');
     const btnStop = document.getElementById('btnStopWeb');
     const btnWt = document.getElementById('btnWtOpen');
+    const btnPick = document.getElementById('btnPickDir');
 
     if (webRunning) {
         statusEl.textContent = `运行中 :${webPort}`;
@@ -347,6 +382,7 @@ function updateWebUI() {
         btnStart.disabled = true;
         btnStop.disabled = false;
         btnWt.disabled = false;
+        btnPick.disabled = false;
         if (document.getElementById('webContainer') && !document.getElementById('ocIframe')) {
             embedWebUI();
         }
@@ -356,6 +392,7 @@ function updateWebUI() {
         btnStart.disabled = false;
         btnStop.disabled = true;
         btnWt.disabled = true;
+        btnPick.disabled = true;
     }
 }
 
@@ -363,6 +400,7 @@ function updateWebUI() {
 document.getElementById('btnStartWeb').addEventListener('click', startWeb);
 document.getElementById('btnStopWeb').addEventListener('click', stopWeb);
 document.getElementById('btnWtOpen').addEventListener('click', launchTerminal);
+document.getElementById('btnPickDir').addEventListener('click', pickDirectory);
 
 // ============================================================
 // View 2: 模型配置
@@ -1152,6 +1190,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     loadSkillsData();
     checkWebStatus();
+    initWorkDir();
 });
 
 // ============================================================

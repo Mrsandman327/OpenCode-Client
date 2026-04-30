@@ -433,6 +433,23 @@ html, body {
     color: var(--text-muted);
     gap: 8px;
 }
+.oc-dir-input {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    width: 200px;
+    font-family: monospace;
+    outline: none;
+}
+.oc-dir-input.set {
+    color: var(--text-secondary);
+}
+.oc-dir-input:focus {
+    border-color: var(--accent);
+}
 
 /* ========== 模型配置批量栏 ========== */
 .batch-model-bar {

@@ -16,10 +16,10 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:     "OpenCode管理中心",
-		Width:     960,
-		Height:    640,
-		MinWidth:  700,
-		MinHeight: 450,
+		Width:     1280,
+		Height:    820,
+		MinWidth:  960,
+		MinHeight: 640,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

@@ -49,7 +49,7 @@ func (a *App) StartOpenCodeWeb(port int) WebResult {
 		port = 4096
 	}
 
-	cmd := exec.Command("opencode", "web",
+	cmd := exec.Command("opencode", "serve",
 		"--port", strconv.Itoa(port),
 		"--hostname", "127.0.0.1",
 	)
@@ -136,6 +136,11 @@ func (a *App) StopOpenCodeWeb() WebResult {
 	return WebResult{}
 }
 
+// GetWorkDir 返回当前工作目录。
+func (a *App) GetWorkDir() string {
+	dir, _ := os.Getwd()
+	return dir
+}
 // GetWebStatus 返回当前 web 服务状态。
 func (a *App) GetWebStatus() WebResult {
 	webSessMu.Lock()
@@ -148,14 +153,18 @@ func (a *App) GetWebStatus() WebResult {
 }
 
 // LaunchWindowsTerminal 在外部终端中打开 opencode。
-// mode: "web" → opencode web（直接启动）, "attach" → opencode attach <url>
-func (a *App) LaunchWindowsTerminal(mode, webURL string) WebResult {
+// mode: "attach" → opencode attach <url>, dir 可选指定工作目录
+func (a *App) LaunchWindowsTerminal(mode, webURL, dir string) WebResult {
 	var args []string
 
 	if mode == "attach" && webURL != "" {
 		args = []string{"opencode", "attach", webURL}
 	} else {
 		args = []string{"opencode"}
+	}
+
+	if dir != "" {
+		args = append(args, "--dir", dir)
 	}
 
 	// 优先使用 Windows Terminal
