@@ -531,61 +531,83 @@ html, body {
     align-items: center;
     gap: 6px;
 }
-.oc-session-list {
+/* ==================== 项目树 ==================== */
+.oc-tree {
     flex: 1;
     overflow-y: auto;
-    padding: 8px;
+    padding: 6px 8px;
+    font-size: 13px;
+    user-select: none;
 }
-.oc-session-item {
-    flex: 1;
-    text-align: left;
-    padding: 9px 10px;
-    border: 1px solid transparent;
-    background: transparent;
-    color: var(--text-secondary);
-    border-radius: var(--radius-sm);
+.oc-tree-node {
+    margin: 1px 0;
+    line-height: 1.8;
+}
+.oc-tree-toggle {
+    display: inline-block;
+    width: 16px;
     cursor: pointer;
+    color: var(--text-muted);
+    font-size: 10px;
+    vertical-align: middle;
+    user-select: none;
+}
+.oc-tree-indent {
+    display: inline-block;
+    width: 16px;
+}
+.oc-tree-label {
+    cursor: default;
+    vertical-align: middle;
+    max-width: calc(100% - 20px);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    min-width: 0;
+    display: inline-block;
 }
-.oc-session-row {
-    display: flex;
-    align-items: stretch;
+.oc-tree-project { padding-left: 0; }
+.oc-tree-directory { padding-left: 16px; }
+.oc-tree-session { padding-left: 32px; }
+.oc-tree-session {
+    cursor: pointer;
+    color: var(--text-secondary);
     border-radius: var(--radius-sm);
+    padding: 3px 6px 3px 32px;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
-.oc-session-row:hover,
-.oc-session-row.active {
-    background: var(--bg-card);
-}
-.oc-session-row:hover .oc-session-item,
-.oc-session-row.active .oc-session-item {
-    color: var(--text-primary);
-}
-.oc-session-row.active .oc-session-item {
-    border-color: var(--border);
-}
-.oc-session-delete {
-    padding: 0 8px;
+.oc-tree-session .oc-tree-label { flex: 1; min-width: 0; }
+.oc-tree-del {
+    display: none;
+    flex-shrink: 0;
+    background: none;
     border: none;
-    background: transparent;
     color: var(--text-muted);
     cursor: pointer;
     font-size: 11px;
-    flex-shrink: 0;
+    padding: 0 6px;
+    line-height: 1;
     border-radius: var(--radius-sm);
-    opacity: 0;
-    transition: opacity 0.15s ease, color 0.15s ease;
 }
-.oc-session-row:hover .oc-session-delete {
-    opacity: 1;
-}
-.oc-session-delete:hover {
+.oc-tree-session:hover .oc-tree-del { display: inline; }
+.oc-tree-del:hover {
     color: var(--danger);
     background: var(--danger-bg);
 }
+.oc-tree-session:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+.oc-tree-session.active {
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+.oc-tree-children { }
+.oc-tree-children { }
 .oc-chat {
     min-height: 0;
     min-width: 0;

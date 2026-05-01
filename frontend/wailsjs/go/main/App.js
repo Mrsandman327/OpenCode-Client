@@ -10,6 +10,10 @@ export function AddModelType(arg1) {
   return window['go']['main']['App']['AddModelType'](arg1);
 }
 
+export function CreateSession(arg1) {
+  return window['go']['main']['App']['CreateSession'](arg1);
+}
+
 export function DeleteModelEntry(arg1, arg2) {
   return window['go']['main']['App']['DeleteModelEntry'](arg1, arg2);
 }
@@ -42,6 +46,10 @@ export function GetModelConfig() {
   return window['go']['main']['App']['GetModelConfig']();
 }
 
+export function GetProjectTree(arg1) {
+  return window['go']['main']['App']['GetProjectTree'](arg1);
+}
+
 export function GetProviderConfigPath() {
   return window['go']['main']['App']['GetProviderConfigPath']();
 }
@@ -70,12 +78,8 @@ export function GetTargets() {
   return window['go']['main']['App']['GetTargets']();
 }
 
-export function GetWebStatus() {
-  return window['go']['main']['App']['GetWebStatus']();
-}
-
-export function GetWorkDir() {
-  return window['go']['main']['App']['GetWorkDir']();
+export function GetWebStatus(arg1, arg2) {
+  return window['go']['main']['App']['GetWebStatus'](arg1, arg2);
 }
 
 export function LaunchWindowsTerminal(arg1, arg2, arg3) {
@@ -114,8 +118,8 @@ export function StartOpenCodeEvents() {
   return window['go']['main']['App']['StartOpenCodeEvents']();
 }
 
-export function StartOpenCodeWeb(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['StartOpenCodeWeb'](arg1, arg2, arg3, arg4);
+export function StartOpenCodeWeb(arg1, arg2, arg3) {
+  return window['go']['main']['App']['StartOpenCodeWeb'](arg1, arg2, arg3);
 }
 
 export function StopOpenCodeEvents() {

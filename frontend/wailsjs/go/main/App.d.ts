@@ -6,6 +6,8 @@ export function AddModelEntry(arg1:string,arg2:string,arg3:string):Promise<main.
 
 export function AddModelType(arg1:string):Promise<main.ModelSaveResult>;
 
+export function CreateSession(arg1:string):Promise<main.APIResult>;
+
 export function DeleteModelEntry(arg1:string,arg2:string):Promise<main.ModelSaveResult>;
 
 export function DeleteModelType(arg1:string):Promise<main.ModelSaveResult>;
@@ -22,6 +24,8 @@ export function GetFullConfig():Promise<string>;
 
 export function GetModelConfig():Promise<Array<main.ModelEntry>>;
 
+export function GetProjectTree(arg1:string):Promise<string>;
+
 export function GetProviderConfigPath():Promise<string>;
 
 export function GetProviders():Promise<Array<main.ProviderInfo>>;
@@ -36,9 +40,7 @@ export function GetStats():Promise<main.Stats>;
 
 export function GetTargets():Promise<Array<main.TargetInfo>>;
 
-export function GetWebStatus():Promise<main.WebResult>;
-
-export function GetWorkDir():Promise<string>;
+export function GetWebStatus(arg1:string,arg2:number):Promise<main.WebResult>;
 
 export function LaunchWindowsTerminal(arg1:string,arg2:string,arg3:string):Promise<main.WebResult>;
 
@@ -58,7 +60,7 @@ export function SaveProvider(arg1:main.ProviderSave):Promise<main.SaveResult>;
 
 export function StartOpenCodeEvents():Promise<main.APIResult>;
 
-export function StartOpenCodeWeb(arg1:number,arg2:string,arg3:string,arg4:main.ProxyConfig):Promise<main.WebResult>;
+export function StartOpenCodeWeb(arg1:number,arg2:string,arg3:main.ProxyConfig):Promise<main.WebResult>;
 
 export function StopOpenCodeEvents():Promise<main.APIResult>;
 

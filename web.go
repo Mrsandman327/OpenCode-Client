@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +27,6 @@ type webSession struct {
 	cmd      *exec.Cmd
 	port     int
 	hostname string
-	workDir  string
 }
 
 const (
@@ -35,10 +35,12 @@ const (
 )
 
 var (
-	webSess   *webSession
-	webSessMu sync.Mutex
-	eventMu   sync.Mutex
-	eventStop context.CancelFunc
+	webSess     *webSession
+	webSessMu   sync.Mutex
+	eventMu     sync.Mutex
+	eventStop   context.CancelFunc
+	lastCfgHost = defaultHostname
+	lastCfgPort = defaultPort
 )
 
 // WebResult 前端展示用的 web 状态。
@@ -64,50 +66,31 @@ type ProxyConfig struct {
 	ProxyPort    string `json:"proxyPort"`
 }
 
-// StartOpenCodeWeb 启动 opencode web 服务，等待端口就绪后返回。
-func (a *App) StartOpenCodeWeb(port int, hostname string, workDir string, proxy ProxyConfig) WebResult {
+// StartOpenCodeWeb 启动 opencode serve，等待端口就绪后返回。
+func (a *App) StartOpenCodeWeb(port int, hostname string, proxy ProxyConfig) WebResult {
 	if hostname == "" {
 		hostname = defaultHostname
 	}
 	if port <= 0 {
 		port = defaultPort
 	}
-	workDir = strings.TrimSpace(workDir)
-	if workDir == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return WebResult{Error: fmt.Sprintf("获取当前工作目录失败: %v", err)}
-		}
-		workDir = cwd
-	}
-	absWorkDir, err := filepath.Abs(workDir)
-	if err != nil {
-		return WebResult{Error: fmt.Sprintf("工作目录无效: %v", err)}
-	}
-	info, err := os.Stat(absWorkDir)
-	if err != nil {
-		return WebResult{Error: fmt.Sprintf("工作目录不存在: %s", absWorkDir)}
-	}
-	if !info.IsDir() {
-		return WebResult{Error: fmt.Sprintf("工作目录不是文件夹: %s", absWorkDir)}
-	}
-	workDir = absWorkDir
+	lastCfgHost = hostname
+	lastCfgPort = port
 
 	webSessMu.Lock()
 	if webSess != nil {
 		p := webSess.port
-		existingHost := webSess.hostname
-		existingDir := webSess.workDir
+		h := webSess.hostname
 		webSessMu.Unlock()
-		if p != port || existingHost != hostname || !samePath(existingDir, workDir) {
-			return WebResult{Error: "OpenCode 服务已启动；修改工作目录、地址或端口前请先停止服务"}
+		if p != port || h != hostname {
+			return WebResult{Error: "OpenCode 服务已启动；修改地址或端口前请先停止服务"}
 		}
-		return WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", existingHost, p)}
+		return WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", h, p)}
 	}
 	webSessMu.Unlock()
 
 	if isOpenCodeServerRunning(hostname, port) {
-		return WebResult{Error: fmt.Sprintf("%s:%d 已有 OpenCode 服务运行；无法应用新的工作目录，请先停止该服务", hostname, port)}
+		return WebResult{Error: fmt.Sprintf("%s:%d 已有 OpenCode 服务运行，请先停止该服务", hostname, port)}
 	}
 
 	cmd := exec.Command("opencode", "serve",
@@ -133,14 +116,12 @@ func (a *App) StartOpenCodeWeb(port int, hostname string, workDir string, proxy 
 	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
-	// 捕获 stderr 以便诊断启动失败
 	stderr, _ := cmd.StderrPipe()
 
 	if err := cmd.Start(); err != nil {
 		return WebResult{Error: fmt.Sprintf("启动 opencode web 失败: %v", err)}
 	}
 
-	// 轮询等待端口就绪（最多 10 秒）
 	addr := net.JoinHostPort(hostname, strconv.Itoa(port))
 	ready := make(chan error, 1)
 	go func() {
@@ -159,7 +140,6 @@ func (a *App) StartOpenCodeWeb(port int, hostname string, workDir string, proxy 
 	select {
 	case err := <-ready:
 		if err != nil {
-			// 服务器未就绪，终止进程树
 			killProcTree(cmd.Process.Pid)
 			detail := ""
 			if stderr != nil {
@@ -176,13 +156,12 @@ func (a *App) StartOpenCodeWeb(port int, hostname string, workDir string, proxy 
 		return WebResult{Error: "启动超时（超过 12 秒）"}
 	}
 
-	sess := &webSession{cmd: cmd, port: port, hostname: hostname, workDir: workDir}
+	sess := &webSession{cmd: cmd, port: port, hostname: hostname}
 
 	webSessMu.Lock()
 	webSess = sess
 	webSessMu.Unlock()
 
-	// 后台等待进程退出
 	go func() {
 		_ = cmd.Wait()
 		webSessMu.Lock()
@@ -206,14 +185,12 @@ func (a *App) StopOpenCodeWeb() WebResult {
 
 	if sess != nil && sess.cmd != nil && sess.cmd.Process != nil {
 		pid := sess.cmd.Process.Pid
-		// taskkill /T 终止进程树（opencode + 子进程 bun）
 		kill := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(pid))
 		kill.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		kill.Run()
 		return WebResult{}
 	}
 
-	// 无 cmd 但有端口 → 通过端口反查 PID 并终止
 	if sess != nil && sess.port > 0 {
 		killByPort(sess.port)
 	}
@@ -221,7 +198,6 @@ func (a *App) StopOpenCodeWeb() WebResult {
 }
 
 func killByPort(port int) {
-	// netstat -ano | findstr :<port> 找到 LISTENING 行的 PID
 	find := exec.Command("cmd", "/c",
 		fmt.Sprintf("netstat -ano | findstr :%d | findstr LISTENING", port))
 	find.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
@@ -240,60 +216,60 @@ func killByPort(port int) {
 	killProcTree(pid)
 }
 
-func samePath(a, b string) bool {
-	if a == "" || b == "" {
-		return a == b
+// GetWebStatus 返回当前 web 服务状态。hostname/port 为前端配置的服务地址。
+func (a *App) GetWebStatus(hostname string, port int) WebResult {
+	if hostname == "" {
+		hostname = defaultHostname
 	}
-	aa, errA := filepath.Abs(a)
-	bb, errB := filepath.Abs(b)
-	if errA == nil {
-		a = aa
+	if port <= 0 {
+		port = defaultPort
 	}
-	if errB == nil {
-		b = bb
-	}
-	return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
-}
-
-// GetWorkDir 返回当前工作目录。
-func (a *App) GetWorkDir() string {
-	dir, _ := os.Getwd()
-	return dir
-}
-
-// GetWebStatus 返回当前 web 服务状态。
-func (a *App) GetWebStatus() WebResult {
+	lastCfgHost = hostname
+	lastCfgPort = port
 	webSessMu.Lock()
 	if webSess != nil {
+		p := webSess.port
+		h := webSess.hostname
 		defer webSessMu.Unlock()
-		return WebResult{Running: true, URL: fmt.Sprintf("http://%s:%d", webSess.hostname, webSess.port)}
+		return WebResult{Running: true, URL: fmt.Sprintf("http://%s:%d", h, p)}
 	}
 	webSessMu.Unlock()
 
-	if isOpenCodeServerRunning(defaultHostname, defaultPort) {
+	if isOpenCodeServerRunning(hostname, port) {
+		log.Printf("[STATUS] GetWebStatus(%s:%d) detected running", hostname, port)
 		webSessMu.Lock()
-		webSess = &webSession{port: defaultPort, hostname: defaultHostname}
+		webSess = &webSession{port: port, hostname: hostname}
 		webSessMu.Unlock()
-		return WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", defaultHostname, defaultPort)}
+		return WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", hostname, port)}
 	}
 
 	return WebResult{}
 }
 
-// OpenCodeAPI 代理访问本机 opencode serve API，避免前端跨域限制。
-func (a *App) OpenCodeAPI(method, path, body string) APIResult {
+// getWebSession 返回当前 webSession，未启动则尝试用最后已知配置自动检测。
+func getWebSession() *webSession {
 	webSessMu.Lock()
 	sess := webSess
 	webSessMu.Unlock()
+	if sess != nil {
+		return sess
+	}
+	if isOpenCodeServerRunning(lastCfgHost, lastCfgPort) {
+		log.Printf("[STATUS] auto-detected serve at %s:%d", lastCfgHost, lastCfgPort)
+		sess = &webSession{port: lastCfgPort, hostname: lastCfgHost}
+		webSessMu.Lock()
+		webSess = sess
+		webSessMu.Unlock()
+		return sess
+	}
+	return nil
+}
+
+// OpenCodeAPI 代理访问本机 opencode serve API，避免前端跨域限制。
+func (a *App) OpenCodeAPI(method, path, body string) APIResult {
+	sess := getWebSession()
 	if sess == nil {
-		if isOpenCodeServerRunning(defaultHostname, defaultPort) {
-			sess = &webSession{port: defaultPort, hostname: defaultHostname}
-			webSessMu.Lock()
-			webSess = sess
-			webSessMu.Unlock()
-		} else {
-			return APIResult{Error: "opencode 服务未启动"}
-		}
+		return APIResult{Error: "opencode 服务未启动"}
 	}
 
 	if !strings.HasPrefix(path, "/") {
@@ -312,7 +288,6 @@ func (a *App) OpenCodeAPI(method, path, body string) APIResult {
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	addCreateSessionDirHeader(req, sess)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -324,39 +299,207 @@ func (a *App) OpenCodeAPI(method, path, body string) APIResult {
 	if err != nil {
 		return APIResult{Status: resp.StatusCode, Error: err.Error()}
 	}
-	result := APIResult{Success: resp.StatusCode >= 200 && resp.StatusCode < 300, Status: resp.StatusCode, Body: string(data)}
-
-	if strings.EqualFold(method, "POST") {
-		p := path
-		if !strings.HasPrefix(p, "/") {
-			p = "/" + p
-		}
-		if p == "/session" || strings.HasPrefix(p, "/session?") {
-			log.Printf("[DEBUG] POST /session response status=%d, body prefix=%.200s, header-sent=%s",
-				resp.StatusCode, result.Body,
-				req.Header.Get("x-opencode-directory"))
-		}
-	}
-	return result
+	return APIResult{Success: resp.StatusCode >= 200 && resp.StatusCode < 300, Status: resp.StatusCode, Body: string(data)}
 }
 
-// addCreateSessionDirHeader 仅对新建会话（POST /session）注入工作目录请求头。
-func addCreateSessionDirHeader(req *http.Request, sess *webSession) {
-	if sess == nil || sess.workDir == "" {
-		return
+// CreateSession 使用指定工作目录创建新会话（设置 x-opencode-directory 请求头）。
+func (a *App) CreateSession(workDir string) APIResult {
+	sess := getWebSession()
+	if sess == nil {
+		return APIResult{Error: "opencode 服务未启动"}
 	}
-	if !strings.EqualFold(req.Method, http.MethodPost) {
-		return
+	workDir = strings.TrimSpace(workDir)
+	if workDir == "" {
+		return APIResult{Error: "工作目录不能为空"}
 	}
-	p := req.URL.Path
-	if !strings.HasPrefix(p, "/") {
-		p = "/" + p
+
+	url := fmt.Sprintf("http://%s:%d/session", sess.hostname, sess.port)
+	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader("{}"))
+	if err != nil {
+		return APIResult{Error: err.Error()}
 	}
-	p, _, _ = strings.Cut(p, "?")
-	if p == "/session" {
-		log.Printf("[DEBUG] addCreateSessionDirHeader: setting x-opencode-directory=%s for %s %s", sess.workDir, req.Method, p)
-		req.Header.Set("x-opencode-directory", sess.workDir)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-opencode-directory", workDir)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return APIResult{Error: err.Error()}
 	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return APIResult{Status: resp.StatusCode, Error: err.Error()}
+	}
+	return APIResult{Success: resp.StatusCode >= 200 && resp.StatusCode < 300, Status: resp.StatusCode, Body: string(data)}
+}
+
+// TreeNode 项目-目录-会话树节点
+type TreeNode struct {
+	ID       string     `json:"id"`
+	Title    string     `json:"title"`
+	Type     string     `json:"type"` // "project", "directory", "session"
+	Children []TreeNode `json:"children,omitempty"`
+}
+
+// GetProjectTree 获取项目→目录→会话的树形结构 JSON。
+// knownDirs 是前端记录的所有建过会话的目录（JSON 字符串数组），用于查询 global 项目会话。
+func (a *App) GetProjectTree(knownDirs string) string {
+	sess := getWebSession()
+	if sess == nil {
+		return "[]"
+	}
+	base := fmt.Sprintf("http://%s:%d", sess.hostname, sess.port)
+	client := http.Client{Timeout: 10 * time.Second}
+
+	var projects []ProjectInfo
+	var extraDirs []string
+	if knownDirs != "" {
+		json.Unmarshal([]byte(knownDirs), &extraDirs)
+	}
+
+	// 获取项目列表
+	resp1, err := client.Get(base + "/project")
+	if err == nil {
+		body, _ := io.ReadAll(resp1.Body)
+		resp1.Body.Close()
+		json.Unmarshal(body, &projects)
+	} else {
+		projects = []ProjectInfo{{ID: "global", Name: "全局项目", Worktree: "/"}}
+	}
+
+	var allSessions []treeSession
+	seen := map[string]bool{}
+
+	// 获取所有项目会话（all=true 会返回当前实例目录所属项目的全部会话）
+	// 当前实例目录是 exe 所在目录，属于 git 项目，因此能获取 git 项目的所有会话
+	resp, err := client.Get(base + "/session?all=true&roots=true&limit=500")
+	if err == nil {
+		var batch []treeSession
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		json.Unmarshal(body, &batch)
+		for _, s := range batch {
+			if !seen[s.ID] {
+				seen[s.ID] = true
+				allSessions = append(allSessions, s)
+			}
+		}
+	}
+
+	// 查询已知 global 目录下的会话
+	for _, dir := range extraDirs {
+		dir = strings.TrimSpace(dir)
+		if dir == "" {
+			continue
+		}
+		resp, err := client.Get(base + "/session?directory=" + url.QueryEscape(dir) + "&roots=true&limit=200")
+		if err != nil {
+			continue
+		}
+		var batch []treeSession
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		json.Unmarshal(body, &batch)
+		for _, s := range batch {
+			if !seen[s.ID] {
+				seen[s.ID] = true
+				allSessions = append(allSessions, s)
+			}
+		}
+	}
+
+	return buildTreeJSON(projects, allSessions)
+}
+
+type ProjectInfo struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Worktree string `json:"worktree"`
+	VCS      string `json:"vcs"`
+}
+
+type treeSession struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	ProjectID string `json:"projectID"`
+	Directory string `json:"directory"`
+}
+
+func buildTreeJSON(projects []ProjectInfo, sessions []treeSession) string {
+	// 按 project 分组，再按 directory 分组
+	projectMap := make(map[string]*TreeNode)
+	dirMap := make(map[string]*TreeNode) // key: projectID+"|"+directory
+
+	for _, p := range projects {
+		name := p.Name
+		if name == "" {
+			name = p.ID
+		}
+		if name == "global" {
+			name = "全局项目"
+		}
+		node := &TreeNode{ID: p.ID, Title: name, Type: "project"}
+		projectMap[p.ID] = node
+	}
+
+	for _, s := range sessions {
+		pid := s.ProjectID
+		if pid == "" {
+			pid = "global"
+		}
+		dir := s.Directory
+		if dir == "" {
+			continue
+		}
+		dirKey := pid + "|" + dir
+
+		// 确保 project 存在
+		proj, ok := projectMap[pid]
+		if !ok {
+			name := pid
+			if pid == "global" {
+				name = "全局项目"
+			}
+			proj = &TreeNode{ID: pid, Title: name, Type: "project"}
+			projectMap[pid] = proj
+		}
+
+		// 确保 directory 节点存在
+		dirNode, ok := dirMap[dirKey]
+		if !ok {
+			dirNode = &TreeNode{ID: dirKey, Title: dir, Type: "directory"}
+			dirMap[dirKey] = dirNode
+			proj.Children = append(proj.Children, *dirNode)
+		}
+
+		// 找到刚添加的 directory 节点引用
+		title := s.Title
+		if title == "" {
+			title = s.ID
+		}
+		if len([]rune(title)) > 40 {
+			title = string([]rune(title)[:40]) + "..."
+		}
+		for i := range proj.Children {
+			if proj.Children[i].ID == dirKey {
+				proj.Children[i].Children = append(proj.Children[i].Children, TreeNode{
+					ID:    s.ID,
+					Title: title,
+					Type:  "session",
+				})
+			}
+		}
+	}
+
+	// 转为数组
+	tree := make([]TreeNode, 0, len(projectMap))
+	for _, p := range projectMap {
+		tree = append(tree, *p)
+	}
+
+	data, _ := json.Marshal(tree)
+	return string(data)
 }
 
 // StartOpenCodeEvents 连接 opencode 全局 SSE，并通过 Wails 事件转发给前端。
@@ -419,21 +562,17 @@ func (a *App) StopOpenCodeEvents() APIResult {
 }
 
 // LaunchWindowsTerminal 在外部终端中打开 opencode。
-// mode: "attach" → opencode attach <url>, dir 可选指定工作目录
 func (a *App) LaunchWindowsTerminal(mode, webURL, dir string) WebResult {
 	var args []string
-
 	if mode == "attach" && webURL != "" {
 		args = []string{"opencode", "attach", webURL}
 	} else {
 		args = []string{"opencode"}
 	}
-
 	if dir != "" {
 		args = append(args, "--dir", dir)
 	}
 
-	// 优先使用 Windows Terminal
 	cmd, err := findWindowsTerminal(args...)
 	if err == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: false}
@@ -442,7 +581,6 @@ func (a *App) LaunchWindowsTerminal(mode, webURL, dir string) WebResult {
 		}
 	}
 
-	// 回退：start cmd /k
 	cmdArgs := append([]string{"/c", "start", "opencode"}, args[1:]...)
 	cmd = exec.Command("cmd", cmdArgs...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: false}
@@ -453,17 +591,14 @@ func (a *App) LaunchWindowsTerminal(mode, webURL, dir string) WebResult {
 }
 
 func findWindowsTerminal(args ...string) (*exec.Cmd, error) {
-	// 按优先级查找 Windows Terminal
 	for _, name := range []string{"wt", "WindowsTerminal"} {
 		wtPath, err := exec.LookPath(name)
 		if err == nil {
 			wtArgs := []string{"-d", ".", "--"}
 			wtArgs = append(wtArgs, args...)
-			cmd := exec.Command(wtPath, wtArgs...)
-			return cmd, nil
+			return exec.Command(wtPath, wtArgs...), nil
 		}
 	}
-	// 常见安装路径
 	for _, p := range []string{
 		os.ExpandEnv("${LOCALAPPDATA}\\Microsoft\\WindowsApps\\wt.exe"),
 		os.ExpandEnv("${ProgramFiles}\\WindowsApps\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\wt.exe"),
@@ -476,7 +611,6 @@ func findWindowsTerminal(args ...string) (*exec.Cmd, error) {
 	return nil, fmt.Errorf("Windows Terminal 未安装")
 }
 
-// killProcTree 终止指定 PID 及其所有子进程（taskkill /T）。
 func killProcTree(pid int) {
 	kill := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(pid))
 	kill.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
@@ -484,7 +618,7 @@ func killProcTree(pid int) {
 }
 
 func isOpenCodeServerRunning(hostname string, port int) bool {
-	client := http.Client{Timeout: 500 * time.Millisecond}
+	client := http.Client{Timeout: 2 * time.Second}
 	url := fmt.Sprintf("http://%s:%d/global/health", hostname, port)
 	resp, err := client.Get(url)
 	if err != nil {
@@ -494,12 +628,20 @@ func isOpenCodeServerRunning(hostname string, port int) bool {
 	return resp.StatusCode >= 200 && resp.StatusCode < 500
 }
 
-// ========== 保留的原有方法 ==========
+// executablePath 返回当前进程可执行文件的路径。
+func executablePath() string {
+	p, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	return p
+}
 
-// OpenDirectoryDialog 打开目录选择对话框
+// OpenDirectoryDialog 打开目录选择对话框。
 func (a *App) OpenDirectoryDialog() string {
 	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "选择 OpenCode 工作目录",
+		Title:            "选择工作目录",
+		DefaultDirectory: filepath.Dir(executablePath()),
 	})
 	if err != nil {
 		return ""
@@ -507,7 +649,7 @@ func (a *App) OpenDirectoryDialog() string {
 	return dir
 }
 
-// ========== 会话管理 ==========
+// ========== 会话列表（兼容旧接口） ==========
 
 // SessionInfo 会话记录
 type SessionInfo struct {
@@ -515,7 +657,7 @@ type SessionInfo struct {
 	Title string `json:"title"`
 }
 
-// GetSessions 获取最近 15 个 OpenCode 会话记录
+// GetSessions 获取最近 15 个 OpenCode 会话记录。
 func (a *App) GetSessions() ([]SessionInfo, error) {
 	sessions, err := fetchSessions()
 	if err != nil {

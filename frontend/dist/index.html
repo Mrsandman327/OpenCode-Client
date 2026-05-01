@@ -49,13 +49,11 @@
             <div class="view-panel active" id="view-opencode">
                 <!-- 控制栏 -->
                 <div class="oc-toolbar">
-                    <button class="btn btn-proxy" id="btnProxySettings" title="配置">⚙ 配置</button>
+                    <button class="btn btn-proxy" id="btnProxySettings" title="网络配置">🌐 网络配置</button>
                     <button class="btn btn-primary" id="btnStartWeb">▶ 启动 OpenCode</button>
                     <button class="btn btn-danger-outline" id="btnStopWeb" disabled>■ 停止</button>
                     <span class="oc-web-status" id="webStatus">未启动</span>
                     <div class="oc-toolbar-right">
-                        <button class="btn btn-sm btn-open" id="btnPickDir" title="选择工作目录" disabled>📁</button>
-                        <input class="oc-dir-input" id="dirPath" readonly placeholder="工作目录" />
                         <button class="btn btn-config" id="btnWtOpen" disabled>🖥 在终端中打开</button>
                     </div>
                 </div>
@@ -63,14 +61,14 @@
                 <div class="oc-client" id="webContainer">
                     <aside class="oc-sessions" id="ocSessions">
                         <div class="oc-panel-head">
-                            <span>会话</span>
+                            <span>项目树</span>
                             <div class="oc-panel-actions">
                                 <button class="btn btn-sm btn-primary" id="btnNewSession" disabled>新建</button>
-                                <button class="btn btn-sm btn-refresh" id="btnRefreshSessions" disabled>刷新</button>
+                                <button class="btn btn-sm btn-refresh" id="btnRefreshTree" disabled>刷新</button>
                             </div>
                         </div>
-                        <div class="oc-session-list" id="ocSessionList">
-                            <div class="oc-empty">启动服务后加载会话</div>
+                        <div class="oc-tree" id="ocTree">
+                            <div class="oc-empty">启动服务后加载项目树</div>
                         </div>
                     </aside>
                     <div class="oc-toggle-bar" id="ocToggleLeft">
@@ -204,16 +202,7 @@
     <!-- 配置弹窗 -->
     <div class="modal-overlay" id="proxyModal" style="display:none">
         <div class="modal proxy-modal">
-            <h3>配置</h3>
-            <div class="oc-service-group-title" style="margin-bottom:10px">工作目录</div>
-            <div class="modal-field">
-                <label for="serviceWorkDir">工作目录（启动前 cd 到此目录）</label>
-                <div style="display:flex;gap:6px">
-                    <input id="serviceWorkDir" placeholder="当前目录" style="flex:1" />
-                    <button class="btn btn-sm btn-open" id="btnPickWorkDir" title="选择目录">📁</button>
-                </div>
-            </div>
-            <hr class="proxy-separator" />
+            <h3>网络配置</h3>
             <div class="oc-service-group-title" style="margin-bottom:10px">OpenCode 服务地址</div>
             <div class="modal-field">
                 <label for="serviceHost">服务地址</label>

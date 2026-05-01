@@ -33,13 +33,18 @@ setTheme(getTheme());
 // ============================================================
 // Wails API 封装（含 mock 回退）
 // ============================================================
-const api = (() => {
-    if (window.go && window.go.main && window.go.main.App) {
-        return window.go.main.App;
+// api 延迟绑定：Wails 就绪前脚本可能已执行，此时 window.go 不存在
+// 因此每次调用时先检测真实 API，就绪后自动切换
+const api = new Proxy({}, {
+    get(_, prop) {
+        if (window.go && window.go.main && window.go.main.App && window.go.main.App[prop]) {
+            return window.go.main.App[prop];
+        }
+        return mockApi[prop];
     }
+});
 
-    console.warn('⚠️ 非 Wails 环境，使用模拟数据');
-
+const mockApi = (() => {
     const mockCommands = [
         { title: 'CLI - 会话', isTui: false, cmds: [
             { name: 'run', sub: '', options: '-m model, -c, -s ID, -f file, --agent', desc: '非交互式运行提示词，适合脚本/自动化' },
@@ -123,7 +128,7 @@ const api = (() => {
         ToggleAllSkills: async (target, enable) => ({ target, enabled: enable, success: true, errors: [] }),
         Refresh: async () => {},
         OpenDir: async (path) => { console.log('mock open:', path); showToast(`模拟打开目录: ${path}`, 'info'); },
-        OpenDirectoryDialog: async () => workDir || 'E:\\data\\ai_test\\feishu\\skill-manager',
+        OpenDirectoryDialog: async () => 'E:\\data\\ai_test\\feishu\\skill-manager',
     StartTerminal: async () => { console.log('mock terminal start'); },
     TerminalWrite: async (data) => { console.log('mock term write:', data); },
     GetSessions: async () => [
@@ -132,21 +137,20 @@ const api = (() => {
     ],
     RunOpenCode: async (sid, cont) => { console.log('mock launch:', sid, cont); },
         // web 管理
-        StartOpenCodeWeb: async (port, hostname, workDir, proxy) => {
+        StartOpenCodeWeb: async (port, hostname, proxy) => {
             webURL = `http://${hostname || '127.0.0.1'}:${port || 4096}`;
             webRunning = true;
             updateWebUI();
-            console.log('mock config:', { port, hostname, workDir, proxy });
-            return { running: true, success: true, port: port || 4096, url: webURL };
+            return { running: true, success: true, url: webURL };
         },
         StopOpenCodeWeb: async () => {
             webRunning = false; webURL = '';
             updateWebUI(); clearClientUI();
             return { success: true };
         },
-        GetWebStatus: async () => {
-            return { running: webRunning, port: 0, url: webURL || '' };
-        },
+GetWebStatus: async (hostname, port) => {
+    return { running: webRunning, url: webURL || '' };
+},
         LaunchWindowsTerminal: async (mode, url, dir) => {
             console.log('mock launch wt:', mode, url, dir);
             showToast('模拟启动终端' + (dir ? ' 目录:' + dir : ''), 'info');
@@ -165,6 +169,14 @@ const api = (() => {
             if (path.includes('/diff')) return { success: true, status: 200, body: JSON.stringify([{ path: 'main.go', hunks: [{ lines: ['+ mock diff'] }] }]) };
             return { success: true, status: 200, body: '{}' };
         },
+        CreateSession: async (dir) => ({ success: true, status: 200, body: JSON.stringify({ id: 'ses_new_' + Date.now(), title: '新会话' }) }),
+        GetProjectTree: async () => JSON.stringify([
+            { id: 'global', title: '全局项目', type: 'project', children: [
+                { id: 'global|D:\\test', title: 'D:\\test', type: 'directory', children: [
+                    { id: 'ses_abc', title: '开发 Skill 桌面管理工具', type: 'session' },
+                ]},
+            ]},
+        ]),
         StartOpenCodeEvents: async () => ({ success: true }),
         StopOpenCodeEvents: async () => ({ success: true }),
         // 模型配置
@@ -272,7 +284,6 @@ document.getElementById('sidebar').addEventListener('click', (e) => {
 
 let webURL = '';
 let webRunning = false;
-let workDir = '';
 let currentSessionId = '';
 let sessions = [];
 let sessionStatuses = {};
@@ -280,21 +291,19 @@ let sessionErrors = {};
 let refreshTimer = null;
 let mcpStatus = null;
 let lspStatus = null;
-let expandedParts = {};      // 记录展开状态
-let markdownCache = {};      // markdown 渲染缓存（key: part id）
-let lastMessageCount = 0;    // 上次消息数量
-let messageLoadSeq = 0;      // 消息加载序号，避免旧请求覆盖新内容
-let messageCache = {};       // 会话消息缓存，用于 SSE 流式增量渲染
+let expandedParts = {};
+let markdownCache = {};
+let lastMessageCount = 0;
+let messageLoadSeq = 0;
+let messageCache = {};
 
-let sessionRefreshTimer = null;  // 会话列表防抖刷新
-
-let attachedFiles = [];    // 待发送的附件列表 [{data, filename, mime, size}]
+let sessionRefreshTimer = null;
+let attachedFiles = [];
 
 function getNetworkConfig() {
     try {
         const saved = JSON.parse(localStorage.getItem(NETWORK_CONFIG_KEY) || '{}');
         return {
-            workDir: (saved.workDir || '').trim(),
             serviceHost: (saved.serviceHost || '127.0.0.1').trim(),
             servicePort: (saved.servicePort || '4096').toString().trim(),
             proxyEnabled: !!saved.proxyEnabled,
@@ -302,13 +311,12 @@ function getNetworkConfig() {
             proxyPort: (saved.proxyPort || '7897').toString().trim(),
         };
     } catch (_) {
-        return { workDir: '', serviceHost: '127.0.0.1', servicePort: '4096', proxyEnabled: false, proxyHost: '127.0.0.1', proxyPort: '7897' };
+        return { serviceHost: '127.0.0.1', servicePort: '4096', proxyEnabled: false, proxyHost: '127.0.0.1', proxyPort: '7897' };
     }
 }
 
 function saveNetworkConfig(config) {
     const next = {
-        workDir: (config.workDir || '').trim(),
         serviceHost: (config.serviceHost || '127.0.0.1').trim(),
         servicePort: (config.servicePort || '4096').toString().trim(),
         proxyEnabled: !!config.proxyEnabled,
@@ -331,11 +339,9 @@ function updateProxyPreview() {
     const proxyPort = document.getElementById('proxyPort')?.value.trim() || '7897';
     const serviceHost = document.getElementById('serviceHost')?.value.trim() || '127.0.0.1';
     const servicePort = document.getElementById('servicePort')?.value.trim() || '4096';
-    const workDir = document.getElementById('serviceWorkDir')?.value.trim() || '当前目录';
     const preview = document.getElementById('proxyPreview');
     if (!preview) return;
     const parts = [];
-    parts.push(`工作目录: ${workDir}`);
     parts.push(`服务地址: ${serviceHost}:${servicePort}`);
     if (proxyEnabled) {
         const url = `http://${proxyHost}:${proxyPort}`;
@@ -356,7 +362,6 @@ function updateProxyButton() {
 
 function showProxyModal() {
     const config = getNetworkConfig();
-    const serviceWorkDirEl = document.getElementById('serviceWorkDir');
     const serviceHostEl = document.getElementById('serviceHost');
     const servicePortEl = document.getElementById('servicePort');
     const proxyEnabledEl = document.getElementById('proxyEnabled');
@@ -364,32 +369,25 @@ function showProxyModal() {
     const proxyPortEl = document.getElementById('proxyPort');
     const saveBtn = document.getElementById('btnSaveProxy');
     const cancelBtn = document.getElementById('btnCancelProxy');
-    const pickBtn = document.getElementById('btnPickWorkDir');
-    serviceWorkDirEl.value = config.workDir || workDir;
     serviceHostEl.value = config.serviceHost;
     servicePortEl.value = config.servicePort;
     proxyEnabledEl.checked = config.proxyEnabled;
     proxyHostEl.value = config.proxyHost;
     proxyPortEl.value = config.proxyPort;
-    // 运行时只读，仅保留关闭按钮
     const readonly = webRunning;
-    serviceWorkDirEl.readOnly = readonly;
     serviceHostEl.readOnly = readonly;
     servicePortEl.readOnly = readonly;
     proxyEnabledEl.disabled = readonly;
     proxyHostEl.readOnly = readonly;
     proxyPortEl.readOnly = readonly;
-    pickBtn.style.display = readonly ? 'none' : '';
     saveBtn.style.display = readonly ? 'none' : '';
     cancelBtn.textContent = readonly ? '关闭' : '取消';
     if (readonly) {
-        serviceWorkDirEl.style.opacity = '0.6';
         serviceHostEl.style.opacity = '0.6';
         servicePortEl.style.opacity = '0.6';
         proxyHostEl.style.opacity = '0.6';
         proxyPortEl.style.opacity = '0.6';
     } else {
-        serviceWorkDirEl.style.opacity = '';
         serviceHostEl.style.opacity = '';
         servicePortEl.style.opacity = '';
         proxyHostEl.style.opacity = '';
@@ -399,21 +397,13 @@ function showProxyModal() {
     document.getElementById('proxyModal').style.display = 'flex';
 }
 
-// pick work dir button in proxy modal
-document.getElementById('btnPickWorkDir').addEventListener('click', async () => {
-    try {
-        const dir = await api.OpenDirectoryDialog();
-        if (dir) document.getElementById('serviceWorkDir').value = dir;
-        updateProxyPreview();
-    } catch (e) { /* ignore */ }
-});
+// pick work dir button in proxy modal — REMOVED (workDir is per-session now)
 
 function hideProxyModal() {
     document.getElementById('proxyModal').style.display = 'none';
 }
 
 function applyProxyConfig() {
-    const workDirVal = document.getElementById('serviceWorkDir').value.trim();
     const serviceHost = document.getElementById('serviceHost').value.trim() || '127.0.0.1';
     const servicePort = document.getElementById('servicePort').value.trim() || '4096';
     const proxyEnabled = document.getElementById('proxyEnabled').checked;
@@ -427,63 +417,139 @@ function applyProxyConfig() {
         showToast('代理端口必须是数字', 'error');
         return;
     }
-    saveNetworkConfig({ workDir: workDirVal, serviceHost, servicePort, proxyEnabled, proxyHost, proxyPort });
-    // 同步全局 workDir
-    if (workDirVal) {
-        workDir = workDirVal;
-        updateDirDisplay();
-    }
+    saveNetworkConfig({ serviceHost, servicePort, proxyEnabled, proxyHost, proxyPort });
     hideProxyModal();
-    const msg = proxyEnabled ? `代理已启用: http://${proxyHost}:${proxyPort}` : '代理已关闭';
-    showToast(msg, 'success');
 }
 
-async function pickDirectory() {
+// ============================
+// 项目树
+// ============================
+
+async function buildTree() {
+    if (!webRunning) return;
+    try {
+        const knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
+        const json = await api.GetProjectTree(JSON.stringify(knownDirs));
+        if (json && json !== '[]') {
+            renderTree(JSON.parse(json));
+        } else {
+            document.getElementById('ocTree').innerHTML = '<div class="oc-empty">暂无项目，新建会话后将自动出现</div>';
+        }
+        return true;
+    } catch (_) {
+        document.getElementById('ocTree').innerHTML = '<div class="oc-empty">加载树失败</div>';
+        return false;
+    }
+}
+
+async function refreshTree() {
+    const ok = await buildTree();
+    showToast(ok ? '刷新成功' : '刷新失败', ok ? 'success' : 'error');
+}
+
+function renderTree(tree) {
+    const container = document.getElementById('ocTree');
+    if (!tree || tree.length === 0) {
+        container.innerHTML = '<div class="oc-empty">暂无项目</div>';
+        return;
+    }
+    // 填充 sessionInfoMap 供 selectSession 使用
+    window._sessionMap = {};
+    let html = '';
+    for (const proj of tree) {
+        html += `<div class="oc-tree-node oc-tree-project" data-id="${escapeHtml(proj.id)}">`;
+        html += `<div class="oc-tree-toggle">▼</div><span class="oc-tree-label" title="${escapeHtml(proj.title)}">📁 ${escapeHtml(proj.title)}</span>`;
+        html += `<div class="oc-tree-children">`;
+        for (const dir of (proj.children || [])) {
+            html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
+            html += `<div class="oc-tree-toggle">▼</div><span class="oc-tree-label" title="${escapeHtml(dir.title)}">📂 ${escapeHtml(dir.title)}</span>`;
+            html += `<div class="oc-tree-children">`;
+            for (const ses of (dir.children || [])) {
+                window._sessionMap[ses.id] = { title: ses.title, directory: dir.title };
+                html += `<div class="oc-tree-node oc-tree-session" data-session-id="${escapeHtml(ses.id)}">`;
+                html += `<div class="oc-tree-indent"></div><span class="oc-tree-label" title="${escapeHtml(ses.title)}">💬 ${escapeHtml(ses.title)}</span>`;
+                html += `<button class="oc-tree-del" data-del-id="${escapeHtml(ses.id)}" title="删除会话">✕</button>`;
+                html += `</div>`;
+            }
+            html += `</div></div>`;
+        }
+        html += `</div></div>`;
+    }
+    container.innerHTML = html;
+
+    // toggle 事件
+    container.querySelectorAll('.oc-tree-toggle').forEach(el => {
+        el.addEventListener('click', () => {
+            const node = el.parentElement;
+            const children = node.querySelector('.oc-tree-children');
+            if (children) {
+                const isOpen = children.style.display !== 'none';
+                children.style.display = isOpen ? 'none' : '';
+                el.textContent = isOpen ? '▶' : '▼';
+            }
+        });
+    });
+
+    // 点击会话节点切换会话
+    container.querySelectorAll('.oc-tree-session').forEach(el => {
+        el.addEventListener('click', async (e) => {
+            if (e.target.closest('.oc-tree-del')) return;
+            const sid = el.dataset.sessionId;
+            if (sid && sid !== currentSessionId) {
+                await switchSession(sid);
+            }
+        });
+    });
+    // 删除按钮
+    container.querySelectorAll('.oc-tree-del').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const sid = btn.dataset.delId;
+            if (!sid) return;
+            await deleteSession(sid);
+            await buildTree();
+        });
+    });
+}
+
+async function newSessionWithDir() {
+    if (!webRunning) return;
     try {
         const dir = await api.OpenDirectoryDialog();
-        if (dir) {
-            workDir = dir;
-            updateDirDisplay();
+        if (!dir) return;
+        const result = await api.CreateSession(dir);
+        if (result.success) {
+            const session = JSON.parse(result.body);
+            currentSessionId = session.id || session.ID;
+            // 记录已知目录
+            try {
+                const dirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
+                if (!dirs.includes(dir)) {
+                    dirs.push(dir);
+                    localStorage.setItem('oc-known-dirs', JSON.stringify(dirs));
+                }
+            } catch (_) {}
+            await buildTree();
+            await loadMessages();
+            showToast('会话已创建: ' + dir, 'success');
+        } else {
+            showToast('创建失败: ' + (result.error || result.body), 'error');
         }
     } catch (e) {
-        console.warn('OpenDirectoryDialog failed:', e);
-    }
-}
-
-function updateDirDisplay() {
-    const el = document.getElementById('dirPath');
-    if (el) {
-        el.value = workDir || '';
-        el.className = 'oc-dir-input' + (workDir ? ' set' : '');
-    }
-    const sideEl = document.getElementById('ocSideDirPath');
-    if (sideEl) {
-        sideEl.textContent = workDir || '--';
-        sideEl.title = workDir || '';
-    }
-}
-
-async function initWorkDir() {
-    try {
-        const dir = await api.GetWorkDir();
-        if (dir) {
-            workDir = dir;
-            updateDirDisplay();
-        }
-    } catch (e) {
-        console.warn('GetWorkDir failed:', e);
+        showToast('创建失败: ' + (e.message || e), 'error');
     }
 }
 
 async function checkWebStatus() {
     try {
-        const status = await api.GetWebStatus();
+        const config = getNetworkConfig();
+        const status = await api.GetWebStatus(config.serviceHost, parseInt(config.servicePort) || 4096);
         webRunning = status.running;
         webURL = status.url || '';
         updateWebUI();
         if (webRunning) {
             startEventStream();
-            loadSessions();
+            buildTree();
             loadServiceStatus();
         }
     } catch (e) {
@@ -578,7 +644,7 @@ function handleOcEvent(event) {
             if (status?.type === 'idle') {
                 loadMessages();
                 // 会话变空闲后刷新一次列表
-                debounceRefreshSessions();
+                debounceRefreshTree();
             } else if (getCachedMessages(sid).length) {
                 renderCachedMessages(sid);
             } else {
@@ -593,7 +659,7 @@ function handleOcEvent(event) {
         if (sid === currentSessionId) {
             updateSendButton();
             loadMessages();
-            debounceRefreshSessions();
+            debounceRefreshTree();
         }
         return;
     }
@@ -625,13 +691,13 @@ function handleOcEvent(event) {
     }
 
     if (type === 'session.created' || type === 'session.deleted') {
-        loadSessions();
+        buildTree();
         loadDiff();
         return;
     }
     if (type === 'session.updated') {
         loadDiff();
-        debounceRefreshSessions();
+        debounceRefreshTree();
     }
 }
 
@@ -784,65 +850,14 @@ function ensurePendingAssistant(sessionID) {
 
 async function loadSessions() {
     if (!webRunning) return;
-    const list = document.getElementById('ocSessionList');
-    list.innerHTML = '<div class="oc-empty">加载会话中...</div>';
-    try {
-        const [nextSessions, nextStatuses] = await Promise.all([
-            ocApi('GET', '/session'),
-            loadSessionStatuses(),
-        ]);
-        sessions = nextSessions || [];
-        sessionStatuses = nextStatuses || {};
-        renderSessions();
-        if (!currentSessionId && sessions.length > 0) {
-            await selectSession(sessions[0].id || sessions[0].ID);
-        }
-    } catch (e) {
-        list.innerHTML = `<div class="oc-empty error">${escapeHtml(e.message || e)}</div>`;
-    }
+    await buildTree();
 }
 
-function debounceRefreshSessions() {
-    // 当前会话忙碌时不刷新列表，避免频繁 innerHTML 闪动
-    if (currentSessionId && isSessionBusy(currentSessionId)) return;
+function debounceRefreshTree() {
     clearTimeout(sessionRefreshTimer);
     sessionRefreshTimer = setTimeout(() => {
-        if (webRunning) loadSessions();
+        if (webRunning) buildTree();
     }, 2000);
-}
-
-function renderSessions() {
-    const list = document.getElementById('ocSessionList');
-    if (!sessions.length) {
-        list.innerHTML = '<div class="oc-empty">暂无会话，发送 prompt 将创建新会话</div>';
-        return;
-    }
-    list.innerHTML = '';
-    sessions.forEach(session => {
-        const id = session.id || session.ID;
-        const item = document.createElement('div');
-        item.className = 'oc-session-row';
-        if (id === currentSessionId) item.classList.add('active');
-
-        const btn = document.createElement('button');
-        btn.className = 'oc-session-item';
-        btn.textContent = session.title || session.name || id;
-        btn.title = id;
-        btn.addEventListener('click', () => selectSession(id));
-
-        const del = document.createElement('button');
-        del.className = 'oc-session-delete';
-        del.title = '删除会话';
-        del.innerHTML = '✕';
-        del.addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteSession(id);
-        });
-
-        item.appendChild(btn);
-        item.appendChild(del);
-        list.appendChild(item);
-    });
 }
 
 async function deleteSession(id) {
@@ -873,39 +888,75 @@ async function loadSessionStatuses() {
     }
 }
 
+async function switchSession(id) { await selectSession(id); }
+
 async function selectSession(id) {
+    if (!id) return;
     currentSessionId = id;
     expandedParts = {};
     markdownCache = {};
     lastMessageCount = 0;
     messageLoadSeq++;
-    renderSessions();
-    const current = sessions.find(s => (s.id || s.ID) === id);
-    document.getElementById('ocChatTitle').textContent = current?.title || current?.name || id || '未选择会话';
-    // 显示会话工作目录
+    const info = window._sessionMap?.[id];
+    document.getElementById('ocChatTitle').textContent = info?.title || id;
     const dirEl = document.getElementById('ocSideDirPath');
     if (dirEl) {
-        const dir = current?.directory || '';
-        dirEl.textContent = dir || '--';
-        dirEl.title = dir || '';
+        dirEl.textContent = info?.directory || id;
+        dirEl.title = info?.directory || '';
     }
     await loadMessages();
     smartScroll(document.getElementById('ocMessages'), true);
     await loadDiff();
 }
 
+let pendingWorkDir = '';  // 新建会话时选的目录，首次发送时创建
+
 async function createNewSession() {
     if (!webRunning) return;
-    currentSessionId = '';
-    sessionStatuses = {};
-    sessionErrors = {};
-    document.getElementById('ocChatTitle').textContent = '新建会话';
-    document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">输入内容后 Enter 发送，会话将在首次发送时创建</div>';
-    document.getElementById('ocDiff').innerHTML = '<div class="oc-empty">选择会话后查看变更</div>';
-    document.getElementById('ocPrompt').value = '';
-    document.getElementById('ocPrompt').focus();
-    // 取消当前会话高亮
-    Array.from(document.querySelectorAll('.oc-session-item')).forEach(el => el.classList.remove('active'));
+    try {
+        const dir = await api.OpenDirectoryDialog();
+        if (!dir) return;
+        pendingWorkDir = dir;
+        currentSessionId = '';
+        sessionStatuses = {};
+        sessionErrors = {};
+        document.getElementById('ocChatTitle').textContent = '新建会话 @ ' + dir;
+        document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">输入内容后 Enter 发送，会话将在首次发送时创建</div>';
+        document.getElementById('ocDiff').innerHTML = '<div class="oc-empty">选择会话后查看变更</div>';
+        document.getElementById('ocPrompt').value = '';
+        document.getElementById('ocPrompt').focus();
+    } catch (e) {
+        showToast('选择目录失败: ' + (e.message || e), 'error');
+    }
+}
+
+async function createSessionWithDir(dir) {
+    const result = await api.CreateSession(dir);
+    if (!result.success) throw new Error(result.error || result.body || '创建失败');
+    // 记录已知目录
+    try {
+        const dirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
+        if (!dirs.includes(dir)) {
+            dirs.push(dir);
+            localStorage.setItem('oc-known-dirs', JSON.stringify(dirs));
+        }
+    } catch (_) {}
+    return JSON.parse(result.body);
+}
+
+async function newSessionWithDir() {
+    if (!webRunning) return;
+    try {
+        const dir = await api.OpenDirectoryDialog();
+        if (!dir) return;
+        const session = await createSessionWithDir(dir);
+        currentSessionId = session.id || session.ID;
+        await buildTree();
+        await loadMessages();
+        showToast('会话已创建: ' + dir, 'success');
+    } catch (e) {
+        showToast('创建失败: ' + (e.message || e), 'error');
+    }
 }
 
 async function loadMessages() {
@@ -1598,11 +1649,19 @@ async function sendPrompt() {
     const btn = document.getElementById('btnSendPrompt');
     btn.disabled = true;
     const isNew = !currentSessionId;
+    let sessionDir = '';
     try {
         if (isNew) {
-            const session = await ocApi('POST', '/session');
-            currentSessionId = session.id || session.ID;
-            await loadSessions();
+            if (pendingWorkDir) {
+                sessionDir = pendingWorkDir;
+                pendingWorkDir = '';
+                const session = await createSessionWithDir(sessionDir);
+                currentSessionId = session.id || session.ID;
+            } else {
+                const session = await ocApi('POST', '/session');
+                currentSessionId = session.id || session.ID;
+            }
+            await buildTree();
         }
         if (currentSessionId) {
             sessionStatuses[currentSessionId] = 'busy';
@@ -1617,8 +1676,8 @@ async function sendPrompt() {
         if (isNew) {
             const title = text.slice(0, 15) + (text.length > 15 ? '...' : '');
             await ocApi('PATCH', `/session/${encodeURIComponent(currentSessionId)}`, { title })
-                .catch(() => {}); // 静默失败，不影响主流程
-            await loadSessions();
+                .catch(() => {});
+            await buildTree();
         }
         input.value = '';
         clearAttachments();
@@ -1692,24 +1751,18 @@ async function startWeb() {
     const config = getNetworkConfig();
     const port = parseInt(config.servicePort) || 4096;
     const hostname = config.serviceHost || '127.0.0.1';
-    const workDirParam = config.workDir || workDir;
     const btn = document.getElementById('btnStartWeb');
     btn.disabled = true;
     btn.textContent = '⏳ 启动中...';
-    console.log('startWeb: port=' + port + ' hostname=' + hostname + ' workDir=' + workDirParam);
     try {
-        const result = await api.StartOpenCodeWeb(port, hostname, workDirParam, getNetworkConfig());
+        const result = await api.StartOpenCodeWeb(port, hostname, getNetworkConfig());
         if (result.running) {
             webRunning = true;
             webURL = result.url || `http://${hostname}:${port}`;
-            if (workDirParam) {
-                workDir = workDirParam;
-                updateDirDisplay();
-            }
             updateWebUI();
             btn.textContent = '▶ 启动 opencode';
             startEventStream();
-            await loadSessions();
+            await buildTree();
             loadServiceStatus();
             showToast('OpenCode Web 已启动', 'success');
         } else if (result.error) {
@@ -1748,6 +1801,7 @@ async function stopWeb() {
         updateWebUI();
         btn.textContent = '■ 停止';
         clearClientUI();
+        document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
         showToast('已停止', 'info');
     } catch (e) {
         showToast('停止失败: ' + (e.message || e), 'error');
@@ -1758,7 +1812,9 @@ async function stopWeb() {
 
 async function launchTerminal() {
     try {
-        const result = await api.LaunchWindowsTerminal('attach', webURL, workDir);
+        const dir = await api.OpenDirectoryDialog();
+        if (!dir) return;
+        const result = await api.LaunchWindowsTerminal('attach', webURL, dir);
         if (!result.success && result.error) {
             showToast('启动失败: ' + result.error, 'error');
         }
@@ -1768,7 +1824,7 @@ async function launchTerminal() {
 }
 
 function clearClientUI() {
-    document.getElementById('ocSessionList').innerHTML = '<div class="oc-empty">启动服务后加载会话</div>';
+    document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
     document.getElementById('ocChatTitle').textContent = '未选择会话';
     document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
     document.getElementById('ocServices').innerHTML = '<div class="oc-empty">启动服务后查看</div>';
@@ -1783,8 +1839,7 @@ function updateWebUI() {
     const btnStop = document.getElementById('btnStopWeb');
     const btnProxy = document.getElementById('btnProxySettings');
     const btnWt = document.getElementById('btnWtOpen');
-    const btnPick = document.getElementById('btnPickDir');
-    const btnRefresh = document.getElementById('btnRefreshSessions');
+    const btnRefresh = document.getElementById('btnRefreshTree');
     const btnNewSession = document.getElementById('btnNewSession');
     const btnSend = document.getElementById('btnSendPrompt');
     const btnDiff = document.getElementById('btnLoadDiff');
@@ -1798,7 +1853,6 @@ function updateWebUI() {
         btnStart.disabled = true;
         btnStop.disabled = false;
         btnWt.disabled = false;
-        btnPick.disabled = false;
         btnRefresh.disabled = false;
         btnNewSession.disabled = false;
         btnSend.disabled = false;
@@ -1812,7 +1866,6 @@ function updateWebUI() {
         btnStart.disabled = false;
         btnStop.disabled = true;
         btnWt.disabled = true;
-        btnPick.disabled = true;
         btnRefresh.disabled = true;
         btnNewSession.disabled = true;
         btnSend.disabled = true;
@@ -1844,8 +1897,7 @@ document.getElementById('btnStartWeb').addEventListener('click', startWeb);
 document.getElementById('btnProxySettings').addEventListener('click', showProxyModal);
 document.getElementById('btnStopWeb').addEventListener('click', stopWeb);
 document.getElementById('btnWtOpen').addEventListener('click', launchTerminal);
-document.getElementById('btnPickDir').addEventListener('click', pickDirectory);
-document.getElementById('btnRefreshSessions').addEventListener('click', loadSessions);
+document.getElementById('btnRefreshTree').addEventListener('click', refreshTree);
 document.getElementById('btnNewSession').addEventListener('click', createNewSession);
 document.getElementById('btnSendPrompt').addEventListener('click', () => {
     if (isSessionBusy(currentSessionId)) {
@@ -2681,8 +2733,6 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
     loadSkillsData();
-    checkWebStatus();
-    initWorkDir();
 });
 
 // ============================================================
@@ -2880,9 +2930,9 @@ document.querySelectorAll('.nav-item[data-view="view-providers"]').forEach(item 
     item.addEventListener('click', () => setTimeout(loadProviders, 100));
 });
 
-// Wails 就绪事件
+// Wails OnDomReady → 前端就绪后检测服务状态
 if (window.runtime) {
-    window.runtime.EventsOn('wails:ready', () => {
+    window.runtime.EventsOn('app-ready', () => {
         checkWebStatus();
     });
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+
+	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App 是 Wails 应用的核心结构体，所有绑定到前端的方法都定义在此。
@@ -25,6 +27,17 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	// 后台预加载模型列表
 	go loadModels()
+}
+
+// domReady 在 DOM 加载完成后调用，通知前端开始初始化。
+func (a *App) domReady(ctx context.Context) {
+	wruntime.EventsEmit(a.ctx, "app-ready")
+}
+
+// shutdown 在应用关闭时调用，清理资源。
+func (a *App) shutdown(ctx context.Context) {
+	a.StopOpenCodeEvents()
+	a.StopOpenCodeWeb()
 }
 
 // GetSkills 返回所有技能及其在各平台的链接状态。
