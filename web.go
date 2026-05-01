@@ -258,7 +258,7 @@ func (a *App) OpenCodeAPI(method, path, body string) APIResult {
 	return APIResult{Success: resp.StatusCode >= 200 && resp.StatusCode < 300, Status: resp.StatusCode, Body: string(data)}
 }
 
-// StartOpenCodeEvents 连接 opencode SSE，并通过 Wails 事件转发给前端。
+// StartOpenCodeEvents 连接 opencode 全局 SSE，并通过 Wails 事件转发给前端。
 func (a *App) StartOpenCodeEvents() APIResult {
 	webSessMu.Lock()
 	sess := webSess
@@ -275,7 +275,7 @@ func (a *App) StartOpenCodeEvents() APIResult {
 	eventStop = cancel
 	eventMu.Unlock()
 
-	url := fmt.Sprintf("http://127.0.0.1:%d/event", sess.port)
+	url := fmt.Sprintf("http://127.0.0.1:%d/global/event", sess.port)
 	go func() {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {

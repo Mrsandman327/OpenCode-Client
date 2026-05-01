@@ -282,6 +282,7 @@ let expandedParts = {};      // 记录展开状态
 let markdownCache = {};      // markdown 渲染缓存（key: part id）
 let lastMessageCount = 0;    // 上次消息数量
 let messageLoadSeq = 0;      // 消息加载序号，避免旧请求覆盖新内容
+let messageCache = {};       // 会话消息缓存，用于 SSE 流式增量渲染
 
 async function pickDirectory() {
     try {
@@ -356,8 +357,36 @@ function extractPartText(part) {
     return part.text || part.content || part.message || part.value || safeText(part);
 }
 
+function messageText(item) {
+    const parts = item?.parts || item?.info?.parts || [];
+    const list = Array.isArray(parts) ? parts : [parts];
+    return list.map(part => extractPartText(part)).join('\n').trim();
+}
+
+function isInternalUserMessage(item) {
+    const info = item?.info || item || {};
+    const role = info.role || info.author || '';
+    if (role !== 'user') return false;
+    const text = messageText(item);
+    return text.includes('OMO_INTERNAL_INITIATOR')
+        || text.includes('<system-reminder>')
+        || text.includes('</system-reminder>')
+        || /^\s*\[(?:BACKGROUND TASK COMPLETED|ALL BACKGROUND TASKS COMPLETE)\]/.test(text)
+        || (text.includes('background_output(') && text.includes('task_id='));
+}
+
 function parseEventPayload(raw) {
-    try { return JSON.parse(raw); } catch { return { type: 'raw', data: raw }; }
+    try {
+        const event = JSON.parse(raw);
+        if (event.payload?.type) {
+            return {
+                ...event.payload,
+                directory: event.directory,
+                project: event.project,
+            };
+        }
+        return event;
+    } catch { return { type: 'raw', data: raw }; }
 }
 
 function startEventStream() {
@@ -372,7 +401,9 @@ function startEventStream() {
 function handleOcEvent(event) {
     const type = event.type || event.name || '';
     const props = event.properties || event.data || event;
-    const sid = props.sessionID || props.sessionId || currentSessionId;
+    const sid = props.sessionID || props.sessionId || props.info?.sessionID || props.part?.sessionID || currentSessionId;
+
+    if (type === 'server.connected' || type === 'server.heartbeat') return;
 
     if (type.includes('permission')) {
         const permission = props.permission ? { ...props.permission, ...props } : props;
@@ -385,16 +416,208 @@ function handleOcEvent(event) {
         if (sid === currentSessionId) loadMessages();
         return;
     }
+    if (type === 'session.status' && sid) {
+        sessionStatuses[sid] = props.status || props;
+        if (sid === currentSessionId) {
+            updateSendButton();
+            const status = props.status || props;
+            if (status?.type === 'idle') {
+                loadMessages();
+            } else if (getCachedMessages(sid).length) {
+                renderCachedMessages(sid);
+            } else {
+                loadMessages();
+            }
+        }
+        return;
+    }
     if (type === 'session.idle' && sid) {
         delete sessionErrors[sid];
-        if (sid === currentSessionId) loadMessages();
+        sessionStatuses[sid] = 'idle';
+        if (sid === currentSessionId) {
+            updateSendButton();
+            loadMessages();
+        }
         return;
     }
 
-    if (type.includes('message') || type.includes('session') || type.includes('part')) {
-        if (currentSessionId) loadMessages();
+    if (type === 'message.updated' && props.info) {
+        upsertMessage(props.info);
+        renderCachedMessages(sid);
+        return;
+    }
+    if (type === 'message.part.updated' && props.part) {
+        upsertPart(props.part);
+        renderCachedMessages(sid);
+        return;
+    }
+    if (type === 'message.part.delta') {
+        applyPartDelta(props);
+        renderCachedMessages(sid);
+        return;
+    }
+    if (type === 'message.part.removed') {
+        removePart(props);
+        renderCachedMessages(sid);
+        return;
+    }
+    if (type === 'message.removed') {
+        removeMessage(props);
+        renderCachedMessages(sid);
+        return;
+    }
+
+    if (type === 'session.created' || type === 'session.updated' || type === 'session.deleted') {
+        loadSessions();
         loadDiff();
     }
+}
+
+function normalizeMessageItem(item) {
+    const info = item.info || item;
+    const parts = item.parts || info.parts || [];
+    return {
+        info,
+        parts: Array.isArray(parts) ? parts : [parts],
+    };
+}
+
+function cacheMessages(sessionID, items) {
+    const incoming = (items || []).map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
+    if (!isSessionBusy(sessionID) || !messageCache[sessionID]?.length) {
+        messageCache[sessionID] = incoming;
+        return;
+    }
+    // 忙碌期间只追加新消息、更新已有消息的元信息，不替换 parts
+    // parts 由 delta 事件(applyPartDelta)和 message.part.updated(upsertPart)驱动
+    const existing = getCachedMessages(sessionID);
+    for (const item of incoming) {
+        const key = item.info?.id || item.id;
+        const existingIndex = existing.findIndex(old => (old.info?.id || old.id) === key);
+        if (existingIndex >= 0) {
+            existing[existingIndex].info = { ...existing[existingIndex].info, ...item.info };
+        } else {
+            existing.push(item);
+        }
+    }
+    messageCache[sessionID] = existing;
+}
+
+function mergeMessage(existing, incoming) {
+    if (!existing) return incoming;
+    const existingParts = Array.isArray(existing.parts) ? existing.parts : [];
+    const incomingParts = Array.isArray(incoming.parts) ? incoming.parts : [];
+    return {
+        info: { ...existing.info, ...incoming.info },
+        parts: incomingParts.map(part => mergePart(existingParts.find(old => old.id && old.id === part.id), part)),
+    };
+}
+
+function mergePart(existing, incoming) {
+    if (!existing) return incoming;
+    const merged = { ...existing, ...incoming };
+    for (const field of ['text', 'content']) {
+        const oldText = typeof existing[field] === 'string' ? existing[field] : '';
+        const newText = typeof incoming[field] === 'string' ? incoming[field] : '';
+        if (oldText && newText && newText.length < oldText.length && !incoming.time?.end) {
+            merged[field] = oldText;
+        }
+    }
+    return merged;
+}
+
+function getCachedMessages(sessionID) {
+    if (!messageCache[sessionID]) messageCache[sessionID] = [];
+    return messageCache[sessionID];
+}
+
+function renderCachedMessages(sessionID) {
+    if (!sessionID || sessionID !== currentSessionId) return;
+    renderMessages(getCachedMessages(sessionID));
+}
+
+function upsertMessage(info) {
+    if (!info?.sessionID || !info.id) return;
+    const list = getCachedMessages(info.sessionID);
+    if (info.role === 'assistant') {
+        messageCache[info.sessionID] = list.filter(item => !(item.info?.id || item.id || '').startsWith('pending_'));
+    }
+    const nextList = getCachedMessages(info.sessionID);
+    const index = nextList.findIndex(item => (item.info?.id || item.id) === info.id);
+    if (index >= 0) {
+        nextList[index].info = { ...nextList[index].info, ...info };
+    } else {
+        nextList.push({ info, parts: [] });
+    }
+}
+
+function upsertPart(part) {
+    if (!part?.sessionID || !part.messageID || !part.id) return;
+    const list = getCachedMessages(part.sessionID);
+    let message = list.find(item => (item.info?.id || item.id) === part.messageID);
+    if (!message) {
+        message = { info: { id: part.messageID, sessionID: part.sessionID, role: 'assistant' }, parts: [] };
+        list.push(message);
+    }
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    const index = parts.findIndex(item => item.id === part.id);
+    if (index >= 0) {
+        parts[index] = mergePart(parts[index], part);
+    } else {
+        parts.push(part);
+    }
+    message.parts = parts;
+}
+
+function applyPartDelta(props) {
+    const sessionID = props.sessionID || currentSessionId;
+    const field = props.field || 'text';
+    if (!sessionID || !props.messageID || !props.partID || typeof props.delta !== 'string') return;
+    const list = getCachedMessages(sessionID);
+    let message = list.find(item => (item.info?.id || item.id) === props.messageID);
+    if (!message) {
+        message = { info: { id: props.messageID, sessionID, role: 'assistant' }, parts: [] };
+        list.push(message);
+    }
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    let part = parts.find(item => item.id === props.partID);
+    if (!part) {
+        part = { id: props.partID, sessionID, messageID: props.messageID, type: field === 'text' ? 'text' : 'reasoning', [field]: '' };
+        parts.push(part);
+    }
+    part[field] = (part[field] || '') + props.delta;
+    message.parts = parts;
+}
+
+function removePart(props) {
+    const sessionID = props.sessionID || currentSessionId;
+    if (!sessionID || !props.messageID || !props.partID) return;
+    const message = getCachedMessages(sessionID).find(item => (item.info?.id || item.id) === props.messageID);
+    if (!message || !Array.isArray(message.parts)) return;
+    message.parts = message.parts.filter(part => part.id !== props.partID);
+}
+
+function removeMessage(props) {
+    const sessionID = props.sessionID || currentSessionId;
+    if (!sessionID || !props.messageID) return;
+    messageCache[sessionID] = getCachedMessages(sessionID).filter(item => (item.info?.id || item.id) !== props.messageID);
+}
+
+function ensurePendingAssistant(sessionID) {
+    if (!sessionID) return;
+    const list = getCachedMessages(sessionID);
+    const last = list[list.length - 1];
+    const role = last?.info?.role || last?.role;
+    if (role === 'assistant') return;
+    list.push({
+        info: {
+            id: 'pending_' + Date.now(),
+            sessionID,
+            role: 'assistant',
+            time: { created: Date.now() },
+        },
+        parts: [],
+    });
 }
 
 async function loadSessions() {
@@ -448,6 +671,7 @@ async function selectSession(id) {
     expandedParts = {};
     markdownCache = {};
     lastMessageCount = 0;
+    messageLoadSeq++;
     renderSessions();
     const current = sessions.find(s => (s.id || s.ID) === id);
     document.getElementById('ocChatTitle').textContent = current?.title || current?.name || id || '未选择会话';
@@ -487,7 +711,8 @@ async function loadMessages() {
     try {
         const messages = await ocApi('GET', `/session/${encodeURIComponent(currentSessionId)}/message`);
         if (seq !== messageLoadSeq) return;
-        renderMessages(messages || []);
+        cacheMessages(currentSessionId, messages || []);
+        renderMessages(getCachedMessages(currentSessionId));
     } catch (e) {
         if (seq !== messageLoadSeq) return;
         box.innerHTML = `<div class="oc-empty error">${escapeHtml(e.message || e)}</div>`;
@@ -497,19 +722,21 @@ async function loadMessages() {
 function renderMessages(items) {
     const box = document.getElementById('ocMessages');
     const scrollState = captureScrollState(box);
-    if (!items.length) {
+    const list = (items || []).map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
+    if (!list.length) {
         box.innerHTML = '<div class="oc-empty">该会话暂无消息</div>';
         lastMessageCount = 0;
         updateModelInfo(null);
+        updateScrollBottomButton();
         return;
     }
 
-    const sameCount = items.length === lastMessageCount;
-    lastMessageCount = items.length;
+    const sameCount = list.length === lastMessageCount;
+    lastMessageCount = list.length;
 
     // 消息数没变时做增量更新（只更新最后一条 assistant 消息的 parts）
-    if (sameCount && items.length > 0 && webRunning && isSessionBusy(currentSessionId)) {
-        const last = items[items.length - 1];
+    if (sameCount && list.length > 0 && webRunning && isSessionBusy(currentSessionId)) {
+        const last = list[list.length - 1];
         const lastRole = (last.info || last).role;
         if (lastRole === 'assistant') {
             const lastMsg = box.lastElementChild;
@@ -530,7 +757,9 @@ function renderMessages(items) {
                         // 片段数量不变时也可能是流式文本在增长，需要刷新最后一条消息内容
                         body.replaceChildren(...partList.map(part => renderPart(part)));
                     }
+                    updateModelInfo(list);
                     restoreScroll(box, scrollState, false);
+                    updateScrollBottomButton();
                     return;
                 }
             }
@@ -539,11 +768,11 @@ function renderMessages(items) {
 
     // 全量重建
     box.innerHTML = '';
-    items.forEach(item => {
+    list.forEach(item => {
         const info = item.info || item;
         const role = info.role || info.author || 'message';
         const displayRole = role === 'user' ? '你' : (role === 'assistant' ? '助手' : role);
-        const parts = item.parts || info.parts || [];
+        const parts = item.parts || [];
         const node = document.createElement('div');
         node.className = `oc-message ${role}`;
         node.innerHTML = `<div class="oc-message-role">${escapeHtml(displayRole)}</div>`;
@@ -556,7 +785,7 @@ function renderMessages(items) {
             if (isSessionBusy(currentSessionId)) {
                 const pending = document.createElement('div');
                 pending.className = 'oc-part pending';
-                pending.textContent = '正在等待模型回复...';
+                pending.textContent = getSessionPendingText(currentSessionId);
                 body.appendChild(pending);
             } else if (hasSessionError(currentSessionId)) {
                 const errEl = document.createElement('div');
@@ -564,9 +793,10 @@ function renderMessages(items) {
                 errEl.textContent = '模型调用失败：' + (sessionErrors[currentSessionId] || '未知错误，请检查 opencode 提供商配置');
                 body.appendChild(errEl);
             } else {
-                const pre = document.createElement('pre');
-                pre.textContent = safeText(item);
-                body.appendChild(pre);
+                const empty = document.createElement('div');
+                empty.className = 'oc-part pending';
+                empty.textContent = info.time?.completed ? '已停止或本次未产生回复内容' : '正在等待模型回复...';
+                body.appendChild(empty);
             }
         } else {
             const pre = document.createElement('pre');
@@ -579,6 +809,7 @@ function renderMessages(items) {
 
     updateModelInfo(items);
     restoreScroll(box, scrollState, false);
+    updateScrollBottomButton();
 }
 
 function updateModelInfo(items) {
@@ -606,6 +837,7 @@ function updateModelInfo(items) {
 function smartScroll(box, force) {
     const scrollState = captureScrollState(box);
     restoreScroll(box, scrollState, force);
+    updateScrollBottomButton();
 }
 
 function captureScrollState(box) {
@@ -620,19 +852,45 @@ function captureScrollState(box) {
 function restoreScroll(box, state, force) {
     if (force || state.nearBottom) {
         box.scrollTop = box.scrollHeight;
+        updateScrollBottomButton();
         return;
     }
     const heightDelta = box.scrollHeight - state.height;
     box.scrollTop = Math.max(0, state.top + Math.min(0, heightDelta));
+    updateScrollBottomButton();
+}
+
+function updateScrollBottomButton() {
+    const box = document.getElementById('ocMessages');
+    const btn = document.getElementById('btnScrollBottom');
+    if (!box || !btn) return;
+    const canScroll = box.scrollHeight > box.clientHeight + 8;
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+    btn.classList.toggle('visible', canScroll && !nearBottom);
+}
+
+function scrollMessagesToBottom() {
+    const box = document.getElementById('ocMessages');
+    if (!box) return;
+    box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+    setTimeout(updateScrollBottomButton, 180);
 }
 
 function isSessionBusy(id) {
     const status = sessionStatuses[id];
-    return status === 'busy' || status?.type === 'busy' || status?.status === 'busy';
+    return status === 'busy' || status?.type === 'busy' || status?.type === 'retry' || status?.status === 'busy';
 }
 
 function hasSessionError(id) {
     return !!sessionErrors[id];
+}
+
+function getSessionPendingText(id) {
+    const status = sessionStatuses[id];
+    if (status?.type === 'retry') {
+        return `模型连接失败，正在第 ${status.attempt || 1} 次重试：${status.message || '等待下一次重试'}`;
+    }
+    return '正在等待模型回复...';
 }
 
 function renderPart(part) {
@@ -655,6 +913,10 @@ function renderPart(part) {
     return el;
 }
 
+function partExpandKey(part, fallback) {
+    return part?.id || `${part?.type || 'part'}:${part?.messageID || ''}:${fallback || ''}`;
+}
+
 // ── 步骤分割线 ──
 function renderStepDivider(part, phase) {
     const el = document.createElement('div');
@@ -673,17 +935,19 @@ function renderStepDivider(part, phase) {
 function renderReasoning(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-reasoning';
+    const key = partExpandKey(part, 'reasoning');
     const head = document.createElement('div');
     head.className = 'oc-reasoning-head';
     head.innerHTML = '<span class="oc-reasoning-icon">🧠</span> 思考过程 <span class="oc-reasoning-toggle">展开</span>';
     const body = document.createElement('div');
-    body.className = 'oc-reasoning-body hidden';
+    const expanded = !!expandedParts[key];
+    body.className = 'oc-reasoning-body' + (expanded ? '' : ' hidden');
     body.innerHTML = `<pre>${escapeHtml(part.text || '')}</pre>`;
-    let expanded = false;
+    head.querySelector('.oc-reasoning-toggle').textContent = expanded ? '收起' : '展开';
     head.addEventListener('click', () => {
-        expanded = !expanded;
-        body.classList.toggle('hidden', !expanded);
-        head.querySelector('.oc-reasoning-toggle').textContent = expanded ? '收起' : '展开';
+        expandedParts[key] = !expandedParts[key];
+        body.classList.toggle('hidden', !expandedParts[key]);
+        head.querySelector('.oc-reasoning-toggle').textContent = expandedParts[key] ? '收起' : '展开';
     });
     el.appendChild(head);
     el.appendChild(body);
@@ -698,6 +962,7 @@ function renderTool(part) {
     const isCompleted = status === 'completed';
     const isError = status === 'error';
     const isRunning = status === 'running';
+    const key = partExpandKey(part, tool || 'tool');
 
     // 工具类型分类
     const isShell = tool === 'bash' || tool === 'shell';
@@ -763,12 +1028,12 @@ function renderTool(part) {
         body.innerHTML = `<div class="oc-tool-io"><pre><code>${escapeHtml(safeText(part))}</code></pre></div>`;
     }
 
-    let expanded = isRunning; // 运行中默认展开
+    const expanded = expandedParts[key] ?? isRunning; // 运行中默认展开
     if (!expanded) body.classList.add('hidden');
 
     head.addEventListener('click', () => {
-        expanded = !expanded;
-        body.classList.toggle('hidden', !expanded);
+        expandedParts[key] = !(expandedParts[key] ?? isRunning);
+        body.classList.toggle('hidden', !expandedParts[key]);
     });
 
     el.appendChild(head);
@@ -790,7 +1055,25 @@ function renderTextPart(part) {
 function renderFilePart(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-file';
-    el.innerHTML = `<div class="oc-file-path">📄 ${escapeHtml(part.path || part.file || '')}</div><pre>${escapeHtml(part.content || safeText(part))}</pre>`;
+    const key = partExpandKey(part, part.filename || part.path || 'file');
+    const filename = part.filename || part.path || part.file || '附件';
+    const mime = part.mime || part.type || 'file';
+    const raw = part.content || part.url || safeText(part);
+    const size = raw.length > 1024 ? `${Math.round(raw.length / 1024)} KB` : `${raw.length} B`;
+    const expanded = !!expandedParts[key];
+    const head = document.createElement('div');
+    head.className = 'oc-file-path';
+    head.innerHTML = `<span>📎 ${escapeHtml(filename)}</span><span class="oc-file-meta">${escapeHtml(mime)} · ${size} · ${expanded ? '收起' : '展开'}</span>`;
+    const body = document.createElement('pre');
+    body.className = expanded ? '' : 'hidden';
+    body.textContent = raw;
+    head.addEventListener('click', () => {
+        expandedParts[key] = !expandedParts[key];
+        body.classList.toggle('hidden', !expandedParts[key]);
+        head.querySelector('.oc-file-meta').textContent = `${mime} · ${size} · ${expandedParts[key] ? '收起' : '展开'}`;
+    });
+    el.appendChild(head);
+    el.appendChild(body);
     return el;
 }
 
@@ -1022,6 +1305,13 @@ async function sendPrompt() {
             currentSessionId = session.id || session.ID;
             await loadSessions();
         }
+        if (currentSessionId) {
+            sessionStatuses[currentSessionId] = 'busy';
+            ensurePendingAssistant(currentSessionId);
+            renderCachedMessages(currentSessionId);
+            smartScroll(document.getElementById('ocMessages'), true);
+            updateSendButton();
+        }
         await ocApi('POST', `/session/${encodeURIComponent(currentSessionId)}/prompt_async`, {
             parts: [{ type: 'text', text }]
         });
@@ -1035,8 +1325,6 @@ async function sendPrompt() {
         await loadMessages();
         smartScroll(document.getElementById('ocMessages'), true);
         scheduleRefresh();
-        // 发送后立即标记为 busy 并更新按钮
-        if (currentSessionId) sessionStatuses[currentSessionId] = 'busy';
         updateSendButton();
     } catch (e) {
         showToast('发送失败: ' + (e.message || e), 'error');
@@ -1049,7 +1337,11 @@ function scheduleRefresh() {
     refreshTimer = setInterval(() => {
         if (webRunning && currentSessionId) {
             loadSessionStatuses().then(statuses => {
-                sessionStatuses = statuses || {};
+                const nextStatuses = statuses || {};
+                if (currentSessionId && isSessionBusy(currentSessionId) && !nextStatuses[currentSessionId]) {
+                    nextStatuses[currentSessionId] = sessionStatuses[currentSessionId];
+                }
+                sessionStatuses = nextStatuses;
                 updateSendButton();
                 loadMessages();
             });
@@ -1079,12 +1371,17 @@ async function abortSession() {
     if (!webRunning || !currentSessionId) return;
     const btn = document.getElementById('btnSendPrompt');
     btn.disabled = true;
+    const sessionID = currentSessionId;
     try {
-        await ocApi('POST', `/session/${encodeURIComponent(currentSessionId)}/abort`);
+        await ocApi('POST', `/session/${encodeURIComponent(sessionID)}/abort`);
         showToast('已停止', 'info');
-        sessionStatuses[currentSessionId] = 'idle';
+        sessionStatuses[sessionID] = 'idle';
         updateSendButton();
-        loadMessages();
+        await loadMessages();
+        loadSessionStatuses().then(statuses => {
+            sessionStatuses = statuses || sessionStatuses;
+            updateSendButton();
+        });
     } catch (e) {
         showToast('停止失败: ' + (e.message || e), 'error');
     }
@@ -1131,6 +1428,7 @@ async function stopWeb() {
         sessions = [];
         sessionStatuses = {};
         sessionErrors = {};
+        messageCache = {};
         expandedParts = {};
         markdownCache = {};
         lastMessageCount = 0;
@@ -1254,6 +1552,8 @@ document.getElementById('btnLoadDiff').addEventListener('click', loadDiff);
 document.getElementById('btnRefreshStatus').addEventListener('click', loadServiceStatus);
 document.getElementById('btnToggleSessions').addEventListener('click', toggleSessions);
 document.getElementById('btnToggleSidepanel').addEventListener('click', toggleSidepanel);
+document.getElementById('btnScrollBottom').addEventListener('click', scrollMessagesToBottom);
+document.getElementById('ocMessages').addEventListener('scroll', updateScrollBottomButton);
 
 // ============================================================
 // View 2: 模型配置

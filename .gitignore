@@ -17,3 +17,6 @@ Thumbs.db
 # 日志
 *.log
 skmgr-tray.log
+
+# 临时文件
+tmp_*
