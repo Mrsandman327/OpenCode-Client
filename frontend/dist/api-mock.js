@@ -179,5 +179,13 @@ GetWebStatus: async (hostname, port) => {
         GetWorkDir: async () => 'E:\\data\\ai_test\\feishu\\skill-manager',
         AddModelType: async () => ({ success: true }),
         DeleteModelType: async () => ({ success: true }),
+        AnswerQuestion: async (sessionID, label) => {
+            console.log('mock answer question:', sessionID, label);
+            return { success: true, status: 200 };
+        },
+        RejectQuestion: async (sessionID) => {
+            console.log('mock reject question:', sessionID);
+            return { success: true, status: 200 };
+        },
     };
 })();

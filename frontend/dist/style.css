@@ -2597,3 +2597,180 @@ html, body {
         max-width: 100%;
     }
 }
+
+/* ============================================================
+   提问工具 (question tool) 样式
+   ============================================================ */
+
+.oc-tool-question {
+    border-left-color: var(--accent, #007acc) !important;
+}
+
+.oc-question-block {
+    padding: 4px 0;
+}
+
+.oc-question-header {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.oc-question-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.oc-question-answer {
+    font-size: 13px;
+    color: var(--text-primary);
+    padding: 8px 10px;
+    background: var(--bg-card, rgba(0,0,0,0.04));
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.oc-question-answer-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-right: 4px;
+}
+
+/* 选项按钮容器 */
+.oc-question-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+/* 选项按钮 */
+.oc-question-option-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-input, rgba(255,255,255,0.04));
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.oc-question-option-btn:hover {
+    border-color: var(--accent, #007acc);
+    background: color-mix(in srgb, var(--accent, #007acc) 8%, transparent);
+}
+
+.oc-question-option-btn:active {
+    background: color-mix(in srgb, var(--accent, #007acc) 15%, transparent);
+}
+
+.oc-option-label {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.oc-option-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    line-height: 1.4;
+}
+
+/* 自定义输入行 */
+.oc-question-custom {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.oc-question-custom-input {
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-input, rgba(255,255,255,0.04));
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: inherit;
+}
+
+.oc-question-custom-input::placeholder {
+    color: var(--text-muted);
+}
+
+.oc-question-custom-input:focus {
+    outline: none;
+    border-color: var(--accent, #007acc);
+}
+
+.oc-question-custom-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--accent, #007acc);
+    border-radius: 6px;
+    background: var(--accent, #007acc);
+    color: #fff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+}
+
+.oc-question-custom-btn:hover {
+    opacity: 0.85;
+}
+
+/* 跳过按钮行（在自定义输入下方） */
+.oc-question-skip-row {
+    margin-top: 8px;
+}
+
+.oc-question-skip-btn {
+    padding: 5px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.oc-question-skip-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+}
+
+.oc-question-skip-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* 已跳过状态 */
+.oc-question-dismissed {
+    background: color-mix(in srgb, var(--text-muted) 6%, transparent) !important;
+    color: var(--text-muted) !important;
+}
+
+/* dismissed 状态卡片 */
+.oc-tool-question.dismissed {
+    border-left-color: var(--text-muted) !important;
+}
+
+/* skipped status badge */
+.oc-tool-status.skipped {
+    background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+    color: var(--text-muted);
+}

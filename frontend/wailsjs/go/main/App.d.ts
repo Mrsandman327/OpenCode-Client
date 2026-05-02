@@ -6,6 +6,8 @@ export function AddModelEntry(arg1:string,arg2:string,arg3:string):Promise<main.
 
 export function AddModelType(arg1:string):Promise<main.ModelSaveResult>;
 
+export function AnswerQuestion(arg1:string,arg2:string):Promise<main.APIResult>;
+
 export function CreateSession(arg1:string):Promise<main.APIResult>;
 
 export function DeleteModelEntry(arg1:string,arg2:string):Promise<main.ModelSaveResult>;
@@ -53,6 +55,8 @@ export function OpenDirectoryDialog():Promise<string>;
 export function Refresh():Promise<void>;
 
 export function RefreshAvailableModels():Promise<Array<string>>;
+
+export function RejectQuestion(arg1:string):Promise<main.APIResult>;
 
 export function SaveFullConfig(arg1:string):Promise<main.SaveResult>;
 

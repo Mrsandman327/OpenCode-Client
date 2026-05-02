@@ -10,6 +10,10 @@ export function AddModelType(arg1) {
   return window['go']['main']['App']['AddModelType'](arg1);
 }
 
+export function AnswerQuestion(arg1, arg2) {
+  return window['go']['main']['App']['AnswerQuestion'](arg1, arg2);
+}
+
 export function CreateSession(arg1) {
   return window['go']['main']['App']['CreateSession'](arg1);
 }
@@ -104,6 +108,10 @@ export function Refresh() {
 
 export function RefreshAvailableModels() {
   return window['go']['main']['App']['RefreshAvailableModels']();
+}
+
+export function RejectQuestion(arg1) {
+  return window['go']['main']['App']['RejectQuestion'](arg1);
 }
 
 export function SaveFullConfig(arg1) {

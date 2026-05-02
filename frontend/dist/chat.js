@@ -23,6 +23,7 @@ let userScrolling = false;
 
 let sessionRefreshTimer = null;
 let attachedFiles = [];
+let questionCustomInput = ''; // question 工具自定义输入框的值（防止 DOM 重建时丢失）
 
 // ============================
 // 网络配置
@@ -676,6 +677,7 @@ async function selectSession(id) {
     markdownCache = {};
     lastMessageCount = 0;
     messageLoadSeq++;
+    questionCustomInput = ''; // 清除 question 自定义输入
     const info = window._sessionMap?.[id];
     document.getElementById('ocChatTitle').textContent = info?.title || id;
     const dirEl = document.getElementById('ocSideDirPath');
@@ -1068,8 +1070,170 @@ function renderReasoning(part) {
     return el;
 }
 
+function renderQuestionTool(part) {
+    const state = part.state || {};
+    const status = state.status || '';
+    const isRunning = status === 'running' || (!status);
+    const isCompleted = status === 'completed';
+    const isDismissed = status === 'error' && (state.error || '').includes('dismissed');
+    const isError = status === 'error' && !isDismissed;
+    const questions = (state.input && state.input.questions) || [];
+    const output = state.output;
+
+    const el = document.createElement('div');
+    el.className = `oc-part oc-tool oc-tool-question` + (isCompleted ? ' done' : '') + (isDismissed ? ' dismissed' : '') + (isError ? ' error' : '') + (isRunning ? ' running' : '');
+
+    // head
+    const head = document.createElement('div');
+    head.className = 'oc-tool-head';
+    let statusText, statusClass;
+    if (isCompleted) { statusText = '✓ 已回答'; statusClass = 'ok'; }
+    else if (isDismissed) { statusText = '↩ 已跳过'; statusClass = 'skipped'; }
+    else if (isError) { statusText = '✗ 失败'; statusClass = 'err'; }
+    else { statusText = '⏳ 等待回答'; statusClass = 'running'; }
+    head.innerHTML = `<span class="oc-tool-icon">❓</span> 提问 <span class="oc-tool-status ${statusClass}">${statusText}</span>`;
+
+    const body = document.createElement('div');
+    body.className = 'oc-tool-body';
+
+    questions.forEach((q, qi) => {
+        const qBlock = document.createElement('div');
+        qBlock.className = 'oc-question-block';
+        if (qi > 0) qBlock.style.marginTop = '16px';
+
+        if (q.header) {
+            const hdr = document.createElement('div');
+            hdr.className = 'oc-question-header';
+            hdr.textContent = q.header;
+            qBlock.appendChild(hdr);
+        }
+        const qText = document.createElement('div');
+        qText.className = 'oc-question-text';
+        qText.textContent = q.question || '';
+        qBlock.appendChild(qText);
+
+        // 已回答
+        if (isCompleted && output) {
+            const answerDiv = document.createElement('div');
+            answerDiv.className = 'oc-question-answer';
+            answerDiv.innerHTML = `<span class="oc-question-answer-label">✅ 已选：</span>${escapeHtml(safeText(output))}`;
+            qBlock.appendChild(answerDiv);
+        }
+        // 已跳过
+        if (isDismissed) {
+            const dismissDiv = document.createElement('div');
+            dismissDiv.className = 'oc-question-answer oc-question-dismissed';
+            dismissDiv.textContent = '↩ 已跳过此问题';
+            qBlock.appendChild(dismissDiv);
+        }
+
+        // 运行中显示选项按钮
+        if (isRunning && q.options && q.options.length) {
+            const optsDiv = document.createElement('div');
+            optsDiv.className = 'oc-question-options';
+
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'oc-question-option-btn';
+                const label = (opt.label || '');
+                const desc = opt.description || '';
+                let btnHtml = `<span class="oc-option-label">${escapeHtml(label)}</span>`;
+                if (desc) btnHtml += `<span class="oc-option-desc">${escapeHtml(desc)}</span>`;
+                btn.innerHTML = btnHtml;
+                btn.addEventListener('click', () => {
+                    answerQuestion(label);
+                });
+                optsDiv.appendChild(btn);
+            });
+            qBlock.appendChild(optsDiv);
+
+            // 自定义输入
+            const customRow = document.createElement('div');
+            customRow.className = 'oc-question-custom';
+            const customInput = document.createElement('input');
+            customInput.className = 'oc-question-custom-input';
+            customInput.placeholder = '✏️ 输入自定义回答...';
+            customInput.value = questionCustomInput || '';
+            customInput.addEventListener('input', () => {
+                questionCustomInput = customInput.value;
+            });
+            const customBtn = document.createElement('button');
+            customBtn.className = 'oc-question-custom-btn';
+            customBtn.textContent = '发送';
+            const doCustomAnswer = () => {
+                const val = customInput.value.trim();
+                if (!val) return;
+                questionCustomInput = '';
+                answerQuestion(val);
+            };
+            customBtn.addEventListener('click', doCustomAnswer);
+            customInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); doCustomAnswer(); }
+            });
+            customRow.appendChild(customInput);
+            customRow.appendChild(customBtn);
+            qBlock.appendChild(customRow);
+
+            // 跳过按钮
+            const skipRow = document.createElement('div');
+            skipRow.className = 'oc-question-skip-row';
+            const skipBtn = document.createElement('button');
+            skipBtn.className = 'oc-question-skip-btn';
+            skipBtn.textContent = '↩ 跳过此问题';
+            skipBtn.addEventListener('click', async () => {
+                questionCustomInput = '';
+                skipBtn.disabled = true;
+                skipBtn.textContent = '跳过中...';
+                try {
+                    const result = await api.RejectQuestion(currentSessionId);
+                    if (result && result.success) {
+                        showToast('已跳过问题', 'info');
+                    } else {
+                        showToast('操作失败: ' + ((result && result.error) || '未知错误'), 'error');
+                        skipBtn.disabled = false;
+                        skipBtn.textContent = '↩ 跳过此问题';
+                    }
+                } catch (e) {
+                    showToast('操作失败: ' + (e.message || e), 'error');
+                    skipBtn.disabled = false;
+                    skipBtn.textContent = '↩ 跳过此问题';
+                }
+            });
+            skipRow.appendChild(skipBtn);
+            qBlock.appendChild(skipRow);
+        }
+
+        body.appendChild(qBlock);
+    });
+
+    if (!questions.length) {
+        if (state.input) {
+            body.innerHTML += `<div class="oc-tool-io oc-tool-input"><div class="oc-tool-io-label">输入</div><pre><code>${escapeHtml(safeText(state.input))}</code></pre></div>`;
+        }
+    }
+
+    if (!isRunning) {
+        const key = partExpandKey(part, 'question');
+        if (!expandedParts[key]) body.classList.add('hidden');
+        head.addEventListener('click', () => {
+            expandedParts[key] = !expandedParts[key];
+            body.classList.toggle('hidden', !expandedParts[key]);
+        });
+    }
+
+    el.appendChild(head);
+    el.appendChild(body);
+    return el;
+}
+
 function renderTool(part) {
     const tool = part.tool || part.name || '';
+
+    // question 工具使用专用渲染
+    if (tool === 'question') {
+        return renderQuestionTool(part);
+    }
+
     const state = part.state || {};
     const status = state.status || '';
     const isCompleted = status === 'completed';
@@ -1145,6 +1309,27 @@ function renderTool(part) {
     el.appendChild(head);
     el.appendChild(body);
     return el;
+}
+// ── question 工具回复 ──
+
+async function answerQuestion(answerText) {
+    if (!currentSessionId) return;
+    questionCustomInput = '';
+    const input = document.getElementById('ocPrompt');
+    try {
+        const result = await api.AnswerQuestion(currentSessionId, answerText);
+        if (result && result.success) {
+            showToast('已回答: ' + answerText, 'success');
+            if (input) input.value = '';
+            // SSE 事件会自动推送模型响应，无需手动 loadMessages
+        } else {
+            showToast('回答失败: ' + ((result && result.error) || '未知错误'), 'error');
+            if (input) { input.value = answerText; input.focus(); }
+        }
+    } catch (e) {
+        showToast('回答失败: ' + (e.message || e), 'error');
+        if (input) { input.value = answerText; input.focus(); }
+    }
 }
 
 function renderTextPart(part) {
