@@ -1,4 +1,4 @@
-module skill-manager
+module oc-manager
 
 go 1.25
 

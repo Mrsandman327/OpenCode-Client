@@ -1414,8 +1414,8 @@ html, body {
 }
 .oc-input-bar textarea {
     flex: 1;
-    min-height: 52px;
-    max-height: 120px;
+    min-height: 84px;
+    max-height: 200px;
     resize: vertical;
     padding: 8px 10px;
     background: var(--bg-input);

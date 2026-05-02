@@ -2110,9 +2110,18 @@ document.getElementById('btnSendPrompt').addEventListener('click', () => {
     }
 });
 
-// 输入框：回车发送，Ctrl+Enter 换行
+// 输入框：回车发送，Ctrl+Enter / Shift+Enter 换行
 document.getElementById('ocPrompt').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
+    if (e.key === 'Enter') {
+        if (e.ctrlKey || e.shiftKey) {
+            e.preventDefault();
+            const input = e.target;
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            input.value = input.value.slice(0, start) + '\n' + input.value.slice(end);
+            input.selectionStart = input.selectionEnd = start + 1;
+            return;
+        }
         e.preventDefault();
         sendPrompt();
     }

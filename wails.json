@@ -1,13 +1,13 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "skill-manager",
-  "outputfilename": "skill-manager",
+  "name": "oc-manager",
+  "outputfilename": "oc-manager",
   "frontend:install": "",
   "frontend:build": "",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "Skill Manager",
-    "email": "skill-manager@local"
+    "name": "OC Manager",
+    "email": "oc-manager@local"
   }
 }
