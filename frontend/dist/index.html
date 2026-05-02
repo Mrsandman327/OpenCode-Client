@@ -58,27 +58,27 @@
                 </div>
                 <!-- 自研轻量客户端 -->
                 <div class="oc-client" id="webContainer">
+                    <button class="oc-toggle-btn oc-toggle-left" id="btnToggleSessions" title="隐藏会话栏">◀</button>
                     <aside class="oc-sessions" id="ocSessions">
                         <div class="oc-panel-head">
                             <span>项目树</span>
-                            <div class="oc-panel-actions">
-                                <button class="btn btn-sm btn-primary" id="btnNewSession" disabled>新建</button>
-                                <button class="btn btn-sm btn-refresh" id="btnRefreshTree" disabled>刷新</button>
-                            </div>
+                            <button class="btn btn-sm btn-refresh" id="btnRefreshTree" disabled>刷新</button>
                         </div>
                         <div class="oc-tree" id="ocTree">
                             <div class="oc-empty">启动服务后加载项目树</div>
                         </div>
+                        <div class="oc-sessions-footer">
+                            <button class="btn btn-primary" id="btnNewSession" disabled>＋ 新建会话</button>
+                        </div>
                     </aside>
-                    <div class="oc-toggle-bar" id="ocToggleLeft">
-                        <button class="oc-toggle-btn" id="btnToggleSessions" title="隐藏会话栏">◀</button>
-                    </div>
                     <main class="oc-chat">
                         <div class="oc-chat-head" id="ocChatTitle">未选择会话</div>
-                        <div class="oc-messages" id="ocMessages">
-                            <div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>
+                        <div class="oc-messages-wrap">
+                            <div class="oc-messages" id="ocMessages">
+                                <div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>
+                            </div>
+                            <button class="oc-scroll-bottom" id="btnScrollBottom" title="回到会话底部">↓</button>
                         </div>
-                        <button class="oc-scroll-bottom" id="btnScrollBottom" title="回到会话底部">↓</button>
                         <div class="oc-model-info" id="ocModelInfo">
                             <span class="oc-model-tag" id="ocAgentTag">--</span>
                             <span class="oc-model-tag" id="ocModelTag">--</span>
@@ -90,9 +90,7 @@
                             <button class="btn btn-primary" id="btnSendPrompt" disabled>发送</button>
                         </div>
                     </main>
-                    <div class="oc-toggle-bar" id="ocToggleRight">
-                        <button class="oc-toggle-btn" id="btnToggleSidepanel" title="隐藏信息栏">▶</button>
-                    </div>
+                    <button class="oc-toggle-btn oc-toggle-right" id="btnToggleSidepanel" title="隐藏信息栏">▶</button>
                     <aside class="oc-sidepanel">
                         <div class="oc-panel-section">
                             <div class="oc-panel-head" role="button" tabindex="0">

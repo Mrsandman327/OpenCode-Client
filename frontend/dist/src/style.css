@@ -453,19 +453,19 @@ html, body {
     flex: 1 1 0;
     min-height: 0;
     display: grid;
-    grid-template-columns: 240px 26px minmax(360px, 1fr) 26px 320px;
+    grid-template-columns: 240px minmax(360px, 1fr) 320px;
     background: var(--bg-primary);
     overflow: hidden;
     transition: grid-template-columns 0.2s ease;
 }
 .oc-client.hide-left {
-    grid-template-columns: 0px 26px minmax(360px, 1fr) 26px 320px;
+    grid-template-columns: 0px minmax(360px, 1fr) 320px;
 }
 .oc-client.hide-right {
-    grid-template-columns: 240px 26px minmax(360px, 1fr) 26px 0px;
+    grid-template-columns: 240px minmax(360px, 1fr) 0px;
 }
 .oc-client.hide-left.hide-right {
-    grid-template-columns: 0px 26px minmax(360px, 1fr) 26px 0px;
+    grid-template-columns: 0px minmax(360px, 1fr) 0px;
 }
 .oc-sessions {
     border-right: 1px solid var(--border);
@@ -480,37 +480,59 @@ html, body {
 .hide-left .oc-sessions {
     border-right: none;
 }
-
-/* 面板切换条 */
-.oc-toggle-bar {
+.oc-sessions-footer {
+    flex-shrink: 0;
+    padding: 8px;
+    border-top: 1px solid var(--border);
     display: flex;
-    align-items: center;
     justify-content: center;
-    background: var(--bg-primary);
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    min-height: 0;
-    overflow: hidden;
 }
+.oc-sessions-footer .btn {
+    width: 100%;
+}
+
+/* 面板切换按钮 — 悬浮在面板内侧边缘 */
 .oc-toggle-btn {
-    width: 20px;
-    height: 48px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 18px;
+    height: 44px;
     padding: 0;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 9px;
     background: var(--bg-secondary);
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 10px;
+    font-size: 9px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s;
+    transition: opacity 0.15s, background 0.15s;
+    opacity: 0.35;
 }
 .oc-toggle-btn:hover {
+    opacity: 0.9;
     background: var(--bg-card);
     color: var(--text-primary);
-    border-color: var(--accent);
+}
+.oc-toggle-left {
+    left: 240px;
+    transition: left 0.2s ease;
+}
+.hide-left .oc-toggle-left {
+    left: 0;
+}
+.oc-toggle-right {
+    right: 320px;
+    transition: right 0.2s ease;
+}
+.hide-right .oc-toggle-right {
+    right: 0;
+}
+.oc-client {
+    position: relative;
 }
 
 .oc-panel-head,
@@ -700,6 +722,11 @@ html, body {
     flex-direction: column;
     position: relative;
 }
+.oc-messages-wrap {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
 .oc-messages {
     flex: 1;
     overflow-y: auto;
@@ -707,14 +734,16 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    height: 100%;
     user-select: text;
     -webkit-user-select: text;
     contain: paint style;
 }
 .oc-scroll-bottom {
     position: absolute;
-    right: 18px;
-    bottom: 92px;
+    right: 16px;
+    bottom: 12px;
+    z-index: 10;
     width: 34px;
     height: 34px;
     border-radius: 999px;
