@@ -85,9 +85,16 @@
                         </div>
                         <div class="oc-attach-list" id="ocAttachList"></div>
                         <div class="oc-input-bar">
-                            <textarea id="ocPrompt" placeholder="输入内容，Enter 发送，Ctrl+Enter 换行" disabled></textarea>
-                            <button class="oc-attach-btn" id="btnAttachFile" disabled title="附件">📎</button>
-                            <button class="btn btn-primary" id="btnSendPrompt" disabled>发送</button>
+                            <div class="oc-cmd-palette" id="ocCmdPalette" style="display:none">
+                                <div class="oc-cmd-palette-scroll"></div>
+                            </div>
+                            <div class="oc-input-wrap">
+                                <textarea id="ocPrompt" placeholder="输入内容，Enter 发送，Ctrl+Enter 换行" disabled></textarea>
+                                <div class="oc-input-actions">
+                                    <button class="oc-attach-btn" id="btnAttachFile" disabled title="附件">📎</button>
+                                    <button class="btn btn-primary" id="btnSendPrompt" disabled>发送</button>
+                                </div>
+                            </div>
                         </div>
                     </main>
                     <button class="oc-toggle-btn oc-toggle-right" id="btnToggleSidepanel" title="隐藏信息栏">▶</button>
@@ -255,6 +262,7 @@
     <script src="/api-mock.js"></script>
     <script src="/navigation.js"></script>
     <script src="/chat.js"></script>
+    <script src="/command-palette.js"></script>
     <script src="/model-config.js"></script>
     <script src="/skill-manager.js"></script>
     <script src="/commands-view.js"></script>

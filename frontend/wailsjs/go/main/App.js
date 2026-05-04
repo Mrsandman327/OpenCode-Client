@@ -50,6 +50,10 @@ export function GetModelConfig() {
   return window['go']['main']['App']['GetModelConfig']();
 }
 
+export function GetOpenCodeCommands() {
+  return window['go']['main']['App']['GetOpenCodeCommands']();
+}
+
 export function GetProjectTree(arg1) {
   return window['go']['main']['App']['GetProjectTree'](arg1);
 }

@@ -684,6 +684,11 @@ async function selectSession(id) {
     if (dirEl) {
         dirEl.textContent = info?.directory || id;
         dirEl.title = info?.directory || '';
+        dirEl.style.cursor = 'pointer';
+        dirEl.onclick = () => {
+            const p = info?.directory || '';
+            if (p) api.OpenDir(p).catch(e => showToast('打开失败: ' + (e.message || e), 'error'));
+        };
     }
     await loadMessages();
     smartScroll(document.getElementById('ocMessages'), true);

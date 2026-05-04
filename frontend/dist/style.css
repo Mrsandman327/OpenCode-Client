@@ -1145,7 +1145,13 @@ html, body {
     overflow: hidden;
     text-overflow: ellipsis;
     font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
-    cursor: default;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.oc-dir-bar-path:hover {
+    color: var(--accent, #007acc);
+    text-decoration: underline;
 }
 
 .oc-panel-section {
@@ -1433,26 +1439,119 @@ html, body {
     color: var(--accent);
 }
 .oc-input-bar {
+    position: relative;
     border-top: 1px solid var(--border);
-    padding: 10px;
-    display: flex;
-    gap: 8px;
+    padding: 10px 12px;
     background: var(--bg-secondary);
     flex-shrink: 0;
-    align-items: flex-end;
 }
-.oc-input-bar textarea {
-    flex: 1;
-    min-height: 84px;
-    max-height: 200px;
-    resize: vertical;
-    padding: 8px 10px;
+
+.oc-input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px 6px;
     background: var(--bg-input);
     border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.oc-input-wrap textarea {
+    width: 100%;
+    min-height: 72px;
+    border: none;
+    padding: 0;
+    background: transparent;
     color: var(--text-primary);
-    border-radius: var(--radius-sm);
     font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: none;
     outline: none;
+    box-sizing: border-box;
+}
+
+.oc-input-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 2px;
+}
+
+.oc-input-actions .btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    height: 28px;
+    line-height: 1;
+}
+
+.oc-input-actions .oc-attach-btn {
+    padding: 2px 8px;
+    height: 28px;
+    font-size: 14px;
+}
+/* ========== 命令面板（/ 快捷命令） ========== */
+.oc-cmd-palette {
+    position: absolute;
+    bottom: 100%;
+    left: 10px;
+    right: 10px;
+    margin-bottom: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    max-height: 240px;
+    overflow: hidden;
+}
+.oc-cmd-palette-scroll {
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+.oc-cmd-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.5;
+    transition: background var(--transition);
+}
+.oc-cmd-item:hover,
+.oc-cmd-item.active {
+    background: var(--accent-ghost);
+}
+.oc-cmd-name {
+    color: var(--accent);
+    font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.oc-cmd-desc {
+    color: var(--text-secondary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.oc-cmd-source {
+    color: var(--text-muted);
+    font-size: 10px;
+    flex-shrink: 0;
+    padding: 1px 5px;
+    background: var(--bg-input);
+    border-radius: 3px;
+}
+.oc-cmd-empty {
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 12px;
+    text-align: center;
 }
 .oc-empty {
     color: var(--text-muted);

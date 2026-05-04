@@ -781,6 +781,55 @@ func stringValue(value interface{}) string {
 	}
 }
 
+// ========== 命令面板 ==========
+
+// CmdPaletteItem 命令面板展示项（精简自 opencode /command 接口）。
+type CmdPaletteItem struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Source      string `json:"source"` // "builtin" | "skill"
+}
+
+// GetOpenCodeCommands 从 opencode serve 获取所有可用命令，返回精简数据。
+func (a *App) GetOpenCodeCommands() []CmdPaletteItem {
+	sess := getWebSession()
+	if sess == nil {
+		return nil
+	}
+
+	url := fmt.Sprintf("http://%s:%d/command", sess.hostname, sess.port)
+	client := http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+
+	var raw []struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Source      string `json:"source"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+
+	result := make([]CmdPaletteItem, 0, len(raw))
+	for _, r := range raw {
+		result = append(result, CmdPaletteItem{
+			Name:        r.Name,
+			Description: r.Description,
+			Source:      r.Source,
+		})
+	}
+	return result
+}
+
 // executablePath 返回当前进程可执行文件的路径。
 func executablePath() string {
 	p, err := os.Executable()

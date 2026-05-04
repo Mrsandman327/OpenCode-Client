@@ -187,5 +187,27 @@ GetWebStatus: async (hostname, port) => {
             console.log('mock reject question:', sessionID);
             return { success: true, status: 200 };
         },
+        GetOpenCodeCommands: async () => [
+            { name: 'new', description: '开始新会话', source: 'builtin' },
+            { name: 'compact', description: '压缩会话上下文', source: 'builtin' },
+            { name: 'undo', description: '撤销最后消息(需Git仓库)', source: 'builtin' },
+            { name: 'redo', description: '重做撤销(需Git仓库)', source: 'builtin' },
+            { name: 'exit', description: '退出OpenCode', source: 'builtin' },
+            { name: 'help', description: '显示帮助/命令面板', source: 'builtin' },
+            { name: 'models', description: '列出可用模型', source: 'builtin' },
+            { name: 'themes', description: '列出可用主题', source: 'builtin' },
+            { name: 'thinking', description: '切换思考块可见性', source: 'builtin' },
+            { name: 'details', description: '切换工具执行详情', source: 'builtin' },
+            { name: 'init', description: '创建/更新AGENTS.md', source: 'builtin' },
+            { name: 'connect', description: '添加提供商API密钥', source: 'builtin' },
+            { name: 'editor', description: '用外部编辑器编写消息', source: 'builtin' },
+            { name: 'export', description: '导出对话为Markdown', source: 'builtin' },
+            { name: 'share', description: '分享当前会话', source: 'builtin' },
+            { name: 'unshare', description: '取消分享', source: 'builtin' },
+            { name: 'sessions', description: '列出/切换会话', source: 'builtin' },
+            { name: 'brainstorming', description: '在设计开发前头脑风暴，分析需求', source: 'skill' },
+            { name: 'writing-plans', description: '将需求/设计拆解为可执行的实施方案', source: 'skill' },
+            { name: 'code-review', description: '专业代码审查，多维度评估代码质量', source: 'skill' },
+        ],
     };
 })();

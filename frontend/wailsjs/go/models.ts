@@ -89,6 +89,22 @@ export namespace main {
 		}
 	}
 	
+	export class CmdPaletteItem {
+	    name: string;
+	    description: string;
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CmdPaletteItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.source = source["source"];
+	    }
+	}
 	export class ModelEntry {
 	    key: string;
 	    type: string;

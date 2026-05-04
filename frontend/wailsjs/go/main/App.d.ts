@@ -26,6 +26,8 @@ export function GetFullConfig():Promise<string>;
 
 export function GetModelConfig():Promise<Array<main.ModelEntry>>;
 
+export function GetOpenCodeCommands():Promise<Array<main.CmdPaletteItem>>;
+
 export function GetProjectTree(arg1:string):Promise<string>;
 
 export function GetProviderConfigPath():Promise<string>;
