@@ -377,7 +377,12 @@ function parseEventPayload(raw) {
 function startEventStream() {
     if (window.runtime && !startEventStream.bound) {
         window.runtime.EventsOn('oc-event', (raw) => handleOcEvent(parseEventPayload(raw)));
-        window.runtime.EventsOn('oc-event-error', (msg) => showToast('事件流异常: ' + msg, 'error'));
+        window.runtime.EventsOn('oc-event-error', (msg) => {
+            showToast('事件流异常: ' + msg, 'error');
+            // SSE 断开 → 交叉验证：调 GetWebStatus() 确认服务是否真停了
+            // 若在线 → 自动重连 SSE；若离线 → 更新 UI 状态
+            //setTimeout(() => checkWebStatus(), 200);
+        });
         startEventStream.bound = true;
     }
     if (api.StartOpenCodeEvents) api.StartOpenCodeEvents();
@@ -958,12 +963,8 @@ function captureScrollState(box) {
 
 function restoreScroll(box, state, force) {
     if (force || state.nearBottom) {
-        const last = box.lastElementChild;
-        if (last) {
-            last.scrollIntoView({ block: 'end' });
-        } else {
-            box.scrollTop = box.scrollHeight;
-        }
+        // 直接滚到容器绝对底部，不依赖 lastElementChild（流式回复期间子元素持续增高）
+        box.scrollTop = box.scrollHeight;
         updateScrollBottomButton();
         return;
     }
@@ -984,13 +985,28 @@ function updateScrollBottomButton() {
 function scrollMessagesToBottom() {
     const box = document.getElementById('ocMessages');
     if (!box) return;
-    const last = box.lastElementChild;
-    if (last) {
-        last.scrollIntoView({ block: 'end', behavior: 'smooth' });
-    } else {
-        box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+
+    // 自定义动画：每帧用最新 scrollHeight 做插值，流式回复期间目标值自动跟上
+    const startTop = box.scrollTop;
+    const startTime = performance.now();
+    const distance = box.scrollHeight - startTop;
+    const duration = Math.max(180, Math.min(450, Math.abs(distance) * 0.3));
+
+    function tick(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+        const target = box.scrollHeight;
+        box.scrollTop = startTop + (target - startTop) * eased;
+
+        if (progress < 1) {
+            requestAnimationFrame(tick);
+        } else {
+            box.scrollTop = box.scrollHeight;
+            updateScrollBottomButton();
+        }
     }
-    setTimeout(updateScrollBottomButton, 400);
+    requestAnimationFrame(tick);
 }
 
 function isSessionBusy(id) {
