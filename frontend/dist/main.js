@@ -25,10 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 输入框: 回车发送，Ctrl+Enter / Shift+Enter 换行（命令面板打开时跳过）
+    // 输入框: 回车发送，Ctrl+Enter / Shift+Enter 换行
     document.getElementById('ocPrompt').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
-            if (typeof cmdPaletteVisible !== 'undefined' && cmdPaletteVisible) return;
             if (e.ctrlKey || e.shiftKey) {
                 e.preventDefault();
                 const input = e.target;

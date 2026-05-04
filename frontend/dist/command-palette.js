@@ -115,10 +115,12 @@ cmdInputEl.addEventListener('keydown', (e) => {
             break;
         case 'Enter':
             e.preventDefault();
+            e.stopImmediatePropagation();
             selectCmdPalette();
             break;
         case 'Tab':
             e.preventDefault();
+            e.stopImmediatePropagation();
             selectCmdPalette();
             break;
     }
