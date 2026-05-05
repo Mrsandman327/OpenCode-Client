@@ -1,4 +1,4 @@
-package main
+package service
 
 import (
 	"strings"
@@ -6,17 +6,17 @@ import (
 )
 
 func TestGetWebSessionNil(t *testing.T) {
-	origHost, origPort := lastCfgHost, lastCfgPort
+	origHost, origPort := LastCfgHost, LastCfgPort
 	t.Cleanup(func() {
-		lastCfgHost = origHost
-		lastCfgPort = origPort
+		LastCfgHost = origHost
+		LastCfgPort = origPort
 	})
-	lastCfgHost = defaultHostname
-	lastCfgPort = 1
+	LastCfgHost = defaultHostname
+	LastCfgPort = 1
 
-	webSessMu.Lock()
-	webSess = nil
-	webSessMu.Unlock()
+	WebSessMu.Lock()
+	WebSess = nil
+	WebSessMu.Unlock()
 	if sess := getWebSession(); sess != nil {
 		t.Fatal("expected nil webSession when no serve is running")
 	}

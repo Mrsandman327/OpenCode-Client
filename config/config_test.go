@@ -1,10 +1,12 @@
-package main
+package config
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"oc-manager/model"
 )
 
 func TestWriteConfigFileRejectsEmptyContent(t *testing.T) {
@@ -102,7 +104,7 @@ func TestSaveConfigPreservesCommentsUnknownFieldsAndSiblings(t *testing.T) {
   }
 }`)
 
-	err := saveConfig([]ModelEntry{
+	err := SaveConfig([]model.ModelEntry{
 		{Key: "oracle", Type: "agent", Model: "new/oracle"},
 		{Key: "librarian", Type: "agent", Model: "old/librarian"},
 		{Key: "quick", Type: "category", Model: "new/quick"},
@@ -144,7 +146,7 @@ func TestSaveConfigInsertsNewModelEntry(t *testing.T) {
   }
 }`)
 
-	err := saveConfig([]ModelEntry{
+	err := SaveConfig([]model.ModelEntry{
 		{Key: "oracle", Type: "agent", Model: "new/oracle"},
 		{Key: "quick", Type: "category", Model: "old/quick"},
 		{Key: "custom-agent", Type: "agent", Model: "custom/model", Comment: "自定义 Agent"},
@@ -198,7 +200,7 @@ func TestSaveConfigDeletesRemovedModelEntry(t *testing.T) {
   }
 }`)
 
-	err := saveConfig([]ModelEntry{
+	err := SaveConfig([]model.ModelEntry{
 		{Key: "oracle", Type: "agent", Model: "new/oracle"},
 		{Key: "librarian", Type: "agent", Model: "old/librarian"},
 		{Key: "quick", Type: "category", Model: "old/quick"},
@@ -239,7 +241,7 @@ func TestAddModelTypeAndDynamicSectionEntries(t *testing.T) {
   }
 }`)
 
-	if err := addModelType("reviewers"); err != nil {
+	if err := AddModelType("reviewers"); err != nil {
 		t.Fatalf("add model type: %v", err)
 	}
 	data, err := os.ReadFile(configPath)
@@ -253,7 +255,7 @@ func TestAddModelTypeAndDynamicSectionEntries(t *testing.T) {
 		}
 	}
 
-	if err := saveConfig([]ModelEntry{
+	if err := SaveConfig([]model.ModelEntry{
 		{Key: "oracle", Type: "agents", Model: "old/oracle"},
 		{Key: "lint", Type: "reviewers", Model: "review/model", Comment: "评审模型"},
 	}); err != nil {
@@ -295,7 +297,7 @@ func TestDeleteModelTypeRemovesWholeSection(t *testing.T) {
   }
 }`)
 
-	if err := deleteModelType("reviewers"); err != nil {
+	if err := DeleteModelType("reviewers"); err != nil {
 		t.Fatalf("delete model type: %v", err)
 	}
 	data, err := os.ReadFile(configPath)

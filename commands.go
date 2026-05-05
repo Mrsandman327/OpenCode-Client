@@ -1,20 +1,5 @@
 package main
 
-// CmdInfo 命令展示信息
-type CmdInfo struct {
-	Name    string `json:"name"`    // 命令名
-	Sub     string `json:"sub"`     // 子命令（可选）
-	Options string `json:"options"` // 常用选项（可选）
-	Desc    string `json:"desc"`    // 中文说明
-}
-
-// CmdGroup 命令分组
-type CmdGroup struct {
-	Title  string    `json:"title"`
-	Cmds   []CmdInfo `json:"cmds"`
-	IsTUI  bool      `json:"isTui"` // true=TUI命令, false=CLI命令
-}
-
 // GetCommands 返回所有常用命令分组数据
 func (a *App) GetCommands() []CmdGroup {
 	return []CmdGroup{

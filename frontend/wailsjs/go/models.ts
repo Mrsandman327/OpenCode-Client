@@ -1,4 +1,4 @@
-export namespace main {
+export namespace model {
 	
 	export class APIResult {
 	    success: boolean;

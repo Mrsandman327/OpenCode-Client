@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -9,40 +9,23 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"oc-manager/model"
 )
 
 var configWriteMu sync.Mutex
 
-// ========== 配置数据结构 ==========
-
-// OpenAgentConfig 表示 oh-my-openagent.jsonc 的顶层模型配置结构。
-type OpenAgentConfig map[string]map[string]ModelConfig
-
-// ModelConfig 单个 agent/category 的模型配置。
-type ModelConfig struct {
-	Model string `json:"model"`
-}
-
-// ModelEntry 前端展示用的模型条目（agent 或 category）。
-type ModelEntry struct {
-	Key     string `json:"key"`     // agent/category 名称
-	Type    string `json:"type"`    // "agent" 或 "category"
-	Model   string `json:"model"`   // 当前模型
-	Label   string `json:"label"`   // 中文简称（从注释提取，≤5字）
-	Comment string `json:"comment"` // 原始注释文本
-}
-
 // ========== 配置路径 & 加载 ==========
 
-// configPath 返回 oh-my-openagent.jsonc 的完整路径。
-func configPath() string {
+// ConfigPath 返回 oh-my-openagent.jsonc 的完整路径。
+func ConfigPath() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "opencode", "oh-my-openagent.jsonc")
 }
 
-// loadConfig 读取并解析 JSONC 配置，同时返回原始文本用于后续写回。
-func loadConfig() (*OpenAgentConfig, string, map[string]string, error) {
-	path := configPath()
+// LoadConfig 读取并解析 JSONC 配置，同时返回原始文本用于后续写回。
+func LoadConfig() (*model.OpenAgentConfig, string, map[string]string, error) {
+	path := ConfigPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("读取配置文件失败: %w", err)
@@ -64,13 +47,13 @@ func loadConfig() (*OpenAgentConfig, string, map[string]string, error) {
 	return &config, rawText, comments, nil
 }
 
-func parseModelConfigSections(cleaned string) (OpenAgentConfig, error) {
+func parseModelConfigSections(cleaned string) (model.OpenAgentConfig, error) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(cleaned), &raw); err != nil {
 		return nil, err
 	}
 
-	config := make(OpenAgentConfig)
+	config := make(model.OpenAgentConfig)
 	for section, sectionData := range raw {
 		var rawEntries map[string]json.RawMessage
 		if err := json.Unmarshal(sectionData, &rawEntries); err != nil {
@@ -78,15 +61,15 @@ func parseModelConfigSections(cleaned string) (OpenAgentConfig, error) {
 		}
 		if len(rawEntries) == 0 {
 			if isEmptyModelSectionName(section) {
-				config[section] = map[string]ModelConfig{}
+				config[section] = map[string]model.ModelConfig{}
 			}
 			continue
 		}
 
-		entries := make(map[string]ModelConfig)
+		entries := make(map[string]model.ModelConfig)
 		isModelSection := true
 		for key, entryData := range rawEntries {
-			var entry ModelConfig
+			var entry model.ModelConfig
 			if err := json.Unmarshal(entryData, &entry); err != nil || entry.Model == "" {
 				isModelSection = false
 				break
@@ -112,8 +95,8 @@ func isEmptyModelSectionName(section string) bool {
 }
 
 // GetFullConfig 返回完整 JSONC 字符串（前端解析后只显示 agents/categories）
-func (a *App) GetFullConfig() string {
-	path := configPath()
+func GetFullConfig() string {
+	path := ConfigPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "{}"
@@ -122,24 +105,24 @@ func (a *App) GetFullConfig() string {
 }
 
 // SaveFullConfig 将前端修改后的完整 JSON 字符串直接写入文件
-func (a *App) SaveFullConfig(jsonStr string) SaveResult {
+func SaveFullConfig(jsonStr string) model.SaveResult {
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 
-	path := configPath()
+	path := ConfigPath()
 	if err := writeConfigFile(path, []byte(jsonStr), 0644); err != nil {
-		return SaveResult{Success: false, Error: err.Error()}
+		return model.SaveResult{Success: false, Error: err.Error()}
 	}
-	return SaveResult{Success: true}
+	return model.SaveResult{Success: true}
 }
 
-// saveConfig 保存模型配置，只替换已存在条目的 model 值，避免重建整段配置导致注释或未知字段丢失。
-func saveConfig(entries []ModelEntry) error {
+// SaveConfig 保存模型配置，只替换已存在条目的 model 值，避免重建整段配置导致注释或未知字段丢失。
+func SaveConfig(entries []model.ModelEntry) error {
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 	entries = normalizeModelEntries(entries)
 
-	path := configPath()
+	path := ConfigPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("读取配置文件失败: %w", err)
@@ -210,8 +193,8 @@ func saveConfig(entries []ModelEntry) error {
 	return writeConfigFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
-func normalizeModelEntries(entries []ModelEntry) []ModelEntry {
-	normalized := make([]ModelEntry, len(entries))
+func normalizeModelEntries(entries []model.ModelEntry) []model.ModelEntry {
+	normalized := make([]model.ModelEntry, len(entries))
 	for i, entry := range entries {
 		normalized[i] = entry
 		normalized[i].Type = normalizeModelEntryType(entry.Type)
@@ -230,7 +213,7 @@ func normalizeModelEntryType(entryType string) string {
 	}
 }
 
-func removeMissingModelEntries(lines []string, existing map[string]ModelConfig, entries []ModelEntry, entryType string) ([]string, error) {
+func removeMissingModelEntries(lines []string, existing map[string]model.ModelConfig, entries []model.ModelEntry, entryType string) ([]string, error) {
 	keep := make(map[string]bool)
 	for _, entry := range entries {
 		if entry.Type == entryType {
@@ -263,7 +246,7 @@ func replaceModelValue(line string, modelRe *regexp.Regexp, model string) string
 	return line[:match[3]] + fmt.Sprintf("%q", model) + line[match[1]:]
 }
 
-func insertModelEntry(lines []string, entry ModelEntry) ([]string, error) {
+func insertModelEntry(lines []string, entry model.ModelEntry) ([]string, error) {
 	entry.Type = normalizeModelEntryType(entry.Type)
 
 	for i, line := range lines {
@@ -291,7 +274,7 @@ func insertModelEntry(lines []string, entry ModelEntry) ([]string, error) {
 	return nil, fmt.Errorf("未找到 %s section", entry.Type)
 }
 
-func insertBeforeSectionClose(lines []string, closeIndex int, entry ModelEntry) []string {
+func insertBeforeSectionClose(lines []string, closeIndex int, entry model.ModelEntry) []string {
 	prevIndex := previousContentLine(lines, closeIndex)
 	if prevIndex >= 0 {
 		trimmed := strings.TrimSpace(lines[prevIndex])
@@ -542,12 +525,13 @@ func stripComments(text string) string {
 
 // ========== 增删模型类型与条目 ==========
 
-func addModelType(entryType string) error {
+// AddModelType 添加模型配置类型分组。
+func AddModelType(entryType string) error {
 	entryType = normalizeModelEntryType(entryType)
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 
-	path := configPath()
+	path := ConfigPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -561,12 +545,13 @@ func addModelType(entryType string) error {
 	return writeConfigFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
-func deleteModelType(entryType string) error {
+// DeleteModelType 删除整个模型配置类型分组。
+func DeleteModelType(entryType string) error {
 	entryType = normalizeModelEntryType(entryType)
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 
-	path := configPath()
+	path := ConfigPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -583,18 +568,19 @@ func deleteModelType(entryType string) error {
 	return writeConfigFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
-func addConfigEntry(key, model, entryType string) error {
+// AddConfigEntry 添加 agent 或 category 条目。
+func AddConfigEntry(key, m, entryType string) error {
 	entryType = normalizeModelEntryType(entryType)
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 
-	path := configPath()
+	path := ConfigPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
 	lines := strings.Split(string(data), "\n")
-	lines, err = insertModelEntry(lines, ModelEntry{Key: key, Model: model, Type: entryType})
+	lines, err = insertModelEntry(lines, model.ModelEntry{Key: key, Model: m, Type: entryType})
 	if err != nil {
 		return err
 	}
@@ -602,12 +588,13 @@ func addConfigEntry(key, model, entryType string) error {
 	return writeConfigFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
-func deleteConfigEntry(key, entryType string) error {
+// DeleteConfigEntry 删除 agent 或 category 条目。
+func DeleteConfigEntry(key, entryType string) error {
 	entryType = normalizeModelEntryType(entryType)
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 
-	path := configPath()
+	path := ConfigPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -626,8 +613,8 @@ func deleteConfigEntry(key, entryType string) error {
 }
 
 // loadConfigRaw 读取配置（不解析注释）
-func loadConfigRaw() (*OpenAgentConfig, error) {
-	path := configPath()
+func loadConfigRaw() (*model.OpenAgentConfig, error) {
+	path := ConfigPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -641,11 +628,11 @@ func loadConfigRaw() (*OpenAgentConfig, error) {
 }
 
 // saveConfigRaw 写回配置
-func saveConfigRaw(cfg *OpenAgentConfig) error {
+func saveConfigRaw(cfg *model.OpenAgentConfig) error {
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 
-	path := configPath()
+	path := ConfigPath()
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
@@ -655,9 +642,9 @@ func saveConfigRaw(cfg *OpenAgentConfig) error {
 
 // ========== 配置转前端结构 ==========
 
-// configToEntries 将 OpenAgentConfig 转为前端展示用的 ModelEntry 列表。
-func configToEntries(config *OpenAgentConfig, comments map[string]string) []ModelEntry {
-	entries := make([]ModelEntry, 0)
+// ConfigToEntries 将 OpenAgentConfig 转为前端展示用的 ModelEntry 列表。
+func ConfigToEntries(config *model.OpenAgentConfig, comments map[string]string) []model.ModelEntry {
+	entries := make([]model.ModelEntry, 0)
 	sectionNames := make([]string, 0, len(*config))
 	for section := range *config {
 		sectionNames = append(sectionNames, section)
@@ -673,7 +660,7 @@ func configToEntries(config *OpenAgentConfig, comments map[string]string) []Mode
 		for _, key := range keys {
 			mc := (*config)[section][key]
 			comment := comments[key]
-			entries = append(entries, ModelEntry{
+			entries = append(entries, model.ModelEntry{
 				Key:     key,
 				Type:    section,
 				Model:   mc.Model,
