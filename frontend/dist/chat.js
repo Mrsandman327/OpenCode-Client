@@ -348,6 +348,9 @@ function isInternalUserMessage(item) {
     const info = item?.info || item || {};
     const role = info.role || info.author || '';
     if (role !== 'user') return false;
+    // 空 parts 的 user 消息（如系统自动标记）视为内部消息
+    const parts = item?.parts;
+    if (!parts || (Array.isArray(parts) && parts.length === 0)) return true;
     const text = messageText(item);
     return text.includes('OMO_INTERNAL_INITIATOR')
         || text.includes('<system-reminder>')
