@@ -68,7 +68,8 @@ function isEmptyModelSectionName(type) {
 }
 
 function stripJsonComments(jsonStr) {
-    return jsonStr.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    if (jsonStr == null) return '';
+    return String(jsonStr).replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
 function extractComments(text) {

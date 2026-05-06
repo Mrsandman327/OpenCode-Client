@@ -1685,20 +1685,41 @@ html, body {
 /* ── 模型信息栏 ── */
 .oc-model-info {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 4px;
     padding: 4px 10px;
     border-top: 1px solid var(--border);
     background: var(--bg-secondary);
     flex-shrink: 0;
 }
-.oc-model-tag {
-    font-size: 10px;
-    padding: 2px 8px;
+.oc-select-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+.oc-model-select {
+    font-size: 11px;
+    padding: 3px 8px;
     border-radius: 10px;
     background: var(--bg-input);
-    color: var(--text-muted);
-    font-family: monospace;
+    color: var(--text-primary);
     border: 1px solid var(--border);
+    font-family: monospace;
+    cursor: pointer;
+    outline: none;
+    min-width: 80px;
+    max-width: 240px;
+}
+.oc-model-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent-ghost);
+}
+.oc-model-select option {
+    font-family: monospace;
+    font-size: 11px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 4px;
 }
 
 /* ========== 模型配置批量栏 ========== */

@@ -128,6 +128,12 @@ const mockApi = (() => {
         },
         OpenCodeAPI: async (method, path, body) => {
             if (method === 'POST' && path === '/session') return { success: true, status: 200, body: JSON.stringify({ id: 'ses_new_' + Date.now(), title: '新会话' }) };
+            if (path === '/agent') return { success: true, status: 200, body: JSON.stringify([
+                { name: 'build', description: '主执行代理，负责编写代码和实现功能', mode: 'primary', builtIn: true },
+                { name: 'plan', description: '规划代理，负责架构设计和计划制定', mode: 'primary', builtIn: true },
+                { name: 'general', description: '通用代理，处理一般性问答', mode: 'primary', builtIn: true },
+                { name: 'explore', description: '探索代理，负责代码库搜索和研究', mode: 'subagent', builtIn: true },
+            ]) };
             if (path === '/session') return { success: true, status: 200, body: JSON.stringify([
                 { id: 'ses_abc123', title: '开发 Skill 桌面管理工具' },
                 { id: 'ses_def456', title: 'OpenCode 模型配置管理' },
@@ -179,6 +185,18 @@ const mockApi = (() => {
         SaveProvider: async (p) => ({ success: true }),
         DeleteProvider: async (key) => ({ success: true }),
         GetProviderConfigPath: async () => '~/.config/opencode/opencode.jsonc',
+        GetConfigPath: async () => '~/.config/opencode/oh-my-openagent.jsonc',
+        GetFullConfig: async () => `{
+    // 执行者：负责执行具体任务
+    "agents": {
+        "sisyphus": { "model": "deepseek/deepseek-v4-pro" },
+        "oracle": { "model": "deepseek/deepseek-v4-flash" }
+    },
+    "categories": {
+        "quick": { "model": "deepseek/deepseek-v4-flash" },
+        "visual-engineering": { "model": "deepseek/deepseek-v4-flash" }
+    }
+}`,
         GetWorkDir: async () => 'E:\\data\\ai_test\\feishu\\skill-manager',
         AddModelType: async () => ({ success: true }),
         DeleteModelType: async () => ({ success: true }),

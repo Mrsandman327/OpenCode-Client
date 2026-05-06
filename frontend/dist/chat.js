@@ -25,6 +25,13 @@ let sessionRefreshTimer = null;
 let attachedFiles = [];
 let questionCustomInput = ''; // question 工具自定义输入框的值（防止 DOM 重建时丢失）
 
+// 全局 agent/model 选择
+let agentList = [];
+let modelList = [];
+let selectedAgent = '';
+let selectedModel = '';
+let agentModelSelectorsLoaded = false;
+
 // ============================
 // 网络配置
 // ============================
@@ -289,7 +296,61 @@ async function addDirectoryToProject() {
 }
 
 // ============================
-// Web 状态
+// 全局 Agent/Model 选择器
+// ============================
+
+async function loadAgentModelSelectors() {
+    if (agentModelSelectorsLoaded) return;
+    try {
+        const [agents, models] = await Promise.all([
+            ocApi('GET', '/agent').catch(() => []),
+            api.GetAvailableModels().catch(() => []),
+        ]);
+        agentList = agents || [];
+        modelList = models || [];
+    } catch (_) {
+        agentList = [];
+        modelList = [];
+    }
+
+    const agentSel = document.getElementById('ocAgentSelect');
+    const modelSel = document.getElementById('ocModelSelect');
+    if (!agentSel || !modelSel) return;
+
+    // 填充 agent 下拉框
+    agentSel.innerHTML = '<option value="">默认</option>';
+    agentList.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.name;
+        opt.textContent = a.name;
+        if (a.description) opt.title = a.description;
+        agentSel.appendChild(opt);
+    });
+    agentSel.value = selectedAgent;
+
+    // 填充 model 下拉框
+    modelSel.innerHTML = '<option value="">默认</option>';
+    modelList.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        modelSel.appendChild(opt);
+    });
+    modelSel.value = selectedModel;
+
+    // change 事件
+    agentSel.addEventListener('change', () => {
+        selectedAgent = agentSel.value;
+    });
+    modelSel.addEventListener('change', () => {
+        selectedModel = modelSel.value;
+    });
+
+    agentModelSelectorsLoaded = true;
+}
+
+// ============================
+// Web 状态检测
 // ============================
 
 async function checkWebStatus() {
@@ -300,11 +361,12 @@ async function checkWebStatus() {
         webURL = status.url || '';
         serverStatus = normalizeServerStatus(status);
         updateWebUI();
-        if (webRunning) {
-            startEventStream();
-            buildTree();
-            loadServiceStatus();
-        } else {
+    if (webRunning) {
+        startEventStream();
+        buildTree();
+        loadServiceStatus();
+        loadAgentModelSelectors();
+    } else {
             renderServiceStatus();
         }
     } catch (e) {
@@ -923,8 +985,9 @@ function renderTodos() {
 }
 
 function updateModelInfo(items) {
-    const agentEl = document.getElementById('ocAgentTag');
-    const modelEl = document.getElementById('ocModelTag');
+    const agentSel = document.getElementById('ocAgentSelect');
+    const modelSel = document.getElementById('ocModelSelect');
+    if (!agentSel || !modelSel) return;
     const list = items || [];
     let agent = '';
     let model = '';
@@ -937,12 +1000,29 @@ function updateModelInfo(items) {
             break;
         }
     }
-    agentEl.textContent = agent ? '🤖 ' + agent : '--';
-    agentEl.title = agent || '';
-    agentEl.onclick = null;
-    modelEl.textContent = model ? '🧠 ' + model : '--';
-    modelEl.title = model || '';
-    modelEl.onclick = null;
+
+    // 确保下拉框中有当前值（API 加载失败时的降级）
+    if (agent) ensureSelectOption(agentSel, agent, agent);
+    if (model)  ensureSelectOption(modelSel, model, model);
+
+    // 同步选中值
+    if (agent && agentSel) agentSel.value = agent;
+    if (model && modelSel)  modelSel.value = model;
+
+    // 首次加载时同步全局选中值
+    if (agent && !selectedAgent) selectedAgent = agent;
+    if (model && !selectedModel) selectedModel = model;
+}
+
+// 确保 <select> 中存在指定 value 的选项（API 加载失败时的降级）
+function ensureSelectOption(sel, value, label) {
+    for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === value) return;
+    }
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label || value;
+    sel.appendChild(opt);
 }
 
 // ============================
@@ -1802,9 +1882,18 @@ async function sendPrompt() {
             smartScroll(document.getElementById('ocMessages'), true);
             updateSendButton();
         }
-        await ocApi('POST', `/session/${encodeURIComponent(currentSessionId)}/prompt_async`, {
-            parts: buildParts(text)
-        });
+        const body = { parts: buildParts(text) };
+        if (selectedAgent) body.agent = selectedAgent;
+        if (selectedModel) {
+            const slashIdx = selectedModel.indexOf('/');
+            if (slashIdx > 0) {
+                body.model = {
+                    providerID: selectedModel.slice(0, slashIdx),
+                    modelID: selectedModel.slice(slashIdx + 1),
+                };
+            }
+        }
+        await ocApi('POST', `/session/${encodeURIComponent(currentSessionId)}/prompt_async`, body);
         if (isNew) {
             const title = text.slice(0, 15) + (text.length > 15 ? '...' : '');
             await ocApi('PATCH', `/session/${encodeURIComponent(currentSessionId)}`, { title })
@@ -1909,6 +1998,7 @@ async function startWeb() {
             startEventStream();
             await buildTree();
             loadServiceStatus();
+            loadAgentModelSelectors();
             showToast('OpenCode Web 已启动', 'success');
         } else if (result.error) {
             showToast('启动失败: ' + result.error, 'error');
