@@ -2243,9 +2243,34 @@ function navigateSearch(dir) {
     searchIndex = (searchIndex + dir + searchResults.length) % searchResults.length;
     var current = searchResults[searchIndex];
     current.classList.add('oc-search-active');
-    current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    var container = document.getElementById('ocMessages');
+    if (container) {
+        scrollSearchResultIntoView(current, container);
+    }
     var countEl = document.getElementById('ocSearchCount');
     if (countEl) countEl.textContent = (searchIndex + 1) + '/' + searchResults.length;
+}
+
+function scrollSearchResultIntoView(node, container) {
+    var targetTop = getSearchAnchorTop(node, container);
+    var targetScroll = targetTop - container.clientHeight / 3;
+    var maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+    container.scrollTo({
+        top: Math.max(0, Math.min(maxScroll, targetScroll)),
+        behavior: 'smooth'
+    });
+}
+
+function getSearchAnchorTop(node, container) {
+    var anchor = node.closest('.oc-message') || node;
+    var top = 0;
+    var el = anchor;
+    while (el && el !== container) {
+        top += el.offsetTop || 0;
+        el = el.offsetParent;
+    }
+    if (el === container) return top;
+    return anchor.offsetTop || 0;
 }
 
 function clearHighlights() {

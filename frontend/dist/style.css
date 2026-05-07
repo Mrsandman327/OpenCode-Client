@@ -737,6 +737,7 @@ html, body {
     flex-direction: column;
     gap: 16px;
     height: 100%;
+    position: relative;
     user-select: text;
     -webkit-user-select: text;
     contain: paint style;
