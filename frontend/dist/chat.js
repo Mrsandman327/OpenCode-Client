@@ -202,9 +202,12 @@ function renderTree(tree) {
             html += `<div class="oc-tree-toggle">▼</div><span class="oc-tree-label" title="${escapeHtml(dir.title)}">📂 ${escapeHtml(dir.title)}</span>`;
             html += `<div class="oc-tree-children">`;
             for (const ses of (dir.children || [])) {
-                window._sessionMap[ses.id] = { title: ses.title, directory: dir.title };
+                const fullTitle = ses.title;
+                const updatedAt = ses.updatedAt || '';
+                const sesDir = ses.directory || dir.title;
+                window._sessionMap[ses.id] = { title: ses.title, directory: sesDir, updatedAt: updatedAt };
                 html += `<div class="oc-tree-node oc-tree-session" data-session-id="${escapeHtml(ses.id)}">`;
-                html += `<div class="oc-tree-indent"></div><span class="oc-tree-label" title="${escapeHtml(ses.title)}">💬 ${escapeHtml(ses.title)}</span>`;
+                html += `<div class="oc-tree-indent"></div><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n📂 '+sesDir+'\n⏰ '+updatedAt)}">💬 ${escapeHtml(ses.title)}</span>`;
                 html += `<button class="oc-tree-del" data-del-id="${escapeHtml(ses.id)}" title="删除会话">✕</button>`;
                 html += `</div>`;
             }

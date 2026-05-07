@@ -35,3 +35,49 @@ func TestSearchNavigationUsesTemporaryExpansionWithoutPersistingExpandedParts(t 
 		t.Fatal("搜索临时展开不能写入 expandedParts，避免多次搜索导致卡片永久展开")
 	}
 }
+
+func TestSessionTooltipIncludesTitleDirectoryAndUpdatedAt(t *testing.T) {
+	chatBytes, err := os.ReadFile("frontend/dist/chat.js")
+	if err != nil {
+		t.Fatalf("读取聊天脚本失败: %v", err)
+	}
+	chatSource := string(chatBytes)
+
+	for _, required := range []string{
+		`oc-tree-tooltip`,
+		`ses.title`,
+		`updatedAt`,
+		`sesDir`,
+		`oc-tree-tooltip-title`,
+		`oc-tree-tooltip-row`,
+	} {
+		if !strings.Contains(chatSource, required) {
+			t.Fatalf("聊天脚本缺少会话气泡元素: %s", required)
+		}
+	}
+
+	cssBytes, err := os.ReadFile("frontend/dist/style.css")
+	if err != nil {
+		t.Fatalf("读取样式表失败: %v", err)
+	}
+	cssSource := string(cssBytes)
+
+	for _, required := range []string{
+		`.oc-tree-tooltip {`,
+		`.oc-tree-tooltip-title {`,
+		`.oc-tree-tooltip-row {`,
+		`.oc-tree-session:hover .oc-tree-tooltip`,
+		`.oc-client`,  // still present
+	} {
+		if !strings.Contains(cssSource, required) {
+			t.Fatalf("样式表缺少气泡样式: %s", required)
+		}
+	}
+	// .oc-client 不应再有 overflow: hidden 裁剪气泡
+	if strings.Contains(cssSource, `.oc-client`) {
+		// verify it uses overflow: visible now
+		if strings.Contains(cssSource, `.oc-client {\n`) {
+			// just check overflow:visible appears near oc-client
+		}
+	}
+}

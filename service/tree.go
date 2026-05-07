@@ -23,11 +23,17 @@ type ProjectInfo struct {
 	VCS      string `json:"vcs"`
 }
 
+type sessionTime struct {
+	Created int64 `json:"created"`
+	Updated int64 `json:"updated"`
+}
+
 type treeSession struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	ProjectID string `json:"projectID"`
-	Directory string `json:"directory"`
+	ID        string      `json:"id"`
+	Title     string      `json:"title"`
+	ProjectID string      `json:"projectID"`
+	Directory string      `json:"directory"`
+	Time      sessionTime `json:"time"`
 }
 
 // GetProjectTree 获取项目→目录→会话的树形结构 JSON。
@@ -152,15 +158,22 @@ func buildTreeJSON(projects []ProjectInfo, sessions []treeSession) string {
 		if title == "" {
 			title = s.ID
 		}
-		if len([]rune(title)) > 40 {
-			title = string([]rune(title)[:40]) + "..."
+		
+		// 取第一个可用的时间字段（updated 优先，其次 created）
+		var sessionTime string
+		if s.Time.Updated > 0 {
+			sessionTime = time.UnixMilli(s.Time.Updated).Format("2006-01-02 15:04")
+		} else if s.Time.Created > 0 {
+			sessionTime = time.UnixMilli(s.Time.Created).Format("2006-01-02 15:04")
 		}
 		for i := range proj.Children {
 			if proj.Children[i].ID == dirKey {
 				proj.Children[i].Children = append(proj.Children[i].Children, model.TreeNode{
-					ID:    s.ID,
-					Title: title,
-					Type:  "session",
+					ID:        s.ID,
+					Title:     title,
+					Type:      "session",
+					UpdatedAt: sessionTime,
+					Directory: dir,
 				})
 			}
 		}

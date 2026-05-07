@@ -141,10 +141,12 @@ type SessionInfo struct {
 
 // TreeNode 项目-目录-会话树节点。
 type TreeNode struct {
-	ID       string     `json:"id"`
-	Title    string     `json:"title"`
-	Type     string     `json:"type"`
-	Children []TreeNode `json:"children,omitempty"`
+	ID        string     `json:"id"`
+	Title     string     `json:"title"`
+	Type      string     `json:"type"`
+	Children  []TreeNode `json:"children,omitempty"`
+	UpdatedAt string     `json:"updatedAt,omitempty"`
+	Directory string     `json:"directory,omitempty"`
 }
 
 // CmdPaletteItem 命令面板展示项。

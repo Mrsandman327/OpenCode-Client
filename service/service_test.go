@@ -47,3 +47,20 @@ func TestBuildTreeJSONGroups(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildTreeJSONIncludesUpdatedAt(t *testing.T) {
+	projects := []ProjectInfo{
+		{ID: "global", Name: "全局项目", Worktree: "/"},
+	}
+	sessions := []treeSession{
+		{ID: "ses_1", Title: "这是一个很长的会话标题需要在前端完整展示用于悬停气泡", ProjectID: "global", Directory: "D:\\test", Time: sessionTime{Updated: 1746604200000}},
+	}
+
+	result := buildTreeJSON(projects, sessions)
+
+	for _, want := range []string{`"title":"这是一个很长的会话标题需要在前端完整展示用于悬停气泡"`, `"updatedAt":"2025-05-07`} {
+		if !strings.Contains(result, want) {
+			t.Fatalf("tree missing %q: %s", want, result)
+		}
+	}
+}
