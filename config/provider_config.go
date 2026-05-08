@@ -25,7 +25,8 @@ func loadOpenCodeConfig() (*model.OpenCodeConfig, error) {
 	}
 
 	var cfg model.OpenCodeConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	// opencode.jsonc 包含注释，需要先去除注释再解析
+	if err := json.Unmarshal([]byte(stripComments(string(data))), &cfg); err != nil {
 		return nil, fmt.Errorf("解析配置失败: %w", err)
 	}
 	return &cfg, nil

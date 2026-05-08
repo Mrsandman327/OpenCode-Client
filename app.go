@@ -30,7 +30,6 @@ func NewApp() *App {
 // startup 在应用启动时调用
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	go loadModels()
 }
 
 // domReady 在 DOM 加载完成后调用，通知前端开始初始化。

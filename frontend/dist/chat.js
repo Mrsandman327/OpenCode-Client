@@ -168,11 +168,12 @@ async function buildTree() {
             const tree = JSON.parse(json);
             window._lastProjectTree = tree;
             renderTree(tree);
+            return true;
         } else {
             window._lastProjectTree = [];
             document.getElementById('ocTree').innerHTML = '<div class="oc-empty">暂无项目，新建会话后将自动出现</div>';
+            return false;
         }
-        return true;
     } catch (_) {
         window._lastProjectTree = [];
         document.getElementById('ocTree').innerHTML = '<div class="oc-empty">加载树失败</div>';
@@ -2031,7 +2032,11 @@ async function startWeb() {
             updateWebUI();
             btn.textContent = '▶ 启动 opencode';
             startEventStream();
-            await buildTree();
+            var treeLoaded = await buildTree();
+            if (!treeLoaded) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                await buildTree();
+            }
             loadServiceStatus();
             loadAgentModelSelectors();
             showToast('OpenCode Web 已启动', 'success');

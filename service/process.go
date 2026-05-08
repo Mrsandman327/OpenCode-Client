@@ -70,6 +70,11 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 		return model.WebResult{Error: fmt.Sprintf("%s:%d 已有 OpenCode 服务运行，请先停止该服务", hostname, port)}
 	}
 
+	// 检查端口是否被其他进程占用
+	if isPortInUse(hostname, port) {
+		return model.WebResult{Error: fmt.Sprintf("端口 %s:%d 已被其他程序占用，请更换端口或关闭占用程序", hostname, port)}
+	}
+
 	cmd := exec.Command("opencode", "serve",
 		"--port", strconv.Itoa(port),
 		"--hostname", hostname,
@@ -304,6 +309,17 @@ func killProcTree(pid int) {
 func isOpenCodeServerRunning(hostname string, port int) bool {
 	_, _, ok := getOpenCodeHealth(hostname, port)
 	return ok
+}
+
+// isPortInUse 检查端口是否已被占用（TCP 连接测试）
+func isPortInUse(hostname string, port int) bool {
+	addr := net.JoinHostPort(hostname, strconv.Itoa(port))
+	conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 func getOpenCodeHealth(hostname string, port int) (string, string, bool) {

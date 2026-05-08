@@ -17,15 +17,13 @@ async function loadModelConfig() {
     container.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在加载OMO 配置...</p></div>';
 
     try {
-        const [fullConfig, models, confPath] = await Promise.all([
+        const [fullConfig, confPath] = await Promise.all([
             api.GetFullConfig(),
-            api.GetAvailableModels(),
             api.GetConfigPath(),
         ]);
 
         fullConfigRaw = fullConfig || '';
         fullConfigJson = JSON.parse(stripJsonComments(fullConfig) || '{}');
-        availableModels = models || [];
 
         modelEntries = [];
         modelTypes = [];
@@ -41,6 +39,13 @@ async function loadModelConfig() {
 
         document.getElementById('configPath').textContent = confPath || '未知';
         renderModelConfig();
+        // 后台尝试加载模型列表，不阻塞页面
+        api.GetAvailableModels().then(function(models) {
+            if (models && models.length) {
+                availableModels = models;
+                renderModelConfig();
+            }
+        }).catch(function() {});
     } catch (err) {
         container.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeHtml(err.message||err)}</p><button class="btn btn-primary" onclick="loadModelConfig()">重试</button></div>`;
     }
@@ -48,6 +53,14 @@ async function loadModelConfig() {
 
 function modelEntryId(type, key) {
     return `${type}\u0000${key}`;
+}
+
+function modelSelectOptions(models, currentModel) {
+    const options = models && models.length ? [...models] : [];
+    if (currentModel && !options.includes(currentModel)) {
+        options.unshift(currentModel);
+    }
+    return options;
 }
 
 function sameModelEntry(a, b) {
@@ -228,7 +241,7 @@ function createModelGroup(title, entries, entryType) {
         select.className = 'model-select';
         select.dataset.key = entry.key;
         select.dataset.id = entry.id;
-        availableModels.forEach(m => {
+        modelSelectOptions(availableModels, entry.model).forEach(m => {
             const opt = document.createElement('option');
             opt.value = m; opt.textContent = m;
             if (m === entry.model) opt.selected = true;
