@@ -18,6 +18,9 @@ var assets embed.FS
 //go:embed build/bin/appicon.png
 var trayIconData []byte
 
+// mainWindow 持有主窗口引用，供单实例回调使用。
+var mainWindow application.Window
+
 func main() {
 	wailsApp := application.New(application.Options{
 		Name:        "oc-manager",
@@ -27,6 +30,15 @@ func main() {
 		},
 		Windows: application.WindowsOptions{
 			WebviewUserDataPath: webviewUserDataPath(),
+		},
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "com.oc-manager.app",
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				// 第二个实例启动时，激活已有实例的主窗口
+				if mainWindow != nil {
+					mainWindow.Show().Focus()
+				}
+			},
 		},
 	})
 
@@ -41,6 +53,7 @@ func main() {
 		MinHeight:        640,
 		BackgroundColour: application.NewRGB(255, 255, 255),
 	})
+	mainWindow = window
 	window.Center()
 	window.Show()
 
