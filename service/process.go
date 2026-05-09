@@ -2,7 +2,6 @@
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,10 +17,10 @@ import (
 	"syscall"
 	"time"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"oc-manager/model"
 )
+
+type DirectoryPicker func(title, defaultDirectory string) (string, error)
 
 // webSession 管理 opencode web 进程生命周期。
 type webSession struct {
@@ -376,11 +375,11 @@ func executablePath() string {
 }
 
 // OpenDirectoryDialog 打开目录选择对话框。
-func OpenDirectoryDialog(ctx context.Context) string {
-	dir, err := wruntime.OpenDirectoryDialog(ctx, wruntime.OpenDialogOptions{
-		Title:            "选择工作目录",
-		DefaultDirectory: filepath.Dir(executablePath()),
-	})
+func OpenDirectoryDialog(pick DirectoryPicker) string {
+	if pick == nil {
+		return ""
+	}
+	dir, err := pick("选择工作目录", filepath.Dir(executablePath()))
 	if err != nil {
 		return ""
 	}

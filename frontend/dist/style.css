@@ -659,13 +659,46 @@ html, body {
     border-radius: var(--radius-sm);
     padding: 3px 6px 3px 32px;
     white-space: nowrap;
-    overflow: hidden;
+    overflow: visible;
     text-overflow: ellipsis;
     display: flex;
     align-items: center;
     gap: 4px;
+    position: relative;
 }
 .oc-tree-session .oc-tree-label { flex: 1; min-width: 0; }
+.oc-tree-tooltip {
+    display: none;
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    width: 260px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-md);
+    color: var(--text-secondary);
+    line-height: 1.45;
+    white-space: normal;
+    pointer-events: none;
+}
+.oc-tree-tooltip-title {
+    margin-bottom: 4px;
+    color: var(--text-primary);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+.oc-tree-tooltip-row {
+    color: var(--text-muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+.oc-tree-session:hover .oc-tree-tooltip {
+    display: block;
+}
 .oc-tree-add-dir {
     display: none;
     flex-shrink: 0;

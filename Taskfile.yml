@@ -1,0 +1,67 @@
+version: '3'
+
+vars:
+  APP_NAME: oc-manager
+  BIN_DIR: build/bin
+
+tasks:
+  generate:icons:
+    summary: 从 build/bin/appicon.png 生成 Windows .ico 图标（如存在自定义图标）
+    dir: build/bin
+    cmds:
+      - powershell -NoProfile -Command "if (-not (Test-Path 'appicon.png')) { Write-Host '无自定义图标，使用默认图标'; exit 0 }"
+      - wails3 generate icons -input appicon.png -windowsfilename windows/icon.ico
+
+  generate:syso:
+    summary: 生成 Windows .syso 资源文件（嵌入图标、清单、版本信息到 exe）
+    cmds:
+      - powershell -NoProfile -Command "$targetDir = 'build\bin\windows'; New-Item -ItemType Directory -Force -Path $targetDir | Out-Null; if (-not (Test-Path "$targetDir\icon.ico")) { Write-Error 'icon.ico 不存在，请先运行 generate:icons'; exit 1 }"
+      - >-
+        wails3 generate syso
+        -icon build/bin/windows/icon.ico
+        -manifest build/bin/windows/wails.exe.manifest
+        -info build/bin/windows/info.json
+        -arch amd64
+        -out rsrc_windows_amd64.syso
+
+  build:
+    summary: 使用 Wails 3 任务系统构建应用
+    cmds:
+      - powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '{{.BIN_DIR}}' | Out-Null"
+      - task: generate:icons
+      - task: generate:syso
+      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe .
+    vars:
+      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{else}}-buildvcs=false{{end}}'
+    env:
+      PRODUCTION: '{{.PRODUCTION | default "false"}}'
+
+  windows:build:
+    summary: Wails 3 Windows 构建入口
+    cmds:
+      - task: build
+        vars:
+          PRODUCTION: 'true'
+
+  windows:package:
+    summary: 当前项目暂不生成安装包，复用生产构建
+    cmds:
+      - task: build
+        vars:
+          PRODUCTION: 'true'
+
+  windows:run:
+    summary: 运行 Windows 构建产物
+    cmds:
+      - task: run
+
+  run:
+    summary: 运行已构建的应用
+    cmds:
+      - '{{.BIN_DIR}}/{{.APP_NAME}}.exe'
+
+  dev:
+    summary: 当前项目无前端开发服务器，开发模式直接构建后运行
+    cmds:
+      - task: build
+      - task: run

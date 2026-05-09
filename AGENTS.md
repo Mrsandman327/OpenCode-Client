@@ -27,3 +27,17 @@
 
 ## 2. 违反复核
 - 如果发现已经在未确认的情况下触发了下载或安装行为，必须立即停止相关命令，向用户说明已发生的行为和当前状态，并等待用户指示。
+
+
+
+# 工具位置
+
+`D:\Application\installfiles\Go1.25.8\myenv\gopath\bin`下有
+
+dlv.exe、go1.25.8.exe、goimports.exe、gopls.exe、staticcheck.exe、wails.exe
+
+
+
+后续任何 Go 方法变更后，只需重新运行：
+
+`wails3 generate bindings -d frontend/dist/bindings -b`

@@ -285,8 +285,17 @@
     </div>
 
     <input type="file" id="ocFileInput" multiple hidden />
+
+    <!-- Wails v3 绑定桥接：导入生成绑定并挂到 window -->
+    <script type="module">
+        import { App } from './bindings/oc-manager/index.js';
+        window.wailsBindings = { App };
+    </script>
+
     <!-- 模块化 JS，按依赖顺序加载 -->
     <script src="/theme.js"></script>
+    <script src="/utils.js"></script>
+    <script src="/api-mock.js"></script>
     <script src="/utils.js"></script>
     <script src="/api-mock.js"></script>
     <script src="/navigation.js"></script>

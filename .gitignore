@@ -11,6 +11,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Windows 资源文件（图标嵌入）
+*.syso
+
 # 日志
 *.log
 skmgr-tray.log
