@@ -5,12 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/icons"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+//go:embed build/bin/appicon.png
+var trayIconData []byte
 
 func main() {
 	wailsApp := application.New(application.Options{
@@ -38,10 +44,54 @@ func main() {
 	window.Center()
 	window.Show()
 
+	// ========== 系统托盘 ==========
+	setupSystemTray(wailsApp, window)
+
 	err := wailsApp.Run()
 	if err != nil {
 		println("启动失败:", err.Error())
 	}
+}
+
+// setupSystemTray 创建系统托盘：图标、右键菜单、窗口附加、关闭隐藏。
+func setupSystemTray(wailsApp *application.App, window application.Window) {
+	systray := wailsApp.SystemTray.New()
+
+	// 设置托盘图标
+	iconData := trayIconData
+	if len(iconData) == 0 {
+		iconData = icons.DefaultWindowsIcon
+	}
+	if runtime.GOOS == "darwin" {
+		systray.SetTemplateIcon(iconData)
+	} else {
+		systray.SetIcon(iconData)
+	}
+	systray.SetTooltip("OpenCode管理中心")
+
+	// 创建右键菜单
+	menu := wailsApp.NewMenu()
+	menu.Add("显示/隐藏").OnClick(func(ctx *application.Context) {
+		if window.IsVisible() {
+			window.Hide()
+		} else {
+			window.Show().Focus()
+		}
+	})
+	menu.AddSeparator()
+	menu.Add("退出").OnClick(func(ctx *application.Context) {
+		wailsApp.Quit()
+	})
+	systray.SetMenu(menu)
+
+	// 点击托盘图标切换窗口显示
+	systray.AttachWindow(window).WindowOffset(5)
+
+	// 窗口关闭时隐藏到托盘，而非退出
+	window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		window.Hide()
+		e.Cancel()
+	})
 }
 
 func webviewUserDataPath() string {
