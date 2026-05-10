@@ -123,6 +123,16 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="oc-panel-section" id="subtaskPanelSection">
+                            <div class="oc-panel-head" role="button" tabindex="0">
+                                <span class="oc-panel-arrow">▼</span><span>📋 子任务</span>
+                            </div>
+                            <div class="oc-panel-body" style="max-height:300px; overflow:visible">
+                                <div class="oc-subtasks" id="ocSubtasks">
+                                    <div class="oc-empty">当前会话暂无子任务</div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="oc-panel-section">
                             <div class="oc-panel-head" role="button" tabindex="0">
                                 <span class="oc-panel-arrow">▼</span><span>代办事项</span>
@@ -281,6 +291,53 @@
                 </div>
             </div>
             <div class="modal-body" id="skillModalBody"></div>
+        </div>
+    </div>
+
+    <!-- ===== 子任务详情弹窗 ===== -->
+    <div class="modal-overlay" id="subtaskModal" style="display:none">
+        <div class="modal subtask-modal" onclick="event.stopPropagation()">
+            <div class="subtask-modal-header">
+                <h3 id="subtaskModalTitle">子任务详情</h3>
+                <span class="subtask-status-badge" id="subtaskStatusBadge"></span>
+                <button class="btn btn-sm" id="subtaskModalCloseBtn" style="margin-left:auto">✕</button>
+            </div>
+            <div class="subtask-modal-summary" id="subtaskModalSummary" style="flex-shrink:0;padding:12px 20px;border-bottom:1px solid var(--border)">
+                <div class="subtask-summary-row" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <span id="subtaskTitle" style="font-weight:600;font-size:15px"></span>
+                    <span class="subtask-status-badge" id="subtaskStatusBadge2"></span>
+                </div>
+                <div class="subtask-summary-row" style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">
+                    <span id="subtaskAgent"></span>
+                    <span style="margin:0 4px">·</span>
+                    <span id="subtaskModel"></span>
+                </div>
+                <div class="subtask-summary-row" style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">
+                    <span>⏱</span>
+                    <span id="subtaskDuration"></span>
+                    <span style="margin:0 6px">|</span>
+                    <span>开始</span><span id="subtaskStarted"></span>
+                    <span style="margin:0 6px">|</span>
+                    <span>完成</span><span id="subtaskEnded"></span>
+                </div>
+                <div class="subtask-summary-row" id="subtaskDescRow" style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;display:none">
+                    <span>📝 </span><span id="subtaskDesc"></span>
+                </div>
+                <div class="subtask-prompt-collapse" style="margin-top:6px">
+                    <button class="btn btn-sm" id="subtaskPromptToggle" style="font-size:11px">展开原始任务</button>
+                    <pre id="subtaskPromptText" style="display:none;max-height:120px;overflow-y:auto;font-size:11px;margin-top:4px;padding:6px 8px;background:var(--bg-input);border-radius:4px;white-space:pre-wrap"></pre>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+                    <code id="subtaskSid" style="font-size:10px"></code>
+                    <button class="btn btn-sm" id="subtaskCopySid" style="font-size:10px;padding:0 4px;margin-left:4px" title="复制 SessionId">📋</button>
+                </div>
+            </div>
+            <div class="subtask-modal-body" id="subtaskMessages" style="flex:1;overflow-y:auto;min-height:0;padding:12px 20px">
+                <div class="oc-empty">正在加载子任务详情...</div>
+            </div>
+            <div class="subtask-modal-footer" style="flex-shrink:0;padding:10px 20px;border-top:1px solid var(--border);text-align:right">
+                <button class="btn btn-sm" id="subtaskModalCancelBtn">关闭</button>
+            </div>
         </div>
     </div>
 

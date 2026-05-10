@@ -594,6 +594,124 @@ html, body {
 .oc-panel-section.collapsed .oc-panel-head {
     border-bottom: none;
 }
+
+/* ==================== 子任务面板 ==================== */
+.oc-subtasks {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 286px;
+    padding: 6px 8px;
+}
+.oc-subtask-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+}
+.oc-subtask-card:hover {
+    background: var(--bg-card-hover);
+}
+.oc-subtask-card.status-completed { border-left-color: var(--success); }
+.oc-subtask-card.status-running   { border-left-color: var(--accent); }
+.oc-subtask-card.status-error     { border-left-color: var(--danger); }
+.oc-subtask-card.status-interrupt { border-left-color: var(--warning); }
+.oc-subtask-card-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+.oc-subtask-card-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.oc-subtask-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.oc-subtask-detail-btn {
+    font-size: 11px;
+    padding: 2px 8px;
+    line-height: 1.5;
+}
+.oc-subtask-status-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-weight: 600;
+    line-height: 1.6;
+    flex-shrink: 0;
+}
+.oc-subtask-status-badge.completed { background: var(--success-bg); color: var(--success); }
+.oc-subtask-status-badge.running   { background: rgba(0,122,204,0.12); color: var(--accent); }
+.oc-subtask-status-badge.error     { background: var(--danger-bg); color: var(--danger); }
+.oc-subtask-status-badge.interrupt { background: rgba(204,167,0,0.12); color: var(--warning); }
+
+/* 主消息高亮动画 */
+.oc-message.highlight {
+    animation: oc-highlight-fade 2s ease-out;
+}
+@keyframes oc-highlight-fade {
+    0%   { background-color: var(--accent-ghost); }
+    100% { background-color: transparent; }
+}
+
+/* ==================== 子任务详情弹窗 ==================== */
+.subtask-modal {
+    width: 80vw;
+    min-width: 800px;
+    max-width: 1000px;
+    height: 85vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+.subtask-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.subtask-modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.subtask-status-badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+.subtask-status-badge[data-status="completed"] { background: var(--success-bg); color: var(--success); }
+.subtask-status-badge[data-status="running"]   { background: rgba(0,122,204,0.12); color: var(--accent); }
+.subtask-status-badge[data-status="error"]     { background: var(--danger-bg); color: var(--danger); }
+.subtask-status-badge[data-status="interrupt"] { background: rgba(204,167,0,0.12); color: var(--warning); }
 .oc-panel-actions {
     display: flex;
     align-items: center;
