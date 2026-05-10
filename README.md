@@ -1,13 +1,13 @@
 # OC Manager
 
-Wails v3 桌面应用，为 [OpenCode](https://github.com/anomalyco/opencode) 提供可视化管理界面。
+Wails v2 桌面应用，为 [OpenCode](https://github.com/anomalyco/opencode) 提供可视化管理界面。
 
 ## 一、项目概览
 
 | 维度          | 详情                                                       |
 | ------------- | ---------------------------------------------------------- |
 | **名称**      | OC Manager — OpenCode 可视化管理中心                       |
-| **框架**      | Wails v3 alpha（Go 后端 + WebView2 前端）                   |
+| **框架**      | Wails v2.12（Go 后端 + WebView2 前端）                     |
 | **语言**      | Go 1.25 + 原生 HTML/CSS/JS                                  |
 | **Go 源文件** | 14 个（4 个包 + main）                                     |
 | **代码规模**  | Go ~2700 行 / JS ~3800 行 / CSS ~2950 行 / HTML ~280 行    |
@@ -54,6 +54,7 @@ skill-manager/
 │   │   ├── theme.js         # 主题管理（深色/浅色）
 │   │   ├── style.css        # 样式表
 │   │   └── marked.min.js    # Markdown 渲染
+│   └── wailsjs/             # Wails 自动生成的 JS 绑定
 ├── build/
 │   └── bin/                 # 构建产物
 ├── go.mod / go.sum
@@ -116,17 +117,17 @@ main         → App（Wails 绑定门面）
 ### 前置条件
 
 - Go 1.21+
-- Wails 3 CLI：`go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.87`
+- Wails CLI：`go install github.com/wailsapp/wails/v2/cmd/wails@latest`
 - Windows 需要 WebView2 运行时（Win 10+ 默认已安装）
 
 ### 构建命令
 
 ```bash
-# 开发模式（当前项目前端为静态资源，任务会构建后运行）
-wails3 dev
+# 开发模式（热重载前端，Go 改动手动重启）
+wails dev
 
 # 生产构建
-wails3 build
+wails build
 
 # 仅构建 Go 后端（不嵌前端）
 go build ./...

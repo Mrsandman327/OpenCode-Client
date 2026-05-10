@@ -1,14 +1,11 @@
 {
-  "$schema": "https://wails.io/schemas/config.v3.json",
+  "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "oc-manager",
   "outputfilename": "oc-manager",
-  "frontend": {
-    "dir": "./frontend",
-    "install": "",
-    "build": "",
-    "dev": "",
-    "devServerUrl": "http://localhost:5173"
-  },
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "auto",
   "author": {
     "name": "OC Manager",
     "email": "oc-manager@local"

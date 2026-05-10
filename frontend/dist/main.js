@@ -251,11 +251,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Wails 服务就绪后检测服务状态；非 Wails 环境直接依靠初始加载。
-    apiEvents.on('app-ready', () => {
-        checkWebStatus();
-    });
-    checkWebStatus();
+    // Wails OnDomReady → 前端就绪后检测服务状态
+    if (window.runtime) {
+        window.runtime.EventsOn('app-ready', () => {
+            checkWebStatus();
+        });
+    }
 
     // 初始加载（非 Wails 环境）
     loadSkillsData();

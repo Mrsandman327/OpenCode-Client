@@ -1,73 +1,12 @@
 // ============================================================
 // OpenCode 管理中心 - Wails API 封装（含 mock 回退）
 // ============================================================
-// api 延迟绑定：Wails 就绪前脚本可能已执行，此时真实绑定不存在
+// api 延迟绑定：Wails 就绪前脚本可能已执行，此时 window.go 不存在
 // 因此每次调用时先检测真实 API，就绪后自动切换
-// Wails v3 绑定通过 <script type="module"> 导入并挂到 window.wailsBindings.App
-
-function getWailsBinding(prop) {
-    // Wails v3: 生成绑定导入到 window.wailsBindings.App
-    if (window.wailsBindings && window.wailsBindings.App && typeof window.wailsBindings.App[prop] === 'function') {
-        return window.wailsBindings.App[prop];
-    }
-    // Wails v2 回退
-    if (window.go && window.go.main && window.go.main.App && typeof window.go.main.App[prop] === 'function') {
-        return window.go.main.App[prop];
-    }
-    if (window.ocManager && window.ocManager.App && typeof window.ocManager.App[prop] === 'function') {
-        return window.ocManager.App[prop];
-    }
-    if (window.bindings && window.bindings.ocManager && window.bindings.ocManager.app && typeof window.bindings.ocManager.app[prop] === 'function') {
-        return window.bindings.ocManager.app[prop];
-    }
-    return null;
-}
-
-function isWailsRuntimeAvailable() {
-    // v3 绑定已就绪
-    if (window.wailsBindings && window.wailsBindings.App) {
-        return true;
-    }
-    // v2 回退
-    return Boolean(window.go || window.runtime || window.Wails || window.bindings || window.ocManager);
-}
-
-function missingWailsBinding(prop) {
-    return async function () {
-        var message = "Wails 绑定不可用: " + String(prop);
-        console.error(message);
-        throw new Error(message);
-    };
-}
-
-const apiEvents = {
-    on: function (eventName, callback) {
-        // Wails v3 事件
-        if (window.wails && window.wails.Events && window.wails.Events.On) {
-            return window.wails.Events.On(eventName, callback);
-        }
-        // Wails v2 事件
-        if (window.runtime && window.runtime.EventsOn) {
-            return window.runtime.EventsOn(eventName, callback);
-        }
-        if (window.Wails && window.Wails.Events && window.Wails.Events.On) {
-            return window.Wails.Events.On(eventName, callback);
-        }
-        if (window.Events && window.Events.On) {
-            return window.Events.On(eventName, callback);
-        }
-        return function () {};
-    }
-};
-
 const api = new Proxy({}, {
-    get: function (_, prop) {
-        var binding = getWailsBinding(prop);
-        if (binding) {
-            return binding;
-        }
-        if (isWailsRuntimeAvailable()) {
-            return missingWailsBinding(prop);
+    get(_, prop) {
+        if (window.go && window.go.main && window.go.main.App && window.go.main.App[prop]) {
+            return window.go.main.App[prop];
         }
         return mockApi[prop];
     }

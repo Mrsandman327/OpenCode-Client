@@ -11,54 +11,36 @@ import (
 	"oc-manager/service"
 	"oc-manager/skill"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
+	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App 是 Wails 应用的核心结构体，所有绑定到前端的方法都定义在此。
 type App struct {
-	app *application.App
+	ctx context.Context
 	sm  *skill.Manager
 }
 
 // NewApp 创建新的 App 实例。
-func NewApp(app *application.App) *App {
-	if app == nil {
-		panic("Wails 应用实例不能为空")
-	}
+func NewApp() *App {
 	return &App{
-		app: app,
-		sm:  skill.NewManager(),
+		sm: skill.NewManager(),
 	}
 }
 
-// ServiceStartup 在 Wails 服务启动时调用。
-func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
-	return nil
+// startup 在应用启动时调用
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
 }
 
-// ServiceShutdown 在应用关闭时调用，清理资源。
-func (a *App) ServiceShutdown() error {
+// domReady 在 DOM 加载完成后调用，通知前端开始初始化。
+func (a *App) domReady(ctx context.Context) {
+	wruntime.EventsEmit(a.ctx, "app-ready")
+}
+
+// shutdown 在应用关闭时调用，清理资源。
+func (a *App) shutdown(ctx context.Context) {
+	a.StopOpenCodeEvents()
 	a.StopOpenCodeWeb()
-	return nil
-}
-
-func (a *App) emitEvent(event string, data ...interface{}) {
-	if a.app == nil {
-		panic("Wails 应用实例不能为空")
-	}
-	a.app.Event.Emit(event, data...)
-}
-
-func (a *App) openDirectory(title, defaultDirectory string) (string, error) {
-	if a.app == nil {
-		return "", fmt.Errorf("Wails 应用实例不能为空")
-	}
-	return a.app.Dialog.OpenFile().
-		SetTitle(title).
-		SetDirectory(defaultDirectory).
-		CanChooseDirectories(true).
-		CanChooseFiles(false).
-		PromptForSingleSelection()
 }
 
 // ========== 技能管理 ==========
@@ -272,7 +254,7 @@ func (a *App) GetProjectTree(knownDirs string) string {
 
 // StartOpenCodeEvents 连接 opencode 全局 SSE。
 func (a *App) StartOpenCodeEvents() model.APIResult {
-	return service.StartOpenCodeEvents(a.emitEvent)
+	return service.StartOpenCodeEvents(a.ctx)
 }
 
 // StopOpenCodeEvents 停止 SSE 转发。
@@ -287,7 +269,7 @@ func (a *App) LaunchWindowsTerminal(mode, webURL, dir string) model.WebResult {
 
 // OpenDirectoryDialog 打开目录选择对话框。
 func (a *App) OpenDirectoryDialog() string {
-	return service.OpenDirectoryDialog(a.openDirectory)
+	return service.OpenDirectoryDialog(a.ctx)
 }
 
 // GetOpenCodeCommands 从 opencode serve 获取所有可用命令。

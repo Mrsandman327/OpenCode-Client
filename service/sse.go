@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
+	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"oc-manager/model"
 )
-
-type EventEmitter func(event string, data ...interface{})
 
 var (
 	eventMu   sync.Mutex
@@ -20,7 +20,7 @@ var (
 )
 
 // StartOpenCodeEvents 连接 opencode 全局 SSE，并通过 Wails 事件转发给前端。
-func StartOpenCodeEvents(emit EventEmitter) model.APIResult {
+func StartOpenCodeEvents(ctx context.Context) model.APIResult {
 	WebSessMu.Lock()
 	sess := WebSess
 	WebSessMu.Unlock()
@@ -40,12 +40,12 @@ func StartOpenCodeEvents(emit EventEmitter) model.APIResult {
 	go func() {
 		req, err := http.NewRequestWithContext(sseCtx, http.MethodGet, url, nil)
 		if err != nil {
-			emit("oc-event-error", err.Error())
+			wruntime.EventsEmit(ctx, "oc-event-error", err.Error())
 			return
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			emit("oc-event-error", err.Error())
+			wruntime.EventsEmit(ctx, "oc-event-error", err.Error())
 			return
 		}
 		defer resp.Body.Close()
@@ -56,11 +56,11 @@ func StartOpenCodeEvents(emit EventEmitter) model.APIResult {
 		for scanner.Scan() {
 			line := scanner.Text()
 			if strings.HasPrefix(line, "data:") {
-				emit("oc-event", strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+				wruntime.EventsEmit(ctx, "oc-event", strings.TrimSpace(strings.TrimPrefix(line, "data:")))
 			}
 		}
 		if err := scanner.Err(); err != nil && sseCtx.Err() == nil {
-			emit("oc-event-error", err.Error())
+			wruntime.EventsEmit(ctx, "oc-event-error", err.Error())
 		}
 	}()
 
