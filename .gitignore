@@ -10,6 +10,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+.sisyphus/
 
 # 日志
 *.log
