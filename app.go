@@ -109,11 +109,21 @@ func (a *App) Refresh() error {
 
 // GetModelConfig 读取所有 agent/category 的模型配置。
 func (a *App) GetModelConfig() ([]model.ModelEntry, error) {
-	cfg, _, comments, err := config.LoadConfig()
+	cfg, _, _, err := config.LoadConfig()
 	if err != nil {
 		return nil, err
 	}
-	return config.ConfigToEntries(cfg, comments), nil
+	descs, _ := config.LoadAgentDescriptions()
+	return config.ConfigToEntries(cfg, descs), nil
+}
+
+// GetAgentDescriptions 返回 agent/category 描述表。
+func (a *App) GetAgentDescriptions() map[string]string {
+	descs, err := config.LoadAgentDescriptions()
+	if err != nil {
+		return nil
+	}
+	return descs
 }
 
 // GetAvailableModels 通过 opencode models 获取所有可用模型。
@@ -127,10 +137,23 @@ func (a *App) RefreshAvailableModels() ([]string, error) {
 	return getAvailableModels()
 }
 
-// UpdateModels 批量更新模型配置并保存到 JSONC 文件。
+// UpdateModels 批量更新模型配置并保存到 JSONC 文件，同时将描述写入 agents-comments.json。
 func (a *App) UpdateModels(entries []model.ModelEntry) model.ModelSaveResult {
 	if err := config.SaveConfig(entries); err != nil {
 		return model.ModelSaveResult{Success: false, Error: err.Error()}
+	}
+	// 同步 key-comment 到描述文件
+	descEntries := make([]struct {
+		Key     string
+		Comment string
+	}, len(entries))
+	for i, e := range entries {
+		descEntries[i].Key = e.Key
+		descEntries[i].Comment = e.Comment
+	}
+	if err := config.ApplyDescriptions(descEntries); err != nil {
+		// 描述写入失败不影响主流程
+		fmt.Printf("写入描述文件失败: %v\n", err)
 	}
 	return model.ModelSaveResult{Success: true}
 }

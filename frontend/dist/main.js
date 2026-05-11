@@ -167,6 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }).length + originalEntries.filter(o => !modelEntries.find(e => sameModelEntry(e, o))).length;
 
         if (totalChanges === 0) {
+            currentSourceType = 'system';
+            hasUnsavedChanges = false;
+            updateSchemeStatus();
             showToast('没有需要保存的更改', 'info');
             return;
         }

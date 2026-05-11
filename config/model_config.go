@@ -53,10 +53,7 @@ func LoadConfig() (*model.OpenAgentConfig, string, map[string]string, error) {
 		return nil, rawText, nil, fmt.Errorf("解析配置失败: %w", err)
 	}
 
-	// 提取注释（key → comment text）
-	comments := extractComments(rawText)
-
-	return &config, rawText, comments, nil
+	return &config, rawText, nil, nil
 }
 
 func parseModelConfigSections(cleaned string) (model.OpenAgentConfig, error) {
@@ -298,7 +295,7 @@ func insertBeforeSectionClose(lines []string, closeIndex int, entry model.ModelE
 	indent := leadingWhitespace(lines[closeIndex]) + "  "
 	newEntry := []string{
 		fmt.Sprintf(`%s%q: {`, indent, entry.Key),
-		fmt.Sprintf(`%s  "model": %q%s`, indent, entry.Model, formatInlineComment(entry.Comment)),
+		fmt.Sprintf(`%s  "model": %q`, indent, entry.Model),
 		fmt.Sprintf(`%s}`, indent),
 	}
 
@@ -655,7 +652,8 @@ func saveConfigRaw(cfg *model.OpenAgentConfig) error {
 // ========== 配置转前端结构 ==========
 
 // ConfigToEntries 将 OpenAgentConfig 转为前端展示用的 ModelEntry 列表。
-func ConfigToEntries(config *model.OpenAgentConfig, comments map[string]string) []model.ModelEntry {
+// descriptions: key -> 描述文本（从 agents-comments.json 加载）。
+func ConfigToEntries(config *model.OpenAgentConfig, descriptions map[string]string) []model.ModelEntry {
 	entries := make([]model.ModelEntry, 0)
 	sectionNames := make([]string, 0, len(*config))
 	for section := range *config {
@@ -671,13 +669,15 @@ func ConfigToEntries(config *model.OpenAgentConfig, comments map[string]string) 
 		sort.Strings(keys)
 		for _, key := range keys {
 			mc := (*config)[section][key]
-			comment := comments[key]
+			desc := ""
+			if descriptions != nil {
+				desc = descriptions[key]
+			}
 			entries = append(entries, model.ModelEntry{
 				Key:     key,
 				Type:    section,
 				Model:   mc.Model,
-				Label:   deriveLabel(comment),
-				Comment: comment,
+				Comment: desc,
 			})
 		}
 	}
@@ -685,71 +685,3 @@ func ConfigToEntries(config *model.OpenAgentConfig, comments map[string]string) 
 	return entries
 }
 
-// ========== 注释提取 ==========
-
-// extractComments 从原始 JSONC 文本中提取每个 key 对应的行内注释。
-func extractComments(rawText string) map[string]string {
-	lines := strings.Split(rawText, "\n")
-	comments := make(map[string]string)
-
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		// 匹配 "key": { 模式（block 开始）
-		if idx := strings.Index(trimmed, `":`); idx > 0 && strings.Contains(trimmed[idx:], "{") {
-			key := strings.Trim(trimmed[:idx], `" `)
-			// 在当前行及后续 4 行中查找注释
-			for j := i; j < len(lines) && j < i+5; j++ {
-				c := extractInlineComment(lines[j])
-				if c != "" {
-					comments[key] = c
-					break
-				}
-				// 遇到 } 且没有 {（即纯闭合行）则 block 结束
-				if strings.Contains(lines[j], "}") && !strings.Contains(lines[j], "{") {
-					break
-				}
-			}
-		}
-	}
-	return comments
-}
-
-// extractInlineComment 提取一行中 // 后的注释文本。
-func extractInlineComment(line string) string {
-	idx := strings.Index(line, "//")
-	if idx < 0 {
-		return ""
-	}
-	before := line[:idx]
-	// 确保 // 在引号外（偶数个引号）
-	if strings.Count(before, `"`)%2 != 0 {
-		return ""
-	}
-	return strings.TrimSpace(line[idx+2:])
-}
-
-// deriveLabel 从注释文本中提取 ≤5 字的中文简称。
-// 策略：按中文标点截断取第一段 → 超出5字取前5字。
-func deriveLabel(comment string) string {
-	if comment == "" {
-		return ""
-	}
-
-	// 尝试在分隔符处截断
-	for _, sep := range []string{"：", ":", "，", "、", "；", "；", "——"} {
-		if idx := strings.Index(comment, sep); idx > 0 {
-			first := strings.TrimSpace(comment[:idx])
-			runes := []rune(first)
-			if len(runes) <= 5 && len(runes) > 0 {
-				return first
-			}
-		}
-	}
-
-	// 无分隔符或第一段仍超长：取前5字符
-	runes := []rune(comment)
-	if len(runes) > 5 {
-		return string(runes[:5])
-	}
-	return comment
-}

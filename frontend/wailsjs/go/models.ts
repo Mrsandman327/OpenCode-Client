@@ -91,7 +91,6 @@ export namespace model {
 	    key: string;
 	    type: string;
 	    model: string;
-	    label: string;
 	    comment: string;
 	
 	    static createFrom(source: any = {}) {
@@ -103,7 +102,6 @@ export namespace model {
 	        this.key = source["key"];
 	        this.type = source["type"];
 	        this.model = source["model"];
-	        this.label = source["label"];
 	        this.comment = source["comment"];
 	    }
 	}

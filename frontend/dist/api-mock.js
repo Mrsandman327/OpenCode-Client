@@ -160,11 +160,11 @@ const mockApi = (() => {
         StopOpenCodeEvents: async () => ({ success: true }),
         // OMO 配置
         GetModelConfig: async () => [
-            { key: 'sisyphus', type: 'agent', model: 'deepseek/deepseek-v4-pro', label: '执行者', comment: '执行者：负责执行具体任务' },
-            { key: 'oracle', type: 'agent', model: 'deepseek/deepseek-v4-flash', label: '分析师', comment: '分析师：代码质量审查与安全分析' },
-            { key: 'librarian', type: 'agent', model: 'deepseek/deepseek-v4-flash', label: '搜索员', comment: '搜索员：代码库搜索与知识检索' },
-            { key: 'quick', type: 'category', model: 'deepseek/deepseek-v4-flash', label: '快速', comment: '快速：简单问答和日常快速任务' },
-            { key: 'visual-engineering', type: 'category', model: 'deepseek/deepseek-v4-flash', label: '视觉', comment: '视觉工程：UI设计和前端实现' },
+            { key: 'sisyphus', type: 'agent', model: 'deepseek/deepseek-v4-pro', comment: '执行者：负责执行具体任务' },
+            { key: 'oracle', type: 'agent', model: 'deepseek/deepseek-v4-flash', comment: '分析师：代码质量审查与安全分析' },
+            { key: 'librarian', type: 'agent', model: 'deepseek/deepseek-v4-flash', comment: '搜索员：代码库搜索与知识检索' },
+            { key: 'quick', type: 'category', model: 'deepseek/deepseek-v4-flash', comment: '快速：简单问答和日常快速任务' },
+            { key: 'visual-engineering', type: 'category', model: 'deepseek/deepseek-v4-flash', comment: '视觉工程：UI设计和前端实现' },
         ],
         GetAvailableModels: async () => [
             'deepseek/deepseek-chat', 'deepseek/deepseek-reasoner',

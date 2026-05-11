@@ -9,7 +9,6 @@ let originalEntries = [];
 let modelSectionsLoaded = false;
 
 let fullConfigJson = {};
-let fullConfigRaw = '';
 let workingConfigJson = {};
 
 // ========== 方案管理状态 ==========
@@ -31,18 +30,22 @@ async function loadModelConfig() {
             api.GetConfigPath(),
         ]);
 
-        fullConfigRaw = fullConfig || '';
         fullConfigJson = JSON.parse(stripJsonComments(fullConfig) || '{}');
         workingConfigJson = JSON.parse(JSON.stringify(fullConfigJson || {}));
 
+        // 从后端加载 agent/category 描述表
+        let descMap = {};
+        if (typeof api.GetAgentDescriptions === 'function') {
+            try { descMap = await api.GetAgentDescriptions() || {}; } catch (_) {}
+        }
+
         modelEntries = [];
         modelTypes = [];
-        const commentMap = extractComments(fullConfigRaw);
         for (const [type, section] of Object.entries(workingConfigJson)) {
             if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
             modelTypes.push(type);
             for (const [key, val] of Object.entries(section)) {
-                modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: commentMap[key] || '' });
+                modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: descMap[key] || '' });
             }
         }
         originalEntries = modelEntries.map(e => ({ ...e }));
@@ -107,30 +110,6 @@ function isEmptyModelSectionName(type) {
 function stripJsonComments(jsonStr) {
     if (jsonStr == null) return '';
     return String(jsonStr).replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-}
-
-function extractComments(text) {
-    const map = {};
-    const lines = text.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const keyMatch = line.match(/"([^"]+)"\s*:\s*\{/);
-        if (!keyMatch) continue;
-
-        const key = keyMatch[1];
-        for (let j = i; j < lines.length && j < i + 5; j++) {
-            const cmtIdx = lines[j].indexOf('//');
-            if (cmtIdx >= 0) {
-                const before = lines[j].substring(0, cmtIdx);
-                if ((before.match(/"/g) || []).length % 2 === 0) {
-                    map[key] = lines[j].substring(cmtIdx + 2).trim();
-                    break;
-                }
-            }
-            if (lines[j].includes('}') && !lines[j].includes('{')) break;
-        }
-    }
-    return map;
 }
 
 // ============================
@@ -462,11 +441,11 @@ async function loadSchemeIntoEditor(name) {
         const data = JSON.parse(stripJsonComments(content));
         workingConfigJson = JSON.parse(JSON.stringify(data || {}));
         rebuildModelEntriesFromFull(workingConfigJson);
-        renderModelConfig();
+        await applyDescriptions();
         currentSourceType = 'scheme';
         currentSourceName = name;
-        hasUnsavedChanges = false;
-        originalState = JSON.stringify(data);
+        renderModelConfig();
+        checkUnsavedChanges();
         updateSchemeStatus();
     } catch (e) {
         showToast('方案加载失败: ' + (e.message || e), 'error');
@@ -493,15 +472,25 @@ function buildModelConfig() {
 function rebuildModelEntriesFromFull(data) {
     modelEntries = [];
     modelTypes = [];
-    const commentMap = {};
     for (const [type, section] of Object.entries(data || {})) {
         if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
         modelTypes.push(type);
         for (const [key, val] of Object.entries(section)) {
-            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: commentMap[key] || '' });
+            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: '' });
         }
     }
-    originalEntries = modelEntries.map(e => ({ ...e }));
+}
+
+// 从后端加载描述表并应用到当前 modelEntries
+async function applyDescriptions() {
+    if (typeof api.GetAgentDescriptions !== 'function') return;
+    try {
+        const descs = await api.GetAgentDescriptions();
+        if (!descs) return;
+        modelEntries.forEach(e => {
+            if (!e.comment && descs[e.key]) e.comment = descs[e.key];
+        });
+    } catch (_) { /* 非关键路径 */ }
 }
 
 // 从外部数据渲染（用于方案导入/加载，不改变原始配置引用）
@@ -536,11 +525,11 @@ async function handleSchemeImport() {
             const data = JSON.parse(stripJsonComments(text));
             workingConfigJson = JSON.parse(JSON.stringify(data || {}));
             rebuildModelEntriesFromFull(workingConfigJson);
-            renderModelConfig();
+            await applyDescriptions();
             currentSourceType = 'imported';
             currentSourceName = '外部: ' + file.name.replace(/\.(jsonc|json)$/i, '');
-            hasUnsavedChanges = false;
-            originalState = JSON.stringify(data);
+            renderModelConfig();
+            checkUnsavedChanges();
             updateSchemeStatus();
         } catch (err) {
             showToast('导入失败: 文件格式不正确或内容不可解析', 'error');

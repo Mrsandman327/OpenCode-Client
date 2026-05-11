@@ -20,6 +20,8 @@ export function DeleteScheme(arg1:string):Promise<void>;
 
 export function ExportConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function GetAgentDescriptions():Promise<Record<string, string>>;
+
 export function GetAvailableModels():Promise<Array<string>>;
 
 export function GetCommands():Promise<Array<model.CmdGroup>>;

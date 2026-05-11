@@ -46,7 +46,6 @@ type ModelEntry struct {
 	Key     string `json:"key"`
 	Type    string `json:"type"`
 	Model   string `json:"model"`
-	Label   string `json:"label"`
 	Comment string `json:"comment"`
 }
 

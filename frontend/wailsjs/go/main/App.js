@@ -38,6 +38,10 @@ export function ExportConfig(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExportConfig'](arg1, arg2, arg3);
 }
 
+export function GetAgentDescriptions() {
+  return window['go']['main']['App']['GetAgentDescriptions']();
+}
+
 export function GetAvailableModels() {
   return window['go']['main']['App']['GetAvailableModels']();
 }

@@ -22,7 +22,7 @@ func SchemeDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("获取工作目录失败: %w", err)
 	}
-	return filepath.Join(wd, ".sisyphus", "omo-schemes"), nil
+	return filepath.Join(wd, "./configs", "omo-schemes"), nil
 }
 
 // EnsureSchemeDir 确保方案目录存在，返回其绝对路径。
