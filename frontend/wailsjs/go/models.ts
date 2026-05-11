@@ -245,6 +245,22 @@ export namespace model {
 	        this.error = source["error"];
 	    }
 	}
+	export class SchemeInfo {
+	    name: string;
+	    fileName: string;
+	    fullPath: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SchemeInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.fileName = source["fileName"];
+	        this.fullPath = source["fullPath"];
+	    }
+	}
 	export class SessionInfo {
 	    id: string;
 	    title: string;

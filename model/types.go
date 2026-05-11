@@ -178,3 +178,12 @@ type CmdGroup struct {
 	Cmds  []CmdInfo `json:"cmds"`
 	IsTUI bool      `json:"isTui"`
 }
+
+// ========== 方案管理相关 ==========
+
+// SchemeInfo 方案文件信息。
+type SchemeInfo struct {
+	Name     string `json:"name"`
+	FileName string `json:"fileName"`
+	FullPath string `json:"fullPath"`
+}

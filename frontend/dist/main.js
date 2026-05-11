@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================
 
     // 刷新模型列表
-    document.getElementById('btnRefreshModels').addEventListener('click', async () => {
+    document.getElementById('btnRefreshModels')?.addEventListener('click', async () => {
         const btn = document.getElementById('btnRefreshModels');
         btn.disabled = true;
         btn.textContent = '⏳ 刷新中...';
@@ -113,6 +113,49 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('btnAddModelType').addEventListener('click', showAddTypeModal);
+
+    // ========================
+    // 方案管理事件绑定
+    // ========================
+
+    // 方案下拉框切换
+    document.getElementById('schemeSelect')?.addEventListener('change', async (e) => {
+        const name = e.target.value;
+        if (!name) return;
+        if (typeof handleSchemeSwitch === 'function') {
+            await handleSchemeSwitch(name);
+        }
+    });
+
+    // 导入方案
+    document.getElementById('btnSchemeImport')?.addEventListener('click', async () => {
+        if (typeof handleSchemeImport === 'function') {
+            await handleSchemeImport();
+        }
+    });
+
+    // 导出方案
+    document.getElementById('btnSchemeExport')?.addEventListener('click', async () => {
+        if (typeof handleSchemeExport === 'function') {
+            await handleSchemeExport();
+        }
+    });
+
+    // 入库（保存到方案目录）
+    document.getElementById('btnSchemeSave')?.addEventListener('click', async () => {
+        if (typeof handleSchemeSave === 'function') {
+            await handleSchemeSave();
+        }
+    });
+
+    // 打开方案目录
+    document.getElementById('btnOpenSchemeDir')?.addEventListener('click', async () => {
+        try {
+            await api.OpenSchemeDir();
+        } catch (e) {
+            showToast('打开方案目录失败: ' + (e.message || e), 'error');
+        }
+    });
 
     // 保存 OMO 配置
     document.getElementById('modelActions').addEventListener('click', async (e) => {
@@ -138,6 +181,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 originalEntries = modelEntries.map(e => ({ ...e }));
                 updateSaveStatus();
                 showToast(`已保存 ${totalChanges} 项更改`, 'success');
+                if (typeof checkUnsavedChanges === 'function') {
+                    originalState = JSON.stringify(buildModelConfig());
+                    currentSourceType = 'system';
+                    hasUnsavedChanges = false;
+                    updateSchemeStatus();
+                }
                 renderModelConfig();
             } else {
                 showToast('保存失败: ' + (result.error || '未知错误'), 'error');

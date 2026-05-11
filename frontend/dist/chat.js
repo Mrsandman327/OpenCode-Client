@@ -2502,7 +2502,7 @@ function renderSubtaskCard(s, idx) {
     return '<div class="oc-subtask-card ' + statusClass + '" data-index="' + idx + '" data-parent-message-id="' + escapeHtml(s.parentMessageId) + '" data-child-session-id="' + escapeHtml(s.childSessionId || '') + '">'
         + '<div style="display:flex;justify-content:space-between;align-items:center">'
         + '<span class="oc-subtask-card-title" title="' + escapeHtml(s.title) + '">' + escapeHtml(s.title) + '</span>'
-        + '<span class="oc-subtask-status-badge ' + s.status + '">' + statusLabel + '</span>'
+        + '<span class="oc-subtask-status-badge status-' + escapeHtml(s.status || 'pending') + '">' + statusLabel + '</span>'
         + '</div>'
         + '<div class="oc-subtask-card-meta">' + escapeHtml(s.agent) + ' · ' + escapeHtml(s.model) + '</div>'
         + '<div class="oc-subtask-card-footer">'

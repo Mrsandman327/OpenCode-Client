@@ -210,6 +210,55 @@ func (a *App) DeleteProvider(key string) model.SaveResult {
 	return model.SaveResult{Success: true}
 }
 
+// ========== 方案管理 ==========
+
+// GetSchemeDir 返回方案目录的绝对路径。
+func (a *App) GetSchemeDir() string {
+	dir, err := config.SchemeDir()
+	if err != nil {
+		return ""
+	}
+	return dir
+}
+
+// ListSchemes 扫描方案目录并返回所有方案文件信息。
+func (a *App) ListSchemes() []model.SchemeInfo {
+	schemes, err := config.ListSchemes()
+	if err != nil {
+		return []model.SchemeInfo{}
+	}
+	return schemes
+}
+
+// ReadScheme 读取指定方案文件的原始内容。
+func (a *App) ReadScheme(name string) (string, error) {
+	return config.ReadScheme(name)
+}
+
+// SaveScheme 将内容保存到方案文件（原子写入，JSONC 验证）。
+func (a *App) SaveScheme(name string, content string) error {
+	return config.SaveScheme(name, content)
+}
+
+// DeleteScheme 删除指定方案文件。
+func (a *App) DeleteScheme(name string) error {
+	return config.DeleteScheme(name)
+}
+
+// OpenSchemeDir 在文件资源管理器中打开方案目录。
+func (a *App) OpenSchemeDir() error {
+	dir, err := config.EnsureSchemeDir()
+	if err != nil {
+		return err
+	}
+	return a.OpenDir(dir)
+}
+
+// ExportConfig 将配置内容导出到指定目录。
+func (a *App) ExportConfig(dir, filename, content string) (string, error) {
+	return service.ExportConfig(dir, filename, content)
+}
+
 // ========== Web 服务（委托到 service 包）==========
 
 // StartOpenCodeWeb 启动 opencode serve。
@@ -303,6 +352,7 @@ type (
 	CmdGroup        = model.CmdGroup
 	CmdPaletteItem  = model.CmdPaletteItem
 	SessionInfo     = model.SessionInfo
+	SchemeInfo      = model.SchemeInfo
 )
 
 // String 实现 Stringer 接口，便于调试。

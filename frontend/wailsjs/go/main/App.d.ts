@@ -16,6 +16,10 @@ export function DeleteModelType(arg1:string):Promise<model.ModelSaveResult>;
 
 export function DeleteProvider(arg1:string):Promise<model.SaveResult>;
 
+export function DeleteScheme(arg1:string):Promise<void>;
+
+export function ExportConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function GetAvailableModels():Promise<Array<string>>;
 
 export function GetCommands():Promise<Array<model.CmdGroup>>;
@@ -34,6 +38,8 @@ export function GetProviderConfigPath():Promise<string>;
 
 export function GetProviders():Promise<Array<model.ProviderInfo>>;
 
+export function GetSchemeDir():Promise<string>;
+
 export function GetSessions():Promise<Array<model.SessionInfo>>;
 
 export function GetSkills():Promise<Array<model.SkillInfo>>;
@@ -46,11 +52,17 @@ export function GetWebStatus(arg1:string,arg2:number):Promise<model.WebResult>;
 
 export function LaunchWindowsTerminal(arg1:string,arg2:string,arg3:string):Promise<model.WebResult>;
 
+export function ListSchemes():Promise<Array<model.SchemeInfo>>;
+
 export function OpenCodeAPI(arg1:string,arg2:string,arg3:string):Promise<model.APIResult>;
 
 export function OpenDir(arg1:string):Promise<void>;
 
 export function OpenDirectoryDialog():Promise<string>;
+
+export function OpenSchemeDir():Promise<void>;
+
+export function ReadScheme(arg1:string):Promise<string>;
 
 export function ReadSkillContent(arg1:string):Promise<string>;
 
@@ -63,6 +75,8 @@ export function RejectQuestion(arg1:string):Promise<model.APIResult>;
 export function SaveFullConfig(arg1:string):Promise<model.SaveResult>;
 
 export function SaveProvider(arg1:model.ProviderSave):Promise<model.SaveResult>;
+
+export function SaveScheme(arg1:string,arg2:string):Promise<void>;
 
 export function SaveSkillContent(arg1:string,arg2:string):Promise<void>;
 

@@ -10,6 +10,15 @@ let modelSectionsLoaded = false;
 
 let fullConfigJson = {};
 let fullConfigRaw = '';
+let workingConfigJson = {};
+
+// ========== 方案管理状态 ==========
+let schemeDir = '';
+let schemeList = [];
+let currentSourceType = '';   // 'system' | 'imported' | 'scheme' | ''
+let currentSourceName = '';   // display name
+let hasUnsavedChanges = false;
+let originalState = '';       // JSON serialized comparison baseline
 
 async function loadModelConfig() {
     const container = document.getElementById('modelConfig');
@@ -24,11 +33,12 @@ async function loadModelConfig() {
 
         fullConfigRaw = fullConfig || '';
         fullConfigJson = JSON.parse(stripJsonComments(fullConfig) || '{}');
+        workingConfigJson = JSON.parse(JSON.stringify(fullConfigJson || {}));
 
         modelEntries = [];
         modelTypes = [];
         const commentMap = extractComments(fullConfigRaw);
-        for (const [type, section] of Object.entries(fullConfigJson)) {
+        for (const [type, section] of Object.entries(workingConfigJson)) {
             if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
             modelTypes.push(type);
             for (const [key, val] of Object.entries(section)) {
@@ -38,7 +48,21 @@ async function loadModelConfig() {
         originalEntries = modelEntries.map(e => ({ ...e }));
 
         document.getElementById('configPath').textContent = confPath || '未知';
-        renderModelConfig();
+        const configPathInfo = document.getElementById('omoConfigPath');
+        if (configPathInfo) configPathInfo.textContent = confPath || '未知';
+    renderModelConfig();
+
+    // 初始化方案状态
+        originalState = JSON.stringify(buildModelConfig());
+        currentSourceType = 'system';
+        currentSourceName = '';
+        hasUnsavedChanges = false;
+        updateSchemeStatus();
+        initSchemes().then(() => {
+            document.getElementById('omoSchemeDir').textContent = schemeDir || '未知';
+            updateSchemeDropdown();
+        });
+
         // 后台尝试加载模型列表，不阻塞页面
         api.GetAvailableModels().then(function(models) {
             if (models && models.length) {
@@ -122,7 +146,10 @@ function renderModelConfig() {
 
     if (modelTypes.length === 0) {
         container.innerHTML = '<div class="empty"><p>📭 未找到OMO 配置类型</p><p class="empty-hint">点击底部"添加类型"创建 agents、categories 等分组</p></div>';
+        const bb = document.getElementById('omoBatchBar');
+        if (bb) bb.innerHTML = '';
         updateSaveStatus();
+        checkUnsavedChanges();
         return;
     }
 
@@ -136,7 +163,11 @@ function renderModelConfig() {
         </select>
         <button class="btn btn-sm" id="btnApplyBatch">应用</button>
     `;
-    container.appendChild(bar);
+    const batchBar = document.getElementById('omoBatchBar');
+    if (batchBar) {
+        batchBar.innerHTML = '';
+        batchBar.appendChild(bar);
+    }
 
     document.getElementById('selectAllModels').addEventListener('change', e => {
         document.querySelectorAll('.model-check').forEach(cb => cb.checked = e.target.checked);
@@ -146,10 +177,17 @@ function renderModelConfig() {
         if (!model) return;
         document.querySelectorAll('.model-check:checked').forEach(cb => {
             const entry = modelEntries.find(e => e.id === cb.dataset.id);
-            if (entry) entry.model = model;
+            if (entry) {
+                entry.model = model;
+                // 同步写回 workingConfigJson
+                if (!workingConfigJson[entry.type]) workingConfigJson[entry.type] = {};
+                if (!workingConfigJson[entry.type][entry.key]) workingConfigJson[entry.type][entry.key] = {};
+                workingConfigJson[entry.type][entry.key].model = model;
+            }
         });
         renderModelConfig();
         updateSaveStatus();
+        checkUnsavedChanges();
     });
 
     modelTypes.forEach(type => {
@@ -160,11 +198,19 @@ function renderModelConfig() {
     container.querySelectorAll('.model-select').forEach(select => {
         select.addEventListener('change', e => {
             const entry = modelEntries.find(en => en.id === e.target.dataset.id);
-            if (entry) { entry.model = e.target.value; updateSaveStatus(); }
+            if (entry) {
+                entry.model = e.target.value;
+                // 同步写回 workingConfigJson
+                if (!workingConfigJson[entry.type]) workingConfigJson[entry.type] = {};
+                if (!workingConfigJson[entry.type][entry.key]) workingConfigJson[entry.type][entry.key] = {};
+                workingConfigJson[entry.type][entry.key].model = entry.model;
+                updateSaveStatus(); checkUnsavedChanges();
+            }
         });
     });
 
     updateSaveStatus();
+    checkUnsavedChanges();
 }
 
 function modelTypeTitle(type) {
@@ -258,8 +304,12 @@ function createModelGroup(title, entries, entryType) {
         delBtn.addEventListener('click', () => {
             if (!confirm(`确定删除 ${entry.key}?`)) return;
             modelEntries = modelEntries.filter(e => !sameModelEntry(e, entry));
+            if (workingConfigJson[entry.type]) {
+                delete workingConfigJson[entry.type][entry.key];
+            }
             renderModelConfig();
             updateSaveStatus();
+            checkUnsavedChanges();
             showToast(`已标记删除 ${entry.key}（点击保存生效）`, 'info');
         });
 
@@ -304,7 +354,9 @@ async function deleteModelType(entryType, entryCount) {
     modelEntries = modelEntries.filter(entry => entry.type !== entryType);
     originalEntries = originalEntries.filter(entry => entry.type !== entryType);
     delete fullConfigJson[entryType];
+    delete workingConfigJson[entryType];
     renderModelConfig();
+    checkUnsavedChanges();
     showToast(`已删除类型 ${entryType}`, 'success');
 }
 
@@ -332,6 +384,7 @@ function showAddTypeModal() {
         fullConfigJson[type] = {};
         overlay.remove();
         renderModelConfig();
+        checkUnsavedChanges();
         showToast(`已添加类型 ${type}`, 'success');
     });
 }
@@ -359,9 +412,12 @@ function showAddEntryModal(entryType) {
         if (!key) { showToast('Key 不能为空', 'error'); return; }
         if (modelEntries.find(e => e.type === entryType && e.key === key)) { showToast('当前类型下 Key 已存在', 'error'); return; }
         modelEntries.push({ id: modelEntryId(entryType, key), key, type: entryType, model: model || 'deepseek-v4-flash', comment });
+        if (!workingConfigJson[entryType]) workingConfigJson[entryType] = {};
+        workingConfigJson[entryType][key] = { model: model || 'deepseek-v4-flash' };
         overlay.remove();
         renderModelConfig();
         updateSaveStatus();
+        checkUnsavedChanges();
         showToast(`已添加 ${key}（点击保存生效）`, 'info');
     });
 }
@@ -382,4 +438,229 @@ function updateSaveStatus() {
         status.textContent = '已是最新';
         status.className = 'save-status';
     }
+}
+
+// ============================================================
+// 方案管理
+// ============================================================
+
+// ========== 方案初始化 ==========
+async function initSchemes() {
+    try {
+        schemeDir = await api.GetSchemeDir();
+        schemeList = await api.ListSchemes() || [];
+    } catch (e) {
+        schemeDir = '';
+        schemeList = [];
+    }
+}
+
+// ========== 方案数据加载 ==========
+async function loadSchemeIntoEditor(name) {
+    try {
+        const content = await api.ReadScheme(name);
+        const data = JSON.parse(stripJsonComments(content));
+        workingConfigJson = JSON.parse(JSON.stringify(data || {}));
+        rebuildModelEntriesFromFull(workingConfigJson);
+        renderModelConfig();
+        currentSourceType = 'scheme';
+        currentSourceName = name;
+        hasUnsavedChanges = false;
+        originalState = JSON.stringify(data);
+        updateSchemeStatus();
+    } catch (e) {
+        showToast('方案加载失败: ' + (e.message || e), 'error');
+    }
+}
+
+function checkUnsavedChanges() {
+    // 每次模型条目变更后调用
+    const current = JSON.stringify(buildModelConfig());
+    hasUnsavedChanges = current !== originalState;
+    updateSchemeStatus();
+}
+
+function buildModelConfig() {
+    const map = {};
+    modelEntries.forEach(e => {
+        if (!map[e.type]) map[e.type] = {};
+        map[e.type][e.key] = { model: e.model };
+    });
+    return map;
+}
+
+// 从 workingConfigJson 重建编辑条目（不调用 renderModelConfig）
+function rebuildModelEntriesFromFull(data) {
+    modelEntries = [];
+    modelTypes = [];
+    const commentMap = {};
+    for (const [type, section] of Object.entries(data || {})) {
+        if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
+        modelTypes.push(type);
+        for (const [key, val] of Object.entries(section)) {
+            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: commentMap[key] || '' });
+        }
+    }
+    originalEntries = modelEntries.map(e => ({ ...e }));
+}
+
+// 从外部数据渲染（用于方案导入/加载，不改变原始配置引用）
+function renderModelConfigFromData(data) {
+    modelEntries = [];
+    modelTypes = [];
+    const commentMap = {}; // 方案文件无注释映射
+    for (const [type, section] of Object.entries(data)) {
+        if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
+        modelTypes.push(type);
+        for (const [key, val] of Object.entries(section)) {
+            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: '' });
+        }
+    }
+    originalEntries = modelEntries.map(e => ({ ...e }));
+    renderModelConfig();
+}
+
+// ========== 方案交互处理 ==========
+async function handleSchemeImport() {
+    if (hasUnsavedChanges) {
+        if (!confirm('当前编辑区有未保存修改，继续导入将覆盖当前内容。是否继续？')) return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.jsonc,.json';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const data = JSON.parse(stripJsonComments(text));
+            workingConfigJson = JSON.parse(JSON.stringify(data || {}));
+            rebuildModelEntriesFromFull(workingConfigJson);
+            renderModelConfig();
+            currentSourceType = 'imported';
+            currentSourceName = '外部: ' + file.name.replace(/\.(jsonc|json)$/i, '');
+            hasUnsavedChanges = false;
+            originalState = JSON.stringify(data);
+            updateSchemeStatus();
+        } catch (err) {
+            showToast('导入失败: 文件格式不正确或内容不可解析', 'error');
+        }
+    };
+    input.click();
+}
+
+async function handleSchemeExport() {
+    const name = prompt('请输入导出文件名：', 'oh-my-openagent.jsonc');
+    if (!name) return;
+    // 弹出目录选择对话框
+    const dir = await api.OpenDirectoryDialog();
+    if (!dir) return;
+    // 使用 workingConfigJson 输出完整结构
+    const content = JSON.stringify(workingConfigJson, null, 2);
+    try {
+        const savedPath = await api.ExportConfig(dir, name, content);
+        showToast('已导出: ' + savedPath, 'success');
+    } catch (e) {
+        showToast('导出失败: ' + (e.message || e), 'error');
+    }
+}
+
+async function handleSchemeSave() {
+    const name = prompt('请输入方案名称：');
+    if (!name) return;
+    if (/[\\/:*?"<>|]/.test(name)) {
+        showToast('方案名包含非法字符', 'error');
+        return;
+    }
+    try {
+        const content = JSON.stringify(workingConfigJson, null, 2);
+        await api.SaveScheme(name, content);
+        await initSchemes();
+        showToast('已保存到方案目录: ' + name, 'success');
+        updateSchemeDropdown();
+    } catch (e) {
+        showToast('保存到方案目录失败: ' + (e.message || e), 'error');
+    }
+}
+
+async function handleSchemeSwitch(name) {
+    if (!name) return;
+    if (hasUnsavedChanges) {
+        if (!confirm('当前编辑区有未保存修改，切换方案将覆盖当前内容。是否继续？')) return;
+    }
+    await loadSchemeIntoEditor(name);
+    updateSchemeStatus();
+    showToast('已加载方案: ' + name, 'success');
+}
+
+async function handleSchemeApply() {
+    // 保存当前编辑内容到实际配置文件
+    const totalChanges = modelEntries.filter(e => {
+        const orig = originalEntries.find(o => sameModelEntry(o, e));
+        return !orig || orig.model !== e.model;
+    }).length + originalEntries.filter(o => !modelEntries.find(e => sameModelEntry(e, o))).length;
+
+    if (totalChanges === 0) {
+        showToast('没有需要保存的更改', 'info');
+        return;
+    }
+
+    try {
+        const result = await api.UpdateModels(modelEntries);
+        if (result.success) {
+            originalEntries = modelEntries.map(e => ({ ...e }));
+            originalState = JSON.stringify(buildModelConfig());
+            currentSourceType = 'system';
+            currentSourceName = '';
+            hasUnsavedChanges = false;
+            updateSaveStatus();
+            updateSchemeStatus();
+            showToast('已保存并应用配置', 'success');
+        } else {
+            showToast('保存失败: ' + (result.error || '未知错误'), 'error');
+        }
+    } catch (err) {
+        showToast('保存失败: ' + (err.message || err), 'error');
+    }
+}
+
+// ========== 方案 UI 更新 ==========
+function updateSchemeStatus() {
+    const bar = document.getElementById('omoSchemeStatus');
+    if (!bar) return;
+    if (currentSourceType === 'system' && !hasUnsavedChanges) {
+        bar.textContent = '当前配置已应用 ✓';
+        bar.style.background = 'transparent';
+        return;
+    }
+    if (currentSourceType === 'imported' && !hasUnsavedChanges) {
+        bar.textContent = '已导入外部方案：' + currentSourceName + '，当前仅加载到编辑区';
+        bar.style.background = 'var(--accent-ghost)';
+        return;
+    }
+    if (currentSourceType === 'scheme' && !hasUnsavedChanges) {
+        bar.textContent = '当前已加载方案：' + currentSourceName + '，尚未应用';
+        bar.style.background = 'var(--accent-ghost)';
+        return;
+    }
+    if (hasUnsavedChanges) {
+        bar.textContent = '当前编辑内容已修改，尚未保存并应用';
+        bar.style.background = 'var(--accent-ghost)';
+        return;
+    }
+    bar.textContent = '';
+    bar.style.background = 'transparent';
+}
+
+function updateSchemeDropdown() {
+    const sel = document.getElementById('schemeSelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">' + (schemeList.length ? '请选择方案' : '（无可用方案）') + '</option>';
+    schemeList.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.name;
+        opt.textContent = s.name;
+        sel.appendChild(opt);
+    });
+    sel.disabled = !schemeList.length;
 }

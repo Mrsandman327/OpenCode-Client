@@ -187,16 +187,30 @@ const mockApi = (() => {
         GetProviderConfigPath: async () => '~/.config/opencode/opencode.jsonc',
         GetConfigPath: async () => '~/.config/opencode/oh-my-openagent.jsonc',
         GetFullConfig: async () => `{
-    // 执行者：负责执行具体任务
-    "agents": {
-        "sisyphus": { "model": "deepseek/deepseek-v4-pro" },
-        "oracle": { "model": "deepseek/deepseek-v4-flash" }
-    },
-    "categories": {
-        "quick": { "model": "deepseek/deepseek-v4-flash" },
-        "visual-engineering": { "model": "deepseek/deepseek-v4-flash" }
-    }
-}`,
+            // 执行者：负责执行具体任务
+            "agents": {
+                "sisyphus": { "model": "deepseek/deepseek-v4-pro" },
+                "oracle": { "model": "deepseek/deepseek-v4-flash" },
+                "librarian": { "model": "deepseek/deepseek-v4-flash" },
+                "explore": { "model": "deepseek/deepseek-v4-pro" },
+                "sisyphus-junior": { "model": "deepseek/deepseek-v4-flash" },
+                "momus": { "model": "deepseek/deepseek-v4-flash" },
+                "metis": { "model": "deepseek/deepseek-v4-pro" },
+                "hephaestus": { "model": "deepseek/deepseek-v4-flash" },
+                "prometheus": { "model": "deepseek/deepseek-v4-flash" },
+                "atlas": { "model": "deepseek/deepseek-v4-pro" },
+                "multimodal-looker": { "model": "deepseek/deepseek-v4-flash" }
+            },
+            "categories": {
+                "quick": { "model": "deepseek/deepseek-v4-flash" },
+                "visual-engineering": { "model": "deepseek/deepseek-v4-flash" },
+                "ultrabrain": { "model": "deepseek/deepseek-v4-flash" },
+                "deep": { "model": "deepseek/deepseek-v4-flash" },
+                "artistry": { "model": "deepseek/deepseek-v4-flash" },
+                "unspecified-low": { "model": "deepseek/deepseek-v4-flash" },
+                "unspecified-high": { "model": "deepseek/deepseek-v4-flash" }
+            }
+        }`,
         GetWorkDir: async () => 'E:\\data\\ai_test\\feishu\\skill-manager',
         AddModelType: async () => ({ success: true }),
         DeleteModelType: async () => ({ success: true }),
@@ -230,5 +244,27 @@ const mockApi = (() => {
             { name: 'writing-plans', description: '将需求/设计拆解为可执行的实施方案', source: 'skill' },
             { name: 'code-review', description: '专业代码审查，多维度评估代码质量', source: 'skill' },
         ],
+        // ========== 方案管理 mock ==========
+        GetSchemeDir: async () => '.sisyphus\\omo-schemes',
+        ListSchemes: async () => [
+            { name: 'default', fileName: 'default.jsonc', fullPath: '.sisyphus\\omo-schemes\\default.jsonc' },
+            { name: 'custom', fileName: 'custom.jsonc', fullPath: '.sisyphus\\omo-schemes\\custom.jsonc' },
+        ],
+        ReadScheme: async (name) => {
+            const mockData = {
+                agents: {
+                    sisyphus: { model: 'deepseek/deepseek-v4-pro' },
+                    oracle: { model: 'deepseek/deepseek-v4-flash' },
+                    librarian: { model: 'deepseek/deepseek-v4-flash'}
+                },
+                categories: {
+                    quick: { model: 'deepseek/deepseek-v4-flash' },
+                    'visual-engineering': { model: 'deepseek/deepseek-v4-pro' }
+                }
+            };
+            return JSON.stringify(mockData, null, 2);
+        },
+        SaveScheme: async (name, content) => {},
+        OpenSchemeDir: async () => { showToast('模拟打开方案目录', 'info'); },
     };
 })();

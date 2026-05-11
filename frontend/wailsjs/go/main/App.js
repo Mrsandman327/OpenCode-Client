@@ -30,6 +30,14 @@ export function DeleteProvider(arg1) {
   return window['go']['main']['App']['DeleteProvider'](arg1);
 }
 
+export function DeleteScheme(arg1) {
+  return window['go']['main']['App']['DeleteScheme'](arg1);
+}
+
+export function ExportConfig(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportConfig'](arg1, arg2, arg3);
+}
+
 export function GetAvailableModels() {
   return window['go']['main']['App']['GetAvailableModels']();
 }
@@ -66,6 +74,10 @@ export function GetProviders() {
   return window['go']['main']['App']['GetProviders']();
 }
 
+export function GetSchemeDir() {
+  return window['go']['main']['App']['GetSchemeDir']();
+}
+
 export function GetSessions() {
   return window['go']['main']['App']['GetSessions']();
 }
@@ -90,6 +102,10 @@ export function LaunchWindowsTerminal(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchWindowsTerminal'](arg1, arg2, arg3);
 }
 
+export function ListSchemes() {
+  return window['go']['main']['App']['ListSchemes']();
+}
+
 export function OpenCodeAPI(arg1, arg2, arg3) {
   return window['go']['main']['App']['OpenCodeAPI'](arg1, arg2, arg3);
 }
@@ -100,6 +116,14 @@ export function OpenDir(arg1) {
 
 export function OpenDirectoryDialog() {
   return window['go']['main']['App']['OpenDirectoryDialog']();
+}
+
+export function OpenSchemeDir() {
+  return window['go']['main']['App']['OpenSchemeDir']();
+}
+
+export function ReadScheme(arg1) {
+  return window['go']['main']['App']['ReadScheme'](arg1);
 }
 
 export function ReadSkillContent(arg1) {
@@ -124,6 +148,10 @@ export function SaveFullConfig(arg1) {
 
 export function SaveProvider(arg1) {
   return window['go']['main']['App']['SaveProvider'](arg1);
+}
+
+export function SaveScheme(arg1, arg2) {
+  return window['go']['main']['App']['SaveScheme'](arg1, arg2);
 }
 
 export function SaveSkillContent(arg1, arg2) {
