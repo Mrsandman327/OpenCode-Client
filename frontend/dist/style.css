@@ -2205,6 +2205,38 @@ html, body {
     color: var(--text-primary);
 }
 
+.model-variant-select {
+    width: 110px;
+    flex-shrink: 0;
+    padding: 6px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+    cursor: pointer;
+    outline: none;
+    transition: border-color var(--transition);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 6px center;
+    background-repeat: no-repeat;
+    background-size: 14px;
+    padding-right: 28px;
+}
+
+.model-variant-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.model-variant-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
 .model-type-badge {
     font-size: 10px;
     font-weight: 600;

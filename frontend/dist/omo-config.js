@@ -45,7 +45,7 @@ async function loadModelConfig() {
             if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
             modelTypes.push(type);
             for (const [key, val] of Object.entries(section)) {
-                modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: descMap[key] || '' });
+                modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', variant: val.variant || '', comment: descMap[key] || '' });
             }
         }
         originalEntries = modelEntries.map(e => ({ ...e }));
@@ -162,6 +162,7 @@ function renderModelConfig() {
                 if (!workingConfigJson[entry.type]) workingConfigJson[entry.type] = {};
                 if (!workingConfigJson[entry.type][entry.key]) workingConfigJson[entry.type][entry.key] = {};
                 workingConfigJson[entry.type][entry.key].model = model;
+                workingConfigJson[entry.type][entry.key].variant = entry.variant;
             }
         });
         renderModelConfig();
@@ -183,6 +184,7 @@ function renderModelConfig() {
                 if (!workingConfigJson[entry.type]) workingConfigJson[entry.type] = {};
                 if (!workingConfigJson[entry.type][entry.key]) workingConfigJson[entry.type][entry.key] = {};
                 workingConfigJson[entry.type][entry.key].model = entry.model;
+                workingConfigJson[entry.type][entry.key].variant = entry.variant;
                 updateSaveStatus(); checkUnsavedChanges();
             }
         });
@@ -390,9 +392,9 @@ function showAddEntryModal(entryType) {
         const comment = overlay.querySelector('#modalEntryComment').value.trim();
         if (!key) { showToast('Key 不能为空', 'error'); return; }
         if (modelEntries.find(e => e.type === entryType && e.key === key)) { showToast('当前类型下 Key 已存在', 'error'); return; }
-        modelEntries.push({ id: modelEntryId(entryType, key), key, type: entryType, model: model || 'deepseek-v4-flash', comment });
+        modelEntries.push({ id: modelEntryId(entryType, key), key, type: entryType, model: model || 'deepseek-v4-flash', variant: 'none', comment });
         if (!workingConfigJson[entryType]) workingConfigJson[entryType] = {};
-        workingConfigJson[entryType][key] = { model: model || 'deepseek-v4-flash' };
+        workingConfigJson[entryType][key] = { model: model || 'deepseek-v4-flash', variant: 'none' };
         overlay.remove();
         renderModelConfig();
         updateSaveStatus();
@@ -404,7 +406,7 @@ function showAddEntryModal(entryType) {
 function updateSaveStatus() {
     const changed = modelEntries.filter(e => {
         const orig = originalEntries.find(o => sameModelEntry(o, e));
-        return !orig || orig.model !== e.model;
+        return !orig || orig.model !== e.model || orig.variant !== e.variant;
     }).length;
     const deleted = originalEntries.filter(o => !modelEntries.find(e => sameModelEntry(e, o))).length;
     const total = changed + deleted;
@@ -463,7 +465,7 @@ function buildModelConfig() {
     const map = {};
     modelEntries.forEach(e => {
         if (!map[e.type]) map[e.type] = {};
-        map[e.type][e.key] = { model: e.model };
+        map[e.type][e.key] = { model: e.model, variant: e.variant };
     });
     return map;
 }
@@ -476,7 +478,7 @@ function rebuildModelEntriesFromFull(data) {
         if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
         modelTypes.push(type);
         for (const [key, val] of Object.entries(section)) {
-            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: '' });
+            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', variant: val.variant || '', comment: '' });
         }
     }
 }
@@ -502,7 +504,7 @@ function renderModelConfigFromData(data) {
         if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
         modelTypes.push(type);
         for (const [key, val] of Object.entries(section)) {
-            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', comment: '' });
+            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', variant: val.variant || '', comment: '' });
         }
     }
     originalEntries = modelEntries.map(e => ({ ...e }));
