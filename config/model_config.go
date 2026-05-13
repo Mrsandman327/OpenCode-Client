@@ -139,6 +139,7 @@ func SaveConfig(entries []model.ModelEntry) error {
 
 	lines := strings.Split(string(data), "\n")
 	modelRe := regexp.MustCompile(`("model"\s*:\s*)"[^"]*"`)
+	variantRe := regexp.MustCompile(`("variant"\s*:\s*)"[^"]*"`)
 	cfg, err := parseModelConfigSections(stripComments(string(data)))
 	if err != nil {
 		return fmt.Errorf("解析配置失败: %w", err)
@@ -170,20 +171,49 @@ func SaveConfig(entries []model.ModelEntry) error {
 			}
 			keyExists = true
 
+			modelLineIndex := -1
 			if modelRe.MatchString(line) {
 				lines[i] = replaceModelValue(line, modelRe, entry.Model)
+				modelLineIndex = i
 				updated = true
-				break
+			} else {
+				for j := i + 1; j < len(lines) && j < i+8; j++ {
+					if modelRe.MatchString(lines[j]) {
+						lines[j] = replaceModelValue(lines[j], modelRe, entry.Model)
+						modelLineIndex = j
+						updated = true
+						break
+					}
+					if strings.Contains(lines[j], "}") {
+						break
+					}
+				}
 			}
 
-			for j := i + 1; j < len(lines) && j < i+8; j++ {
-				if modelRe.MatchString(lines[j]) {
-					lines[j] = replaceModelValue(lines[j], modelRe, entry.Model)
-					updated = true
-					break
+			if updated {
+				variantVal := entry.Variant
+				if variantVal == "" {
+					variantVal = "none"
 				}
-				if strings.Contains(lines[j], "}") {
-					break
+				foundVariant := false
+				for k := modelLineIndex + 1; k < len(lines) && k < modelLineIndex+8; k++ {
+					if strings.Contains(lines[k], "}") {
+						break
+					}
+					if strings.Contains(lines[k], `"variant"`) {
+						lines[k] = replaceModelValue(lines[k], variantRe, variantVal)
+						foundVariant = true
+						break
+					}
+				}
+				if !foundVariant {
+					indent := leadingWhitespace(lines[modelLineIndex])
+					variantLine := fmt.Sprintf(`%s"variant": %q`, indent, variantVal)
+					updatedLines := make([]string, 0, len(lines)+1)
+					updatedLines = append(updatedLines, lines[:modelLineIndex+1]...)
+					updatedLines = append(updatedLines, variantLine)
+					updatedLines = append(updatedLines, lines[modelLineIndex+1:]...)
+					lines = updatedLines
 				}
 			}
 			break
@@ -293,9 +323,14 @@ func insertBeforeSectionClose(lines []string, closeIndex int, entry model.ModelE
 	}
 
 	indent := leadingWhitespace(lines[closeIndex]) + "  "
+	variantVal := entry.Variant
+	if variantVal == "" {
+		variantVal = "none"
+	}
 	newEntry := []string{
 		fmt.Sprintf(`%s%q: {`, indent, entry.Key),
 		fmt.Sprintf(`%s  "model": %q`, indent, entry.Model),
+		fmt.Sprintf(`%s  "variant": %q`, indent, variantVal),
 		fmt.Sprintf(`%s}`, indent),
 	}
 
@@ -677,6 +712,7 @@ func ConfigToEntries(config *model.OpenAgentConfig, descriptions map[string]stri
 				Key:     key,
 				Type:    section,
 				Model:   mc.Model,
+				Variant: mc.Variant,
 				Comment: desc,
 			})
 		}
