@@ -3,6 +3,16 @@
 // ============================================================
 let providerCache = [];
 
+const PROVIDER_NPM_OPTIONS = [
+    { label: 'OpenAI Responses', value: '@ai-sdk/openai' },
+    { label: 'OpenAI Compatible', value: '@ai-sdk/openai-compatible' },
+    { label: 'Anthropic', value: '@ai-sdk/anthropic' },
+    { label: 'Amazon Bedrock', value: '@ai-sdk/amazon-bedrock' },
+    { label: 'Google (Gemini)', value: '@ai-sdk/google' },
+];
+
+const PROVIDER_NPM_UNMATCHED = '__unmatched__';
+
 async function loadProviders() {
     const list = document.getElementById('providersList');
     list.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在加载供应商...</p></div>';
@@ -19,7 +29,7 @@ async function loadProviders() {
 }
 
 function emptyProvider() {
-    return { key: '', name: '', baseURL: '', apiKey: '', enabled: true, models: [], _new: true };
+    return { key: '', name: '', baseURL: '', apiKey: '', npm: '@ai-sdk/openai-compatible', npmRaw: '@ai-sdk/openai-compatible', enabled: true, models: [], _new: true };
 }
 
 function renderProviders(providers) {
@@ -35,6 +45,13 @@ function renderProviders(providers) {
 
 function providerCardHtml(p) {
     const isNew = p._new;
+    const npmValue = p.npm || p.npmRaw || '@ai-sdk/openai-compatible';
+    const matchedOption = PROVIDER_NPM_OPTIONS.find(item => item.value === (p.npm || ''));
+    const selectedNpmValue = matchedOption ? matchedOption.value : PROVIDER_NPM_UNMATCHED;
+    const npmOptionsHtml = [
+        ...PROVIDER_NPM_OPTIONS.map(item => `<option value="${escapeHtml(item.value)}" ${selectedNpmValue === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`),
+        !matchedOption && npmValue ? `<option value="${PROVIDER_NPM_UNMATCHED}" selected>未匹配保留</option>` : ''
+    ].join('');
     return `
         <div class="provider-card" data-key="${escapeHtml(p.key)}">
             <div class="provider-card-header">
@@ -52,16 +69,22 @@ function providerCardHtml(p) {
             </div>
             <div class="provider-card-body">
                 <div style="display:flex;gap:10px">
-                    <label style="flex:1">
+                    <label style="flex:2">
                         <span style="font-size:11px;font-weight:600;color:var(--text-muted)">请求地址 (baseURL)</span>
                         <input class="prov-edit-url" value="${escapeHtml(p.baseURL||'')}" placeholder="https://api.xxx.com/v1" style="width:100%;margin-top:2px" />
                     </label>
-                    <label style="flex:1">
+                    <label style="flex:2">
                         <span style="font-size:10px;font-weight:600;color:var(--text-muted)">API Key</span>
                         <div style="display:flex;gap:0;margin-top:2px">
                             <input class="prov-edit-apikey" value="${escapeHtml(p.apiKey||'')}" type="password" placeholder="sk-..." style="width:100%;border-right:none;border-radius:4px 0 0 4px" />
                             <button class="btn-eye" type="button" title="切换明文">👁</button>
                         </div>
+                    </label>
+                    <label style="flex:1">
+                        <span style="font-size:11px;font-weight:600;color:var(--text-muted)">接口格式</span>
+                        <select class="prov-edit-npm" data-raw-npm="${escapeHtml(p.npm || '')}" aria-label="interface format" style="width:100%;margin-top:2px">
+                            ${npmOptionsHtml}
+                        </select>
                     </label>
                 </div>
                 <div class="provider-models">
@@ -151,11 +174,16 @@ function saveProviderFromDom(key) {
     const card = document.querySelector(`.provider-card[data-key="${CSS.escape(key)}"]`);
     if (!card) return;
 
+    const npmSelect = card.querySelector('.prov-edit-npm');
+    const selectedNpm = npmSelect?.value || '';
+    const rawNpm = npmSelect?.dataset.rawNpm || '';
+
     const data = {
         key: card.querySelector('.prov-edit-key').value.trim(),
         name: card.querySelector('.prov-edit-name').value.trim(),
         baseURL: card.querySelector('.prov-edit-url').value.trim(),
         apiKey: card.querySelector('.prov-edit-apikey').value.trim(),
+        npm: selectedNpm === PROVIDER_NPM_UNMATCHED ? rawNpm : selectedNpm,
         enabled: card.querySelector('.prov-edit-enabled').checked,
         models: []
     };

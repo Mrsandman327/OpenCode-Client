@@ -82,11 +82,17 @@ func GetProviders() []model.ProviderInfo {
 			displayName = key
 		}
 
+		npm := entry.Npm
+		if npm == "" {
+			npm = "@ai-sdk/openai-compatible"
+		}
+
 		result = append(result, model.ProviderInfo{
 			Key:     key,
 			Name:    displayName,
 			BaseURL: baseURL,
 			ApiKey:  apiKey,
+			Npm:     npm,
 			Enabled: enabled[key],
 			Models:  models,
 		})
@@ -107,8 +113,13 @@ func SaveProvider(ps model.ProviderSave) error {
 		cfg.Provider = make(map[string]*model.ProviderEntry)
 	}
 
+	npm := ps.Npm
+	if npm == "" {
+		npm = "@ai-sdk/openai-compatible"
+	}
+
 	entry := &model.ProviderEntry{
-		Npm:  "@ai-sdk/openai-compatible",
+		Npm:  npm,
 		Name: ps.Name,
 		Options: map[string]interface{}{
 			"baseURL":     ps.BaseURL,

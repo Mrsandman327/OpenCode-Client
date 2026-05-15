@@ -67,17 +67,14 @@ func TestSessionTooltipIncludesTitleDirectoryAndUpdatedAt(t *testing.T) {
 		`.oc-tree-tooltip-title {`,
 		`.oc-tree-tooltip-row {`,
 		`.oc-tree-session:hover .oc-tree-tooltip`,
-		`.oc-client`,  // still present
+		`.oc-client`,
 	} {
 		if !strings.Contains(cssSource, required) {
 			t.Fatalf("样式表缺少气泡样式: %s", required)
 		}
 	}
-	// .oc-client 不应再有 overflow: hidden 裁剪气泡
 	if strings.Contains(cssSource, `.oc-client`) {
-		// verify it uses overflow: visible now
 		if strings.Contains(cssSource, `.oc-client {\n`) {
-			// just check overflow:visible appears near oc-client
 		}
 	}
 }
@@ -115,5 +112,58 @@ func TestProjectTreeRefreshOnlyOnStructuralSessionEvents(t *testing.T) {
 	createdRefreshRe := regexp.MustCompile(`(?s)if \(type === 'session\.created' \|\| type === 'session\.deleted'\) \{\s*buildTree\(\);`)
 	if createdRefreshRe.MatchString(chatSource) {
 		t.Fatal("session.created 不应再无条件触发项目树刷新")
+	}
+}
+
+func TestProviderSaveIncludesNpmSelection(t *testing.T) {
+	js, err := os.ReadFile("frontend/dist/provider-view.js")
+	if err != nil {
+		t.Fatalf("读取供应商脚本失败: %v", err)
+	}
+	source := string(js)
+
+	for _, required := range []string{
+		"const npmSelect = card.querySelector('.prov-edit-npm');",
+		"const selectedNpm = npmSelect?.value || '';",
+		"const rawNpm = npmSelect?.dataset.rawNpm || '';",
+		"npm: selectedNpm === PROVIDER_NPM_UNMATCHED ? rawNpm : selectedNpm,",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("供应商脚本缺少接口格式保存线索: %s", required)
+		}
+	}
+}
+
+func TestProviderViewIncludesNpmFormatOptions(t *testing.T) {
+	js, err := os.ReadFile("frontend/dist/provider-view.js")
+	if err != nil {
+		t.Fatalf("读取供应商脚本失败: %v", err)
+	}
+	source := string(js)
+
+	for _, required := range []string{
+		"const PROVIDER_NPM_OPTIONS = [",
+		"@ai-sdk/openai",
+		"@ai-sdk/openai-compatible",
+		"@ai-sdk/anthropic",
+		"@ai-sdk/amazon-bedrock",
+		"@ai-sdk/google",
+		"OpenAI Responses",
+		"OpenAI Compatible",
+		"Anthropic",
+		"Amazon Bedrock",
+		"Google (Gemini)",
+		"const PROVIDER_NPM_UNMATCHED = '__unmatched__';",
+		"未匹配保留",
+		"npm: '@ai-sdk/openai-compatible'",
+		"npmRaw: '@ai-sdk/openai-compatible'",
+		"const matchedOption = PROVIDER_NPM_OPTIONS.find(item => item.value === (p.npm || ''));",
+		"const selectedNpmValue = matchedOption ? matchedOption.value : PROVIDER_NPM_UNMATCHED;",
+		"<option value=\"${PROVIDER_NPM_UNMATCHED}\" selected>未匹配保留</option>",
+		"data-raw-npm=\"${escapeHtml(p.npm || '')}\"",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("供应商脚本缺少接口格式选项: %s", required)
+		}
 	}
 }

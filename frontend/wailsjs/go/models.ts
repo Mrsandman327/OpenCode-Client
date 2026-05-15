@@ -140,6 +140,7 @@ export namespace model {
 	    name: string;
 	    baseURL: string;
 	    apiKey: string;
+	    npm: string;
 	    enabled: boolean;
 	    models: ModelInfo[];
 	
@@ -153,6 +154,7 @@ export namespace model {
 	        this.name = source["name"];
 	        this.baseURL = source["baseURL"];
 	        this.apiKey = source["apiKey"];
+	        this.npm = source["npm"];
 	        this.enabled = source["enabled"];
 	        this.models = this.convertValues(source["models"], ModelInfo);
 	    }
@@ -180,6 +182,7 @@ export namespace model {
 	    name: string;
 	    baseURL: string;
 	    apiKey: string;
+	    npm: string;
 	    enabled: boolean;
 	    models: ModelInfo[];
 	
@@ -193,6 +196,7 @@ export namespace model {
 	        this.name = source["name"];
 	        this.baseURL = source["baseURL"];
 	        this.apiKey = source["apiKey"];
+	        this.npm = source["npm"];
 	        this.enabled = source["enabled"];
 	        this.models = this.convertValues(source["models"], ModelInfo);
 	    }

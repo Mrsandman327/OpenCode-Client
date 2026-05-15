@@ -87,6 +87,7 @@ type ProviderInfo struct {
 	Name    string      `json:"name"`
 	BaseURL string      `json:"baseURL"`
 	ApiKey  string      `json:"apiKey"`
+	Npm     string      `json:"npm"`
 	Enabled bool        `json:"enabled"`
 	Models  []ModelInfo `json:"models"`
 }
@@ -103,6 +104,7 @@ type ProviderSave struct {
 	Name    string      `json:"name"`
 	BaseURL string      `json:"baseURL"`
 	ApiKey  string      `json:"apiKey"`
+	Npm     string      `json:"npm"`
 	Enabled bool        `json:"enabled"`
 	Models  []ModelInfo `json:"models"`
 }
