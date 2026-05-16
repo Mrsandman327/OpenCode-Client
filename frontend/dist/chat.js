@@ -785,7 +785,7 @@ function cacheMessages(sessionID, items) {
         const key = item.info?.id || item.id;
         const existingIndex = existing.findIndex(old => (old.info?.id || old.id) === key);
         if (existingIndex >= 0) {
-            existing[existingIndex].info = { ...existing[existingIndex].info, ...item.info };
+            existing[existingIndex] = mergeMessage(existing[existingIndex], item);
         } else {
             existing.push(item);
         }
@@ -1198,10 +1198,19 @@ function renderMessages(items) {
         const body = document.createElement('div');
         body.className = 'oc-message-parts';
         const partList = Array.isArray(parts) ? parts : [parts];
+        const messageErrorText = info.error?.message || info.error?.data?.message || '';
+        if (role === 'assistant' && messageErrorText) {
+            const errEl = document.createElement('div');
+            errEl.className = 'oc-part error-msg';
+            errEl.textContent = messageErrorText;
+            body.appendChild(errEl);
+        }
         if (partList.length) {
             partList.forEach(part => body.appendChild(renderPart(part)));
         } else if (role === 'assistant') {
-            if (isSessionBusy(currentSessionId)) {
+            if (messageErrorText) {
+                // 已在上方输出 message-level error
+            } else if (isSessionBusy(currentSessionId)) {
                 const pending = document.createElement('div');
                 pending.className = 'oc-part pending';
                 pending.textContent = getSessionPendingText(currentSessionId);
@@ -1214,7 +1223,7 @@ function renderMessages(items) {
             } else {
                 const empty = document.createElement('div');
                 empty.className = 'oc-part pending';
-                empty.textContent = info.time?.completed ? '已停止或本次未产生回复内容' : '正在等待模型回复...';
+                empty.textContent = messageErrorText || (info.time?.completed ? '已停止或本次未产生回复内容' : '正在等待模型回复...');
                 body.appendChild(empty);
             }
         } else {
@@ -1779,9 +1788,10 @@ async function answerQuestion(answerText) {
 function renderTextPart(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-text';
+    const text = (part && (part.text || part.content || part.message || part.value)) || '';
     el.innerHTML = typeof marked !== 'undefined'
-        ? marked.parse(part.text || '', { breaks: true })
-        : `<pre>${escapeHtml(part.text || '')}</pre>`;
+        ? marked.parse(text || '', { breaks: true })
+        : `<pre>${escapeHtml(text || '')}</pre>`;
     return el;
 }
 

@@ -537,6 +537,87 @@ func TestMobileWindowedRenderUsesFullMessageCountForIncrementalBranch(t *testing
 	}
 }
 
+func TestAssistantMessageLevelErrorTextIsRenderedInsteadOfEmptyCard(t *testing.T) {
+	js, err := os.ReadFile("../../frontend/dist/chat.js")
+	if err != nil {
+		t.Fatalf("读取 chat.js 失败: %v", err)
+	}
+	source := string(js)
+
+	for _, required := range []string{
+		"const messageErrorText = info.error?.message || info.error?.data?.message || '';",
+		"errEl.textContent = messageErrorText;",
+		"empty.textContent = messageErrorText || (info.time?.completed ? '已停止或本次未产生回复内容' : '正在等待模型回复...');",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("chat.js 缺少 message 级 error 文本渲染线索: %s", required)
+		}
+	}
+}
+
+func TestAssistantMessageLevelErrorTextRendersEvenWhenPartsExist(t *testing.T) {
+	js, err := os.ReadFile("../../frontend/dist/chat.js")
+	if err != nil {
+		t.Fatalf("读取 chat.js 失败: %v", err)
+	}
+	source := string(js)
+
+	for _, required := range []string{
+		"const messageErrorText = info.error?.message || info.error?.data?.message || '';",
+		"if (messageErrorText) {",
+		"body.appendChild(errEl);",
+		"partList.forEach(part => body.appendChild(renderPart(part)));",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("chat.js 缺少 parts 非空时的 message 级 error 渲染线索: %s", required)
+		}
+	}
+}
+
+func TestRenderTextPartFallsBackToExtractPartText(t *testing.T) {
+	js, err := os.ReadFile("../../frontend/dist/chat.js")
+	if err != nil {
+		t.Fatalf("读取 chat.js 失败: %v", err)
+	}
+	source := string(js)
+
+	for _, required := range []string{
+		"function renderTextPart(part) {",
+		"const text = (part && (part.text || part.content || part.message || part.value)) || '';",
+		"el.innerHTML = typeof marked !== 'undefined'",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("chat.js 缺少 text part 回退字段渲染线索: %s", required)
+		}
+	}
+
+	if strings.Contains(source, "const text = extractPartText(part);") {
+		t.Fatal("renderTextPart 不应再直接回退到 extractPartText(part)，否则会把仅含 metadata 的 part 渲染成原始 JSON")
+	}
+}
+
+func TestCacheMessagesMergesInfoAndPartsDuringBusyState(t *testing.T) {
+	js, err := os.ReadFile("../../frontend/dist/chat.js")
+	if err != nil {
+		t.Fatalf("读取 chat.js 失败: %v", err)
+	}
+	source := string(js)
+
+	for _, required := range []string{
+		"function mergeMessage(existing, incoming) {",
+		"existing[existingIndex] = mergeMessage(existing[existingIndex], item);",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("chat.js 缺少 busy 状态下完整合并消息线索: %s", required)
+		}
+	}
+
+	forbidden := regexp.MustCompile(`existing\[existingIndex\]\.info = \{ \.\.\.existing\[existingIndex\]\.info, \.\.\.item\.info \};`)
+	if forbidden.MatchString(source) {
+		t.Fatal("busy 状态下不应只合并 info 而忽略 parts")
+	}
+}
+
 func TestSkillBrowserSupportsEditableTextFlow(t *testing.T) {
 	js, err := os.ReadFile("../../frontend/dist/skill-manager.js")
 	if err != nil {
