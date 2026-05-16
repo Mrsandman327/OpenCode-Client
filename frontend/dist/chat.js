@@ -29,6 +29,8 @@ let sessionRefreshTimer = null;
 let attachedFiles = [];
 let questionCustomInput = ''; // question 工具自定义输入框的值（防止 DOM 重建时丢失）
 let dirBrowserCurrentPath = '';
+let dirBrowserResolver = null;
+let dirBrowserRejecter = null;
 const MOBILE_MESSAGE_RENDER_LIMIT = 30;
 const MOBILE_MESSAGE_LOAD_MORE_STEP = 20;
 let visibleMessageCount = MOBILE_MESSAGE_RENDER_LIMIT;
@@ -373,7 +375,17 @@ async function addDirectoryToProject() {
     if (!webRunning) return;
     try {
         if (isBrowserRuntimeForMain()) {
-            await openDirBrowserModal();
+            const dir = await openDirBrowserModal();
+            if (!dir) return;
+            rememberKnownDir(dir);
+            const ok = await buildTree();
+            if (!ok || !treeHasSessionsForDir(window._lastProjectTree, dir)) {
+                document.getElementById('ocChatTitle').textContent = '工作目录 @ ' + dir;
+                document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">该目录下没有会话记录，请先在该目录下新建会话</div>';
+                showToast('该目录下没有会话记录，请先在该目录下新建会话', 'warning');
+                return;
+            }
+            showToast('已加载目录会话: ' + dir, 'success');
             return;
         }
         const dir = await api.OpenDirectoryDialog();
@@ -1009,9 +1021,17 @@ async function selectSession(id) {
 async function createNewSession() {
     if (!webRunning) return;
     try {
-        const dir = await api.OpenDirectoryDialog();
+        let dir = '';
+        if (isBrowserRuntimeForMain()) {
+            dir = await openDirBrowserModal();
+        } else {
+            dir = await api.OpenDirectoryDialog();
+        }
         if (!dir) return;
         pendingWorkDir = dir;
+        if (isMobileTreeMode()) {
+            closeMobileTree();
+        }
         currentSessionId = '';
         sessionStatuses = {};
         sessionErrors = {};
@@ -2508,9 +2528,18 @@ async function openDirBrowserModal() {
 	dirBrowserCurrentPath = '';
 	document.getElementById('dirBrowserModal').style.display = 'flex';
 	await loadDirBrowserList('');
+	return new Promise((resolve, reject) => {
+		dirBrowserResolver = resolve;
+		dirBrowserRejecter = reject;
+	});
 }
 
 function closeDirBrowserModal() {
+	if (dirBrowserRejecter) {
+		dirBrowserRejecter(new Error('已取消目录选择'));
+		dirBrowserRejecter = null;
+		dirBrowserResolver = null;
+	}
 	document.getElementById('dirBrowserModal').style.display = 'none';
 }
 
@@ -2542,16 +2571,13 @@ async function selectDirBrowserCurrent() {
 		showToast('请先进入目标目录', 'warning');
 		return;
 	}
-	rememberKnownDir(dirBrowserCurrentPath);
-	closeDirBrowserModal();
-	const ok = await buildTree();
-	if (!ok || !treeHasSessionsForDir(window._lastProjectTree, dirBrowserCurrentPath)) {
-		document.getElementById('ocChatTitle').textContent = '工作目录 @ ' + dirBrowserCurrentPath;
-		document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">该目录下没有会话记录，请先在该目录下新建会话</div>';
-		showToast('该目录下没有会话记录，请先在该目录下新建会话', 'warning');
-		return;
+	const selected = dirBrowserCurrentPath;
+	if (dirBrowserResolver) {
+		dirBrowserResolver(selected);
+		dirBrowserResolver = null;
+		dirBrowserRejecter = null;
 	}
-	showToast('已加载目录会话: ' + dirBrowserCurrentPath, 'success');
+	document.getElementById('dirBrowserModal').style.display = 'none';
 }
 
 async function goDirBrowserUp() {
