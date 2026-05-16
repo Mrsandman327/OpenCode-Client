@@ -87,6 +87,20 @@ export namespace model {
 	        this.source = source["source"];
 	    }
 	}
+	export class DirectoryEntry {
+	    name: string;
+	    path: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DirectoryEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	    }
+	}
 	export class ModelEntry {
 	    key: string;
 	    type: string;
@@ -278,6 +292,56 @@ export namespace model {
 	        this.id = source["id"];
 	        this.title = source["title"];
 	    }
+	}
+	export class SkillContent {
+	    path: string;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SkillContent(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.content = source["content"];
+	    }
+	}
+	export class SkillFileNode {
+	    name: string;
+	    path: string;
+	    type: string;
+	    children?: SkillFileNode[];
+	
+	    static createFrom(source: any = {}) {
+	        return new SkillFileNode(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.type = source["type"];
+	        this.children = this.convertValues(source["children"], SkillFileNode);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class SkillInfo {
 	    name: string;

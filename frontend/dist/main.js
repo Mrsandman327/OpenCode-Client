@@ -7,11 +7,46 @@
 // 工作区事件绑定
 // ============================
 
+function isBrowserRuntimeForMain() {
+    return !window.runtime;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    if (isBrowserRuntimeForMain()) {
+        var openSchemeBtn = document.getElementById('btnOpenSchemeDir');
+        var openGlobalDirBtn = document.getElementById('btnOpenDir');
+        var btnFrontendWebConfig = document.getElementById('btnFrontendWebConfig');
+        var btnWtOpen = document.getElementById('btnWtOpen');
+        if (openSchemeBtn) {
+            openSchemeBtn.style.display = 'none';
+        }
+        if (openGlobalDirBtn) {
+            openGlobalDirBtn.style.display = 'none';
+        }
+        if (btnFrontendWebConfig) {
+            btnFrontendWebConfig.style.display = 'none';
+        }
+        if (btnWtOpen) {
+            btnWtOpen.style.display = 'none';
+        }
+    }
+
     // 事件绑定: 服务启动/停止
     document.getElementById('btnStartWeb').addEventListener('click', startWeb);
     document.getElementById('btnProxySettings').addEventListener('click', showProxyModal);
     document.getElementById('btnStopWeb').addEventListener('click', stopWeb);
+    document.getElementById('btnFrontendWebConfig').addEventListener('click', showFrontendWebModal);
+    document.getElementById('btnSaveFrontendWeb').addEventListener('click', startFrontendWeb);
+    document.getElementById('btnStopFrontendWeb').addEventListener('click', stopFrontendWeb);
+    document.getElementById('btnCopyFrontendWebUrl').addEventListener('click', copyFrontendWebUrl);
+    document.getElementById('btnCloseFrontendWebModal').addEventListener('click', closeFrontendWebModal);
+    ['frontendWebHost', 'frontendWebPort'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', persistFrontendWebConfigFromInputs);
+            el.addEventListener('change', persistFrontendWebConfigFromInputs);
+        }
+    });
     document.getElementById('btnWtOpen').addEventListener('click', launchTerminal);
     document.getElementById('btnRefreshTree').addEventListener('click', refreshTree);
     document.getElementById('btnNewSession').addEventListener('click', createNewSession);
@@ -75,6 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('proxyModal').addEventListener('click', (e) => {
         if (e.target.id === 'proxyModal') hideProxyModal();
     });
+    document.getElementById('frontendWebModal').addEventListener('click', (e) => {
+        if (e.target.id === 'frontendWebModal') closeFrontendWebModal();
+    });
+    document.getElementById('dirBrowserModal').addEventListener('click', (e) => {
+        if (e.target.id === 'dirBrowserModal') closeDirBrowserModal();
+    });
+    document.getElementById('btnDirBrowserClose').addEventListener('click', closeDirBrowserModal);
+    document.getElementById('btnDirBrowserBack').addEventListener('click', goDirBrowserUp);
+    document.getElementById('btnDirBrowserSelect').addEventListener('click', selectDirBrowserCurrent);
     document.getElementById('btnCancelProxy').addEventListener('click', hideProxyModal);
     document.getElementById('btnSaveProxy').addEventListener('click', applyProxyConfig);
     ['proxyEnabled', 'proxyHost', 'proxyPort', 'serviceHost', 'servicePort'].forEach(id => {
@@ -82,6 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.addEventListener(id === 'proxyEnabled' ? 'change' : 'input', updateProxyPreview);
     });
     updateProxyButton();
+    loadFrontendWebConfigToInputs();
 
     // 右侧面板折叠
     document.querySelector('.oc-sidepanel').addEventListener('click', (e) => {
@@ -207,6 +252,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSkillList(e.target.value);
         });
     }
+    if (typeof bindSkillManagerEvents === 'function') {
+        bindSkillManagerEvents();
+    }
 
     // Modal 关闭事件
     document.getElementById('skillModalClose').addEventListener('click', closeSkillModal);
@@ -218,8 +266,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('skillModalSave').addEventListener('click', saveSkillEdit);
     document.getElementById('skillModalCancel').addEventListener('click', function() {
-        var modal = document.getElementById('skillModal');
-        previewSkill(modal.dataset.skillPath);
+        if (currentSkillBrowserState && currentSkillBrowserState.selectedPath) {
+            cancelSkillBrowserEdit();
+            return;
+        }
     });
 
     // ========================
@@ -272,9 +322,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.runtime) {
         window.runtime.EventsOn('app-ready', () => {
             checkWebStatus();
+            checkFrontendWebStatus();
         });
     }
 
     // 初始加载（非 Wails 环境）
     loadSkillsData();
+    if (!window.runtime) {
+        checkWebStatus();
+        checkFrontendWebStatus();
+    }
 });

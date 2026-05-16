@@ -284,7 +284,7 @@ func removeMissingModelEntries(lines []string, existing map[string]model.ModelCo
 
 func replaceModelValue(line string, modelRe *regexp.Regexp, model string) string {
 	match := modelRe.FindStringSubmatchIndex(line)
-	if match == nil || len(match) < 4 {
+	if len(match) < 4 {
 		return line
 	}
 	return line[:match[3]] + fmt.Sprintf("%q", model) + line[match[1]:]

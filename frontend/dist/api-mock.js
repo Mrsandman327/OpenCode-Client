@@ -8,7 +8,79 @@ const api = new Proxy({}, {
         if (window.go && window.go.main && window.go.main.App && window.go.main.App[prop]) {
             return window.go.main.App[prop];
         }
+        if (webApi[prop]) {
+            return webApi[prop];
+        }
         return mockApi[prop];
+    }
+});
+
+const webApiHandlers = {
+    async StartOpenCodeWeb(port, hostname, proxy) {
+        const resp = await fetch('/api/open-code-web/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ port: port || 0, hostname: hostname || '', proxy: proxy || {} })
+        });
+        return await resp.json();
+    },
+    async StopOpenCodeWeb() {
+        const resp = await fetch('/api/open-code-web/stop', { method: 'POST' });
+        return await resp.json();
+    },
+    async GetWebStatus(hostname, port) {
+        const resp = await fetch('/api/open-code-web/status?hostname=' + encodeURIComponent(hostname || '') + '&port=' + encodeURIComponent(String(port || '')));
+        return await resp.json();
+    },
+    async GetProjectTree(knownDirs) {
+        const resp = await fetch('/api/project-tree?knownDirs=' + encodeURIComponent(knownDirs || '[]'));
+        return await resp.text();
+    },
+    async OpenCodeAPI(method, path, body) {
+        const resp = await fetch('/api/open-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method, path, body: body || '' })
+        });
+        return await resp.json();
+    },
+    async CreateSession(dir) {
+        const resp = await fetch('/api/session/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir: dir || '' })
+        });
+        return await resp.json();
+    },
+    async GetAvailableModels() {
+        const resp = await fetch('/api/models');
+        return await resp.json();
+    },
+    async StartOpenCodeEvents() {
+        const resp = await fetch('/api/open-code-events/start', { method: 'POST' });
+        return await resp.json();
+    },
+    async StopOpenCodeEvents() {
+        const resp = await fetch('/api/open-code-events/stop', { method: 'POST' });
+        return await resp.json();
+    }
+};
+
+const webApi = new Proxy(webApiHandlers, {
+    get(target, prop) {
+        if (target[prop]) return target[prop];
+        return async (...args) => {
+            const resp = await fetch('/api/app-call', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ method: String(prop), args })
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => null);
+                throw new Error((err && (err.error || err.message)) || ('HTTP ' + resp.status));
+            }
+            return await resp.json();
+        };
     }
 });
 
@@ -93,6 +165,26 @@ const mockApi = (() => {
             var name = path.replace(/\\/g, '/').split('/').pop().replace('.md', '');
             return '# ' + name + '\n\n## 描述\n\n这是 ' + name + ' 技能的 mock SKILL.md 内容。\n\n## 使用\n\n当用户请求相关任务时自动加载。\n\n## 配置\n\n```json\n{\n  \"enabled\": true\n}\n```';
         },
+        ListSkillFiles: async (path) => ({
+            name: path.replace(/\\/g, '/').split('/').pop() || 'mock-skill',
+            path: '.',
+            type: 'dir',
+            children: [
+                { name: 'SKILL.md', path: 'SKILL.md', type: 'file' },
+                { name: 'docs', path: 'docs', type: 'dir', children: [
+                    { name: 'note.txt', path: 'docs/note.txt', type: 'file' }
+                ] }
+            ]
+        }),
+        ReadSkillFile: async (skillPath, relativePath) => ({
+            path: relativePath,
+            content: 'mock file preview for ' + relativePath
+        }),
+        SaveSkillFile: async (skillPath, relativePath, content) => ({
+            success: true,
+            path: relativePath,
+            content: content
+        }),
         SaveSkillContent: async (path, content) => ({ success: true }),
         Refresh: async () => {},
         OpenDir: async (path) => { console.log('mock open:', path); showToast(`模拟打开目录: ${path}`, 'info'); },

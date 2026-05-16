@@ -14,6 +14,10 @@ export function AnswerQuestion(arg1, arg2) {
   return window['go']['main']['App']['AnswerQuestion'](arg1, arg2);
 }
 
+export function AppCall(arg1, arg2) {
+  return window['go']['main']['App']['AppCall'](arg1, arg2);
+}
+
 export function CreateSession(arg1) {
   return window['go']['main']['App']['CreateSession'](arg1);
 }
@@ -52,6 +56,10 @@ export function GetCommands() {
 
 export function GetConfigPath() {
   return window['go']['main']['App']['GetConfigPath']();
+}
+
+export function GetFrontendWebStatus(arg1, arg2) {
+  return window['go']['main']['App']['GetFrontendWebStatus'](arg1, arg2);
 }
 
 export function GetFullConfig() {
@@ -106,8 +114,16 @@ export function LaunchWindowsTerminal(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchWindowsTerminal'](arg1, arg2, arg3);
 }
 
+export function ListBrowsableDirs(arg1) {
+  return window['go']['main']['App']['ListBrowsableDirs'](arg1);
+}
+
 export function ListSchemes() {
   return window['go']['main']['App']['ListSchemes']();
+}
+
+export function ListSkillFiles(arg1) {
+  return window['go']['main']['App']['ListSkillFiles'](arg1);
 }
 
 export function OpenCodeAPI(arg1, arg2, arg3) {
@@ -132,6 +148,10 @@ export function ReadScheme(arg1) {
 
 export function ReadSkillContent(arg1) {
   return window['go']['main']['App']['ReadSkillContent'](arg1);
+}
+
+export function ReadSkillFile(arg1, arg2) {
+  return window['go']['main']['App']['ReadSkillFile'](arg1, arg2);
 }
 
 export function Refresh() {
@@ -162,12 +182,24 @@ export function SaveSkillContent(arg1, arg2) {
   return window['go']['main']['App']['SaveSkillContent'](arg1, arg2);
 }
 
+export function SaveSkillFile(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveSkillFile'](arg1, arg2, arg3);
+}
+
+export function StartFrontendWeb(arg1, arg2) {
+  return window['go']['main']['App']['StartFrontendWeb'](arg1, arg2);
+}
+
 export function StartOpenCodeEvents() {
   return window['go']['main']['App']['StartOpenCodeEvents']();
 }
 
 export function StartOpenCodeWeb(arg1, arg2, arg3) {
   return window['go']['main']['App']['StartOpenCodeWeb'](arg1, arg2, arg3);
+}
+
+export function StopFrontendWeb() {
+  return window['go']['main']['App']['StopFrontendWeb']();
 }
 
 export function StopOpenCodeEvents() {

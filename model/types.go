@@ -31,6 +31,20 @@ type SkillContent struct {
 	Content string `json:"content"`
 }
 
+// SkillFileNode 技能目录浏览树节点。
+type SkillFileNode struct {
+	Name     string          `json:"name"`
+	Path     string          `json:"path"`
+	Type     string          `json:"type"`
+	Children []SkillFileNode `json:"children,omitempty"`
+}
+
+// DirectoryEntry 目录浏览器中的目录项。
+type DirectoryEntry struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
 // ========== 模型配置相关 ==========
 
 // OpenAgentConfig 表示 oh-my-openagent.jsonc 的顶层模型配置结构。

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -17,7 +18,15 @@ import (
 var (
 	eventMu   sync.Mutex
 	eventStop context.CancelFunc
+	browserSSEMu      sync.Mutex
+	browserSSENextID  int
+	browserSSEClients = map[int]chan BrowserSSEEvent{}
 )
+
+type BrowserSSEEvent struct {
+	Name string
+	Data string
+}
 
 // StartOpenCodeEvents 连接 opencode 全局 SSE，并通过 Wails 事件转发给前端。
 func StartOpenCodeEvents(ctx context.Context) model.APIResult {
@@ -46,6 +55,7 @@ func StartOpenCodeEvents(ctx context.Context) model.APIResult {
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			wruntime.EventsEmit(ctx, "oc-event-error", err.Error())
+			broadcastBrowserSSE("oc-event-error", err.Error())
 			return
 		}
 		defer resp.Body.Close()
@@ -56,11 +66,14 @@ func StartOpenCodeEvents(ctx context.Context) model.APIResult {
 		for scanner.Scan() {
 			line := scanner.Text()
 			if strings.HasPrefix(line, "data:") {
-				wruntime.EventsEmit(ctx, "oc-event", strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+				payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+				wruntime.EventsEmit(ctx, "oc-event", payload)
+				broadcastBrowserSSE("oc-event", payload)
 			}
 		}
 		if err := scanner.Err(); err != nil && sseCtx.Err() == nil {
 			wruntime.EventsEmit(ctx, "oc-event-error", err.Error())
+			broadcastBrowserSSE("oc-event-error", err.Error())
 		}
 	}()
 
@@ -76,4 +89,53 @@ func StopOpenCodeEvents() model.APIResult {
 	}
 	eventMu.Unlock()
 	return model.APIResult{Success: true, Status: 200}
+}
+
+func SubscribeBrowserSSE() (int, <-chan BrowserSSEEvent) {
+	browserSSEMu.Lock()
+	defer browserSSEMu.Unlock()
+	browserSSENextID++
+	id := browserSSENextID
+	ch := make(chan BrowserSSEEvent, 32)
+	browserSSEClients[id] = ch
+	return id, ch
+}
+
+func UnsubscribeBrowserSSE(id int) {
+	browserSSEMu.Lock()
+	ch := browserSSEClients[id]
+	delete(browserSSEClients, id)
+	browserSSEMu.Unlock()
+	if ch != nil {
+		close(ch)
+	}
+}
+
+func broadcastBrowserSSE(name, data string) {
+	browserSSEMu.Lock()
+	defer browserSSEMu.Unlock()
+	for id, ch := range browserSSEClients {
+		select {
+		case ch <- BrowserSSEEvent{Name: name, Data: data}:
+		default:
+			close(ch)
+			delete(browserSSEClients, id)
+		}
+	}
+}
+
+func FormatBrowserSSE(event BrowserSSEEvent) string {
+	var b strings.Builder
+	b.WriteString("event: ")
+	b.WriteString(event.Name)
+	b.WriteString("\n")
+	for _, line := range strings.Split(event.Data, "\n") {
+		b.WriteString("data: ")
+		b.WriteString(line)
+		b.WriteString("\n")
+	}
+	b.WriteString("id: ")
+	b.WriteString(strconv.FormatInt(int64(browserSSENextID), 10))
+	b.WriteString("\n\n")
+	return b.String()
 }

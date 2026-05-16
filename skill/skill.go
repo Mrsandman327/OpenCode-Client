@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"oc-manager/model"
@@ -120,8 +121,80 @@ func (m *Manager) ReadSkillContent(skillPath string) (string, error) {
 
 // SaveSkillContent 保存 SKILL.md 内容到指定技能目录。
 func (m *Manager) SaveSkillContent(skillPath, content string) error {
-	mdPath := filepath.Join(skillPath, "SKILL.md")
+	root, err := m.resolveSkillPath(skillPath)
+	if err != nil {
+		return err
+	}
+	mdPath := filepath.Join(root, "SKILL.md")
 	return os.WriteFile(mdPath, []byte(content), 0644)
+}
+
+// ListSkillFiles 返回技能根目录下的只读文件树。
+func (m *Manager) ListSkillFiles(skillPath string) (model.SkillFileNode, error) {
+	root, err := m.resolveSkillPath(skillPath)
+	if err != nil {
+		return model.SkillFileNode{}, err
+	}
+	node, err := m.buildSkillFileTree(root, root, true)
+	if err != nil {
+		return model.SkillFileNode{}, err
+	}
+	node.Name = filepath.Base(filepath.Clean(skillPath))
+	return node, nil
+}
+
+// ReadSkillFile 读取技能根目录内的文本文件。
+func (m *Manager) ReadSkillFile(skillPath, relativePath string) (model.SkillContent, error) {
+	root, err := m.resolveSkillPath(skillPath)
+	if err != nil {
+		return model.SkillContent{}, err
+	}
+	target, rel, err := m.resolveSkillRelativePath(root, relativePath)
+	if err != nil {
+		return model.SkillContent{}, err
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		return model.SkillContent{}, fmt.Errorf("读取技能文件失败: %w", err)
+	}
+	if info.IsDir() {
+		return model.SkillContent{}, fmt.Errorf("目标不是文本文件")
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		return model.SkillContent{}, fmt.Errorf("读取技能文件失败: %w", err)
+	}
+	if !isTextContent(data) {
+		return model.SkillContent{}, fmt.Errorf("仅支持预览文本文件")
+	}
+	return model.SkillContent{Path: rel, Content: string(data)}, nil
+}
+
+// SaveSkillFile 保存技能根目录内的文本文件。
+func (m *Manager) SaveSkillFile(skillPath, relativePath, content string) error {
+	root, err := m.resolveSkillPath(skillPath)
+	if err != nil {
+		return err
+	}
+	target, _, err := m.resolveSkillRelativePath(root, relativePath)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		return fmt.Errorf("读取技能文件失败: %w", err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("目标不是文本文件")
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		return fmt.Errorf("读取技能文件失败: %w", err)
+	}
+	if !isTextContent(data) {
+		return fmt.Errorf("仅支持编辑文本文件")
+	}
+	return os.WriteFile(target, []byte(content), info.Mode().Perm())
 }
 
 // ToggleSkill 切换技能链接状态。
@@ -258,5 +331,131 @@ func parseFrontmatter(data []byte) (skillFrontmatter, error) {
         }
     }
 
-    return fm, nil
+	return fm, nil
+}
+
+func (m *Manager) resolveSkillPath(skillPath string) (string, error) {
+	root, err := filepath.Abs(skillPath)
+	if err != nil {
+		return "", fmt.Errorf("解析技能目录失败: %w", err)
+	}
+	base, err := filepath.Abs(m.globalDir)
+	if err != nil {
+		return "", fmt.Errorf("解析技能根目录失败: %w", err)
+	}
+	declaredRel, err := filepath.Rel(base, root)
+	if err != nil {
+		return "", fmt.Errorf("校验技能目录失败: %w", err)
+	}
+	if declaredRel == "." || declaredRel == "" || declaredRel == ".." || strings.HasPrefix(declaredRel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("仅允许访问技能根目录内的技能")
+	}
+	info, err := os.Stat(root)
+	if err != nil {
+		return "", fmt.Errorf("读取技能目录失败: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("技能路径不是目录")
+	}
+	return root, nil
+}
+
+func (m *Manager) resolveSkillRelativePath(root, relativePath string) (string, string, error) {
+	cleanRel := filepath.Clean(relativePath)
+	if cleanRel == "." || cleanRel == "" {
+		return "", "", fmt.Errorf("文件路径不能为空")
+	}
+	if cleanRel == ".." || strings.HasPrefix(cleanRel, ".."+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("仅允许访问技能根目录内的文件")
+	}
+	target := filepath.Join(root, cleanRel)
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return "", "", fmt.Errorf("解析技能文件失败: %w", err)
+	}
+	rel, err := filepath.Rel(root, absTarget)
+	if err != nil {
+		return "", "", fmt.Errorf("校验技能文件失败: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("仅允许访问技能根目录内的文件")
+	}
+	return absTarget, filepath.ToSlash(rel), nil
+}
+
+func (m *Manager) buildSkillFileTree(root, current string, isRoot bool) (model.SkillFileNode, error) {
+	info, err := os.Stat(current)
+	if err != nil {
+		return model.SkillFileNode{}, fmt.Errorf("读取技能目录失败: %w", err)
+	}
+	rel := "."
+	if !isRoot {
+		rel, err = filepath.Rel(root, current)
+		if err != nil {
+			return model.SkillFileNode{}, fmt.Errorf("计算技能相对路径失败: %w", err)
+		}
+	}
+	node := model.SkillFileNode{
+		Name: info.Name(),
+		Path: filepath.ToSlash(rel),
+		Type: "file",
+	}
+	if isRoot {
+		node.Name = filepath.Base(root)
+		node.Path = "."
+	}
+	if !info.IsDir() {
+		return node, nil
+	}
+	node.Type = "dir"
+	entries, err := os.ReadDir(current)
+	if err != nil {
+		return model.SkillFileNode{}, fmt.Errorf("读取技能目录失败: %w", err)
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		leftName := entries[i].Name()
+		rightName := entries[j].Name()
+		if leftName == "SKILL.md" || rightName == "SKILL.md" {
+			return leftName == "SKILL.md"
+		}
+		leftDir := entries[i].IsDir()
+		rightDir := entries[j].IsDir()
+		if leftDir != rightDir {
+			return leftDir
+		}
+		return leftName < rightName
+	})
+	for _, entry := range entries {
+		childPath := filepath.Join(current, entry.Name())
+		childInfo, err := os.Stat(childPath)
+		if err != nil {
+			continue
+		}
+		if childInfo.IsDir() {
+			child, err := m.buildSkillFileTree(root, childPath, false)
+			if err == nil {
+				node.Children = append(node.Children, child)
+			}
+			continue
+		}
+		childRel, err := filepath.Rel(root, childPath)
+		if err != nil {
+			continue
+		}
+		node.Children = append(node.Children, model.SkillFileNode{
+			Name: entry.Name(),
+			Path: filepath.ToSlash(childRel),
+			Type: "file",
+		})
+	}
+	return node, nil
+}
+
+func isTextContent(data []byte) bool {
+	for _, b := range data {
+		if b == 0 {
+			return false
+		}
+	}
+	return true
 }

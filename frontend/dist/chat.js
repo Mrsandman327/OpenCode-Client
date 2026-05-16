@@ -3,7 +3,10 @@
 // ============================================================
 
 let webURL = '';
+let frontendWebURL = '';
 let webRunning = false;
+let frontendWebRunning = false;
+const FRONTEND_WEB_CONFIG_KEY = 'oc-frontend-web-config';
 let currentSessionId = '';
 let sessions = [];
 let sessionStatuses = {};
@@ -24,6 +27,7 @@ let userScrolling = false;
 let sessionRefreshTimer = null;
 let attachedFiles = [];
 let questionCustomInput = ''; // question 工具自定义输入框的值（防止 DOM 重建时丢失）
+let dirBrowserCurrentPath = '';
 
 // 全局 agent/model 选择
 let agentList = [];
@@ -78,6 +82,64 @@ function saveNetworkConfig(config) {
     localStorage.setItem(NETWORK_CONFIG_KEY, JSON.stringify(next));
     updateProxyButton();
     return next;
+}
+
+function getFrontendWebConfig() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(FRONTEND_WEB_CONFIG_KEY) || '{}');
+        return {
+            host: (saved.host || '127.0.0.1').trim(),
+            port: (saved.port || '8081').toString().trim(),
+        };
+    } catch (_) {
+        return { host: '127.0.0.1', port: '8081' };
+    }
+}
+
+function saveFrontendWebConfig(config) {
+    const next = {
+        host: (config.host || '127.0.0.1').trim(),
+        port: (config.port || '8081').toString().trim(),
+    };
+    localStorage.setItem(FRONTEND_WEB_CONFIG_KEY, JSON.stringify(next));
+    return next;
+}
+
+function loadFrontendWebConfigToInputs() {
+    const hostEl = document.getElementById('frontendWebHost');
+    const portEl = document.getElementById('frontendWebPort');
+    const config = getFrontendWebConfig();
+    if (hostEl) hostEl.value = config.host;
+    if (portEl) portEl.value = config.port;
+    return config;
+}
+
+function persistFrontendWebConfigFromInputs() {
+    const host = document.getElementById('frontendWebHost')?.value.trim() || '127.0.0.1';
+    const port = document.getElementById('frontendWebPort')?.value.trim() || '8081';
+    return saveFrontendWebConfig({ host, port });
+}
+
+async function copyFrontendWebUrl() {
+    if (!frontendWebURL) {
+        showToast('当前没有可复制的访问地址', 'warning');
+        return;
+    }
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(frontendWebURL);
+        } else {
+            const input = document.createElement('input');
+            input.value = frontendWebURL;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+        }
+        showToast('访问地址已复制', 'success');
+    } catch (e) {
+        showToast('复制失败: ' + (e.message || e), 'error');
+    }
 }
 
 function proxyUrl(config = getNetworkConfig()) {
@@ -299,6 +361,10 @@ function treeHasSessionsForDir(tree, dir) {
 async function addDirectoryToProject() {
     if (!webRunning) return;
     try {
+        if (isBrowserRuntimeForMain()) {
+            await openDirBrowserModal();
+            return;
+        }
         const dir = await api.OpenDirectoryDialog();
         if (!dir) return;
         rememberKnownDir(dir);
@@ -406,6 +472,105 @@ async function checkWebStatus() {
     setTimeout(function() { initSearch(); }, 500);
 }
 
+async function checkFrontendWebStatus() {
+    try {
+        const config = persistFrontendWebConfigFromInputs();
+        const host = config.host || '127.0.0.1';
+        const port = parseInt(config.port, 10) || 8081;
+        const result = await api.GetFrontendWebStatus(host, port);
+        frontendWebRunning = !!result.running;
+        frontendWebURL = result.url || '';
+    } catch (e) {
+        frontendWebRunning = false;
+        frontendWebURL = '';
+    }
+    renderFrontendWebStatus();
+}
+
+function renderFrontendWebStatus() {
+    const statusEl = document.getElementById('frontendWebStatus');
+    const urlEl = document.getElementById('frontendWebUrl');
+    const btnStart = document.getElementById('btnSaveFrontendWeb');
+    const btnStop = document.getElementById('btnStopFrontendWeb');
+    const btnCopy = document.getElementById('btnCopyFrontendWebUrl');
+    const btnToolbar = document.getElementById('btnFrontendWebConfig');
+    const toolbarDot = document.getElementById('frontendWebToolbarDot');
+    if (!statusEl || !urlEl || !btnStart || !btnStop || !btnCopy || !btnToolbar || !toolbarDot) return;
+    statusEl.textContent = frontendWebRunning ? '运行中' : '未启动';
+    statusEl.classList.toggle('frontend-web-status-running', frontendWebRunning);
+    urlEl.textContent = frontendWebURL || '--';
+    urlEl.title = frontendWebURL || '';
+    urlEl.href = frontendWebURL || '#';
+    urlEl.classList.toggle('disabled', !frontendWebURL);
+    btnStart.disabled = frontendWebRunning;
+    btnStop.disabled = !frontendWebRunning;
+    btnCopy.disabled = !frontendWebURL;
+    toolbarDot.classList.toggle('on', frontendWebRunning);
+    toolbarDot.classList.toggle('off', !frontendWebRunning);
+    btnToolbar.title = frontendWebRunning && frontendWebURL ? `Web服务运行中: ${frontendWebURL}` : 'Web服务';
+}
+
+function showFrontendWebModal() {
+    const modal = document.getElementById('frontendWebModal');
+    if (!modal) return;
+    loadFrontendWebConfigToInputs();
+    modal.style.display = 'flex';
+    checkFrontendWebStatus();
+}
+
+function closeFrontendWebModal() {
+    const modal = document.getElementById('frontendWebModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function startFrontendWeb() {
+    const btn = document.getElementById('btnSaveFrontendWeb');
+    if (!btn) return;
+    const config = persistFrontendWebConfigFromInputs();
+    const host = config.host;
+    const portText = config.port;
+    if (!/^\d{1,5}$/.test(portText)) {
+        showToast('Web服务端口必须是数字', 'error');
+        return;
+    }
+    const port = parseInt(portText, 10) || 8081;
+    btn.disabled = true;
+    btn.textContent = '⏳ 启动中...';
+    try {
+        const result = await api.StartFrontendWeb(port, host);
+        frontendWebRunning = !!result.running;
+        frontendWebURL = result.url || '';
+        renderFrontendWebStatus();
+        if (frontendWebRunning) {
+            showToast('Web服务已启动', 'success');
+        } else if (result.error) {
+            showToast('Web服务启动失败: ' + result.error, 'error');
+        }
+    } catch (e) {
+        showToast('Web服务启动失败: ' + (e.message || e), 'error');
+    }
+    btn.textContent = '启动服务';
+    checkFrontendWebStatus();
+}
+
+async function stopFrontendWeb() {
+    const btn = document.getElementById('btnStopFrontendWeb');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = '⏳ 停止中...';
+    try {
+        await api.StopFrontendWeb();
+        frontendWebRunning = false;
+        frontendWebURL = '';
+        renderFrontendWebStatus();
+        showToast('Web服务已停止', 'info');
+    } catch (e) {
+        showToast('Web服务停止失败: ' + (e.message || e), 'error');
+    }
+    btn.textContent = '停止服务';
+    checkFrontendWebStatus();
+}
+
 // ============================
 // API 工具
 // ============================
@@ -479,6 +644,17 @@ function startEventStream() {
             //setTimeout(() => checkWebStatus(), 200);
         });
         startEventStream.bound = true;
+    }
+    if (!window.runtime && !startEventStream.eventSource) {
+        const es = new EventSource('/events');
+        startEventStream.eventSource = es;
+        es.addEventListener('oc-event', (event) => handleOcEvent(parseEventPayload(event.data)));
+        es.addEventListener('oc-event-error', (event) => {
+            showToast('事件流异常: ' + (event.data || '连接已断开'), 'error');
+        });
+        es.onerror = () => {
+            showToast('事件流异常: 连接已断开', 'error');
+        };
     }
     if (api.StartOpenCodeEvents) api.StartOpenCodeEvents();
 }
@@ -2194,6 +2370,7 @@ function clearClientUI() {
     document.getElementById('ocChatTitle').textContent = '未选择会话';
     document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
     document.getElementById('ocSubtasks').innerHTML = '<div class="oc-empty">当前会话暂无子任务</div>';
+    document.getElementById('ocTodos').innerHTML = '<div class="oc-empty">当前会话暂无代办</div>';
     renderServiceStatus();
     document.getElementById('ocDiff').innerHTML = '<div class="oc-empty">选择会话后查看变更</div>';
     document.getElementById('ocPrompt').value = '';
@@ -2212,6 +2389,8 @@ function updateWebUI() {
     const btnRefreshStatus = document.getElementById('btnRefreshStatus');
     const prompt = document.getElementById('ocPrompt');
     const btnAttach = document.getElementById('btnAttachFile');
+    const btnFrontendWeb = document.getElementById('btnFrontendWebConfig');
+    const btnFrontendWebDot = document.getElementById('frontendWebToolbarDot');
 
     if (webRunning) {
         btnStart.disabled = true;
@@ -2236,6 +2415,71 @@ function updateWebUI() {
         prompt.disabled = true;
         btnAttach.disabled = true;
     }
+    if (btnFrontendWeb && btnFrontendWebDot) {
+        btnFrontendWebDot.classList.toggle('on', frontendWebRunning);
+        btnFrontendWebDot.classList.toggle('off', !frontendWebRunning);
+    }
+}
+
+async function openDirBrowserModal() {
+	dirBrowserCurrentPath = '';
+	document.getElementById('dirBrowserModal').style.display = 'flex';
+	await loadDirBrowserList('');
+}
+
+function closeDirBrowserModal() {
+	document.getElementById('dirBrowserModal').style.display = 'none';
+}
+
+async function loadDirBrowserList(path) {
+	dirBrowserCurrentPath = path || '';
+	document.getElementById('dirBrowserPath').textContent = dirBrowserCurrentPath || '根目录';
+	const list = document.getElementById('dirBrowserList');
+	list.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在读取目录...</p></div>';
+	try {
+		const dirs = await api.ListBrowsableDirs(path || '');
+		if (!dirs || !dirs.length) {
+			list.innerHTML = '<div class="oc-empty">当前层没有可进入的目录</div>';
+			return;
+		}
+		list.innerHTML = dirs.map(dir => '<button type="button" class="btn btn-sm skill-file-dir-toggle" data-path="' + escapeHtml(dir.path) + '" style="margin:4px 0;width:100%;">📁 ' + escapeHtml(dir.name) + '</button>').join('');
+		list.querySelectorAll('[data-path]').forEach(btn => {
+			btn.addEventListener('click', async () => {
+				await loadDirBrowserList(btn.dataset.path || '');
+			});
+		});
+	} catch (e) {
+		list.innerHTML = '<div class="oc-empty">读取目录失败</div>';
+		showToast('读取目录失败: ' + (e.message || e), 'error');
+	}
+}
+
+async function selectDirBrowserCurrent() {
+	if (!dirBrowserCurrentPath) {
+		showToast('请先进入目标目录', 'warning');
+		return;
+	}
+	rememberKnownDir(dirBrowserCurrentPath);
+	closeDirBrowserModal();
+	const ok = await buildTree();
+	if (!ok || !treeHasSessionsForDir(window._lastProjectTree, dirBrowserCurrentPath)) {
+		document.getElementById('ocChatTitle').textContent = '工作目录 @ ' + dirBrowserCurrentPath;
+		document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">该目录下没有会话记录，请先在该目录下新建会话</div>';
+		showToast('该目录下没有会话记录，请先在该目录下新建会话', 'warning');
+		return;
+	}
+	showToast('已加载目录会话: ' + dirBrowserCurrentPath, 'success');
+}
+
+async function goDirBrowserUp() {
+	if (!dirBrowserCurrentPath) return;
+	const current = String(dirBrowserCurrentPath).replace(/[\\/]+$/, '');
+	const parent = current.replace(/[\\/][^\\/]+$/, '');
+	if (!parent || parent === current) {
+		await loadDirBrowserList('');
+		return;
+	}
+	await loadDirBrowserList(parent);
 }
 
 function toggleSessions() {

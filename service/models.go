@@ -1,4 +1,4 @@
-package main
+package service
 
 import (
 	"encoding/json"
@@ -9,8 +9,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-
-	"oc-manager/service"
 )
 
 var (
@@ -34,7 +32,7 @@ func loadModels() {
 }
 
 // refreshModels 强制刷新可用模型列表
-func refreshModels() {
+func RefreshModels() {
 	cachedModelsMu.Lock()
 	defer cachedModelsMu.Unlock()
 	models, err := fetchModels()
@@ -45,7 +43,7 @@ func refreshModels() {
 }
 
 // getAvailableModels 获取已缓存的可用模型列表
-func getAvailableModels() ([]string, error) {
+func GetAvailableModels() ([]string, error) {
 	cachedModelsMu.RLock()
 	defer cachedModelsMu.RUnlock()
 	if !cachedModelsOk {
@@ -63,12 +61,12 @@ func getAvailableModels() ([]string, error) {
 
 // fetchModelsViaHTTP 从已运行的 opencode serve 的 /provider 接口获取模型列表。
 func fetchModelsViaHTTP() ([]string, error) {
-	status := service.GetWebStatus(service.LastCfgHost, service.LastCfgPort)
+	status := GetWebStatus(LastCfgHost, LastCfgPort)
 	if !status.Running {
 		return nil, fmt.Errorf("opencode serve 未运行")
 	}
 
-	url := fmt.Sprintf("http://%s:%d/provider", service.LastCfgHost, service.LastCfgPort)
+	url := fmt.Sprintf("http://%s:%d/provider", LastCfgHost, LastCfgPort)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
