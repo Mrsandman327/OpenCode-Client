@@ -809,9 +809,18 @@ function mergeMessage(existing, incoming) {
     if (!existing) return incoming;
     const existingParts = Array.isArray(existing.parts) ? existing.parts : [];
     const incomingParts = Array.isArray(incoming.parts) ? incoming.parts : [];
+    const mergedParts = [...existingParts];
+    for (const part of incomingParts) {
+        const existingIndex = mergedParts.findIndex(old => old.id && old.id === part.id);
+        if (existingIndex >= 0) {
+            mergedParts[existingIndex] = mergePart(mergedParts[existingIndex], part);
+        } else {
+            mergedParts.push(part);
+        }
+    }
     return {
         info: { ...existing.info, ...incoming.info },
-        parts: incomingParts.map(part => mergePart(existingParts.find(old => old.id && old.id === part.id), part)),
+        parts: mergedParts,
     };
 }
 
@@ -2316,27 +2325,37 @@ async function sendPrompt() {
 
 function scheduleRefresh() {
     clearInterval(refreshTimer);
+    const refreshSessionId = currentSessionId;
     refreshTimer = setInterval(() => {
-        if (webRunning && currentSessionId) {
-            const wasBusy = isSessionBusy(currentSessionId);
-            loadSessionStatuses().then(statuses => {
-                const nextStatuses = statuses || {};
-                if (currentSessionId && isSessionBusy(currentSessionId) && !nextStatuses[currentSessionId]) {
-                    nextStatuses[currentSessionId] = sessionStatuses[currentSessionId];
-                }
-                sessionStatuses = nextStatuses;
-                updateSendButton();
-                const busy = isSessionBusy(currentSessionId);
-                if (busy || wasBusy) {
-                    loadMessages();
-                }
-                if (!busy) {
-                    clearInterval(refreshTimer);
-                    refreshTimer = null;
-                }
-            });
-            if (wasBusy) loadDiff();
+        if (!webRunning || !refreshSessionId) return;//opencode服务未启动或者当前没有会话
+        // 如果用户已经切换会话，旧定时器直接停止，避免处理新会话
+        if (refreshSessionId !== currentSessionId) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+            return;
         }
+        const wasBusy = isSessionBusy(refreshSessionId);
+        loadSessionStatuses().then(statuses => {
+            const nextStatuses = statuses || {};
+            if (isSessionBusy(refreshSessionId) && !nextStatuses[refreshSessionId]) {
+                nextStatuses[refreshSessionId] = sessionStatuses[refreshSessionId];
+            }
+            sessionStatuses = nextStatuses;
+            updateSendButton();
+            const busy = isSessionBusy(refreshSessionId);
+            // if (busy || wasBusy) {
+            //     loadMessages();
+            // }
+            if (!busy) {
+                clearInterval(refreshTimer);
+                refreshTimer = null;
+                loadMessages()
+            }
+        }).catch(() => {
+            // 状态刷新失败时不要影响 SSE 流式输出
+        });
+        if (wasBusy) loadDiff();
+        
     }, 4000);
 }
 
