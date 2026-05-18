@@ -599,6 +599,82 @@ func TestTreePanelResizeKeepsCollapseButtonAndHoverHandleStyles(t *testing.T) {
 	}
 }
 
+func TestSidepanelResizeIncludesHandleAndWidthStateHints(t *testing.T) {
+	htmlBytes, err := os.ReadFile("../../frontend/dist/index.html")
+	if err != nil {
+		t.Fatalf("读取 index.html 失败: %v", err)
+	}
+	html := string(htmlBytes)
+
+	for _, required := range []string{
+		`class="oc-sidepanel"`,
+		`id="btnToggleSidepanel"`,
+		`id="ocSidepanelResizeHandle"`,
+	} {
+		if !strings.Contains(html, required) {
+			t.Fatalf("index.html 缺少右侧面板拖拽结构线索: %s", required)
+		}
+	}
+
+	js, err := os.ReadFile("../../frontend/dist/assets/chat-session.js")
+	if err != nil {
+		t.Fatalf("读取 chat-session.js 失败: %v", err)
+	}
+	source := string(js)
+
+	for _, required := range []string{
+		"sidepanelWidth",
+		"320",
+		"220",
+		"420",
+		"loadSidepanelWidth",
+		"applySidepanelWidth",
+		"persistSidepanelWidth",
+		"initSidepanelResize",
+		"pointerdown",
+		"pointermove",
+		"pointerup",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("chat-session.js 缺少右侧面板拖拽状态或事件线索: %s", required)
+		}
+	}
+}
+
+func TestSidepanelResizeKeepsCollapseButtonAndHoverHandleStyles(t *testing.T) {
+	cssBytes, err := os.ReadFile("../../frontend/dist/assets/style.css")
+	if err != nil {
+		t.Fatalf("读取 style.css 失败: %v", err)
+	}
+	css := string(cssBytes)
+
+	for _, required := range []string{
+		`.oc-sidepanel-resize-handle {`,
+		`.oc-sidepanel-resize-handle:hover {`,
+		`.oc-sidepanel-resize-handle.dragging {`,
+		`.oc-client.hide-right .oc-sidepanel-resize-handle {`,
+		`.oc-toggle-right {`,
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("style.css 缺少右侧面板拖拽样式线索: %s", required)
+		}
+	}
+
+	mobileBytes, err := os.ReadFile("../../frontend/dist/assets/chat-mobile.js")
+	if err != nil {
+		t.Fatalf("读取 chat-mobile.js 失败: %v", err)
+	}
+	mobile := string(mobileBytes)
+	for _, required := range []string{
+		"toggleSidepanel()",
+		"client.classList.toggle('hide-right')",
+	} {
+		if !strings.Contains(mobile, required) {
+			t.Fatalf("现有右侧完全收起逻辑线索缺失: %s", required)
+		}
+	}
+}
+
 func TestCreateNewSessionUsesDirectoryBrowserInWebMode(t *testing.T) {
 	js, err := os.ReadFile("../../frontend/dist/chat.js")
 	if err != nil {

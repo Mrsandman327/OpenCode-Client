@@ -102,6 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof loadTreePanelWidth === 'function') {
         loadTreePanelWidth();
     }
+    if (typeof initSidepanelResize === 'function') {
+        initSidepanelResize();
+    }
+    if (typeof loadSidepanelWidth === 'function') {
+        loadSidepanelWidth();
+    }
 
     document.getElementById('ocMessages').addEventListener('scroll', updateScrollBottomButton);
     document.querySelector('.oc-chat').addEventListener('click', (e) => {
@@ -353,6 +359,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => {
         if (typeof applyTreePanelWidth === 'function' && typeof treePanelWidth !== 'undefined') {
             applyTreePanelWidth(treePanelWidth);
+        }
+        if (typeof applySidepanelWidth === 'function' && typeof sidepanelWidth !== 'undefined') {
+            applySidepanelWidth(sidepanelWidth);
         }
         if (!isMobileTreeMode()) {
             closeMobileTree();

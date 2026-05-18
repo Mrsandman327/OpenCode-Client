@@ -270,6 +270,134 @@ function initTreePanelResize() {
     });
 }
 
+// ============================
+// 右侧面板宽度状态
+// ============================
+
+/** 右侧面板宽度的 localStorage 键名（全局共享） */
+const SIDEPANEL_WIDTH_KEY = 'sidepanelWidth';
+/** 右侧面板默认宽度（无记录时使用） */
+const SIDEPANEL_DEFAULT_WIDTH = 320;
+/** 右侧面板允许的最小宽度 */
+const SIDEPANEL_MIN_WIDTH = 220;
+/** 右侧面板允许的理论最大宽度 */
+const SIDEPANEL_MAX_WIDTH = 420;
+/** 最近一次有效的右侧面板展开宽度 */
+let sidepanelWidth = SIDEPANEL_DEFAULT_WIDTH;
+
+/**
+ * 归一化右侧面板用户偏好宽度
+ * 仅做静态范围约束（220~420），不考虑当前窗口可用宽度
+ */
+function normalizeSidepanelWidth(width) {
+    const numeric = Number(width);
+    if (!Number.isFinite(numeric)) return SIDEPANEL_DEFAULT_WIDTH;
+    return Math.max(SIDEPANEL_MIN_WIDTH, Math.min(SIDEPANEL_MAX_WIDTH, numeric));
+}
+
+/**
+ * 计算当前窗口下允许的右侧面板动态最大宽度
+ * 需要为中间聊天区保留至少 360px，并考虑左侧项目树当前渲染宽度
+ */
+function getSidepanelDynamicMaxWidth() {
+    const client = document.getElementById('webContainer');
+    if (!client) return SIDEPANEL_MAX_WIDTH;
+    const availableWidth = client.clientWidth;
+    const leftWidth = client.classList.contains('hide-left')
+        ? 0
+        : (parseFloat(getComputedStyle(client).getPropertyValue('--tree-panel-width')) || TREE_PANEL_DEFAULT_WIDTH);
+    return Math.max(SIDEPANEL_MIN_WIDTH, Math.min(SIDEPANEL_MAX_WIDTH, availableWidth - leftWidth - 360));
+}
+
+/**
+ * 根据当前窗口大小夹取右侧面板实际渲染宽度
+ * 该宽度可能小于用户偏好值，但不会覆盖用户偏好本身
+ */
+function clampSidepanelWidth(width) {
+    return Math.max(SIDEPANEL_MIN_WIDTH, Math.min(getSidepanelDynamicMaxWidth(), normalizeSidepanelWidth(width)));
+}
+
+/**
+ * 将右侧面板宽度应用到桌面端布局
+ * 通过 `--sidepanel-width` 同时驱动第三列宽度与收起按钮定位
+ */
+function applySidepanelWidth(width) {
+    const client = document.getElementById('webContainer');
+    if (!client || isMobileTreeMode()) return;
+    const nextWidth = clampSidepanelWidth(width);
+    client.style.setProperty('--sidepanel-width', nextWidth + 'px');
+}
+
+/**
+ * 持久化用户偏好的右侧面板宽度
+ * 保存的是用户偏好值，不是当前窗口下的临时夹取值
+ */
+function persistSidepanelWidth(width) {
+    const nextWidth = normalizeSidepanelWidth(width);
+    sidepanelWidth = nextWidth;
+    try {
+        localStorage.setItem(SIDEPANEL_WIDTH_KEY, String(nextWidth));
+    } catch (_) {}
+    return nextWidth;
+}
+
+/**
+ * 初始化右侧面板宽度
+ * 优先恢复 localStorage 中的值；无记录或非法值时回退到默认值 320px
+ */
+function loadSidepanelWidth() {
+    let width = SIDEPANEL_DEFAULT_WIDTH;
+    try {
+        const saved = localStorage.getItem(SIDEPANEL_WIDTH_KEY);
+        if (saved != null) {
+            width = saved;
+        }
+    } catch (_) {}
+    sidepanelWidth = normalizeSidepanelWidth(width);
+    applySidepanelWidth(sidepanelWidth);
+    persistSidepanelWidth(sidepanelWidth);
+}
+
+/**
+ * 绑定右侧面板拖拽调宽逻辑（仅桌面端）
+ * 收起状态下不响应拖拽；拖拽结束后写入 localStorage
+ */
+function initSidepanelResize() {
+    const sidepanelResizeHandle = document.getElementById('ocSidepanelResizeHandle');
+    if (!sidepanelResizeHandle) return;
+    sidepanelResizeHandle.addEventListener('pointerdown', (event) => {
+        if (isMobileTreeMode()) return;
+        const client = document.getElementById('webContainer');
+        if (!client || client.classList.contains('hide-right')) return;
+        const startX = event.clientX;
+        const startWidth = sidepanelWidth;
+        let currentWidth = startWidth;
+        client.classList.add('sidepanel-resizing');
+        sidepanelResizeHandle.classList.add('dragging');
+        sidepanelResizeHandle.setPointerCapture?.(event.pointerId);
+
+        const onMove = (moveEvent) => {
+            const delta = startX - moveEvent.clientX;
+            currentWidth = startWidth + delta;
+            applySidepanelWidth(currentWidth);
+        };
+
+        const stopResize = () => {
+            persistSidepanelWidth(currentWidth);
+            applySidepanelWidth(sidepanelWidth);
+            client.classList.remove('sidepanel-resizing');
+            sidepanelResizeHandle.classList.remove('dragging');
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', stopResize);
+            window.removeEventListener('blur', stopResize);
+        };
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', stopResize);
+        window.addEventListener('blur', stopResize);
+    });
+}
+
 
 // ============================
 // 附件管理
