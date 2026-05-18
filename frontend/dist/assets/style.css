@@ -569,10 +569,11 @@ input::placeholder, textarea::placeholder {
     font-weight: 600;
 }
 .oc-client {
+    --tree-panel-width: 240px;
     flex: 1 1 0;
     min-height: 0;
     display: grid;
-    grid-template-columns: 240px minmax(360px, 1fr) 320px;
+    grid-template-columns: var(--tree-panel-width) minmax(360px, 1fr) 320px;
     background: var(--bg-primary);
     overflow: hidden;
     transition: grid-template-columns 0.2s ease;
@@ -581,7 +582,7 @@ input::placeholder, textarea::placeholder {
     grid-template-columns: 0px minmax(360px, 1fr) 320px;
 }
 .oc-client.hide-right {
-    grid-template-columns: 240px minmax(360px, 1fr) 0px;
+    grid-template-columns: var(--tree-panel-width) minmax(360px, 1fr) 0px;
 }
 .oc-client.hide-left.hide-right {
     grid-template-columns: 0px minmax(360px, 1fr) 0px;
@@ -595,6 +596,7 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     overflow: hidden;
     transition: border 0.2s;
+    position: relative;
 }
 .hide-left .oc-sessions {
     border-right: none;
@@ -605,9 +607,10 @@ input::placeholder, textarea::placeholder {
     border-top: 1px solid var(--border);
     display: flex;
     justify-content: center;
+    text-align: center;
 }
 .oc-sessions-footer .btn {
-    width: 100%;
+    width: 120px;
 }
 
 /* 面板切换按钮 — 悬浮在面板内侧边缘 */
@@ -637,7 +640,7 @@ input::placeholder, textarea::placeholder {
     color: var(--text-primary);
 }
 .oc-toggle-left {
-    left: 240px;
+    left: var(--tree-panel-width);
     transition: left 0.2s ease;
 }
 .hide-left .oc-toggle-left {
@@ -652,6 +655,45 @@ input::placeholder, textarea::placeholder {
 }
 .oc-client {
     position: relative;
+}
+
+.oc-tree-resize-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -4px;
+    width: 8px;
+    cursor: col-resize;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+    z-index: 8;
+}
+
+.oc-sessions:hover .oc-tree-resize-handle,
+.oc-tree-resize-handle:hover {
+    opacity: 1;
+}
+
+.oc-tree-resize-handle:hover {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.oc-tree-resize-handle.dragging {
+    opacity: 1;
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.oc-client.tree-resizing {
+    transition: none;
+}
+
+.oc-client.tree-resizing .oc-toggle-left {
+    transition: none;
+}
+
+.oc-client.hide-left .oc-tree-resize-handle {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .oc-panel-head,

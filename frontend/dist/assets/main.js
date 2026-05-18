@@ -95,6 +95,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnToggleSessions').addEventListener('click', toggleSessions);
     document.getElementById('btnToggleSidepanel').addEventListener('click', toggleSidepanel);
     document.getElementById('btnScrollBottom').addEventListener('click', scrollMessagesToBottom);
+
+    if (typeof initTreePanelResize === 'function') {
+        initTreePanelResize();
+    }
+    if (typeof loadTreePanelWidth === 'function') {
+        loadTreePanelWidth();
+    }
+
     document.getElementById('ocMessages').addEventListener('scroll', updateScrollBottomButton);
     document.querySelector('.oc-chat').addEventListener('click', (e) => {
         if (e.target.closest('.modal-overlay')) return;
@@ -343,6 +351,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('resize', () => {
+        if (typeof applyTreePanelWidth === 'function' && typeof treePanelWidth !== 'undefined') {
+            applyTreePanelWidth(treePanelWidth);
+        }
         if (!isMobileTreeMode()) {
             closeMobileTree();
         }

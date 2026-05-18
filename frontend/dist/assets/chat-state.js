@@ -109,9 +109,9 @@ const MOBILE_MESSAGE_RENDER_LIMIT = 30;
 /** 移动端点击「加载更多」时每次增加的消息条数 */
 const MOBILE_MESSAGE_LOAD_MORE_STEP = 20;
 /** PC端最多渲染的消息条数 */
-const PC_MESSAGE_RENDER_LIMIT = 50;
+const PC_MESSAGE_RENDER_LIMIT = 500;
 /** PC端点击「加载更多」时每次增加的消息条数 */
-const PC_MESSAGE_LOAD_MORE_STEP = 500;
+const PC_MESSAGE_LOAD_MORE_STEP = 50;
 /** 当前可见消息数量（移动端），初始等于渲染上限 */
 let visibleMessageCount = PC_MESSAGE_RENDER_LIMIT;
 

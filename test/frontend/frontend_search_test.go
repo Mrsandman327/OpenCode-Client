@@ -511,6 +511,94 @@ func TestSidebarCollapseUsesLocalStorageAndTitleHints(t *testing.T) {
 	}
 }
 
+func TestTreePanelResizeIncludesHandleAndWidthStateHints(t *testing.T) {
+	htmlBytes, err := os.ReadFile("../../frontend/dist/index.html")
+	if err != nil {
+		t.Fatalf("读取 index.html 失败: %v", err)
+	}
+	html := string(htmlBytes)
+
+	for _, required := range []string{
+		`id="ocSessions"`,
+		`id="btnToggleSessions"`,
+		`id="ocTreeResizeHandle"`,
+	} {
+		if !strings.Contains(html, required) {
+			t.Fatalf("index.html 缺少项目树拖拽结构线索: %s", required)
+		}
+	}
+
+	js, err := os.ReadFile("../../frontend/dist/assets/chat-session.js")
+	if err != nil {
+		t.Fatalf("读取 chat-session.js 失败: %v", err)
+	}
+	source := string(js)
+
+	for _, required := range []string{
+		"treePanelWidth",
+		"240",
+		"180",
+		"420",
+		"loadTreePanelWidth",
+		"applyTreePanelWidth",
+		"persistTreePanelWidth",
+		"initTreePanelResize",
+		"pointerdown",
+		"pointermove",
+		"pointerup",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("chat-session.js 缺少项目树拖拽状态或事件线索: %s", required)
+		}
+	}
+}
+
+func TestTreePanelResizeKeepsCollapseButtonAndHoverHandleStyles(t *testing.T) {
+	htmlBytes, err := os.ReadFile("../../frontend/dist/index.html")
+	if err != nil {
+		t.Fatalf("读取 index.html 失败: %v", err)
+	}
+	html := string(htmlBytes)
+	if !regexp.MustCompile(`(?s)<aside class="oc-sessions" id="ocSessions">.*id="ocTreeResizeHandle"`).MatchString(html) {
+		t.Fatal("拖拽手柄应挂在 ocSessions 内部右边缘，而不是独立放在 grid 流里")
+	}
+
+	cssBytes, err := os.ReadFile("../../frontend/dist/assets/style.css")
+	if err != nil {
+		t.Fatalf("读取 style.css 失败: %v", err)
+	}
+	css := string(cssBytes)
+
+	for _, required := range []string{
+		`.oc-tree-resize-handle {`,
+		`position: absolute;`,
+		`.oc-tree-resize-handle:hover {`,
+		`.oc-tree-resize-handle.dragging {`,
+		`.oc-client.tree-resizing {`,
+		`transition: none;`,
+		`.oc-client.hide-left .oc-tree-resize-handle {`,
+		`.oc-toggle-left {`,
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("style.css 缺少项目树拖拽样式线索: %s", required)
+		}
+	}
+
+	mobileBytes, err := os.ReadFile("../../frontend/dist/assets/chat-mobile.js")
+	if err != nil {
+		t.Fatalf("读取 chat-mobile.js 失败: %v", err)
+	}
+	mobile := string(mobileBytes)
+	for _, required := range []string{
+		"toggleSessions()",
+		"client.classList.toggle('hide-left')",
+	} {
+		if !strings.Contains(mobile, required) {
+			t.Fatalf("现有完全收起逻辑线索缺失: %s", required)
+		}
+	}
+}
+
 func TestCreateNewSessionUsesDirectoryBrowserInWebMode(t *testing.T) {
 	js, err := os.ReadFile("../../frontend/dist/chat.js")
 	if err != nil {

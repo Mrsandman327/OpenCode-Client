@@ -145,6 +145,131 @@ async function loadMessages() {
     }
 }
 
+// ============================
+// 项目树面板宽度状态
+// ============================
+
+/** 项目树面板宽度的 localStorage 键名（全局共享） */
+const TREE_PANEL_WIDTH_KEY = 'treePanelWidth';
+/** 项目树面板默认宽度（无记录时使用） */
+const TREE_PANEL_DEFAULT_WIDTH = 240;
+/** 项目树面板允许的最小宽度 */
+const TREE_PANEL_MIN_WIDTH = 180;
+/** 项目树面板允许的理论最大宽度 */
+const TREE_PANEL_MAX_WIDTH = 420;
+/** 最近一次有效的展开宽度（收起后保留，展开时恢复） */
+let treePanelWidth = TREE_PANEL_DEFAULT_WIDTH;
+
+/**
+ * 归一化用户偏好宽度
+ * 仅做静态范围约束（180~420），不考虑当前窗口可用宽度
+ */
+function normalizeTreePanelWidth(width) {
+    const numeric = Number(width);
+    if (!Number.isFinite(numeric)) return TREE_PANEL_DEFAULT_WIDTH;
+    return Math.max(TREE_PANEL_MIN_WIDTH, Math.min(TREE_PANEL_MAX_WIDTH, numeric));
+}
+
+/**
+ * 计算当前窗口下允许的动态最大宽度
+ * 需要为中间聊天区保留至少 360px，为右侧栏保留 320px
+ */
+function getTreePanelDynamicMaxWidth() {
+    const client = document.getElementById('webContainer');
+    if (!client) return TREE_PANEL_MAX_WIDTH;
+    const availableWidth = client.clientWidth;
+    return Math.max(TREE_PANEL_MIN_WIDTH, Math.min(TREE_PANEL_MAX_WIDTH, availableWidth - 360 - 320));
+}
+
+/**
+ * 根据当前窗口大小夹取实际渲染宽度
+ * 该宽度可能小于用户偏好值，但不会覆盖用户偏好本身
+ */
+function clampTreePanelWidth(width) {
+    return Math.max(TREE_PANEL_MIN_WIDTH, Math.min(getTreePanelDynamicMaxWidth(), normalizeTreePanelWidth(width)));
+}
+
+/**
+ * 将项目树面板宽度应用到桌面端布局
+ * 通过 `--tree-panel-width` 同时驱动左栏列宽与收起按钮定位
+ */
+function applyTreePanelWidth(width) {
+    const client = document.getElementById('webContainer');
+    if (!client || isMobileTreeMode()) return;
+    const nextWidth = clampTreePanelWidth(width);
+    client.style.setProperty('--tree-panel-width', nextWidth + 'px');
+}
+
+/**
+ * 持久化用户偏好宽度
+ * 保存的是用户偏好值，不是当前窗口下的临时夹取值
+ */
+function persistTreePanelWidth(width) {
+    const nextWidth = normalizeTreePanelWidth(width);
+    treePanelWidth = nextWidth;
+    try {
+        localStorage.setItem(TREE_PANEL_WIDTH_KEY, String(nextWidth));
+    } catch (_) {}
+    return nextWidth;
+}
+
+/**
+ * 初始化项目树面板宽度
+ * 优先恢复 localStorage 中的值；无记录或非法值时回退到默认值 240px
+ */
+function loadTreePanelWidth() {
+    let width = TREE_PANEL_DEFAULT_WIDTH;
+    try {
+        const saved = localStorage.getItem(TREE_PANEL_WIDTH_KEY);
+        if (saved != null) {
+            width = saved;
+        }
+    } catch (_) {}
+    treePanelWidth = normalizeTreePanelWidth(width);
+    applyTreePanelWidth(treePanelWidth);
+    persistTreePanelWidth(treePanelWidth);
+}
+
+/**
+ * 绑定项目树拖拽调宽逻辑（仅桌面端）
+ * 收起状态下不响应拖拽；拖拽结束后写入 localStorage
+ */
+function initTreePanelResize() {
+    const treeResizeHandle = document.getElementById('ocTreeResizeHandle');
+    if (!treeResizeHandle) return;
+    treeResizeHandle.addEventListener('pointerdown', (event) => {
+        if (isMobileTreeMode()) return;
+        const client = document.getElementById('webContainer');
+        if (!client || client.classList.contains('hide-left')) return;
+        const startX = event.clientX;
+        const startWidth = treePanelWidth;
+        let currentWidth = startWidth;
+        client.classList.add('tree-resizing');
+        treeResizeHandle.classList.add('dragging');
+        treeResizeHandle.setPointerCapture?.(event.pointerId);
+
+        const onMove = (moveEvent) => {
+            const delta = moveEvent.clientX - startX;
+            currentWidth = startWidth + delta;
+            applyTreePanelWidth(currentWidth);
+        };
+
+        const stopResize = () => {
+            persistTreePanelWidth(currentWidth);
+            applyTreePanelWidth(treePanelWidth);
+            client.classList.remove('tree-resizing');
+            treeResizeHandle.classList.remove('dragging');
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', stopResize);
+            window.removeEventListener('blur', stopResize);
+        };
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', stopResize);
+        window.addEventListener('blur', stopResize);
+    });
+}
+
 
 // ============================
 // 附件管理
