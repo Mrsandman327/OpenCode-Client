@@ -427,12 +427,19 @@
                     <button type="button" class="btn btn-sm" id="btnCloseFileBrowser">✕</button>
                 </div>
             </div>
-            <div class="file-browser-path" id="fileBrowserPath">/</div>
             <div class="file-browser-body">
                 <aside class="file-browser-list-panel">
+                    <div class="file-browser-git-section" id="fileBrowserGitSection">
+                        <button type="button" class="file-browser-git-header" id="fileBrowserGitToggle" onclick="toggleFileBrowserGitSection()">▼ Git 变更</button>
+                        <div class="file-browser-git-body" id="fileBrowserGitBody">
+                            <div class="file-browser-empty">正在检查 Git 状态...</div>
+                        </div>
+                    </div>
+                    <div class="file-browser-path" id="fileBrowserPath">/</div>
                     <div class="file-browser-empty" id="fileBrowserListEmpty">请选择目录</div>
                     <div class="file-browser-list" id="fileBrowserList"></div>
                 </aside>
+                <div class="file-browser-resize-handle" id="fileBrowserResizeHandle" aria-hidden="true"></div>
                 <section class="file-browser-preview-panel">
                     <div class="file-browser-preview-header">
                         <div class="file-browser-preview-title" id="filePreviewTitle">请选择文件</div>

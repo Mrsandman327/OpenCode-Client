@@ -426,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var chatEl = document.querySelector('.oc-chat');
     if (!handle || !inputBar || !chatEl) return;
 
-    var MIN_HEIGHT = 120;
+    var MIN_HEIGHT = 147;
     var DEFAULT_HEIGHT = 0; // 0 = 使用 CSS 默认高度
     var STORAGE_KEY = 'ocInputHeight';
     var startY, startHeight;

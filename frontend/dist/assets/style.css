@@ -3955,7 +3955,7 @@ input::placeholder, textarea::placeholder {
 /* ======== Web 端文件浏览弹窗 ======== */
 .file-browser-modal {
     width: 90vw;
-    height: 90vh;
+    height: 95vh;
     display: flex;
     flex-direction: column;
 }
@@ -3980,6 +3980,7 @@ input::placeholder, textarea::placeholder {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    margin-top: 10px;
 }
 .file-browser-crumb {
     color: var(--accent);
@@ -3994,23 +3995,139 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-body {
     display: grid;
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: var(--file-browser-left-width, 320px) 8px minmax(0, 1fr);
     min-height: 0;
     flex: 1;
 }
 .file-browser-list-panel {
-    border-right: 1px solid var(--border);
     background: var(--bg-secondary);
     min-height: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
 }
+.file-browser-resize-handle {
+    cursor: col-resize;
+    position: relative;
+    background: transparent;
+}
+.file-browser-resize-handle::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: var(--border);
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+.file-browser-resize-handle:hover::before,
+.file-browser-resize-handle.dragging::before {
+    opacity: 1;
+    background: var(--accent);
+}
+.file-browser-git-section {
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+}
+.file-browser-git-header {
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+.file-browser-git-header:hover {
+    background: var(--bg-card-hover);
+}
+.file-browser-git-body {
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 4px 8px 8px;
+    background: var(--bg-input);
+}
+.file-browser-git-item {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: left;
+    font-size: 12px;
+}
+.file-browser-git-item:hover {
+    background: var(--bg-card-hover);
+}
+.file-browser-git-item.active {
+    background: var(--accent-ghost);
+}
+.file-browser-git-status {
+    min-width: 28px;
+    text-align: center;
+    border-radius: var(--radius-pill);
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.file-browser-git-status.status-modify {
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+.file-browser-git-status.status-add {
+    background: var(--success-bg);
+    color: var(--success);
+}
+.file-browser-git-status.status-delete {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+.file-browser-git-status.status-rename {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+.file-browser-git-status.status-untracked {
+    background: var(--bg-input);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+.file-browser-git-name {
+    display: block;
+    font-size: 12px;
+    color: var(--text-primary);
+}
+.file-browser-git-text {
+    min-width: 0;
+    flex: 1;
+}
+.file-browser-git-path {
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: initial;
+    white-space: normal;
+    word-break: break-all;
+    font-family: "SF Mono", "Cascadia Code", monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+}
 .file-browser-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     padding: 8px;
+    background: var(--bg-input);
 }
 .file-browser-item {
     width: 100%;
@@ -4075,18 +4192,28 @@ input::placeholder, textarea::placeholder {
     font-size: 13px;
     padding: 16px;
 }
+
+/* ========== 2. 代码块（如 <pre><code>） ========== */
 .file-browser-code {
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: "SF Mono", "Cascadia Code", monospace;
-    font-size: 12px;
-    line-height: 1.55;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px 14px;
+  background: var(--bg-secondary);
+  padding: 1.2em;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;  /* 横向滚动，避免折行 */
+  line-height: 1.2;  /* 行距舒适 */
+  margin: 1.2em 0;
 }
+
+.file-browser-code code {
+  /* 继承 pre 的背景色，覆盖行内代码样式 */
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 11px;  /* 代码块可略小于正文 */
+  white-space: pre-wrap;  /* 保留原格式 */
+  word-break: break-word;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
 .file-browser-markdown {
     user-select: text;
     -webkit-user-select: text;
@@ -4138,6 +4265,68 @@ input::placeholder, textarea::placeholder {
     align-items: flex-start;
     padding: 4px 0;
     color: var(--text-secondary);
+}
+.git-preview-section {
+    margin-bottom: 16px;
+}
+.git-preview-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+.git-diff-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+.git-diff-col {
+    min-width: 0;
+}
+.git-diff-col + .git-diff-col {
+    border-left: 1px solid var(--border);
+}
+.git-diff-line {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    font-family: "SF Mono", "Cascadia Code", monospace;
+    font-size: 12px;
+    line-height: 1.3;
+    align-items: start;
+    height: 30px;
+}
+.git-diff-line + .git-diff-line {
+    border-top: 1px solid rgba(0,0,0,0.04);
+}
+.git-diff-line-no {
+    padding: 6px 8px;
+    color: var(--text-muted);
+    border-right: 1px solid rgba(0,0,0,0.05);
+    text-align: right;
+    user-select: none;
+}
+.git-diff-line-text {
+    display: block;
+    padding: 4px 10px;
+    white-space: pre;
+    overflow-x: auto;
+    overflow-y:hidden;
+}
+.git-diff-line.context {
+    background: var(--bg-card);
+}
+.git-diff-line.add {
+    background: rgba(52, 199, 89, 0.12);
+}
+.git-diff-line.del {
+    background: rgba(255, 59, 48, 0.12);
+}
+.git-diff-line.empty {
+    background: var(--bg-secondary);
+    padding: 8px;
 }
 
 /* ======== 技能管理搜索框 ======== */

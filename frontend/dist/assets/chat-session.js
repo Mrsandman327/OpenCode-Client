@@ -95,13 +95,8 @@ async function selectSession(id) {
         dirEl.onclick = function() {
             var p = info?.directory || '';
             if (!p) return;
-            if (window.runtime) {
-                // 桌面端：打开文件管理器
-                api.OpenDir(p).catch(function(e) { showToast('打开失败: ' + (e.message || e), 'error'); });
-            } else {
-                // Web 端：直接打开站内文件浏览器，所有请求显式携带 rootDir + path
-                openFileBrowserModal(p);
-            }
+            // 桌面端和 Web 端统一：都打开站内文件浏览器
+            openFileBrowserModal(p);
         };
     }
     document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';

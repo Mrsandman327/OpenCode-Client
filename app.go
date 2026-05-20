@@ -105,6 +105,42 @@ func (a *App) ListBrowsableDirs(path string) ([]model.DirectoryEntry, error) {
 	return service.ListBrowsableDirs(path)
 }
 
+// ListBrowserFiles 返回站内文件浏览器目录列表。
+func (a *App) ListBrowserFiles(rootDir, path string) (model.FileBrowserListResult, error) {
+	return service.ListBrowserFiles(rootDir, path)
+}
+
+// StatBrowserFile 返回站内文件浏览器文件信息。
+func (a *App) StatBrowserFile(rootDir, path string) (model.FileBrowserStatResult, error) {
+	return service.StatBrowserFile(rootDir, path)
+}
+
+// ReadBrowserFile 返回站内文件浏览器文本文件内容。
+func (a *App) ReadBrowserFile(rootDir, path string) (model.FileBrowserReadResult, error) {
+	return service.ReadBrowserFile(rootDir, path)
+}
+
+// ReadBrowserRawBase64 返回原始文件 Base64 内容，供桌面端图片/PDF/下载使用。
+func (a *App) ReadBrowserRawBase64(rootDir, path string) (model.FileBrowserRawResult, error) {
+	return service.ReadBrowserRawBase64(rootDir, path)
+}
+
+// GetGitStatus 返回目录 Git 变更状态。
+func (a *App) GetGitStatus(rootDir string) model.GitStatusResult {
+	return service.ListGitChanges(rootDir)
+}
+
+// GetGitPreview 返回单文件 Git 预览结果。
+func (a *App) GetGitPreview(rootDir, path string) (model.GitFilePreviewResult, error) {
+	status := service.ListGitChanges(rootDir)
+	for _, changed := range status.Files {
+		if changed.Path == path {
+			return service.BuildGitFilePreview(rootDir, changed)
+		}
+	}
+	return model.GitFilePreviewResult{}, fmt.Errorf("未找到 Git 变更文件")
+}
+
 // OpenDir 在文件资源管理器中打开指定目录。
 func (a *App) OpenDir(path string) error {
 	switch runtime.GOOS {
@@ -660,6 +696,30 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		var path string
 		if err := decodeArgs(args, &path); err != nil { return nil, err }
 		return a.ListBrowsableDirs(path)
+	case "ListBrowserFiles":
+		var rootDir, path string
+		if err := decodeArgs(args, &rootDir, &path); err != nil { return nil, err }
+		return a.ListBrowserFiles(rootDir, path)
+	case "StatBrowserFile":
+		var rootDir, path string
+		if err := decodeArgs(args, &rootDir, &path); err != nil { return nil, err }
+		return a.StatBrowserFile(rootDir, path)
+	case "ReadBrowserFile":
+		var rootDir, path string
+		if err := decodeArgs(args, &rootDir, &path); err != nil { return nil, err }
+		return a.ReadBrowserFile(rootDir, path)
+	case "ReadBrowserRawBase64":
+		var rootDir, path string
+		if err := decodeArgs(args, &rootDir, &path); err != nil { return nil, err }
+		return a.ReadBrowserRawBase64(rootDir, path)
+	case "GetGitStatus":
+		var rootDir string
+		if err := decodeArgs(args, &rootDir); err != nil { return nil, err }
+		return a.GetGitStatus(rootDir), nil
+	case "GetGitPreview":
+		var rootDir, path string
+		if err := decodeArgs(args, &rootDir, &path); err != nil { return nil, err }
+		return a.GetGitPreview(rootDir, path)
 	case "ReadSkillContent":
 		var skillPath string
 		if err := decodeArgs(args, &skillPath); err != nil { return nil, err }

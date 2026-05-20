@@ -140,6 +140,8 @@ func newFrontendWebHandler(frontendFS fs.FS, bridge FrontendWebBridge) http.Hand
 	mux.HandleFunc("/api/files/stat", h.handleFilesStat)
 	mux.HandleFunc("/api/files/read", h.handleFilesRead)
 	mux.HandleFunc("/api/files/raw", h.handleFilesRaw)
+	mux.HandleFunc("/api/git/status", h.handleGitStatus)
+	mux.HandleFunc("/api/git/preview", h.handleGitPreview)
 	mux.HandleFunc("/events", h.handleEvents)
 	mux.Handle("/", http.FileServer(http.FS(frontendFS)))
 	//用户文件服务,支持热切换

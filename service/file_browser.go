@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"mime"
@@ -15,6 +16,108 @@ import (
 )
 
 const fileBrowserTextReadLimit = 2 * 1024 * 1024
+
+func ListBrowserFiles(rootDir, relPath string) (model.FileBrowserListResult, error) {
+	relPath = normalizeBrowserRelPath(relPath)
+	absPath, rootAbs, err := resolveBrowserPath(rootDir, relPath)
+	if err != nil {
+		return model.FileBrowserListResult{}, err
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return model.FileBrowserListResult{}, fmt.Errorf("读取目录失败: %w", err)
+	}
+	if !info.IsDir() {
+		return model.FileBrowserListResult{}, fmt.Errorf("目标不是目录")
+	}
+	items, err := listBrowserDir(rootAbs, absPath, relPath)
+	if err != nil {
+		return model.FileBrowserListResult{}, err
+	}
+	return model.FileBrowserListResult{RootDir: rootAbs, CurrentPath: relPath, ParentPath: parentBrowserPath(relPath), Items: items}, nil
+}
+
+func StatBrowserFile(rootDir, relPath string) (model.FileBrowserStatResult, error) {
+	relPath = normalizeBrowserRelPath(relPath)
+	if relPath == "/" {
+		return model.FileBrowserStatResult{}, fmt.Errorf("path must target a file")
+	}
+	absPath, rootAbs, err := resolveBrowserPath(rootDir, relPath)
+	if err != nil {
+		return model.FileBrowserStatResult{}, err
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return model.FileBrowserStatResult{}, fmt.Errorf("读取文件失败: %w", err)
+	}
+	itemType := "file"
+	mimeType := detectBrowserMime(absPath, false)
+	if info.IsDir() {
+		itemType = "dir"
+		mimeType = "inode/directory"
+	}
+	return model.FileBrowserStatResult{RootDir: rootAbs, Name: info.Name(), Path: relPath, Type: itemType, Ext: strings.ToLower(filepath.Ext(info.Name())), Size: info.Size(), ModifiedAt: info.ModTime().Format(time.RFC3339), Mime: mimeType}, nil
+}
+
+func ReadBrowserFile(rootDir, relPath string) (model.FileBrowserReadResult, error) {
+	relPath = normalizeBrowserRelPath(relPath)
+	if relPath == "/" {
+		return model.FileBrowserReadResult{}, fmt.Errorf("path must target a file")
+	}
+	absPath, rootAbs, err := resolveBrowserPath(rootDir, relPath)
+	if err != nil {
+		return model.FileBrowserReadResult{}, err
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return model.FileBrowserReadResult{}, fmt.Errorf("读取文件失败: %w", err)
+	}
+	if info.IsDir() {
+		return model.FileBrowserReadResult{}, fmt.Errorf("目标不是文件")
+	}
+	if !isTextPreviewFile(absPath) {
+		return model.FileBrowserReadResult{}, fmt.Errorf("该文件类型不支持文本读取")
+	}
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return model.FileBrowserReadResult{}, fmt.Errorf("读取文件失败: %w", err)
+	}
+	truncated := false
+	if len(data) > fileBrowserTextReadLimit {
+		data = data[:fileBrowserTextReadLimit]
+		truncated = true
+	}
+	return model.FileBrowserReadResult{RootDir: rootAbs, Path: relPath, Content: string(data), Encoding: "utf-8", Truncated: truncated}, nil
+}
+
+func ReadBrowserRawBase64(rootDir, relPath string) (model.FileBrowserRawResult, error) {
+	relPath = normalizeBrowserRelPath(relPath)
+	if relPath == "/" {
+		return model.FileBrowserRawResult{}, fmt.Errorf("path must target a file")
+	}
+	absPath, rootAbs, err := resolveBrowserPath(rootDir, relPath)
+	if err != nil {
+		return model.FileBrowserRawResult{}, err
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return model.FileBrowserRawResult{}, fmt.Errorf("读取文件失败: %w", err)
+	}
+	if info.IsDir() {
+		return model.FileBrowserRawResult{}, fmt.Errorf("目标不是文件")
+	}
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return model.FileBrowserRawResult{}, fmt.Errorf("读取文件失败: %w", err)
+	}
+	return model.FileBrowserRawResult{
+		RootDir: rootAbs,
+		Path:    relPath,
+		Name:    info.Name(),
+		Mime:    detectBrowserMime(absPath, false),
+		Base64:  base64.StdEncoding.EncodeToString(data),
+	}, nil
+}
 
 func (h *frontendWebHandler) handleFilesList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -307,7 +410,7 @@ func detectBrowserMime(path string, isDir bool) string {
 func isTextPreviewFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".txt", ".log", ".json", ".yaml", ".yml", ".ini", ".env", ".xml", ".md", ".markdown", ".js", ".ts", ".tsx", ".jsx", ".go", ".py", ".java", ".c", ".cpp", ".cc", ".rs", ".sh", ".bash", ".css", ".scss", ".less", ".html", ".htm", ".sql", ".csv":
+	case ".txt", ".log", ".json", ".yaml", ".yml", ".ini", ".env", ".xml", ".md", ".markdown", ".js", ".ts", ".tsx", ".jsx", ".go", ".sum",".mod",".py", ".java", ".c", ".cpp", ".cc", ".rs", ".sh", ".bash", ".css", ".scss", ".less", ".html", ".htm", ".sql", ".csv":
 		return true
 	default:
 		return false

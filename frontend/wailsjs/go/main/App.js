@@ -86,6 +86,14 @@ export function GetFullConfig() {
   return window['go']['main']['App']['GetFullConfig']();
 }
 
+export function GetGitPreview(arg1, arg2) {
+  return window['go']['main']['App']['GetGitPreview'](arg1, arg2);
+}
+
+export function GetGitStatus(arg1) {
+  return window['go']['main']['App']['GetGitStatus'](arg1);
+}
+
 export function GetModelConfig() {
   return window['go']['main']['App']['GetModelConfig']();
 }
@@ -150,6 +158,10 @@ export function ListBrowsableDirs(arg1) {
   return window['go']['main']['App']['ListBrowsableDirs'](arg1);
 }
 
+export function ListBrowserFiles(arg1, arg2) {
+  return window['go']['main']['App']['ListBrowserFiles'](arg1, arg2);
+}
+
 export function ListSchemes() {
   return window['go']['main']['App']['ListSchemes']();
 }
@@ -176,6 +188,14 @@ export function OpenDirectoryDialog() {
 
 export function OpenSchemeDir() {
   return window['go']['main']['App']['OpenSchemeDir']();
+}
+
+export function ReadBrowserFile(arg1, arg2) {
+  return window['go']['main']['App']['ReadBrowserFile'](arg1, arg2);
+}
+
+export function ReadBrowserRawBase64(arg1, arg2) {
+  return window['go']['main']['App']['ReadBrowserRawBase64'](arg1, arg2);
 }
 
 export function ReadScheme(arg1) {
@@ -244,6 +264,10 @@ export function StartOpenCodeEvents() {
 
 export function StartOpenCodeWeb(arg1, arg2, arg3) {
   return window['go']['main']['App']['StartOpenCodeWeb'](arg1, arg2, arg3);
+}
+
+export function StatBrowserFile(arg1, arg2) {
+  return window['go']['main']['App']['StatBrowserFile'](arg1, arg2);
 }
 
 export function StopFrontendWeb() {

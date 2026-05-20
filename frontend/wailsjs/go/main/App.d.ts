@@ -45,6 +45,10 @@ export function GetFrontendWebStatus(arg1:string,arg2:number):Promise<model.WebR
 
 export function GetFullConfig():Promise<string>;
 
+export function GetGitPreview(arg1:string,arg2:string):Promise<model.GitFilePreviewResult>;
+
+export function GetGitStatus(arg1:string):Promise<model.GitStatusResult>;
+
 export function GetModelConfig():Promise<Array<model.ModelEntry>>;
 
 export function GetModelList(arg1:string,arg2:string):Promise<Array<string>>;
@@ -77,6 +81,8 @@ export function LaunchWindowsTerminal(arg1:string,arg2:string,arg3:string):Promi
 
 export function ListBrowsableDirs(arg1:string):Promise<Array<model.DirectoryEntry>>;
 
+export function ListBrowserFiles(arg1:string,arg2:string):Promise<model.FileBrowserListResult>;
+
 export function ListSchemes():Promise<Array<model.SchemeInfo>>;
 
 export function ListSkillFiles(arg1:string):Promise<model.SkillFileNode>;
@@ -90,6 +96,10 @@ export function OpenDir(arg1:string):Promise<void>;
 export function OpenDirectoryDialog():Promise<string>;
 
 export function OpenSchemeDir():Promise<void>;
+
+export function ReadBrowserFile(arg1:string,arg2:string):Promise<model.FileBrowserReadResult>;
+
+export function ReadBrowserRawBase64(arg1:string,arg2:string):Promise<model.FileBrowserRawResult>;
 
 export function ReadScheme(arg1:string):Promise<string>;
 
@@ -124,6 +134,8 @@ export function StartFrontendWeb(arg1:number,arg2:string):Promise<model.WebResul
 export function StartOpenCodeEvents():Promise<model.APIResult>;
 
 export function StartOpenCodeWeb(arg1:number,arg2:string,arg3:model.ProxyConfig):Promise<model.WebResult>;
+
+export function StatBrowserFile(arg1:string,arg2:string):Promise<model.FileBrowserStatResult>;
 
 export function StopFrontendWeb():Promise<model.WebResult>;
 

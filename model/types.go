@@ -292,3 +292,56 @@ type FileBrowserReadResult struct {
 	Encoding  string `json:"encoding"`
 	Truncated bool   `json:"truncated"`
 }
+
+// FileBrowserRawResult 表示原始文件内容（Base64）返回。
+type FileBrowserRawResult struct {
+	RootDir string `json:"rootDir"`
+	Path    string `json:"path"`
+	Name    string `json:"name"`
+	Mime    string `json:"mime"`
+	Base64  string `json:"base64"`
+}
+
+// ========== Git 变更查看相关 ==========
+
+// GitChangedFile 表示 Git 变更列表中的单个文件。
+type GitChangedFile struct {
+	Path        string `json:"path"`
+	Name        string `json:"name"`
+	StatusCode  string `json:"statusCode"`
+	Tracked     bool   `json:"tracked"`
+	HasStaged   bool   `json:"hasStaged"`
+	HasUnstaged bool   `json:"hasUnstaged"`
+}
+
+// GitStatusResult 表示 Git 状态接口返回。
+type GitStatusResult struct {
+	IsGitRepo bool             `json:"isGitRepo"`
+	Files     []GitChangedFile `json:"files"`
+	Message   string           `json:"message"`
+}
+
+// GitDiffLine 表示对比视图中的一行。
+type GitDiffLine struct {
+	Kind  string `json:"kind"` // context / add / del / empty
+	OldNo int    `json:"oldNo"`
+	NewNo int    `json:"newNo"`
+	Text  string `json:"text"`
+}
+
+// GitDiffBlock 表示左右对比的一个 block。
+type GitDiffBlock struct {
+	Left  []GitDiffLine `json:"left"`
+	Right []GitDiffLine `json:"right"`
+}
+
+// GitFilePreviewResult 表示单文件 Git 预览结果。
+type GitFilePreviewResult struct {
+	Path             string         `json:"path"`
+	Tracked          bool           `json:"tracked"`
+	HasStaged        bool           `json:"hasStaged"`
+	HasUnstaged      bool           `json:"hasUnstaged"`
+	StagedBlocks     []GitDiffBlock `json:"stagedBlocks"`
+	UnstagedBlocks   []GitDiffBlock `json:"unstagedBlocks"`
+	UntrackedContent string         `json:"untrackedContent"`
+}
