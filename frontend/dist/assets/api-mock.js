@@ -138,20 +138,20 @@ const mockApi = (() => {
     ];
 
     const mockSkills = [
-        { name: 'afsim-scripts', description: 'AFSIM脚本编写助手', path: '~/.config/opencode/skills/afsim-scripts', linked: true, source: 'global' },
-        { name: 'code-review', description: '专业的代码审查助手', path: '~/.config/opencode/skills/code-review', linked: true, source: 'global' },
-        { name: 'docx', description: 'Word文档创建编辑', path: '~/.config/opencode/skills/docx', linked: true, source: 'global' },
-        { name: 'skill-creator', description: '创建新技能指南', path: '~/.config/opencode/skills/skill-creator', linked: true, source: 'global' },
-        { name: 'frontend-design', description: '前端UI设计', path: '~/.config/opencode/skills/frontend-design', linked: true, source: 'global' },
-        { name: 'weather', description: '天气预报', path: '~/.config/opencode/skills/weather', linked: true, source: 'global' },
-        { name: 'drawio', description: '图表绘制', path: '~/.config/opencode/skills/drawio', linked: true, source: 'global' },
-        { name: 'karpathy-wiki', description: '本地知识库/wiki管理', path: '~/.config/opencode/skills/karpathy-wiki', linked: false, source: 'global' },
-        { name: 'pdf', description: 'PDF文档处理', path: '~/.config/opencode/skills/pdf', linked: true, source: 'global' },
-        { name: 'pptx', description: '幻灯片创建编辑', path: '~/.config/opencode/skills/pptx', linked: false, source: 'global' },
-        { name: 'web-access', description: '联网搜索与网页抓取', path: '~/.config/opencode/skills/web-access', linked: true, source: 'global' },
-        { name: 'xlsx', description: '电子表格处理', path: '~/.config/opencode/skills/xlsx', linked: true, source: 'global' },
-        { name: 'frontend-ui-ux', description: 'UI/UX 设计系统', path: '~/.config/opencode/skills/frontend-ui-ux', linked: true, source: 'global' },
-        { name: 'git-master', description: 'Git 操作大师', path: '~/.config/opencode/skills/git-master', linked: false, source: 'global' },
+        { name: 'afsim-scripts', description: 'AFSIM脚本编写助手', path: '~/.config/opencode/skills/afsim-scripts', linked: true, source: 'global', enableable: true },
+        { name: 'code-review', description: '专业的代码审查助手', path: '~/.config/opencode/skills/code-review', linked: true, source: 'global', enableable: true },
+        { name: 'docx', description: 'Word文档创建编辑', path: '~/.config/opencode/skills/docx', linked: true, source: 'global', enableable: true },
+        { name: 'skill-creator', description: '创建新技能指南', path: '~/.config/opencode/skills/skill-creator', linked: true, source: 'global', enableable: true },
+        { name: 'frontend-design', description: '前端UI设计', path: '~/.config/opencode/skills/frontend-design', linked: true, source: 'global', enableable: true },
+        { name: 'weather', description: '天气预报', path: '~/.config/opencode/skills/weather', linked: true, source: 'global', enableable: true },
+        { name: 'drawio', description: '图表绘制', path: '~/.config/opencode/skills/drawio', linked: true, source: 'global', enableable: true },
+        { name: 'karpathy-wiki', description: '本地知识库/wiki管理', path: '~/.config/opencode/skills/karpathy-wiki', linked: false, source: 'global', enableable: true },
+        { name: 'pdf', description: 'PDF文档处理', path: '~/.config/opencode/skills/pdf', linked: true, source: 'global', enableable: true },
+        { name: 'pptx', description: '幻灯片创建编辑', path: '~/.config/opencode/skills/pptx', linked: false, source: 'global', enableable: true },
+        { name: 'web-access', description: '联网搜索与网页抓取', path: '~/.config/opencode/skills/web-access', linked: true, source: 'global', enableable: true },
+        { name: 'xlsx', description: '电子表格处理', path: '~/.config/opencode/skills/xlsx', linked: true, source: 'global', enableable: true },
+        { name: 'frontend-ui-ux', description: 'UI/UX 设计系统', path: '~/.config/opencode/skills/frontend-ui-ux', linked: true, source: 'global', enableable: true },
+        { name: 'git-master', description: 'Git 操作大师', path: '~/.config/opencode/skills/git-master', linked: false, source: 'global', enableable: true },
     ];
 
     return {
@@ -159,6 +159,17 @@ const mockApi = (() => {
         GetSourceDir: async () => '~/.config/opencode/skills/',
         GetStats: async () => ({
             globalSkills: mockSkills.length,
+        }),
+        GetSkillConfig: async () => ({
+            sourceDirs: [],
+            skills: JSON.parse(JSON.stringify(mockSkills)).map(function(s) {
+                s.enableable = false;
+                s.noSources = true;
+                s.conflict = false;
+                s.sources = [{ path: s.path, source: 'global' }];
+                return s;
+            }),
+            stats: { globalSkills: mockSkills.length }
         }),
         ToggleSkill: async (path, name, enable) => ({ success: true }),
         ReadSkillContent: async (path) => {
@@ -358,5 +369,18 @@ const mockApi = (() => {
         },
         SaveScheme: async (name, content) => {},
         OpenSchemeDir: async () => { showToast('模拟打开方案目录', 'info'); },
+        // ========== 技能源目录管理 mock ==========
+        AddSkillSourceDir: async (dir) => ({ success: true }),
+        RemoveSkillSourceDir: async (dir) => ({ success: true }),
+        GetSkillSourceDirs: async () => ['~/.config/opencode/skills', '~/.config/opencode/custom-skills'],
+        AddSkillSourceDir: async (dir) => ({ success: true }),
+        RemoveSkillSourceDir: async (dir) => ({ success: true }),
+        GetDirEnabledSkills: async (dir) => [],
+        LinkSkill: async (path, enable) => ({ success: true }),
+        // ========== 技能方案管理 mock ==========
+        SaveSkillScheme: async (name) => ({ success: true }),
+        ApplySkillScheme: async (name) => ({ success: true, applied: ['afsim-scripts', 'weather'], missing: [], conflicts: [], errors: [] }),
+        ListSkillSchemes: async () => (['default', 'minimal', 'full']),
+        DeleteSkillScheme: async (name) => ({ success: true }),
     };
 })();

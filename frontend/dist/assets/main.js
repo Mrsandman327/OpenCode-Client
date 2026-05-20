@@ -14,20 +14,20 @@ function isBrowserRuntimeForMain() {
 document.addEventListener('DOMContentLoaded', () => {
     if (isBrowserRuntimeForMain()) {
         var openSchemeBtn = document.getElementById('btnOpenSchemeDir');
-        var openGlobalDirBtn = document.getElementById('btnOpenDir');
-        var btnFrontendWebConfig = document.getElementById('btnFrontendWebConfig');
-        var btnWtOpen = document.getElementById('btnWtOpen');
         if (openSchemeBtn) {
             openSchemeBtn.style.display = 'none';
         }
-        if (openGlobalDirBtn) {
-            openGlobalDirBtn.style.display = 'none';
-        }
+        var btnFrontendWebConfig = document.getElementById('btnFrontendWebConfig');
         if (btnFrontendWebConfig) {
             btnFrontendWebConfig.style.display = 'none';
         }
+        var btnWtOpen = document.getElementById('btnWtOpen');
         if (btnWtOpen) {
             btnWtOpen.style.display = 'none';
+        }
+        var btnOpenSourceDir = document.getElementById('btnOpenSourceDir');
+        if (btnOpenSourceDir) {
+            btnOpenSourceDir.style.display = 'none';
         }
     }
 
@@ -265,19 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.textContent = '🔄 刷新';
     });
 
-    document.getElementById('btnOpenDir').addEventListener('click', async () => {
-        const path = document.getElementById('sourcePath').textContent;
-        if (!path || path === '加载中...' || path === '未知') {
-            showToast('目录路径无效', 'error');
-            return;
-        }
-        try {
-            await api.OpenDir(path);
-        } catch (err) {
-            showToast('打开目录失败: ' + (err.message || err), 'error');
-        }
-    });
-
     // 搜索框事件
     var skillSearchInput = document.getElementById('skillSearch');
     if (skillSearchInput) {
@@ -288,6 +275,32 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof bindSkillManagerEvents === 'function') {
         bindSkillManagerEvents();
     }
+
+    // ========================
+    // 技能管理 - L2 来源目录事件
+    // ========================
+    document.getElementById('btnAddSourceDir')?.addEventListener('click', async () => {
+        if (typeof addSourceDir === 'function') await addSourceDir();
+    });
+    document.getElementById('btnRemoveSourceDir')?.addEventListener('click', async () => {
+        if (typeof removeSourceDir === 'function') await removeSourceDir();
+    });
+    document.getElementById('btnOpenSourceDir')?.addEventListener('click', async () => {
+        if (typeof openSelectedSourceDir === 'function') await openSelectedSourceDir();
+    });
+
+    // ========================
+    // 技能管理 - L6 方案管理事件
+    // ========================
+    document.getElementById('btnSaveSkillScheme')?.addEventListener('click', async () => {
+        if (typeof saveSkillScheme === 'function') await saveSkillScheme();
+    });
+    document.getElementById('btnDeleteSkillScheme')?.addEventListener('click', async () => {
+        if (typeof deleteSkillScheme === 'function') await deleteSkillScheme();
+    });
+    document.getElementById('btnApplySkillScheme')?.addEventListener('click', async () => {
+        if (typeof applySkillScheme === 'function') await applySkillScheme();
+    });
 
     // Modal 关闭事件
     document.getElementById('skillModalClose').addEventListener('click', closeSkillModal);

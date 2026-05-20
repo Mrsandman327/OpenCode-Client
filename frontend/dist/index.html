@@ -190,7 +190,7 @@
                                 <span class="omo-info-label">配置文件：</span>
                                 <span class="omo-info-value" id="configPath">加载中...</span>
                             </div>
-                    <button type="button" class="btn omo-info-btn btn-refresh" id="btnRefreshModels">🔄 刷新列表</button>
+                            <button type="button" class="btn omo-info-btn btn-refresh" id="btnRefreshModels">🔄 刷新列表</button>
                         </div>
                         <div class="omo-info-row">
                             <div class="omo-info-text">
@@ -232,7 +232,7 @@
 
             <!-- ===== View 3: 技能管理 ===== -->
             <div class="view-panel" id="view-skills">
-                <!-- 统计栏 -->
+                <!-- L1: 统计栏（保持不变） -->
                 <section class="stats-bar">
                     <div class="stat-item">
                         <span class="stat-value" id="statGlobal">0</span>
@@ -242,20 +242,35 @@
                     <button type="button" class="btn btn-sm btn-refresh" id="btnRefresh" title="刷新技能列表">🔄 刷新</button>
                 </section>
 
-                <!-- 源路径 -->
+                <!-- L2: 来源目录 select 下拉框 -->
                 <section class="path-bar">
-                    <span class="path-label">全局目录：</span>
-                    <span class="path-value" id="sourcePath">加载中...</span>
-                    <button type="button" class="btn btn-sm btn-open" id="btnOpenDir" title="浏览技能文件">📂 打开</button>
+                    <span class="path-label">来源目录：</span>
+                    <select id="sourceDirSelect" style="flex:1;min-width:180px;max-width:500px;height: 30px;font-size: 12px;">
+                        <option value="">（未添加来源目录）</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-open" id="btnAddSourceDir" style="margin-left:auto">添加目录</button>
+                    <button type="button" class="btn btn-sm btn-open" id="btnRemoveSourceDir">删除目录</button>
+                    <button type="button" class="btn btn-sm btn-open" id="btnOpenSourceDir">📂 打开</button>
                 </section>
 
-                <!-- 搜索栏 -->
+                <!-- L3: 技能方案管理 -->
+                <section class="path-bar">
+                    <span class="path-label">技能方案：</span>
+                    <select id="skillSchemeSelect" style="flex:1;min-width:180px;max-width:500px;height: 30px;font-size: 12px;">
+                        <option value="">（无可用方案）</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-open" id="btnSaveSkillScheme" style="margin-left:auto">方案入库</button>
+                    <button type="button" class="btn btn-sm btn-open" id="btnDeleteSkillScheme">删除方案</button>
+                    <button type="button" class="btn btn-sm btn-open" id="btnApplySkillScheme">应用方案</button>
+                </section>
+
+                <!-- L4: 搜索栏（保持不变） -->
                 <section class="path-bar">
                     <span class="path-label">搜索：</span>
                     <input type="text" id="skillSearch" placeholder="输入技能名称过滤..." style="flex:1;padding:4px 8px;" />
                 </section>
 
-                <!-- 技能列表 -->
+                <!-- L5: 技能列表 -->
                 <main class="skill-list" id="skillList">
                     <div class="loading"><div class="spinner"></div><p>正在加载技能列表...</p></div>
                 </main>

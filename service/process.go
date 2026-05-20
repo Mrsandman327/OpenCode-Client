@@ -386,3 +386,21 @@ func OpenDirectoryDialog(ctx context.Context) string {
 	}
 	return dir
 }
+
+// ShowConfirmDialog 显示原生确认对话框（QuestionDialog），返回 true=确定 / false=取消。
+// Wails WebView2 禁用了 window.confirm，此方法通过 OS 原生对话框替代。
+func ShowConfirmDialog(ctx context.Context, title, message string) bool {
+	res, err := wruntime.MessageDialog(ctx, wruntime.MessageDialogOptions{
+		Type:    wruntime.QuestionDialog,
+		Title:   title,
+		Message: message,
+	})
+	if err != nil {
+		return false
+	}
+	return res == "Yes"
+}
+
+// ShowInputPrompt 通过自定义 HTML 模态框获取用户输入（Go 端无内置输入对话框）。
+// 前端通过创建/监听 inputModal 实现，Go 端保留此 stub 以便桌面/Web 统一调用签名。
+// 实际实现由前端 skill-manager.js 的 showInputDialog 处理。

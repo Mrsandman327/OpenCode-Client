@@ -18,6 +18,20 @@ export namespace model {
 	        this.error = source["error"];
 	    }
 	}
+	export class AggregatedSourceInfo {
+	    path: string;
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AggregatedSourceInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.source = source["source"];
+	    }
+	}
 	export class CmdInfo {
 	    name: string;
 	    sub: string;
@@ -263,6 +277,26 @@ export namespace model {
 	        this.error = source["error"];
 	    }
 	}
+	export class SchemeApplyResult {
+	    applied: string[];
+	    missing: string[];
+	    conflicts: string[];
+	    errors: string[];
+	    success: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SchemeApplyResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.applied = source["applied"];
+	        this.missing = source["missing"];
+	        this.conflicts = source["conflicts"];
+	        this.errors = source["errors"];
+	        this.success = source["success"];
+	    }
+	}
 	export class SchemeInfo {
 	    name: string;
 	    fileName: string;
@@ -292,6 +326,98 @@ export namespace model {
 	        this.id = source["id"];
 	        this.title = source["title"];
 	    }
+	}
+	export class Stats {
+	    globalSkills: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Stats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.globalSkills = source["globalSkills"];
+	    }
+	}
+	export class SkillInfo {
+	    name: string;
+	    description: string;
+	    path: string;
+	    linked: boolean;
+	    source: string;
+	    conflict: boolean;
+	    noSources: boolean;
+	    sources: AggregatedSourceInfo[];
+	    enableable: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SkillInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.path = source["path"];
+	        this.linked = source["linked"];
+	        this.source = source["source"];
+	        this.conflict = source["conflict"];
+	        this.noSources = source["noSources"];
+	        this.sources = this.convertValues(source["sources"], AggregatedSourceInfo);
+	        this.enableable = source["enableable"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SkillConfigResult {
+	    sourceDirs: string[];
+	    skills: SkillInfo[];
+	    stats: Stats;
+	
+	    static createFrom(source: any = {}) {
+	        return new SkillConfigResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sourceDirs = source["sourceDirs"];
+	        this.skills = this.convertValues(source["skills"], SkillInfo);
+	        this.stats = this.convertValues(source["stats"], Stats);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class SkillContent {
 	    path: string;
@@ -343,38 +469,8 @@ export namespace model {
 		    return a;
 		}
 	}
-	export class SkillInfo {
-	    name: string;
-	    description: string;
-	    path: string;
-	    linked: boolean;
-	    source: string;
 	
-	    static createFrom(source: any = {}) {
-	        return new SkillInfo(source);
-	    }
 	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.description = source["description"];
-	        this.path = source["path"];
-	        this.linked = source["linked"];
-	        this.source = source["source"];
-	    }
-	}
-	export class Stats {
-	    globalSkills: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new Stats(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.globalSkills = source["globalSkills"];
-	    }
-	}
 	export class ToggleResult {
 	    skillName: string;
 	    linked: boolean;

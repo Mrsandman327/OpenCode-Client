@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	iofs "io/fs"
 
@@ -48,14 +50,54 @@ func (a *App) shutdown(ctx context.Context) {
 
 // ========== 技能管理 ==========
 
+// GetSkillConfig 返回技能管理页面需要的完整聚合数据（统一接口）。
+func (a *App) GetSkillConfig() model.SkillConfigResult {
+	dirs, _ := config.ListSourceDirs()
+	var skills []model.SkillInfo
+
+	if len(dirs) == 0 {
+		skills = a.sm.GetAllSkills()
+	} else {
+		skills = a.sm.ScanWithGlobal(dirs)
+	}
+
+	return model.SkillConfigResult{
+		SourceDirs: dirs,
+		Skills:     skills,
+		Stats: model.Stats{
+			GlobalSkills: len(skills),
+		},
+	}
+}
+
 // GetSkills 返回所有技能及其在各平台的链接状态。
 func (a *App) GetSkills() []model.SkillInfo {
 	return a.sm.GetAllSkills()
 }
 
+// GetAggregatedSkills 返回所有技能的聚合列表：
+// 1. 从配置读取来源目录
+// 2. 扫描所有来源目录
+// 3. 扫描全局目录
+// 4. 合并返回完整列表
+// 当没有配置来源目录时，回退到原有的 GetAllSkills 扫描逻辑。
+func (a *App) GetAggregatedSkills() []model.SkillInfo {
+	dirs, err := config.ListSourceDirs()
+	if err != nil || len(dirs) == 0 {
+		return a.sm.GetAllSkills()
+	}
+	return a.sm.ScanWithGlobal(dirs)
+}
+
 // GetSourceDir 返回技能源目录路径。
 func (a *App) GetSourceDir() string {
 	return a.sm.SourceDir()
+}
+
+// GetDirEnabledSkills 返回指定来源目录中当前已启用的技能名称列表。
+// 前端删除目录前调用此接口以展示受影响技能列表供用户确认。
+func (a *App) GetDirEnabledSkills(dir string) []string {
+	return a.sm.GetEnabledSkillsInDir(dir)
 }
 
 // ListBrowsableDirs 返回目录浏览器当前层的目录列表。
@@ -126,6 +168,93 @@ func (a *App) SaveSkillFile(skillPath, relativePath, content string) error {
 func (a *App) Refresh() error {
 	a.sm = skill.NewManager()
 	return nil
+}
+
+// AddSkillSourceDir 添加技能源目录到配置。
+// 通过 a.sm.SourceDir() 获取 opencode 全局技能目录路径用于排除检查。
+func (a *App) AddSkillSourceDir(dir string) model.SaveResult {
+	if _, err := config.AddSourceDir(dir, a.sm.SourceDir()); err != nil {
+		return model.SaveResult{Success: false, Error: err.Error()}
+	}
+	return model.SaveResult{Success: true}
+}
+
+// RemoveSkillSourceDir 从配置中移除指定的技能源目录。
+// 同时会解除该目录下已启用的技能链接（清理托管链接）。
+func (a *App) RemoveSkillSourceDir(dir string) model.SaveResult {
+	// 先解除该目录下所有已启用的链接
+	enabled := a.sm.GetEnabledSkillsInDir(dir)
+	for _, name := range enabled {
+		linkPath := filepath.Join(a.sm.SourceDir(), name)
+		os.Remove(linkPath) // 忽略错误
+	}
+
+	// 从配置中移除
+	if _, err := config.RemoveSourceDir(dir); err != nil {
+		return model.SaveResult{Success: false, Error: err.Error()}
+	}
+	return model.SaveResult{Success: true}
+}
+
+// GetSkillSourceDirs 返回当前配置中所有技能源目录。
+func (a *App) GetSkillSourceDirs() []string {
+	dirs, err := config.ListSourceDirs()
+	if err != nil {
+		return []string{}
+	}
+	return dirs
+}
+
+// SaveSkillScheme 保存当前已启用的技能为方案。
+// 从聚合列表中筛选出 Linked=true 的技能，保存其名称列表。
+func (a *App) SaveSkillScheme(name string) model.SaveResult {
+	// 获取当前聚合技能列表
+	skills := a.GetAggregatedSkills()
+	var names []string
+	for _, s := range skills {
+		if s.Linked {
+			names = append(names, s.Name)
+		}
+	}
+	if err := config.SaveSkillScheme(name, names); err != nil {
+		return model.SaveResult{Success: false, Error: err.Error()}
+	}
+	return model.SaveResult{Success: true}
+}
+
+// ApplySkillScheme 应用指定名称的技能方案。
+func (a *App) ApplySkillScheme(name string) model.SchemeApplyResult {
+	// 1. 加载方案
+	scheme, err := config.LoadSkillScheme(name)
+	if err != nil {
+		return model.SchemeApplyResult{
+			Errors:  []string{err.Error()},
+			Success: false,
+		}
+	}
+	// 2. 获取聚合技能列表
+	available := a.GetAggregatedSkills()
+	// 3. 获取来源目录
+	sourceDirs, _ := config.ListSourceDirs()
+	// 4. 应用方案
+	return a.sm.ApplySkillScheme(scheme, available, sourceDirs)
+}
+
+// ListSkillSchemes 返回所有技能方案名称列表。
+func (a *App) ListSkillSchemes() []string {
+	schemes, err := config.ListSkillSchemes()
+	if err != nil {
+		return []string{}
+	}
+	return schemes
+}
+
+// DeleteSkillScheme 删除指定技能方案。
+func (a *App) DeleteSkillScheme(name string) model.SaveResult {
+	if err := config.DeleteSkillScheme(name); err != nil {
+		return model.SaveResult{Success: false, Error: err.Error()}
+	}
+	return model.SaveResult{Success: true}
 }
 
 // ========== 模型配置 ==========
@@ -367,6 +496,11 @@ func (a *App) OpenDirectoryDialog() string {
 	return service.OpenDirectoryDialog(a.ctx)
 }
 
+// ShowConfirmDialog 显示原生确认对话框，桌面端替代 window.confirm。
+func (a *App) ShowConfirmDialog(title, message string) bool {
+	return service.ShowConfirmDialog(a.ctx, title, message)
+}
+
 // GetOpenCodeCommands 从 opencode serve 获取所有可用命令。
 func (a *App) GetOpenCodeCommands() []model.CmdPaletteItem {
 	return service.GetOpenCodeCommands()
@@ -503,8 +637,16 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		return a.GetFrontendWebStatus(hostname, port), nil
 	case "GetOpenCodeCommands":
 		return a.GetOpenCodeCommands(), nil
+	case "GetSkillConfig":
+		return a.GetSkillConfig(), nil
+	case "GetDirEnabledSkills":
+		var dir string
+		if err := decodeArgs(args, &dir); err != nil { return nil, err }
+		return a.GetDirEnabledSkills(dir), nil
 	case "GetSkills":
 		return a.GetSkills(), nil
+	case "GetAggregatedSkills":
+		return a.GetAggregatedSkills(), nil
 	case "GetStats":
 		return a.GetStats(), nil
 	case "GetSourceDir":
@@ -588,6 +730,16 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		return a.RefreshAvailableModels()
 	case "Refresh":
 		return map[string]bool{"success": a.Refresh() == nil}, nil
+	case "AddSkillSourceDir":
+		var dir string
+		if err := decodeArgs(args, &dir); err != nil { return nil, err }
+		return a.AddSkillSourceDir(dir), nil
+	case "RemoveSkillSourceDir":
+		var dir string
+		if err := decodeArgs(args, &dir); err != nil { return nil, err }
+		return a.RemoveSkillSourceDir(dir), nil
+	case "GetSkillSourceDirs":
+		return a.GetSkillSourceDirs(), nil
 	case "AnswerQuestion":
 		var sessionID, answerLabel string
 		if err := decodeArgs(args, &sessionID, &answerLabel); err != nil { return nil, err }
@@ -598,6 +750,10 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		return a.RejectQuestion(sessionID), nil
 	case "OpenDirectoryDialog":
 		return a.OpenDirectoryDialog(), nil
+	case "ShowConfirmDialog":
+		var title, message string
+		if err := decodeArgs(args, &title, &message); err != nil { return nil, err }
+		return a.ShowConfirmDialog(title, message), nil
 	case "LaunchWindowsTerminal":
 		var mode, webURL, dir string
 		if err := decodeArgs(args, &mode, &webURL, &dir); err != nil { return nil, err }
@@ -612,6 +768,20 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		var dir, filename, content string
 		if err := decodeArgs(args, &dir, &filename, &content); err != nil { return nil, err }
 		return a.ExportConfig(dir, filename, content)
+	case "SaveSkillScheme":
+		var name string
+		if err := decodeArgs(args, &name); err != nil { return nil, err }
+		return a.SaveSkillScheme(name), nil
+	case "ApplySkillScheme":
+		var name string
+		if err := decodeArgs(args, &name); err != nil { return nil, err }
+		return a.ApplySkillScheme(name), nil
+	case "ListSkillSchemes":
+		return a.ListSkillSchemes(), nil
+	case "DeleteSkillScheme":
+		var name string
+		if err := decodeArgs(args, &name); err != nil { return nil, err }
+		return a.DeleteSkillScheme(name), nil
 	default:
 		return nil, fmt.Errorf("unsupported method: %s", method)
 	}
@@ -633,24 +803,25 @@ func decodeArgs(args []json.RawMessage, targets ...interface{}) error {
 
 // 类型定义已迁移至 model 子包。以下通过类型别名保持前端 bind 兼容。
 type (
-	SkillInfo       = model.SkillInfo
-	SkillContent    = model.SkillContent
-	Stats           model.Stats
-	ToggleResult    = model.ToggleResult
-	WebResult       = model.WebResult
-	APIResult       = model.APIResult
-	ProxyConfig     = model.ProxyConfig
-	ModelEntry      = model.ModelEntry
-	ModelSaveResult = model.ModelSaveResult
-	SaveResult      = model.SaveResult
-	ProviderInfo    = model.ProviderInfo
-	ModelInfo       = model.ModelInfo
-	ProviderSave    = model.ProviderSave
-	CmdInfo         = model.CmdInfo
-	CmdGroup        = model.CmdGroup
-	CmdPaletteItem  = model.CmdPaletteItem
-	SessionInfo     = model.SessionInfo
-	SchemeInfo      = model.SchemeInfo
+	SkillInfo          = model.SkillInfo
+	SkillContent       = model.SkillContent
+	Stats              model.Stats
+	ToggleResult       = model.ToggleResult
+	WebResult          = model.WebResult
+	APIResult          = model.APIResult
+	ProxyConfig        = model.ProxyConfig
+	ModelEntry         = model.ModelEntry
+	ModelSaveResult    = model.ModelSaveResult
+	SaveResult         = model.SaveResult
+	ProviderInfo       = model.ProviderInfo
+	ModelInfo          = model.ModelInfo
+	ProviderSave       = model.ProviderSave
+	CmdInfo            = model.CmdInfo
+	CmdGroup           = model.CmdGroup
+	CmdPaletteItem     = model.CmdPaletteItem
+	SessionInfo        = model.SessionInfo
+	SchemeInfo         = model.SchemeInfo
+	SchemeApplyResult  = model.SchemeApplyResult
 )
 
 // String 实现 Stringer 接口，便于调试。

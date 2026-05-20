@@ -3,13 +3,37 @@ package model
 
 // ========== 技能管理相关 ==========
 
+// AggregatedSourceInfo 聚合技能来源信息，记录单个技能在某来源目录中的位置。
+type AggregatedSourceInfo struct {
+	Path   string `json:"path"`
+	Source string `json:"source"` // 来源目录路径或 "global"
+}
+
 // SkillInfo 技能信息。
 type SkillInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Path        string `json:"path"`
-	Linked      bool   `json:"linked"`
-	Source      string `json:"source"` // "global" 或 "project"
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Path        string                 `json:"path"`
+	Linked      bool                   `json:"linked"`
+	Source      string                 `json:"source"`     // "global" 或来源目录路径
+	Conflict    bool                   `json:"conflict"`   // 是否存在同名冲突
+	NoSources   bool                   `json:"noSources"`  // 是否无来源目录模式
+	Sources     []AggregatedSourceInfo `json:"sources"`    // 该技能的所有来源
+	Enableable  bool                   `json:"enableable"` // 是否可启用（冲突或无来源时为false）
+}
+
+// SkillConfigResult 前端技能页面加载所需的完整数据。
+type SkillConfigResult struct {
+	SourceDirs []string   `json:"sourceDirs"`
+	Skills     []SkillInfo `json:"skills"`
+	Stats      Stats       `json:"stats"`
+}
+
+// RemoveSourceDirResult 删除来源目录时的返回结果，包含可能受影响的已启用技能。
+type RemoveSourceDirResult struct {
+	Success         bool     `json:"success"`
+	Error           string   `json:"error,omitempty"`
+	AffectedSkills  []string `json:"affectedSkills,omitempty"` // 该目录下已启用的技能名称
 }
 
 // Stats 统计信息。
@@ -203,4 +227,26 @@ type SchemeInfo struct {
 	Name     string `json:"name"`
 	FileName string `json:"fileName"`
 	FullPath string `json:"fullPath"`
+}
+
+// ========== 技能项目配置相关 ==========
+
+// SkillConfig 技能源目录配置，对应 skill-sources.json 文件内容。
+type SkillConfig struct {
+	// SourceDirs 技能源目录列表，包含全局和项目级技能目录路径。
+	SourceDirs []string `json:"sourceDirs"`
+	// Version 配置模式版本号，用于未来的兼容性扩展。
+	Version string `json:"version,omitempty"`
+}
+
+// SkillSchemeData 方案文件内容，即技能名称列表。
+type SkillSchemeData []string
+
+// SchemeApplyResult 方案应用结果。
+type SchemeApplyResult struct {
+	Applied   []string `json:"applied"`   // 成功应用的技能名称
+	Missing   []string `json:"missing"`   // 方案中存在但聚合列表中找不到的技能
+	Conflicts []string `json:"conflicts"` // 存在冲突无法启用的技能
+	Errors    []string `json:"errors"`    // 链接创建失败的错误信息
+	Success   bool     `json:"success"`   // 至少有一个技能被成功应用
 }

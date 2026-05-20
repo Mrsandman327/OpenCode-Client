@@ -7,9 +7,13 @@ export function AddModelEntry(arg1:string,arg2:string,arg3:string):Promise<model
 
 export function AddModelType(arg1:string):Promise<model.ModelSaveResult>;
 
+export function AddSkillSourceDir(arg1:string):Promise<model.SaveResult>;
+
 export function AnswerQuestion(arg1:string,arg2:string):Promise<model.APIResult>;
 
 export function AppCall(arg1:string,arg2:Array<json.RawMessage>):Promise<any>;
+
+export function ApplySkillScheme(arg1:string):Promise<model.SchemeApplyResult>;
 
 export function CreateSession(arg1:string):Promise<model.APIResult>;
 
@@ -21,15 +25,21 @@ export function DeleteProvider(arg1:string):Promise<model.SaveResult>;
 
 export function DeleteScheme(arg1:string):Promise<void>;
 
+export function DeleteSkillScheme(arg1:string):Promise<model.SaveResult>;
+
 export function ExportConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function GetAgentDescriptions():Promise<Record<string, string>>;
+
+export function GetAggregatedSkills():Promise<Array<model.SkillInfo>>;
 
 export function GetAvailableModels():Promise<Array<string>>;
 
 export function GetCommands():Promise<Array<model.CmdGroup>>;
 
 export function GetConfigPath():Promise<string>;
+
+export function GetDirEnabledSkills(arg1:string):Promise<Array<string>>;
 
 export function GetFrontendWebStatus(arg1:string,arg2:number):Promise<model.WebResult>;
 
@@ -49,6 +59,10 @@ export function GetSchemeDir():Promise<string>;
 
 export function GetSessions():Promise<Array<model.SessionInfo>>;
 
+export function GetSkillConfig():Promise<model.SkillConfigResult>;
+
+export function GetSkillSourceDirs():Promise<Array<string>>;
+
 export function GetSkills():Promise<Array<model.SkillInfo>>;
 
 export function GetSourceDir():Promise<string>;
@@ -64,6 +78,8 @@ export function ListBrowsableDirs(arg1:string):Promise<Array<model.DirectoryEntr
 export function ListSchemes():Promise<Array<model.SchemeInfo>>;
 
 export function ListSkillFiles(arg1:string):Promise<model.SkillFileNode>;
+
+export function ListSkillSchemes():Promise<Array<string>>;
 
 export function OpenCodeAPI(arg1:string,arg2:string,arg3:string):Promise<model.APIResult>;
 
@@ -85,6 +101,8 @@ export function RefreshAvailableModels():Promise<Array<string>>;
 
 export function RejectQuestion(arg1:string):Promise<model.APIResult>;
 
+export function RemoveSkillSourceDir(arg1:string):Promise<model.SaveResult>;
+
 export function SaveFullConfig(arg1:string):Promise<model.SaveResult>;
 
 export function SaveProvider(arg1:model.ProviderSave):Promise<model.SaveResult>;
@@ -94,6 +112,10 @@ export function SaveScheme(arg1:string,arg2:string):Promise<void>;
 export function SaveSkillContent(arg1:string,arg2:string):Promise<void>;
 
 export function SaveSkillFile(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function SaveSkillScheme(arg1:string):Promise<model.SaveResult>;
+
+export function ShowConfirmDialog(arg1:string,arg2:string):Promise<boolean>;
 
 export function StartFrontendWeb(arg1:number,arg2:string):Promise<model.WebResult>;
 

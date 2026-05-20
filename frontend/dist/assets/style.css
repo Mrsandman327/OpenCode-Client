@@ -3790,3 +3790,63 @@ input::placeholder, textarea::placeholder {
 
 /* ======== 技能管理搜索框 ======== */
 #skillSearch { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); font-size: 13px; outline: none; }
+
+/* ======== 技能源目录样式 ======== */
+.source-dir-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    transition: border-color var(--transition);
+}
+.source-dir-item:hover {
+    border-color: var(--border-light);
+}
+.source-dir-item .btn:hover {
+    color: var(--danger) !important;
+}
+
+/* 方案管理按钮 */
+#btnApplySkillScheme { background: var(--accent); color: #fff; border: none; }
+#btnApplySkillScheme:hover { background: var(--accent-hover); }
+#btnDeleteSkillScheme { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+#btnDeleteSkillScheme:hover { background: var(--danger-ghost, rgba(239,68,68,0.1)); }
+#btnSaveSkillScheme { background: var(--accent); color: #fff; border: none; }
+#btnSaveSkillScheme:hover { background: var(--accent-hover); }
+#btnAddSourceDir { background: var(--accent); color: #fff; border: none; }
+#btnAddSourceDir:hover { background: var(--accent-hover); }
+#btnRemoveSourceDir { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+#btnRemoveSourceDir:hover { background: var(--danger-ghost, rgba(239,68,68,0.1)); }
+#btnOpenSourceDir { background: var(--accent); color: #fff; border: none; }
+#btnOpenSourceDir:hover { background: var(--accent-hover); }
+
+
+/* 开关整合到技能卡片 */
+.skill-card .toggle {
+    flex-shrink: 0;
+}
+
+/* 冲突标签 */
+.conflict-tag {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+    background: rgba(239,68,68,0.15);
+    color: var(--danger);
+}
+
+/* 无来源提示横幅 */
+.no-sources-banner {
+    padding: 10px 14px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-input);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    line-height: 1.5;
+}

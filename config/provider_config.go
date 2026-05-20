@@ -3,6 +3,8 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -160,6 +162,48 @@ func DeleteProvider(key string) error {
 	delete(cfg.Provider, key)
 	cfg.EnabledProviders = removeProvider(cfg.EnabledProviders, key)
 	return saveOpenCodeConfig(cfg)
+}
+
+// 获取模型列表
+func GetModleList(baseURL, apiKey string) []string {
+	url := baseURL + "/models"
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return []string{}
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return []string{}
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return []string{}
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return []string{}
+	}
+
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return []string{}
+	}
+
+	modelIDs := make([]string, 0, len(result.Data))
+	for _, model := range result.Data {
+		modelIDs = append(modelIDs, model.ID)
+	}
+	return modelIDs
 }
 
 // ========== 工具函数 ==========

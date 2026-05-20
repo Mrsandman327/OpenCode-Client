@@ -10,12 +10,20 @@ export function AddModelType(arg1) {
   return window['go']['main']['App']['AddModelType'](arg1);
 }
 
+export function AddSkillSourceDir(arg1) {
+  return window['go']['main']['App']['AddSkillSourceDir'](arg1);
+}
+
 export function AnswerQuestion(arg1, arg2) {
   return window['go']['main']['App']['AnswerQuestion'](arg1, arg2);
 }
 
 export function AppCall(arg1, arg2) {
   return window['go']['main']['App']['AppCall'](arg1, arg2);
+}
+
+export function ApplySkillScheme(arg1) {
+  return window['go']['main']['App']['ApplySkillScheme'](arg1);
 }
 
 export function CreateSession(arg1) {
@@ -38,12 +46,20 @@ export function DeleteScheme(arg1) {
   return window['go']['main']['App']['DeleteScheme'](arg1);
 }
 
+export function DeleteSkillScheme(arg1) {
+  return window['go']['main']['App']['DeleteSkillScheme'](arg1);
+}
+
 export function ExportConfig(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExportConfig'](arg1, arg2, arg3);
 }
 
 export function GetAgentDescriptions() {
   return window['go']['main']['App']['GetAgentDescriptions']();
+}
+
+export function GetAggregatedSkills() {
+  return window['go']['main']['App']['GetAggregatedSkills']();
 }
 
 export function GetAvailableModels() {
@@ -56,6 +72,10 @@ export function GetCommands() {
 
 export function GetConfigPath() {
   return window['go']['main']['App']['GetConfigPath']();
+}
+
+export function GetDirEnabledSkills(arg1) {
+  return window['go']['main']['App']['GetDirEnabledSkills'](arg1);
 }
 
 export function GetFrontendWebStatus(arg1, arg2) {
@@ -94,6 +114,14 @@ export function GetSessions() {
   return window['go']['main']['App']['GetSessions']();
 }
 
+export function GetSkillConfig() {
+  return window['go']['main']['App']['GetSkillConfig']();
+}
+
+export function GetSkillSourceDirs() {
+  return window['go']['main']['App']['GetSkillSourceDirs']();
+}
+
 export function GetSkills() {
   return window['go']['main']['App']['GetSkills']();
 }
@@ -124,6 +152,10 @@ export function ListSchemes() {
 
 export function ListSkillFiles(arg1) {
   return window['go']['main']['App']['ListSkillFiles'](arg1);
+}
+
+export function ListSkillSchemes() {
+  return window['go']['main']['App']['ListSkillSchemes']();
 }
 
 export function OpenCodeAPI(arg1, arg2, arg3) {
@@ -166,6 +198,10 @@ export function RejectQuestion(arg1) {
   return window['go']['main']['App']['RejectQuestion'](arg1);
 }
 
+export function RemoveSkillSourceDir(arg1) {
+  return window['go']['main']['App']['RemoveSkillSourceDir'](arg1);
+}
+
 export function SaveFullConfig(arg1) {
   return window['go']['main']['App']['SaveFullConfig'](arg1);
 }
@@ -184,6 +220,14 @@ export function SaveSkillContent(arg1, arg2) {
 
 export function SaveSkillFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveSkillFile'](arg1, arg2, arg3);
+}
+
+export function SaveSkillScheme(arg1) {
+  return window['go']['main']['App']['SaveSkillScheme'](arg1);
+}
+
+export function ShowConfirmDialog(arg1, arg2) {
+  return window['go']['main']['App']['ShowConfirmDialog'](arg1, arg2);
 }
 
 export function StartFrontendWeb(arg1, arg2) {
