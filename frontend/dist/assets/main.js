@@ -68,7 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 输入框: 回车发送，Ctrl+Enter / Shift+Enter 换行
     document.getElementById('ocPrompt').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
-            if (e.ctrlKey || e.shiftKey) {
+            var mobile = isMobileTreeMode();
+            // 桌面端：Ctrl/Shift+Enter=换行，Enter=发送
+            // 移动端：Enter=换行（无 Ctrl 键），仅按钮发送
+            var insertNewline = (!mobile && (e.ctrlKey || e.shiftKey)) || (mobile && !e.ctrlKey && !e.shiftKey);
+            if (insertNewline) {
                 e.preventDefault();
                 const input = e.target;
                 const start = input.selectionStart;
@@ -89,6 +93,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('ocPrompt').addEventListener('blur', () => {
         if (isMobileTreeMode() && !refreshTimer) { scheduleRefresh(); }
     });
+
+    // 输入框 placeholder 按平台切换
+    function updatePromptPlaceholder() {
+        var ta = document.getElementById('ocPrompt');
+        if (!ta) return;
+        ta.placeholder = isMobileTreeMode() ? '输入内容' : '输入内容，Enter 发送，Ctrl+Enter 换行';
+    }
+    updatePromptPlaceholder();
+    window.addEventListener('resize', updatePromptPlaceholder);
 
     document.getElementById('btnLoadDiff').addEventListener('click', loadDiff);
     document.getElementById('btnRefreshStatus').addEventListener('click', loadServiceStatus);
@@ -396,3 +409,91 @@ document.addEventListener('DOMContentLoaded', () => {
         checkFrontendWebStatus();
     }
 });
+
+// ============================
+// 输入区域拖动条
+// ============================
+(function() {
+    var handle = document.getElementById('ocInputResizeHandle');
+    var inputBar = document.querySelector('.oc-input-bar');
+    var chatEl = document.querySelector('.oc-chat');
+    if (!handle || !inputBar || !chatEl) return;
+
+    var MIN_HEIGHT = 120;
+    var DEFAULT_HEIGHT = 0; // 0 = 使用 CSS 默认高度
+    var STORAGE_KEY = 'ocInputHeight';
+    var startY, startHeight;
+    var dragging = false;
+
+    // 恢复上次保存的高度
+    var saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+    if (saved && saved >= MIN_HEIGHT) {
+        applyHeight(saved);
+    }
+
+    function applyHeight(h) {
+        inputBar.style.height = h + 'px';
+        inputBar.style.flexShrink = '0';
+        inputBar.style.flexBasis = h + 'px';
+        inputBar.classList.add('input-expanded');
+    }
+
+    function resetHeight() {
+        inputBar.style.height = '';
+        inputBar.style.flexShrink = '0';
+        inputBar.style.flexBasis = '';
+        inputBar.classList.remove('input-expanded');
+        localStorage.removeItem(STORAGE_KEY);
+    }
+
+    function startDrag(clientY) {
+        dragging = true;
+        startY = clientY;
+        startHeight = inputBar.offsetHeight || DEFAULT_HEIGHT || MIN_HEIGHT;
+        handle.classList.add('dragging');
+        chatEl.classList.add('input-resizing');
+
+        function onMove(ev) {
+            if (!dragging) return;
+            var y = ev.touches ? ev.touches[0].clientY : ev.clientY;
+            var delta = startY - y; // 向上拖动 = 正值
+            var newHeight = Math.max(MIN_HEIGHT, startHeight + delta);
+            applyHeight(newHeight);
+        }
+
+        function onUp() {
+            if (!dragging) return;
+            dragging = false;
+            handle.classList.remove('dragging');
+            chatEl.classList.remove('input-resizing');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onUp);
+            var h = parseInt(inputBar.style.height, 10);
+            if (h >= MIN_HEIGHT) {
+                localStorage.setItem(STORAGE_KEY, h);
+            }
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+    }
+
+    handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        startDrag(e.clientY);
+    });
+
+    handle.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        startDrag(e.touches[0].clientY);
+    });
+
+    // 双击恢复默认高度
+    handle.addEventListener('dblclick', function() {
+        resetHeight();
+    });
+})();

@@ -1945,6 +1945,56 @@ input::placeholder, textarea::placeholder {
     height: 28px;
     font-size: 14px;
 }
+/* ========== 输入区域拖动条 ========== */
+.oc-input-resize-handle {
+    height: 6px;
+    flex-shrink: 0;
+    cursor: ns-resize;
+    position: relative;
+    background: transparent;
+    transition: background 0.15s ease;
+    z-index: 2;
+}
+.oc-input-resize-handle::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+.oc-input-resize-handle:hover::before,
+.oc-input-resize-handle.dragging::before {
+    opacity: 1;
+    background: var(--accent);
+}
+.oc-input-resize-handle.dragging {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+/* 拖动时禁止文本选中 */
+.oc-chat.input-resizing {
+    user-select: none;
+    -webkit-user-select: none;
+}
+/* 有自定义高度时 input-bar 和 textarea 撑满 */
+.oc-input-bar.input-expanded {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+}
+.oc-input-bar.input-expanded .oc-input-wrap {
+    flex: 1;
+    min-height: 0;
+}
+.oc-input-bar.input-expanded .oc-input-wrap textarea {
+    flex: 1;
+}
+
 /* ========== 命令面板（/ 快捷命令） ========== */
 .oc-cmd-palette {
     position: absolute;
