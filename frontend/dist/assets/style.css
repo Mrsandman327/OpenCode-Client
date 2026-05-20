@@ -3352,48 +3352,57 @@ input::placeholder, textarea::placeholder {
 .provider-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     overflow: hidden;
+    transition: box-shadow 0.15s ease;
 }
+/* .provider-card:hover {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+} */
 .provider-card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 20px;
+    padding: 16px 24px;
     background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    gap: 12px;
+    border: 1px solid var(--border);
+    gap: 16px;
 }
-.provider-card-name {
-    font-size: 15px;
-    font-weight: 600;
+.prov-edit-name {
+    font-size: 12px;
     color: var(--text-primary);
+    letter-spacing: -0.022em;
 }
-.provider-card-key {
-    font-size: 11px;
+.prov-edit-key {
+    font-size: 17px;
+    font-weight: 600;
     color: var(--text-muted);
     font-family: "SF Mono", "Cascadia Code", monospace;
+    letter-spacing: -0.01em;
+    margin-right: 25px;
 }
 .provider-card-actions {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-shrink: 0;
+    align-items: center;
 }
 .provider-card-body {
-    padding: 14px 20px;
+    padding: 20px 24px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
 }
 .provider-field {
     display: flex;
     gap: 10px;
-    font-size: 12px;
+    font-size: 13px;
 }
 .provider-field-label {
     color: var(--text-muted);
     min-width: 60px;
     font-weight: 500;
+    letter-spacing: -0.01em;
 }
 .provider-field-value {
     color: var(--text-secondary);
@@ -3402,28 +3411,38 @@ input::placeholder, textarea::placeholder {
     word-break: break-all;
 }
 .provider-models {
-    margin-top: 6px;
+    margin-top: 8px;
 }
 .provider-models-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 4px;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 .model-subcard {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background: var(--bg-input);
+    gap: 10px;
+    padding: 8px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    margin-bottom: 3px;
-    font-size: 11px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    transition: border-color 0.15s ease;
+}
+.model-subcard:hover {
+    border-color: var(--border-light);
 }
 .model-subcard-id {
     font-family: "SF Mono", "Cascadia Code", monospace;
     color: var(--accent);
     flex: 1;
+    font-size: 13px;
 }
 .model-subcard-name {
     color: var(--text-muted);
@@ -3432,14 +3451,19 @@ input::placeholder, textarea::placeholder {
 .btn-del {
     background: transparent;
     color: var(--text-muted);
-    color: #fff;
     border: none;
     font-weight: 500;
     border-radius: var(--radius-pill);
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
 }
 .btn-del:hover {
     background: var(--danger-bg);
     color: var(--danger);
+}
+.btn-del:active {
+    transform: scale(0.97);
 }
 .btn-add {
     background: var(--accent);
@@ -3447,44 +3471,120 @@ input::placeholder, textarea::placeholder {
     border: none;
     font-weight: 500;
     border-radius: var(--radius-pill);
+    padding: 5px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    letter-spacing: -0.01em;
 }
 .btn-add:hover {
     background: var(--accent-hover);
 }
+.btn-add:active {
+    transform: scale(0.97);
+}
 
 /* 供应商卡片内输入框统一样式 */
 .provider-card input {
-    padding: 6px 10px;
-    background: var(--bg-input);
+    padding: 8px 14px;
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
     outline: none;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    transition: border-color 0.15s ease;
 }
 .provider-card input:focus {
     border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.provider-card select {
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    outline: none;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+}
+.provider-card select:focus {
+    border-color: var(--accent);
+}
+/* 保存按钮 */
+.btn-save-card {
+    background: var(--accent) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: var(--radius-pill) !important;
+    padding: 6px 18px !important;
+    font-size: 13px !important;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+}
+.btn-save-card:hover {
+    background: var(--accent-hover) !important;
+}
+.btn-save-card:active {
+    transform: scale(0.97);
+}
+/* 删除卡片按钮 */
+.btn-del-card {
+    background: transparent !important;
+    color: var(--danger) !important;
+    border: 1px solid var(--danger) !important;
+    border-radius: var(--radius-pill) !important;
+    padding: 4px 12px !important;
+    font-size: 12px;
+    cursor: pointer;
+}
+.btn-del-card:hover {
+    background: var(--danger-bg) !important;
+}
+.btn-del-card:active {
+    transform: scale(0.97);
 }
 .btn-eye {
-    width: 30px;
+    width: 34px;
     padding: 0;
     font-size: 14px;
     border: 1px solid var(--border);
     border-left: none;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    background: var(--bg-input);
+    background: var(--bg-card);
     color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    transition: color 0.15s ease;
 }
 .btn-eye:hover {
-    color: var(--text-primary);
+    color: var(--accent);
     background: var(--bg-card-hover);
+}
+/* 添加卡片虚线占位 */
+.provider-card-add {
+    border: 1px dashed var(--border-light) !important;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: var(--text-muted);
+    border-radius: var(--radius-lg);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    transition: all 0.15s ease;
 }
 .provider-card-add:hover {
     background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent) !important;
 }
 
 /* ============================================================

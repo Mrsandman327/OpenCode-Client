@@ -36,7 +36,7 @@ function renderProviders(providers) {
     const list = document.getElementById('providersList');
     const html = providers.map(p => providerCardHtml(p)).join('');
     list.innerHTML = html + `
-        <div class="provider-card provider-card-add" id="btnAddCard" style="border:dashed 1px var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:24px;color:var(--text-muted)">
+        <div class="provider-card provider-card-add" id="btnAddCard">
             <span>➕ 添加供应商</span>
         </div>`;
     bindProviderEvents(providers);
@@ -56,8 +56,8 @@ function providerCardHtml(p) {
         <div class="provider-card" data-key="${escapeHtml(p.key)}">
             <div class="provider-card-header">
                 <div style="flex:1;display:flex;gap:8px;align-items:center">
-                    <input class="prov-edit-key" value="${escapeHtml(p.key)}" placeholder="key (如 deepseek)" style="width:140px;font-size:13px;font-weight:600" ${isNew?'':'readonly'} />
-                    <input class="prov-edit-name" value="${escapeHtml(p.name||'')}" placeholder="名称" style="width:160px;font-size:12px" />
+                    <sapn style="font-size:12px;">供应商标识&nbsp;&nbsp;</span><input class="prov-edit-key" value="${escapeHtml(p.key)}" placeholder="key (如 deepseek)" ${isNew?'':'readonly'} />
+                    <sapn style="font-size:12px;">供应商名称&nbsp;&nbsp;</span><input class="prov-edit-name" value="${escapeHtml(p.name||'')}" placeholder="名称"/>
                 </div>
                 <div class="provider-card-actions" style="display:flex;gap:6px;align-items:center">
                     <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;cursor:pointer">
@@ -88,7 +88,7 @@ function providerCardHtml(p) {
                     </label>
                 </div>
                 <div class="provider-models">
-                    <div class="provider-models-title">📦 模型 <button class="btn btn-sm btn-add btn-add-model-card" data-key="${escapeHtml(p.key)}" style="font-size:10px;padding:2px 8px;">手动添加</button><button class="btn btn-sm btn-add btn-fetch-models" data-key="${escapeHtml(p.key)}" style="font-size:10px;padding:2px 8px;margin-left:4px">📡 获取模型列表</button></div>
+                    <div class="provider-models-title">📦 模型 <button class="btn btn-sm btn-add btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-sm btn-add btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">📡 获取模型列表</button></div>
                     <div class="card-models-list" data-key="${escapeHtml(p.key)}">
                         ${(p.models||[]).map((m,i) => `
                             <div class="model-subcard">
@@ -134,9 +134,9 @@ function bindProviderEvents(providers) {
             row.innerHTML = `
                 <div style="display:flex;align-items:center;gap:8px;flex:1">
                     <span style="font-size:10px;color:var(--text-muted);width:45px;flex-shrink:0">模型ID</span>
-                    <input class="model-edit-id" placeholder="deepseek-v4-pro" style="font-size:12px;font-family:monospace;flex:1;width:50%" />
+                    <input class="model-edit-id" placeholder="deepseek-v4-pro" style="flex:1;width:50%" />
                     <span style="font-size:10px;color:var(--text-muted);width:45px;flex-shrink:0">名称</span>
-                    <input class="model-edit-name" placeholder="DeepSeek-V4-Pro" style="font-size:12px;flex:1;width:50%" />
+                    <input class="model-edit-name" placeholder="DeepSeek-V4-Pro" style="flex:1;width:50%" />
                 </div>
                 <button class="btn btn-del btn-del-model" title="删除">✕</button>
             `;
