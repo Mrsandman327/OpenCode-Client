@@ -150,6 +150,7 @@ func newFrontendWebHandler(frontendFS fs.FS, bridge FrontendWebBridge) http.Hand
 	mux.HandleFunc("/api/git/stage-all", h.handleGitStageAll)
 	mux.HandleFunc("/api/git/commit", h.handleGitCommit)
 	mux.HandleFunc("/api/git/push", h.handleGitPush)
+	mux.HandleFunc("/api/git/pull", h.handleGitPull)
 	mux.HandleFunc("/events", h.handleEvents)
 	mux.Handle("/", http.FileServer(http.FS(frontendFS)))
 	//用户文件服务,支持热切换

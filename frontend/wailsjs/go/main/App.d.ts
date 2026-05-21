@@ -85,6 +85,8 @@ export function GetWebStatus(arg1:string,arg2:number):Promise<model.WebResult>;
 
 export function GitCommit(arg1:string,arg2:string):Promise<model.GitActionResult>;
 
+export function GitPull(arg1:string):Promise<model.GitActionResult>;
+
 export function GitPush(arg1:string):Promise<model.GitActionResult>;
 
 export function LaunchWindowsTerminal(arg1:string,arg2:string,arg3:string):Promise<model.WebResult>;

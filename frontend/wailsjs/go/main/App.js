@@ -166,6 +166,10 @@ export function GitCommit(arg1, arg2) {
   return window['go']['main']['App']['GitCommit'](arg1, arg2);
 }
 
+export function GitPull(arg1) {
+  return window['go']['main']['App']['GitPull'](arg1);
+}
+
 export function GitPush(arg1) {
   return window['go']['main']['App']['GitPush'](arg1);
 }

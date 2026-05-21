@@ -4252,6 +4252,9 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     font-weight: 600;
 }
+.file-browser-git-push-btn + .file-browser-git-push-btn {
+    margin-left: 6px;
+}
 .file-browser-git-push-btn:hover:not(:disabled) {
     border-color: var(--accent);
     color: var(--accent);

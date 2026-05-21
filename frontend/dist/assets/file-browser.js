@@ -139,6 +139,19 @@ async function fileBrowserApiGitPush(rootDir) {
     return await resp.json();
 }
 
+async function fileBrowserApiGitPull(rootDir) {
+    if (fileBrowserUseWails()) {
+        return await api.GitPull(rootDir);
+    }
+    var resp = await fetch('/api/git/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootDir: rootDir || '' })
+    });
+    if (!resp.ok) throw new Error('拉取失败');
+    return await resp.json();
+}
+
 (function initFileBrowserResize() {
     var handle = document.getElementById('fileBrowserResizeHandle');
     var body = document.querySelector('.file-browser-body');
@@ -232,6 +245,25 @@ async function gitPush() {
         }
     } catch (err) {
         showToast(err.message || '推送失败', 'error');
+    }
+    if (btn) btn.disabled = false;
+}
+
+async function gitPull() {
+    var state = window.fileBrowserState;
+    if (!state.rootDir) return;
+    var btn = document.getElementById('btnFileBrowserGitPull');
+    if (btn) btn.disabled = true;
+    try {
+        var result = await fileBrowserApiGitPull(state.rootDir);
+        if (result.success) {
+            showToast('拉取成功', 'success');
+            await loadFileBrowserGitHistory(false);
+        } else {
+            showToast(result.message || '拉取失败', 'error');
+        }
+    } catch (err) {
+        showToast(err.message || '拉取失败', 'error');
     }
     if (btn) btn.disabled = false;
 }
@@ -561,6 +593,13 @@ function renderFileBrowserGitHistory(bodyEl) {
         pushBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             gitPush();
+        });
+    }
+    var pullBtn = document.getElementById('btnFileBrowserGitPull');
+    if (pullBtn) {
+        pullBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            gitPull();
         });
     }
 }

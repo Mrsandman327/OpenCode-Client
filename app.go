@@ -186,6 +186,12 @@ func (a *App) GitPush(rootDir string) model.GitActionResult {
 	return result
 }
 
+// GitPull 从远端拉取当前分支。
+func (a *App) GitPull(rootDir string) model.GitActionResult {
+	result, _ := service.GitPull(rootDir)
+	return result
+}
+
 // OpenDir 在文件资源管理器中打开指定目录。
 func (a *App) OpenDir(path string) error {
 	switch runtime.GOOS {
@@ -798,6 +804,10 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		var rootDir string
 		if err := decodeArgs(args, &rootDir); err != nil { return nil, err }
 		return a.GitPush(rootDir), nil
+	case "GitPull":
+		var rootDir string
+		if err := decodeArgs(args, &rootDir); err != nil { return nil, err }
+		return a.GitPull(rootDir), nil
 	case "ReadSkillContent":
 		var skillPath string
 		if err := decodeArgs(args, &skillPath); err != nil { return nil, err }

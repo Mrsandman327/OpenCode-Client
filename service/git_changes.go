@@ -539,20 +539,10 @@ func GitPush(dir string) (model.GitActionResult, error) {
 		return model.GitActionResult{Success: false, Message: "未配置远端仓库，请先执行 git remote add origin <url>"}, nil
 	}
 	// 先尝试直接 push
-	_, err = runGitCommand(dir, "push")
+	out, err := runGitCommand(dir, "push")
 	if err != nil {
-		// 如果失败，可能没有 upstream，尝试自动设置
-		branch, branchErr := runGitCommand(dir, "rev-parse", "--abbrev-ref", "HEAD")
-		if branchErr == nil {
-			branch = strings.TrimSpace(branch)
-			out2, err2 := runGitCommand(dir, "push", "--set-upstream", "origin", branch)
-			if err2 != nil {
-				return model.GitActionResult{Success: false, Message: strings.TrimSpace(out2)}, nil
-			}
-			_ = out2
-			return model.GitActionResult{Success: true}, nil
-		}
-		return model.GitActionResult{Success: false, Message: err.Error()}, nil
+
+		return model.GitActionResult{Success: false, Message: strings.TrimSpace(out)}, nil
 	}
 	return model.GitActionResult{Success: true}, nil
 }
@@ -568,6 +558,36 @@ func (h *frontendWebHandler) handleGitPush(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	result, _ := GitPush(req.RootDir)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func GitPull(dir string) (model.GitActionResult, error) {
+	if !IsGitRepository(dir) {
+		return model.GitActionResult{Success: false, Message: "当前目录未启用 Git 版本管理"}, nil
+	}
+	remotes, err := runGitCommand(dir, "remote")
+	if err != nil || strings.TrimSpace(remotes) == "" {
+		return model.GitActionResult{Success: false, Message: "未配置远端仓库"}, nil
+	}
+	out, err := runGitCommand(dir, "pull")
+	if err != nil {
+		return model.GitActionResult{Success: false, Message: strings.TrimSpace(out)}, nil
+	}
+	return model.GitActionResult{Success: true}, nil
+}
+
+func (h *frontendWebHandler) handleGitPull(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct{ RootDir string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "请求体解析失败", http.StatusBadRequest)
+		return
+	}
+	result, _ := GitPull(req.RootDir)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(result)
 }
