@@ -162,6 +162,14 @@ export function GetWebStatus(arg1, arg2) {
   return window['go']['main']['App']['GetWebStatus'](arg1, arg2);
 }
 
+export function GitCommit(arg1, arg2) {
+  return window['go']['main']['App']['GitCommit'](arg1, arg2);
+}
+
+export function GitPush(arg1) {
+  return window['go']['main']['App']['GitPush'](arg1);
+}
+
 export function LaunchWindowsTerminal(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchWindowsTerminal'](arg1, arg2, arg3);
 }
@@ -266,6 +274,14 @@ export function ShowConfirmDialog(arg1, arg2) {
   return window['go']['main']['App']['ShowConfirmDialog'](arg1, arg2);
 }
 
+export function StageAllFiles(arg1) {
+  return window['go']['main']['App']['StageAllFiles'](arg1);
+}
+
+export function StageFile(arg1, arg2) {
+  return window['go']['main']['App']['StageFile'](arg1, arg2);
+}
+
 export function StartFrontendWeb(arg1, arg2) {
   return window['go']['main']['App']['StartFrontendWeb'](arg1, arg2);
 }
@@ -296,6 +312,10 @@ export function StopOpenCodeWeb() {
 
 export function ToggleSkill(arg1, arg2, arg3) {
   return window['go']['main']['App']['ToggleSkill'](arg1, arg2, arg3);
+}
+
+export function UnstageFile(arg1, arg2) {
+  return window['go']['main']['App']['UnstageFile'](arg1, arg2);
 }
 
 export function UpdateModels(arg1) {

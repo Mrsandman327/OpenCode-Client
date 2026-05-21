@@ -4041,7 +4041,128 @@ input::placeholder, textarea::placeholder {
     flex: 1;
     min-height: 0;
     flex-direction: column;
-    overflow-y: auto;
+}
+.file-browser-git-current-section {
+    flex: 0 0 var(--git-current-pct, 60%);
+    min-height: 0;
+}
+.file-browser-git-history-section {
+    flex: 0 0 var(--git-history-pct, 40%);
+    min-height: 0;
+}
+/* 提交工具栏 */
+.file-browser-git-commit-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 0 0 8px 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+.file-browser-git-commit-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: "SF Mono", "Cascadia Code", monospace;
+    outline: none;
+    min-height: 48px;
+    resize: vertical;
+}
+.file-browser-git-commit-input:focus {
+    border-color: var(--accent);
+}
+.file-browser-git-commit-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.file-browser-git-commit-btn:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+.file-browser-git-commit-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* 操作错误提示 */
+.file-browser-git-action-error {
+    font-size: 11px;
+    color: var(--danger);
+    flex-shrink: 0;
+}
+
+/* +/- 操作按钮行 */
+.file-browser-git-item-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.file-browser-git-item-row .file-browser-git-item {
+    flex: 1;
+}
+.file-browser-git-action-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+.file-browser-git-action-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.file-browser-git-action-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* 未同步图标 */
+.file-browser-git-sync-icon {
+    color: var(--text-muted);
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+/* 全部暂存按钮 */
+.file-browser-git-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.file-browser-git-stage-all {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.file-browser-git-stage-all:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.file-browser-git-stage-all:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 .file-browser-resize-handle {
     cursor: col-resize;
@@ -4066,8 +4187,35 @@ input::placeholder, textarea::placeholder {
     background: var(--accent);
 }
 .file-browser-git-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+/* Git 区域拖动条 */
+.file-browser-git-resize-handle {
+    cursor: row-resize;
+    position: relative;
+    background: transparent;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--border);
+}
+.file-browser-git-resize-handle::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 50%;
+    height: 2px;
+    transform: translateY(-50%);
+    background: var(--border);
+    border-radius: 1px;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+.file-browser-git-resize-handle:hover::before,
+.file-browser-git-resize-handle.dragging::before {
+    opacity: 1;
+    background: var(--accent);
 }
 .file-browser-git-group {
     padding-top: 6px;
@@ -4082,21 +4230,40 @@ input::placeholder, textarea::placeholder {
     font-weight: 600;
 }
 .file-browser-git-header {
-    width: 100%;
-    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     border: none;
     background: transparent;
     color: var(--text-primary);
     font-size: 13px;
     font-weight: 600;
     padding: 10px 12px;
-    cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
 }
-.file-browser-git-header:hover {
-    background: var(--bg-card-hover);
+.file-browser-git-push-btn {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-weight: 600;
+}
+.file-browser-git-push-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.file-browser-git-push-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 .file-browser-git-body {
-    overflow: visible;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     padding: 4px 8px 8px;
     background: var(--bg-input);
 }

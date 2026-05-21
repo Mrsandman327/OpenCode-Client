@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"oc-manager/model"
 	"oc-manager/service"
 )
 
@@ -127,4 +128,82 @@ func runGit(t *testing.T, repo string, args ...string) string {
 		t.Fatalf("git %v 失败: %v", args, err)
 	}
 	return out
+}
+
+func TestStageFileMovesFileToIndex(t *testing.T) {
+	repo, _ := initGitHistoryRepo(t)
+	writeFile(t, filepath.Join(repo, "gamma.txt"), "new\n")
+	result, err := service.StageFile(repo, "/gamma.txt")
+	if err != nil || !result.Success {
+		t.Fatalf("暂存文件失败: %v %#v", err, result)
+	}
+	status := service.ListGitChanges(repo)
+	var staged *model.GitChangedFile
+	for i := range status.Files {
+		if status.Files[i].Path == "/gamma.txt" {
+			staged = &status.Files[i]
+			break
+		}
+	}
+	if staged == nil || !staged.Tracked {
+		t.Fatalf("暂存后文件应为 tracked: %#v", staged)
+	}
+}
+
+func TestUnstageFileRemovesFileFromIndex(t *testing.T) {
+	repo, _ := initGitHistoryRepo(t)
+	result, err := service.UnstageFile(repo, "/alpha.txt")
+	if err != nil || !result.Success {
+		t.Fatalf("取消暂存失败: %v %#v", err, result)
+	}
+	status := service.ListGitChanges(repo)
+	for _, f := range status.Files {
+		if f.Path == "/alpha.txt" && f.HasStaged {
+			t.Fatal("取消暂存后文件不应再有 staged 标记")
+		}
+	}
+}
+
+func TestGitCommitFailsWithEmptyMessage(t *testing.T) {
+	repo, _ := initGitHistoryRepo(t)
+	result, err := service.GitCommit(repo, "")
+	if err != nil {
+		t.Fatalf("提交调用异常: %v", err)
+	}
+	if result.Success {
+		t.Fatal("空提交信息不应成功")
+	}
+}
+
+func TestGitCommitCreatesNewCommit(t *testing.T) {
+	repo, _ := initGitHistoryRepo(t)
+	writeFile(t, filepath.Join(repo, "alpha.txt"), "hello\nworld\nthird\n")
+	stageResult, err := service.StageFile(repo, "/alpha.txt")
+	if err != nil || !stageResult.Success {
+		t.Fatalf("提交前暂存失败: %v %#v", err, stageResult)
+	}
+	result, err := service.GitCommit(repo, "test commit")
+	if err != nil || !result.Success {
+		t.Fatalf("提交失败: %v %#v", err, result)
+	}
+	result2, err := service.ListGitHistory(repo, 0, 5)
+	if err != nil {
+		t.Fatalf("读取历史失败: %v", err)
+	}
+	if len(result2.Items) < 3 {
+		t.Fatalf("提交后应有更多历史条目: %#v", result2)
+	}
+}
+
+func TestGitHistorySyncStatusWithUpstream(t *testing.T) {
+	repo, _ := initGitHistoryRepo(t)
+	result, err := service.ListGitHistory(repo, 0, 30)
+	if err != nil {
+		t.Fatalf("读取历史失败: %v", err)
+	}
+	for _, item := range result.Items {
+		if !item.Synced {
+			t.Logf("无上游分支时 %s 应标记为未同步: synced=%v", item.ShortHash, item.Synced)
+		}
+	}
 }

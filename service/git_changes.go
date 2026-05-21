@@ -116,6 +116,32 @@ func ListGitHistory(dir string, offset, limit int) (model.GitHistoryResult, erro
 		result.HasMore = true
 		items = items[:limit]
 	}
+	// 计算未同步提交集合
+	unsynced := make(map[string]bool)
+	if upstream, err := runGitCommand(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"); err == nil {
+		revs, revErr := runGitCommand(dir, "rev-list", strings.TrimSpace(upstream)+"..HEAD")
+		if revErr == nil {
+			sc := bufio.NewScanner(strings.NewReader(revs))
+			for sc.Scan() {
+				if h := strings.TrimSpace(sc.Text()); h != "" {
+					unsynced[h] = true
+				}
+			}
+		}
+	}
+	for i := range items {
+		if _, ok := unsynced[items[i].Hash]; ok {
+			items[i].Synced = false
+		} else {
+			items[i].Synced = true
+		}
+	}
+	// 如果没有上游分支，全部标记为未同步
+	if _, err := runGitCommand(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"); err != nil {
+		for i := range items {
+			items[i].Synced = false
+		}
+	}
 	result.Items = items
 	return result, nil
 }
@@ -391,4 +417,157 @@ func parseHunkPart(part string) int {
 		return 1
 	}
 	return n
+}
+
+func StageFile(dir, filePath string) (model.GitActionResult, error) {
+	if !IsGitRepository(dir) {
+		return model.GitActionResult{Success: false, Message: "当前目录未启用 Git 版本管理"}, nil
+	}
+	rel := strings.TrimPrefix(filePath, "/")
+	_, err := runGitCommand(dir, "-c", "core.quotepath=false", "add", "--", rel)
+	if err != nil {
+		return model.GitActionResult{Success: false, Message: err.Error()}, nil
+	}
+	return model.GitActionResult{Success: true}, nil
+}
+
+func UnstageFile(dir, filePath string) (model.GitActionResult, error) {
+	if !IsGitRepository(dir) {
+		return model.GitActionResult{Success: false, Message: "当前目录未启用 Git 版本管理"}, nil
+	}
+	rel := strings.TrimPrefix(filePath, "/")
+	_, err := runGitCommand(dir, "-c", "core.quotepath=false", "reset", "HEAD", "--", rel)
+	if err != nil {
+		return model.GitActionResult{Success: false, Message: err.Error()}, nil
+	}
+	return model.GitActionResult{Success: true}, nil
+}
+
+func StageAllFiles(dir string) (model.GitActionResult, error) {
+	if !IsGitRepository(dir) {
+		return model.GitActionResult{Success: false, Message: "当前目录未启用 Git 版本管理"}, nil
+	}
+	_, err := runGitCommand(dir, "-c", "core.quotepath=false", "add", "-u")
+	if err != nil {
+		return model.GitActionResult{Success: false, Message: err.Error()}, nil
+	}
+	return model.GitActionResult{Success: true}, nil
+}
+
+func GitCommit(dir, message string) (model.GitActionResult, error) {
+	if !IsGitRepository(dir) {
+		return model.GitActionResult{Success: false, Message: "当前目录未启用 Git 版本管理"}, nil
+	}
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return model.GitActionResult{Success: false, Message: "请输入提交信息"}, nil
+	}
+	_, err := runGitCommand(dir, "-c", "core.quotepath=false", "commit", "-m", message)
+	if err != nil {
+		return model.GitActionResult{Success: false, Message: err.Error()}, nil
+	}
+	return model.GitActionResult{Success: true}, nil
+}
+
+func (h *frontendWebHandler) handleGitStage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct{ RootDir, Path string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "请求体解析失败", http.StatusBadRequest)
+		return
+	}
+	result, _ := StageFile(req.RootDir, req.Path)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *frontendWebHandler) handleGitUnstage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct{ RootDir, Path string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "请求体解析失败", http.StatusBadRequest)
+		return
+	}
+	result, _ := UnstageFile(req.RootDir, req.Path)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *frontendWebHandler) handleGitStageAll(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct{ RootDir string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "请求体解析失败", http.StatusBadRequest)
+		return
+	}
+	result, _ := StageAllFiles(req.RootDir)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *frontendWebHandler) handleGitCommit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct{ RootDir, Message string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "请求体解析失败", http.StatusBadRequest)
+		return
+	}
+	result, _ := GitCommit(req.RootDir, req.Message)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func GitPush(dir string) (model.GitActionResult, error) {
+	if !IsGitRepository(dir) {
+		return model.GitActionResult{Success: false, Message: "当前目录未启用 Git 版本管理"}, nil
+	}
+	// 检查是否有远端仓库
+	remotes, err := runGitCommand(dir, "remote")
+	if err != nil || strings.TrimSpace(remotes) == "" {
+		return model.GitActionResult{Success: false, Message: "未配置远端仓库，请先执行 git remote add origin <url>"}, nil
+	}
+	// 先尝试直接 push
+	_, err = runGitCommand(dir, "push")
+	if err != nil {
+		// 如果失败，可能没有 upstream，尝试自动设置
+		branch, branchErr := runGitCommand(dir, "rev-parse", "--abbrev-ref", "HEAD")
+		if branchErr == nil {
+			branch = strings.TrimSpace(branch)
+			out2, err2 := runGitCommand(dir, "push", "--set-upstream", "origin", branch)
+			if err2 != nil {
+				return model.GitActionResult{Success: false, Message: strings.TrimSpace(out2)}, nil
+			}
+			_ = out2
+			return model.GitActionResult{Success: true}, nil
+		}
+		return model.GitActionResult{Success: false, Message: err.Error()}, nil
+	}
+	return model.GitActionResult{Success: true}, nil
+}
+
+func (h *frontendWebHandler) handleGitPush(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct{ RootDir string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "请求体解析失败", http.StatusBadRequest)
+		return
+	}
+	result, _ := GitPush(req.RootDir)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
 }

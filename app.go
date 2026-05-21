@@ -156,6 +156,36 @@ func (a *App) GetGitHistoryPreview(rootDir, commitHash, path string) (model.GitC
 	return service.BuildGitCommitFilePreview(rootDir, commitHash, path)
 }
 
+// StageFile 暂存指定文件。
+func (a *App) StageFile(rootDir, path string) model.GitActionResult {
+	result, _ := service.StageFile(rootDir, path)
+	return result
+}
+
+// UnstageFile 取消暂存指定文件。
+func (a *App) UnstageFile(rootDir, path string) model.GitActionResult {
+	result, _ := service.UnstageFile(rootDir, path)
+	return result
+}
+
+// StageAllFiles 暂存所有未暂存文件。
+func (a *App) StageAllFiles(rootDir string) model.GitActionResult {
+	result, _ := service.StageAllFiles(rootDir)
+	return result
+}
+
+// GitCommit 提交当前暂存区。
+func (a *App) GitCommit(rootDir, message string) model.GitActionResult {
+	result, _ := service.GitCommit(rootDir, message)
+	return result
+}
+
+// GitPush 推送当前分支到远端。
+func (a *App) GitPush(rootDir string) model.GitActionResult {
+	result, _ := service.GitPush(rootDir)
+	return result
+}
+
 // OpenDir 在文件资源管理器中打开指定目录。
 func (a *App) OpenDir(path string) error {
 	switch runtime.GOOS {
@@ -748,6 +778,26 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		var rootDir, commitHash, path string
 		if err := decodeArgs(args, &rootDir, &commitHash, &path); err != nil { return nil, err }
 		return a.GetGitHistoryPreview(rootDir, commitHash, path)
+	case "StageFile":
+		var rootDir, path string
+		if err := decodeArgs(args, &rootDir, &path); err != nil { return nil, err }
+		return a.StageFile(rootDir, path), nil
+	case "UnstageFile":
+		var rootDir, path string
+		if err := decodeArgs(args, &rootDir, &path); err != nil { return nil, err }
+		return a.UnstageFile(rootDir, path), nil
+	case "StageAllFiles":
+		var rootDir string
+		if err := decodeArgs(args, &rootDir); err != nil { return nil, err }
+		return a.StageAllFiles(rootDir), nil
+	case "GitCommit":
+		var rootDir, message string
+		if err := decodeArgs(args, &rootDir, &message); err != nil { return nil, err }
+		return a.GitCommit(rootDir, message), nil
+	case "GitPush":
+		var rootDir string
+		if err := decodeArgs(args, &rootDir); err != nil { return nil, err }
+		return a.GitPush(rootDir), nil
 	case "ReadSkillContent":
 		var skillPath string
 		if err := decodeArgs(args, &skillPath); err != nil { return nil, err }

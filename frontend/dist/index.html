@@ -429,7 +429,7 @@
             </div>
             <div class="file-browser-body">
                 <div class="file-browser-mode-bar">
-                    <button type="button" class="file-browser-mode-btn active" id="btnFileBrowserModeFiles" title="文件预览">🗃️</button>
+                    <button type="button" class="file-browser-mode-btn active" id="btnFileBrowserModeFiles" title="文件预览">🗂️</button>
                     <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeGit" title="Git 变更">🔀</button>
                 </div>
                 <aside class="file-browser-list-panel">
@@ -439,16 +439,24 @@
                         <div class="file-browser-list" id="fileBrowserList"></div>
                     </div>
                     <div class="file-browser-git-panel" id="fileBrowserGitPanel" style="display:none">
-                        <div class="file-browser-git-section">
-                            <button type="button" class="file-browser-git-header" id="fileBrowserGitCurrentToggle" onclick="toggleFileBrowserGitCurrentSection()">▶ 当前变更</button>
-                            <div class="file-browser-git-body" id="fileBrowserGitCurrentBody" style="display:none">
+                        <div class="file-browser-git-section file-browser-git-current-section">
+                            <div class="file-browser-git-header" id="fileBrowserGitCurrentTitle">当前变更</div>
+                            <div class="file-browser-git-body" id="fileBrowserGitCurrentBody">
+                                <div class="file-browser-git-commit-bar">
+                                    <textarea class="file-browser-git-commit-input" id="fileBrowserGitCommitInput" placeholder="输入提交信息" rows="2"></textarea>
+                                    <button type="button" class="btn btn-sm file-browser-git-commit-btn" id="btnFileBrowserGitCommit">提交</button>
+                                </div>
                                 <div class="file-browser-empty">正在检查 Git 状态...</div>
                             </div>
                         </div>
-                        <div class="file-browser-git-section">
-                            <button type="button" class="file-browser-git-header" id="fileBrowserGitHistoryToggle" onclick="toggleFileBrowserGitHistorySection()">▶ 提交历史</button>
-                            <div class="file-browser-git-body" id="fileBrowserGitHistoryBody" style="display:none">
-                                <div class="file-browser-empty">展开后加载最近 30 条提交</div>
+                        <div class="file-browser-git-resize-handle" id="fileBrowserGitResizeHandle" aria-hidden="true"></div>
+                        <div class="file-browser-git-section file-browser-git-history-section">
+                            <div class="file-browser-git-header" id="fileBrowserGitHistoryTitle">
+                                提交历史
+                                <button type="button" class="btn btn-xs file-browser-git-push-btn" id="btnFileBrowserGitPush" title="推送到远端">⬆ 推送</button>
+                            </div>
+                            <div class="file-browser-git-body" id="fileBrowserGitHistoryBody">
+                                <div class="file-browser-empty">正在读取提交历史...</div>
                             </div>
                         </div>
                     </div>

@@ -83,6 +83,10 @@ export function GetStats():Promise<model.Stats>;
 
 export function GetWebStatus(arg1:string,arg2:number):Promise<model.WebResult>;
 
+export function GitCommit(arg1:string,arg2:string):Promise<model.GitActionResult>;
+
+export function GitPush(arg1:string):Promise<model.GitActionResult>;
+
 export function LaunchWindowsTerminal(arg1:string,arg2:string,arg3:string):Promise<model.WebResult>;
 
 export function ListBrowsableDirs(arg1:string):Promise<Array<model.DirectoryEntry>>;
@@ -135,6 +139,10 @@ export function SaveSkillScheme(arg1:string):Promise<model.SaveResult>;
 
 export function ShowConfirmDialog(arg1:string,arg2:string):Promise<boolean>;
 
+export function StageAllFiles(arg1:string):Promise<model.GitActionResult>;
+
+export function StageFile(arg1:string,arg2:string):Promise<model.GitActionResult>;
+
 export function StartFrontendWeb(arg1:number,arg2:string):Promise<model.WebResult>;
 
 export function StartOpenCodeEvents():Promise<model.APIResult>;
@@ -150,5 +158,7 @@ export function StopOpenCodeEvents():Promise<model.APIResult>;
 export function StopOpenCodeWeb():Promise<model.WebResult>;
 
 export function ToggleSkill(arg1:string,arg2:string,arg3:boolean):Promise<model.ToggleResult>;
+
+export function UnstageFile(arg1:string,arg2:string):Promise<model.GitActionResult>;
 
 export function UpdateModels(arg1:Array<model.ModelEntry>):Promise<model.ModelSaveResult>;

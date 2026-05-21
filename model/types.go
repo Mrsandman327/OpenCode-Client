@@ -353,6 +353,7 @@ type GitHistoryItem struct {
 	Subject   string `json:"subject"`
 	Author    string `json:"author"`
 	Date      string `json:"date"`
+	Synced    bool   `json:"synced"`
 }
 
 // GitHistoryResult 表示提交历史列表接口返回。
@@ -382,4 +383,10 @@ type GitCommitFilePreviewResult struct {
 	CommitHash string         `json:"commitHash"`
 	FilePath   string         `json:"filePath"`
 	Blocks     []GitDiffBlock `json:"blocks"`
+}
+
+// GitActionResult 表示 Git 操作结果。
+type GitActionResult struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }

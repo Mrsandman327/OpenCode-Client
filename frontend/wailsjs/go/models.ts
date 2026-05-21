@@ -241,6 +241,20 @@ export namespace model {
 	        this.mime = source["mime"];
 	    }
 	}
+	export class GitActionResult {
+	    success: boolean;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitActionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.message = source["message"];
+	    }
+	}
 	export class GitChangedFile {
 	    path: string;
 	    name: string;
@@ -447,6 +461,7 @@ export namespace model {
 	    subject: string;
 	    author: string;
 	    date: string;
+	    synced: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new GitHistoryItem(source);
@@ -459,6 +474,7 @@ export namespace model {
 	        this.subject = source["subject"];
 	        this.author = source["author"];
 	        this.date = source["date"];
+	        this.synced = source["synced"];
 	    }
 	}
 	export class GitHistoryResult {

@@ -15,8 +15,6 @@ window.fileBrowserState = {
     loadingPreview: false,
     previewMode: 'file',
     git: {
-        currentExpanded: false,
-        historyExpanded: false,
         isGitRepo: false,
         files: [],
         message: '',
@@ -27,6 +25,12 @@ window.fileBrowserState = {
         expandedCommitHash: '',
         loadingCommitHash: '',
         activeHistoryFileKey: '',
+        commitMessage: '',
+        commitSubmitting: false,
+        gitActionError: '',
+        stageLoadingPath: '',
+        unstageLoadingPath: '',
+        stageAllLoading: false,
     },
 };
 
@@ -70,6 +74,71 @@ async function fileBrowserApiGitHistoryFiles(rootDir, commitHash) {
     return await resp.json();
 }
 
+async function fileBrowserApiStageFile(rootDir, path) {
+    if (fileBrowserUseWails()) {
+        return await api.StageFile(rootDir, path);
+    }
+    var resp = await fetch('/api/git/stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootDir: rootDir || '', path: path || '' })
+    });
+    if (!resp.ok) throw new Error('暂存文件失败');
+    return await resp.json();
+}
+
+async function fileBrowserApiUnstageFile(rootDir, path) {
+    if (fileBrowserUseWails()) {
+        return await api.UnstageFile(rootDir, path);
+    }
+    var resp = await fetch('/api/git/unstage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootDir: rootDir || '', path: path || '' })
+    });
+    if (!resp.ok) throw new Error('取消暂存失败');
+    return await resp.json();
+}
+
+async function fileBrowserApiStageAll(rootDir) {
+    if (fileBrowserUseWails()) {
+        return await api.StageAllFiles(rootDir);
+    }
+    var resp = await fetch('/api/git/stage-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootDir: rootDir || '' })
+    });
+    if (!resp.ok) throw new Error('全部暂存失败');
+    return await resp.json();
+}
+
+async function fileBrowserApiGitCommit(rootDir, message) {
+    if (fileBrowserUseWails()) {
+        return await api.GitCommit(rootDir, message);
+    }
+    var resp = await fetch('/api/git/commit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootDir: rootDir || '', message: message || '' })
+    });
+    if (!resp.ok) throw new Error('提交失败');
+    return await resp.json();
+}
+
+async function fileBrowserApiGitPush(rootDir) {
+    if (fileBrowserUseWails()) {
+        return await api.GitPush(rootDir);
+    }
+    var resp = await fetch('/api/git/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootDir: rootDir || '' })
+    });
+    if (!resp.ok) throw new Error('推送失败');
+    return await resp.json();
+}
+
 (function initFileBrowserResize() {
     var handle = document.getElementById('fileBrowserResizeHandle');
     var body = document.querySelector('.file-browser-body');
@@ -108,6 +177,65 @@ async function fileBrowserApiGitHistoryFiles(rootDir, commitHash) {
     });
 })();
 
+(function initFileBrowserGitResize() {
+    var handle = document.getElementById('fileBrowserGitResizeHandle');
+    var panel = document.getElementById('fileBrowserGitPanel');
+    if (!handle || !panel || handle.dataset.bound) return;
+    handle.dataset.bound = 'true';
+    var STORAGE_KEY = 'fileBrowserGitPct';
+    var DEFAULT_PCT = 60;
+    var MIN_PCT = 20;
+    var MAX_PCT = 80;
+
+    var saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+    var initPct = (saved >= MIN_PCT && saved <= MAX_PCT) ? saved : DEFAULT_PCT;
+    panel.style.setProperty('--git-current-pct', initPct + '%');
+    panel.style.setProperty('--git-history-pct', (100 - initPct) + '%');
+
+    handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        handle.classList.add('dragging');
+
+        function onMove(ev) {
+            var rect = panel.getBoundingClientRect();
+            if (rect.height === 0) return;
+            var pct = Math.max(MIN_PCT, Math.min(MAX_PCT, ((ev.clientY - rect.top) / rect.height) * 100));
+            panel.style.setProperty('--git-current-pct', pct + '%');
+            panel.style.setProperty('--git-history-pct', (100 - pct) + '%');
+        }
+
+        function onUp() {
+            handle.classList.remove('dragging');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            var finalPct = parseInt(panel.style.getPropertyValue('--git-current-pct')) || DEFAULT_PCT;
+            localStorage.setItem(STORAGE_KEY, finalPct);
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+})();
+
+async function gitPush() {
+    var state = window.fileBrowserState;
+    if (!state.rootDir) return;
+    var btn = document.getElementById('btnFileBrowserGitPush');
+    if (btn) btn.disabled = true;
+    try {
+        var result = await fileBrowserApiGitPush(state.rootDir);
+        if (result.success) {
+            showToast('推送成功', 'success');
+            await loadFileBrowserGitHistory(false);
+        } else {
+            showToast(result.message || '推送失败', 'error');
+        }
+    } catch (err) {
+        showToast(err.message || '推送失败', 'error');
+    }
+    if (btn) btn.disabled = false;
+}
+
 function gitStatusClass(code) {
     var c = String(code || '').trim();
     if (c === '??') return 'untracked';
@@ -128,8 +256,6 @@ function openFileBrowserModal(rootDir) {
     window.fileBrowserState.selectedItem = null;
     window.fileBrowserState.previewMode = 'file';
     window.fileBrowserState.git = {
-        currentExpanded: false,
-        historyExpanded: false,
         isGitRepo: false,
         files: [],
         message: '',
@@ -140,6 +266,12 @@ function openFileBrowserModal(rootDir) {
         expandedCommitHash: '',
         loadingCommitHash: '',
         activeHistoryFileKey: '',
+        commitMessage: '',
+        commitSubmitting: false,
+        gitActionError: '',
+        stageLoadingPath: '',
+        unstageLoadingPath: '',
+        stageAllLoading: false,
     };
     if (title) title.textContent = '文件浏览 - ' + (rootDir || '');
     modal.style.display = 'flex';
@@ -195,6 +327,7 @@ async function loadFileBrowserGitHistory(loadMore) {
                 subject: item.subject,
                 author: item.author,
                 date: item.date,
+                synced: item.synced,
                 expanded: false,
                 loadingFiles: false,
                 filesLoaded: false,
@@ -239,49 +372,58 @@ async function loadFileBrowserList(path) {
 
 function renderFileBrowserGitSection() {
     var currentBodyEl = document.getElementById('fileBrowserGitCurrentBody');
-    var currentHeaderEl = document.getElementById('fileBrowserGitCurrentToggle');
     var historyBodyEl = document.getElementById('fileBrowserGitHistoryBody');
-    var historyHeaderEl = document.getElementById('fileBrowserGitHistoryToggle');
     var state = window.fileBrowserState;
-    if (!currentBodyEl || !currentHeaderEl || !historyBodyEl || !historyHeaderEl) return;
-    currentHeaderEl.textContent = (state.git.currentExpanded ? '▼ ' : '▶ ') + '当前变更';
-    historyHeaderEl.textContent = (state.git.historyExpanded ? '▼ ' : '▶ ') + '提交历史';
-    currentBodyEl.style.display = state.git.currentExpanded ? 'block' : 'none';
-    historyBodyEl.style.display = state.git.historyExpanded ? 'block' : 'none';
+    if (!currentBodyEl || !historyBodyEl) return;
     if (!state.git.isGitRepo) {
         currentBodyEl.innerHTML = '<div class="file-browser-empty">' + escapeHtml(state.git.message || '当前目录未启用 Git 版本管理') + '</div>';
         historyBodyEl.innerHTML = '<div class="file-browser-empty">当前目录未启用 Git 版本管理</div>';
         return;
     }
-    if (state.git.currentExpanded) {
-        var staged = state.git.files.filter(function(item) { return !!item.hasStaged; });
-        var unstaged = state.git.files.filter(function(item) { return !item.tracked || !!item.hasUnstaged; });
-        currentBodyEl.innerHTML = '' +
-            renderFileBrowserGitGroup('已暂存', staged, 'staged') +
-            renderFileBrowserGitGroup('未暂存', unstaged, 'unstaged');
-        bindCurrentGitFileEvents(currentBodyEl);
-    }
-    if (state.git.historyExpanded) {
-        renderFileBrowserGitHistory(historyBodyEl);
-    }
+    var errorHtml = state.git.gitActionError ? '<div class="file-browser-git-action-error" style="padding:4px 8px">' + escapeHtml(state.git.gitActionError) + '</div>' : '';
+    var staged = state.git.files.filter(function(item) { return !!item.hasStaged; });
+    var unstaged = state.git.files.filter(function(item) { return !item.tracked || !!item.hasUnstaged; });
+    currentBodyEl.innerHTML = errorHtml +
+        '<div class="file-browser-git-commit-bar">' +
+            '<textarea class="file-browser-git-commit-input" placeholder="输入提交信息" rows="2">' + escapeHtml(state.git.commitMessage || '') + '</textarea>' +
+            '<button type="button" class="btn btn-sm file-browser-git-commit-btn"' + (state.git.commitSubmitting ? ' disabled' : '') + '>提交</button>' +
+        '</div>' +
+        renderFileBrowserGitGroup('已暂存', staged, 'staged') +
+        renderFileBrowserGitGroup('未暂存', unstaged, 'unstaged');
+    bindCurrentGitFileEvents(currentBodyEl);
+    renderFileBrowserGitHistory(historyBodyEl);
 }
+
+
 
 function renderFileBrowserGitGroup(title, files, groupName) {
     var html = '<div class="file-browser-git-group">' +
-        '<div class="file-browser-git-subtitle">' + escapeHtml(title) + '</div>';
+        '<div class="file-browser-git-group-header">' +
+            '<div class="file-browser-git-subtitle">' + escapeHtml(title) + '</div>' +
+            (groupName === 'unstaged' ? '<button type="button" class="btn file-browser-git-stage-all" id="btnStageAll" ' + (files.length ? '' : 'disabled') + '>全部暂存</button>' : '') +
+        '</div>';
     if (!files.length) {
         return html + '<div class="file-browser-empty">当前没有' + escapeHtml(title) + '文件</div></div>';
     }
     html += files.map(function(item) {
         var fullPath = item.path.replace(/^\//, '');
         var displayName = item.name || fullPath;
-        return '<button type="button" class="file-browser-git-item" data-git-path="' + escapeHtml(item.path) + '" data-git-group="' + escapeHtml(groupName) + '">' +
-            '<span class="file-browser-git-status status-' + escapeHtml(gitStatusClass(item.statusCode || 'xx')) + '">' + escapeHtml(item.statusCode || '') + '</span>' +
-            '<span class="file-browser-git-text" title="' + escapeHtml(fullPath) + '">' +
-                '<span class="file-browser-git-name">' + escapeHtml(displayName) + '</span>' +
-                '<span class="file-browser-git-path">' + escapeHtml(fullPath) + '</span>' +
-            '</span>' +
-        '</button>';
+        var actionBtn = '';
+        if (groupName === 'unstaged') {
+            actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="stage" title="加入暂存区" ' + (window.fileBrowserState.git.stageLoadingPath === item.path || window.fileBrowserState.git.stageAllLoading ? 'disabled' : '') + '>+</button>';
+        } else if (groupName === 'staged') {
+            actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="unstage" title="移出暂存区" ' + (window.fileBrowserState.git.unstageLoadingPath === item.path ? 'disabled' : '') + '>-</button>';
+        }
+        return '<div class="file-browser-git-item-row">' +
+            '<button type="button" class="file-browser-git-item" data-git-path="' + escapeHtml(item.path) + '" data-git-group="' + escapeHtml(groupName) + '">' +
+                '<span class="file-browser-git-status status-' + escapeHtml(gitStatusClass(item.statusCode || 'xx')) + '">' + escapeHtml(item.statusCode || '') + '</span>' +
+                '<span class="file-browser-git-text" title="' + escapeHtml(fullPath) + '">' +
+                    '<span class="file-browser-git-name">' + escapeHtml(displayName) + '</span>' +
+                    '<span class="file-browser-git-path">' + escapeHtml(fullPath) + '</span>' +
+                '</span>' +
+            '</button>' +
+            actionBtn +
+        '</div>';
     }).join('');
     html += '</div>';
     return html;
@@ -289,6 +431,7 @@ function renderFileBrowserGitGroup(title, files, groupName) {
 
 function bindCurrentGitFileEvents(bodyEl) {
     var state = window.fileBrowserState;
+
     bodyEl.querySelectorAll('.file-browser-git-item').forEach(function(btn) {
         btn.addEventListener('click', function() {
             state.previewMode = 'git';
@@ -301,6 +444,46 @@ function bindCurrentGitFileEvents(bodyEl) {
             renderGitFilePreview(this.dataset.gitPath || '/');
         });
     });
+
+    bodyEl.querySelectorAll('.file-browser-git-action-btn[data-action="stage"]').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            stageSingleFile(this.dataset.gitPath || '/');
+        });
+    });
+
+    bodyEl.querySelectorAll('.file-browser-git-action-btn[data-action="unstage"]').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            unstageSingleFile(this.dataset.gitPath || '/');
+        });
+    });
+
+    var stageAllBtn = document.getElementById('btnStageAll');
+    if (stageAllBtn) {
+        stageAllBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            stageAllGitFiles();
+        });
+    }
+
+    // 提交按钮
+    var commitBtn = bodyEl.querySelector('.file-browser-git-commit-btn');
+    if (commitBtn) {
+        commitBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            gitCommit();
+        });
+    }
+
+    // 提交输入框
+    var commitInput = bodyEl.querySelector('.file-browser-git-commit-input');
+    if (commitInput) {
+        commitInput.addEventListener('input', function() {
+            window.fileBrowserState.git.commitMessage = this.value || '';
+            window.fileBrowserState.git.gitActionError = '';
+        });
+    }
 }
 
 function renderFileBrowserGitHistory(bodyEl) {
@@ -316,6 +499,7 @@ function renderFileBrowserGitHistory(bodyEl) {
     var html = state.git.historyItems.map(function(item) {
         var expanded = state.git.expandedCommitHash === item.hash;
         var fileHtml = '';
+        var syncedIcon = item.synced === false ? '<span class="file-browser-git-sync-icon" title="未同步到服务器">⬆</span>' : '';
         if (expanded) {
             if (item.loadingFiles) {
                 fileHtml = '<div class="file-browser-empty">正在读取提交文件...</div>';
@@ -341,6 +525,7 @@ function renderFileBrowserGitHistory(bodyEl) {
                     '<span class="file-browser-git-name">' + escapeHtml(item.subject || '(无标题提交)') + '</span>' +
                     '<span class="file-browser-git-path">' + escapeHtml([item.author || '', item.date || ''].filter(Boolean).join(' · ')) + '</span>' +
                 '</span>' +
+                syncedIcon +
             '</button>' + fileHtml +
         '</div>';
     }).join('');
@@ -369,6 +554,13 @@ function renderFileBrowserGitHistory(bodyEl) {
     if (loadBtn) {
         loadBtn.addEventListener('click', function() {
             loadFileBrowserGitHistory(true);
+        });
+    }
+    var pushBtn = document.getElementById('btnFileBrowserGitPush');
+    if (pushBtn) {
+        pushBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            gitPush();
         });
     }
 }
@@ -446,20 +638,6 @@ function renderFileBrowserSelection() {
     }
 }
 
-function toggleFileBrowserGitCurrentSection() {
-    window.fileBrowserState.git.currentExpanded = !window.fileBrowserState.git.currentExpanded;
-    renderFileBrowserGitSection();
-}
-
-function toggleFileBrowserGitHistorySection() {
-    var state = window.fileBrowserState;
-    state.git.historyExpanded = !state.git.historyExpanded;
-    renderFileBrowserGitSection();
-    if (state.git.historyExpanded && !state.git.historyItems.length && !state.git.historyLoading) {
-        loadFileBrowserGitHistory(false);
-    }
-}
-
 async function toggleFileBrowserGitHistoryCommit(commitHash) {
     var state = window.fileBrowserState;
     if (!commitHash) return;
@@ -494,10 +672,107 @@ async function toggleFileBrowserGitHistoryCommit(commitHash) {
     }
 }
 
+async function stageSingleFile(path) {
+    var state = window.fileBrowserState;
+    if (!state.rootDir || !path) return;
+    state.git.stageLoadingPath = path;
+    state.git.gitActionError = '';
+    renderFileBrowserGitSection();
+    try {
+        var result = await fileBrowserApiStageFile(state.rootDir, path);
+        if (!result.success) {
+            state.git.gitActionError = result.message || '暂存失败';
+        }
+    } catch (err) {
+        state.git.gitActionError = err.message || '暂存失败';
+    }
+    state.git.stageLoadingPath = '';
+    await loadFileBrowserGitStatus();
+}
+
+async function unstageSingleFile(path) {
+    var state = window.fileBrowserState;
+    if (!state.rootDir || !path) return;
+    state.git.unstageLoadingPath = path;
+    state.git.gitActionError = '';
+    renderFileBrowserGitSection();
+    try {
+        var result = await fileBrowserApiUnstageFile(state.rootDir, path);
+        if (!result.success) {
+            state.git.gitActionError = result.message || '取消暂存失败';
+        }
+    } catch (err) {
+        state.git.gitActionError = err.message || '取消暂存失败';
+    }
+    state.git.unstageLoadingPath = '';
+    await loadFileBrowserGitStatus();
+}
+
+async function stageAllGitFiles() {
+    var state = window.fileBrowserState;
+    if (!state.rootDir) return;
+    state.git.stageAllLoading = true;
+    state.git.gitActionError = '';
+    renderFileBrowserGitSection();
+    try {
+        var result = await fileBrowserApiStageAll(state.rootDir);
+        if (!result.success) {
+            state.git.gitActionError = result.message || '全部暂存失败';
+        }
+    } catch (err) {
+        state.git.gitActionError = err.message || '全部暂存失败';
+    }
+    state.git.stageAllLoading = false;
+    await loadFileBrowserGitStatus();
+}
+
+async function gitCommit() {
+    var state = window.fileBrowserState;
+    if (!state.rootDir) return;
+    var msg = (state.git.commitMessage || '').trim();
+    if (!msg) {
+        state.git.gitActionError = '请输入提交信息';
+        renderFileBrowserGitSection();
+        return;
+    }
+    var staged = state.git.files.filter(function(item) { return !!item.hasStaged; });
+    if (!staged.length) {
+        state.git.gitActionError = '没有可提交的更改';
+        renderFileBrowserGitSection();
+        return;
+    }
+    state.git.commitSubmitting = true;
+    state.git.gitActionError = '';
+    renderFileBrowserGitSection();
+    try {
+        var result = await fileBrowserApiGitCommit(state.rootDir, msg);
+        if (!result.success) {
+            state.git.gitActionError = result.message || '提交失败';
+        } else {
+            state.git.commitMessage = '';
+            state.git.gitActionError = '';
+            await loadFileBrowserGitStatus();
+            await loadFileBrowserGitHistory(false);
+        }
+    } catch (err) {
+        state.git.gitActionError = err.message || '提交失败';
+    }
+    state.git.commitSubmitting = false;
+    renderFileBrowserGitSection();
+}
+
 function switchFileBrowserMode(mode) {
     var state = window.fileBrowserState;
     state.mode = mode === 'git' ? 'git' : 'files';
     renderFileBrowserMode();
+    if (state.mode === 'git' && !state.git.historyItems.length && !state.git.historyLoading) {
+        loadFileBrowserGitHistory(false);
+    }
+    var uPBtn = document.getElementById('btnFileBrowserUp');
+    if (state.mode === 'files')
+        uPBtn.style.display = ''
+    else
+        uPBtn.style.display = 'none'
 }
 
 function renderFileBrowserMode() {
@@ -525,7 +800,7 @@ function refreshFileBrowser() {
             renderFilePreview(state.selectedItem);
         }
     });
-    if (state.mode === 'git' && state.git.historyExpanded) {
+    if (state.mode === 'git') {
         loadFileBrowserGitHistory(false);
     }
 }
