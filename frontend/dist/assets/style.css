@@ -4460,7 +4460,7 @@ input::placeholder, textarea::placeholder {
   padding: 1.2em;
   border-radius: var(--radius-sm);
   overflow-x: auto;  /* 横向滚动，避免折行 */
-  line-height: 1.2;  /* 行距舒适 */
+  line-height: 1.35;  /* 行距舒适 */
   margin: 1.2em 0;
 }
 
@@ -4469,7 +4469,7 @@ input::placeholder, textarea::placeholder {
   background-color: transparent;
   padding: 0;
   border-radius: 0;
-  font-size: 11px;  /* 代码块可略小于正文代码块可略小于正文 代码块可略小于正文 代码块可略小于正文 代码块可略小于正文 代码块可略小于正文 代码块可略小于正文 代码块可略小于正文 代码块可略小于正文 代码块可略小于正文 代码块可略小于正文 代码块可略小于正文  */
+  font-size: 0.8em;  /* 代码块可略小于正文 */
   white-space: pre-wrap;  /* 保留原格式 */
   word-break: break-word;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;

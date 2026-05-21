@@ -12,6 +12,14 @@ function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem(THEME_KEY, theme);
     updateThemeIcon(theme);
+    updateHighlightTheme(theme);
+}
+
+function updateHighlightTheme(theme) {
+    var light = document.getElementById('highlightLight');
+    var dark = document.getElementById('highlightDark');
+    if (light) light.disabled = (theme !== 'light');
+    if (dark) dark.disabled = (theme !== 'dark');
 }
 
 function toggleTheme() {

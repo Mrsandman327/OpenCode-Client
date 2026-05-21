@@ -94,7 +94,7 @@ function fileBrowserIsSpreadsheet(ext) {
 }
 
 function fileBrowserIsText(ext) {
-    return ['.txt', '.log', '.json', '.yaml', '.yml', '.ini', '.env', '.xml', '.js', '.ts', '.tsx', '.jsx', '.go','.sum','.mod','.py', '.java', '.c', '.cpp', '.cc', '.rs', '.sh', '.bash', '.css', '.scss', '.less', '.html', '.htm', '.sql','.bat','.sh'].indexOf(ext) >= 0;
+      return ['.gitignore','.txt', '.log', '.json','.jsonc','.yaml', '.yml', '.ini', '.env', '.xml', '.js', '.ts', '.tsx', '.jsx', '.go','.sum','.mod','.py', '.java', '.c', '.cpp', '.cc', '.rs', '.sh', '.bash' ,".bat", ".vbs",'.css', '.scss', '.less', '.html', '.htm', '.sql','.bat','.sh'].indexOf(ext) >= 0;
 }
 
 function fileBrowserEscapeHTML(text) {
@@ -102,6 +102,39 @@ function fileBrowserEscapeHTML(text) {
     var div = document.createElement('div');
     div.textContent = String(text);
     return div.innerHTML;
+}
+
+function fileBrowserHighlightCode(code, ext) {
+    if (typeof hljs === 'undefined') return fileBrowserEscapeHTML(code);
+    try {
+        var lang = fileBrowserExtToLang(ext);
+        var result = lang ? hljs.highlight(String(code || ''), { language: lang }) : hljs.highlightAuto(String(code || ''));
+        return result.value;
+    } catch (e) {
+        return fileBrowserEscapeHTML(code);
+    }
+}
+
+function fileBrowserExtToLang(ext) {
+    var map = {
+        '.js': 'javascript', '.jsx': 'javascript',
+        '.ts': 'typescript', '.tsx': 'typescript',
+        '.go': 'go', '.mod': 'go', '.sum': 'go',
+        '.py': 'python',
+        '.java': 'java',
+        '.c': 'c', '.cpp': 'cpp', '.cc': 'cpp', '.h': 'c',
+        '.rs': 'rust',
+        '.sh': 'bash', '.bash': 'bash',
+        '.css': 'css', '.scss': 'scss', '.less': 'less',
+        '.html': 'xml', '.htm': 'xml', '.xml': 'xml',
+        '.json': 'json','.jsonc': 'json',
+        '.yaml': 'yaml', '.yml': 'yaml',
+        '.sql': 'sql',
+        '.ini': 'ini', '.env': 'ini',
+        '.bat': 'dos',
+        '.md': 'markdown', '.markdown': 'markdown',
+    };
+    return map[(ext || '').toLowerCase()] || null;
 }
 
 function fileBrowserSanitizeMarkedHtml(html) {
@@ -209,7 +242,7 @@ async function renderFilePreview(item) {
                 bodyEl.innerHTML = renderCSVPreview(readData.content || '');
                 return;
             }
-            bodyEl.innerHTML = '<pre class="file-browser-code"><code>' + fileBrowserEscapeHTML(readData.content || '') + '</code></pre>';
+            bodyEl.innerHTML = '<pre class="file-browser-code"><code class="hljs">' + fileBrowserHighlightCode(readData.content || '', ext) + '</code></pre>';
             return;
         }
 
@@ -263,7 +296,7 @@ async function renderGitFilePreview(path) {
             bodyEl.innerHTML = '<div class="git-preview-section">' +
                 '<div class="git-preview-section-title">未跟踪文件</div>' +
                 '<div class="file-browser-empty" style="padding:0 0 12px">当前文件尚未纳入 Git 管理，因此没有历史 diff。</div>' +
-                '<pre class="file-browser-code"><code>' + fileBrowserEscapeHTML(data.untrackedContent || '') + '</code></pre>' +
+                '<pre class="file-browser-code"><code class="hljs">' + fileBrowserHighlightCode(data.untrackedContent || '', '.' + ((data.path || '').split('.').pop() || '').toLowerCase()) + '</code></pre>' +
                 '</div>';
             return;
         }

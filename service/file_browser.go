@@ -410,7 +410,7 @@ func detectBrowserMime(path string, isDir bool) string {
 func isTextPreviewFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".txt", ".log", ".json", ".yaml", ".yml", ".ini", ".env", ".xml", ".md", ".markdown", ".js", ".ts", ".tsx", ".jsx", ".go", ".sum",".mod",".py", ".java", ".c", ".cpp", ".cc", ".rs", ".sh", ".bash", ".css", ".scss", ".less", ".html", ".htm", ".sql", ".csv":
+	case ".gitignore",".txt", ".log", ".json", ".jsonc", ".yaml", ".yml", ".ini", ".env", ".xml", ".md", ".markdown", ".js", ".ts", ".tsx", ".jsx", ".go", ".sum",".mod",".py", ".java", ".c", ".cpp", ".cc", ".rs", ".sh", ".bash",".bat", ".vbs",".css", ".scss", ".less", ".html", ".htm", ".sql", ".csv":
 		return true
 	default:
 		return false
