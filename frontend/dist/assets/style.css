@@ -4463,9 +4463,11 @@ input::placeholder, textarea::placeholder {
   background: var(--bg-secondary);
   padding: 1.2em;
   border-radius: var(--radius-sm);
-  overflow-x: auto;  /* 横向滚动，避免折行 */
-  line-height: 1.35;  /* 行距舒适 */
+  overflow-x: auto;
+  line-height: 1.35;
   margin: 1.2em 0;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .file-browser-code code {
@@ -4573,6 +4575,8 @@ input::placeholder, textarea::placeholder {
     white-space: pre-wrap;
     word-break: break-all;
     overflow-wrap: anywhere;
+    user-select: text;
+    -webkit-user-select: text;
 }
 .git-diff-line.context {
     background: var(--bg-card);

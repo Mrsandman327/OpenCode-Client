@@ -298,6 +298,25 @@ async function discardFile(path) {
     await loadFileBrowserGitStatus();
 }
 
+(function initFileBrowserGitActions() {
+    var pushBtn = document.getElementById('btnFileBrowserGitPush');
+    if (pushBtn && !pushBtn.dataset.bound) {
+        pushBtn.dataset.bound = 'true';
+        pushBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            gitPush();
+        });
+    }
+    var pullBtn = document.getElementById('btnFileBrowserGitPull');
+    if (pullBtn && !pullBtn.dataset.bound) {
+        pullBtn.dataset.bound = 'true';
+        pullBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            gitPull();
+        });
+    }
+})();
+
 function gitStatusClass(code) {
     var c = String(code || '').trim();
     if (c === '??') return 'untracked';
@@ -625,20 +644,6 @@ function renderFileBrowserGitHistory(bodyEl) {
     if (loadBtn) {
         loadBtn.addEventListener('click', function() {
             loadFileBrowserGitHistory(true);
-        });
-    }
-    var pushBtn = document.getElementById('btnFileBrowserGitPush');
-    if (pushBtn) {
-        pushBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            gitPush();
-        });
-    }
-    var pullBtn = document.getElementById('btnFileBrowserGitPull');
-    if (pullBtn) {
-        pullBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            gitPull();
         });
     }
 }
