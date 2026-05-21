@@ -3995,9 +3995,38 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-body {
     display: grid;
-    grid-template-columns: var(--file-browser-left-width, 320px) 8px minmax(0, 1fr);
+    grid-template-columns: 52px var(--file-browser-left-width, 320px) 8px minmax(0, 1fr);
     min-height: 0;
     flex: 1;
+}
+.file-browser-mode-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 8px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+}
+.file-browser-mode-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.file-browser-mode-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+}
+.file-browser-mode-btn.active {
+    background: var(--accent-ghost);
+    color: var(--accent);
+    border-color: rgba(10, 132, 255, 0.16);
 }
 .file-browser-list-panel {
     background: var(--bg-secondary);
@@ -4005,6 +4034,14 @@ input::placeholder, textarea::placeholder {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+.file-browser-files-panel,
+.file-browser-git-panel {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow-y: auto;
 }
 .file-browser-resize-handle {
     cursor: col-resize;
@@ -4032,6 +4069,18 @@ input::placeholder, textarea::placeholder {
     flex-shrink: 0;
     border-bottom: 1px solid var(--border);
 }
+.file-browser-git-group {
+    padding-top: 6px;
+}
+.file-browser-git-group + .file-browser-git-group {
+    margin-top: 8px;
+}
+.file-browser-git-subtitle {
+    padding: 0 8px 6px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+}
 .file-browser-git-header {
     width: 100%;
     text-align: left;
@@ -4047,10 +4096,30 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card-hover);
 }
 .file-browser-git-body {
-    max-height: 220px;
-    overflow-y: auto;
+    overflow: visible;
     padding: 4px 8px 8px;
     background: var(--bg-input);
+}
+.file-browser-git-history-actions {
+    padding: 8px 4px 0;
+}
+.file-browser-git-history-load-more {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.file-browser-git-history-load-more:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+}
+.file-browser-git-history-load-more:disabled {
+    cursor: default;
+    opacity: 0.7;
 }
 .file-browser-git-item {
     width: 100%;
@@ -4071,6 +4140,25 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-git-item.active {
     background: var(--accent-ghost);
+}
+.file-browser-git-item.commit-item {
+    align-items: center;
+}
+.file-browser-git-item.commit-item .file-browser-git-status {
+    min-width: 48px;
+}
+.file-browser-git-item.commit-item .file-browser-git-path {
+    margin-top: 4px;
+}
+.file-browser-git-item.file-item {
+    margin-top: 4px;
+    padding-left: 26px;
+}
+.file-browser-git-item.file-item .file-browser-git-status {
+    min-width: 22px;
+}
+.file-browser-git-item.file-item .file-browser-git-name {
+    font-size: 11px;
 }
 .file-browser-git-status {
     min-width: 28px;
@@ -4121,6 +4209,9 @@ input::placeholder, textarea::placeholder {
     font-family: "SF Mono", "Cascadia Code", monospace;
     font-size: 10px;
     color: var(--text-muted);
+}
+.file-browser-git-history-files {
+    padding: 0 0 0 10px;
 }
 .file-browser-list {
     flex: 1;

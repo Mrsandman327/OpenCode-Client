@@ -263,6 +263,24 @@ export namespace model {
 	        this.hasUnstaged = source["hasUnstaged"];
 	    }
 	}
+	export class GitCommitChangedFile {
+	    path: string;
+	    displayName: string;
+	    status: string;
+	    oldPath?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitCommitChangedFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.displayName = source["displayName"];
+	        this.status = source["status"];
+	        this.oldPath = source["oldPath"];
+	    }
+	}
 	export class GitDiffLine {
 	    kind: string;
 	    oldNo: number;
@@ -313,6 +331,73 @@ export namespace model {
 		    return a;
 		}
 	}
+	export class GitCommitFilePreviewResult {
+	    commitHash: string;
+	    filePath: string;
+	    blocks: GitDiffBlock[];
+	
+	    static createFrom(source: any = {}) {
+	        return new GitCommitFilePreviewResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.commitHash = source["commitHash"];
+	        this.filePath = source["filePath"];
+	        this.blocks = this.convertValues(source["blocks"], GitDiffBlock);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class GitCommitFilesResult {
+	    commitHash: string;
+	    files: GitCommitChangedFile[];
+	
+	    static createFrom(source: any = {}) {
+	        return new GitCommitFilesResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.commitHash = source["commitHash"];
+	        this.files = this.convertValues(source["files"], GitCommitChangedFile);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	
 	export class GitFilePreviewResult {
 	    path: string;
@@ -336,6 +421,62 @@ export namespace model {
 	        this.stagedBlocks = this.convertValues(source["stagedBlocks"], GitDiffBlock);
 	        this.unstagedBlocks = this.convertValues(source["unstagedBlocks"], GitDiffBlock);
 	        this.untrackedContent = source["untrackedContent"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class GitHistoryItem {
+	    hash: string;
+	    shortHash: string;
+	    subject: string;
+	    author: string;
+	    date: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitHistoryItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hash = source["hash"];
+	        this.shortHash = source["shortHash"];
+	        this.subject = source["subject"];
+	        this.author = source["author"];
+	        this.date = source["date"];
+	    }
+	}
+	export class GitHistoryResult {
+	    items: GitHistoryItem[];
+	    hasMore: boolean;
+	    offset: number;
+	    limit: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitHistoryResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = this.convertValues(source["items"], GitHistoryItem);
+	        this.hasMore = source["hasMore"];
+	        this.offset = source["offset"];
+	        this.limit = source["limit"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

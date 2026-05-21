@@ -345,3 +345,41 @@ type GitFilePreviewResult struct {
 	UnstagedBlocks   []GitDiffBlock `json:"unstagedBlocks"`
 	UntrackedContent string         `json:"untrackedContent"`
 }
+
+// GitHistoryItem 表示提交历史中的单条提交。
+type GitHistoryItem struct {
+	Hash      string `json:"hash"`
+	ShortHash string `json:"shortHash"`
+	Subject   string `json:"subject"`
+	Author    string `json:"author"`
+	Date      string `json:"date"`
+}
+
+// GitHistoryResult 表示提交历史列表接口返回。
+type GitHistoryResult struct {
+	Items   []GitHistoryItem `json:"items"`
+	HasMore bool             `json:"hasMore"`
+	Offset  int              `json:"offset"`
+	Limit   int              `json:"limit"`
+}
+
+// GitCommitChangedFile 表示某次提交中变更的文件。
+type GitCommitChangedFile struct {
+	Path        string `json:"path"`
+	DisplayName string `json:"displayName"`
+	Status      string `json:"status"`
+	OldPath     string `json:"oldPath,omitempty"`
+}
+
+// GitCommitFilesResult 表示某次提交的文件列表接口返回。
+type GitCommitFilesResult struct {
+	CommitHash string                 `json:"commitHash"`
+	Files      []GitCommitChangedFile `json:"files"`
+}
+
+// GitCommitFilePreviewResult 表示某次提交中单个文件的 diff 预览结果。
+type GitCommitFilePreviewResult struct {
+	CommitHash string         `json:"commitHash"`
+	FilePath   string         `json:"filePath"`
+	Blocks     []GitDiffBlock `json:"blocks"`
+}

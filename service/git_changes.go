@@ -71,6 +71,110 @@ func ListGitChanges(dir string) model.GitStatusResult {
 	return model.GitStatusResult{IsGitRepo: true, Files: files, Message: ""}
 }
 
+func ListGitHistory(dir string, offset, limit int) (model.GitHistoryResult, error) {
+	result := model.GitHistoryResult{Items: []model.GitHistoryItem{}, Offset: offset, Limit: limit}
+	if !IsGitRepository(dir) {
+		return result, fmt.Errorf("当前目录未启用 Git 版本管理")
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if limit <= 0 {
+		limit = 30
+	}
+	result.Offset = offset
+	result.Limit = limit
+	fetchLimit := limit + 1
+	format := "%H%x1f%h%x1f%an%x1f%aI%x1f%s"
+	out, err := runGitCommand(dir, "-c", "core.quotepath=false", "log", fmt.Sprintf("--skip=%d", offset), fmt.Sprintf("-n%d", fetchLimit), "--date=iso-strict", "--format="+format)
+	if err != nil {
+		if strings.Contains(err.Error(), "does not have any commits yet") {
+			return result, nil
+		}
+		return result, err
+	}
+	items := make([]model.GitHistoryItem, 0, fetchLimit)
+	s := bufio.NewScanner(strings.NewReader(out))
+	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\x1f", 5)
+		if len(parts) < 5 {
+			continue
+		}
+		items = append(items, model.GitHistoryItem{
+			Hash:      parts[0],
+			ShortHash: parts[1],
+			Author:    parts[2],
+			Date:      parts[3],
+			Subject:   parts[4],
+		})
+	}
+	if len(items) > limit {
+		result.HasMore = true
+		items = items[:limit]
+	}
+	result.Items = items
+	return result, nil
+}
+
+func ListGitCommitFiles(dir, commitHash string) (model.GitCommitFilesResult, error) {
+	result := model.GitCommitFilesResult{CommitHash: commitHash, Files: []model.GitCommitChangedFile{}}
+	if !IsGitRepository(dir) {
+		return result, fmt.Errorf("当前目录未启用 Git 版本管理")
+	}
+	commitHash = strings.TrimSpace(commitHash)
+	if commitHash == "" {
+		return result, fmt.Errorf("提交哈希不能为空")
+	}
+	out, err := runGitCommand(dir, "-c", "core.quotepath=false", "show", "--format=", "--name-status", commitHash)
+	if err != nil {
+		return result, err
+	}
+	s := bufio.NewScanner(strings.NewReader(out))
+	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 2 {
+			continue
+		}
+		status := strings.TrimSpace(parts[0])
+		path := filepath.ToSlash(parts[len(parts)-1])
+		item := model.GitCommitChangedFile{
+			Path:        path,
+			DisplayName: filepath.Base(path),
+			Status:      status,
+		}
+		if strings.HasPrefix(status, "R") && len(parts) >= 3 {
+			item.OldPath = filepath.ToSlash(parts[1])
+		}
+		result.Files = append(result.Files, item)
+	}
+	return result, nil
+}
+
+func BuildGitCommitFilePreview(dir, commitHash, filePath string) (model.GitCommitFilePreviewResult, error) {
+	result := model.GitCommitFilePreviewResult{CommitHash: strings.TrimSpace(commitHash), FilePath: filepath.ToSlash(strings.TrimSpace(filePath)), Blocks: []model.GitDiffBlock{}}
+	if !IsGitRepository(dir) {
+		return result, fmt.Errorf("当前目录未启用 Git 版本管理")
+	}
+	if result.CommitHash == "" || result.FilePath == "" {
+		return result, fmt.Errorf("提交哈希和文件路径不能为空")
+	}
+	relNative := filepath.FromSlash(result.FilePath)
+	patch, err := runGitCommand(dir, "show", "--no-color", result.CommitHash, "--", relNative)
+	if err != nil {
+		return result, err
+	}
+	result.Blocks = parseUnifiedDiffToBlocks(patch)
+	return result, nil
+}
+
 func (h *frontendWebHandler) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -82,6 +186,68 @@ func (h *frontendWebHandler) handleGitStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	result := ListGitChanges(rootDir)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *frontendWebHandler) handleGitHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	rootDir := strings.TrimSpace(r.URL.Query().Get("rootDir"))
+	if rootDir == "" {
+		http.Error(w, "rootDir 不能为空", http.StatusBadRequest)
+		return
+	}
+	offset, _ := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("offset")))
+	limit, _ := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("limit")))
+	result, err := ListGitHistory(rootDir, offset, limit)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *frontendWebHandler) handleGitHistoryFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	rootDir := strings.TrimSpace(r.URL.Query().Get("rootDir"))
+	commitHash := strings.TrimSpace(r.URL.Query().Get("commitHash"))
+	if rootDir == "" || commitHash == "" {
+		http.Error(w, "参数错误", http.StatusBadRequest)
+		return
+	}
+	result, err := ListGitCommitFiles(rootDir, commitHash)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (h *frontendWebHandler) handleGitHistoryPreview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	rootDir := strings.TrimSpace(r.URL.Query().Get("rootDir"))
+	commitHash := strings.TrimSpace(r.URL.Query().Get("commitHash"))
+	filePath := strings.TrimSpace(r.URL.Query().Get("path"))
+	if rootDir == "" || commitHash == "" || filePath == "" {
+		http.Error(w, "参数错误", http.StatusBadRequest)
+		return
+	}
+	result, err := BuildGitCommitFilePreview(rootDir, commitHash, filePath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(result)
 }

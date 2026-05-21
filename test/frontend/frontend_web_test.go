@@ -165,6 +165,37 @@ func TestFrontendWebAppCallReadsFileWithinSymlinkSkillRoot(t *testing.T) {
 	if file["content"] != "# demo\n" { t.Fatalf("软链接技能文件内容异常: %s", string(body)) }
 }
 
+func TestFrontendWebGitHistoryEndpoints(t *testing.T) {
+	url, _ := startFrontendServer(t)
+	repo, commits := initFrontendGitRepo(t)
+
+	historyResp, err := http.Get(url + "/api/git/history?rootDir=" + jsonEscape(repo) + "&offset=0&limit=30")
+	if err != nil { t.Fatalf("请求 Git 历史失败: %v", err) }
+	defer historyResp.Body.Close()
+	if historyResp.StatusCode != http.StatusOK { t.Fatalf("Git 历史接口状态码异常: %d", historyResp.StatusCode) }
+	var history model.GitHistoryResult
+	if err := json.NewDecoder(historyResp.Body).Decode(&history); err != nil { t.Fatalf("解析 Git 历史失败: %v", err) }
+	if len(history.Items) != 2 { t.Fatalf("Git 历史条数异常: %#v", history) }
+	if history.Items[0].Hash != commits[1] { t.Fatalf("Git 历史首条应为最新提交: %#v", history.Items[0]) }
+
+	filesResp, err := http.Get(url + "/api/git/history/files?rootDir=" + jsonEscape(repo) + "&commitHash=" + commits[1])
+	if err != nil { t.Fatalf("请求提交文件列表失败: %v", err) }
+	defer filesResp.Body.Close()
+	if filesResp.StatusCode != http.StatusOK { t.Fatalf("提交文件列表状态码异常: %d", filesResp.StatusCode) }
+	var files model.GitCommitFilesResult
+	if err := json.NewDecoder(filesResp.Body).Decode(&files); err != nil { t.Fatalf("解析提交文件列表失败: %v", err) }
+	if len(files.Files) != 2 { t.Fatalf("提交文件列表数量异常: %#v", files.Files) }
+
+	previewResp, err := http.Get(url + "/api/git/history/preview?rootDir=" + jsonEscape(repo) + "&commitHash=" + commits[1] + "&path=alpha.txt")
+	if err != nil { t.Fatalf("请求历史 diff 失败: %v", err) }
+	defer previewResp.Body.Close()
+	if previewResp.StatusCode != http.StatusOK { t.Fatalf("历史 diff 状态码异常: %d", previewResp.StatusCode) }
+	var preview model.GitCommitFilePreviewResult
+	if err := json.NewDecoder(previewResp.Body).Decode(&preview); err != nil { t.Fatalf("解析历史 diff 失败: %v", err) }
+	if len(preview.Blocks) == 0 { t.Fatalf("历史 diff 不应为空: %#v", preview) }
+	if preview.FilePath != "alpha.txt" { t.Fatalf("历史 diff 文件路径异常: %#v", preview) }
+}
+
 func frontendAppCall(t *testing.T, baseURL, requestBody string) []byte {
 	t.Helper()
 	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/app-call", strings.NewReader(requestBody))
@@ -183,4 +214,29 @@ func frontendAppCall(t *testing.T, baseURL, requestBody string) []byte {
 func jsonEscape(value string) string {
 	encoded, _ := json.Marshal(value)
 	return strings.Trim(string(encoded), `"`)
+}
+
+func initFrontendGitRepo(t *testing.T) (string, []string) {
+	t.Helper()
+	repo := t.TempDir()
+	runFrontendGit(t, repo, "init")
+	runFrontendGit(t, repo, "config", "user.name", "Test User")
+	runFrontendGit(t, repo, "config", "user.email", "test@example.com")
+	if err := os.WriteFile(filepath.Join(repo, "alpha.txt"), []byte("hello\n"), 0644); err != nil { t.Fatalf("写入 alpha.txt 失败: %v", err) }
+	runFrontendGit(t, repo, "add", "alpha.txt")
+	runFrontendGit(t, repo, "commit", "-m", "first commit")
+	first := strings.TrimSpace(runFrontendGit(t, repo, "rev-parse", "HEAD"))
+	if err := os.WriteFile(filepath.Join(repo, "alpha.txt"), []byte("hello\nworld\n"), 0644); err != nil { t.Fatalf("更新 alpha.txt 失败: %v", err) }
+	if err := os.WriteFile(filepath.Join(repo, "beta.txt"), []byte("beta\n"), 0644); err != nil { t.Fatalf("写入 beta.txt 失败: %v", err) }
+	runFrontendGit(t, repo, "add", "alpha.txt", "beta.txt")
+	runFrontendGit(t, repo, "commit", "-m", "second commit")
+	second := strings.TrimSpace(runFrontendGit(t, repo, "rev-parse", "HEAD"))
+	return repo, []string{first, second}
+}
+
+func runFrontendGit(t *testing.T, repo string, args ...string) string {
+	t.Helper()
+	out, err := service.TestRunGitCommand(repo, args...)
+	if err != nil { t.Fatalf("git %v 失败: %v", args, err) }
+	return out
 }

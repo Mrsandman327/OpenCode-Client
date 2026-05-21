@@ -141,6 +141,21 @@ func (a *App) GetGitPreview(rootDir, path string) (model.GitFilePreviewResult, e
 	return model.GitFilePreviewResult{}, fmt.Errorf("未找到 Git 变更文件")
 }
 
+// GetGitHistory 返回目录提交历史列表。
+func (a *App) GetGitHistory(rootDir string, offset, limit int) (model.GitHistoryResult, error) {
+	return service.ListGitHistory(rootDir, offset, limit)
+}
+
+// GetGitHistoryFiles 返回指定提交的文件列表。
+func (a *App) GetGitHistoryFiles(rootDir, commitHash string) (model.GitCommitFilesResult, error) {
+	return service.ListGitCommitFiles(rootDir, commitHash)
+}
+
+// GetGitHistoryPreview 返回指定提交中文件的 diff 预览。
+func (a *App) GetGitHistoryPreview(rootDir, commitHash, path string) (model.GitCommitFilePreviewResult, error) {
+	return service.BuildGitCommitFilePreview(rootDir, commitHash, path)
+}
+
 // OpenDir 在文件资源管理器中打开指定目录。
 func (a *App) OpenDir(path string) error {
 	switch runtime.GOOS {
@@ -720,6 +735,19 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		var rootDir, path string
 		if err := decodeArgs(args, &rootDir, &path); err != nil { return nil, err }
 		return a.GetGitPreview(rootDir, path)
+	case "GetGitHistory":
+		var rootDir string
+		var offset, limit int
+		if err := decodeArgs(args, &rootDir, &offset, &limit); err != nil { return nil, err }
+		return a.GetGitHistory(rootDir, offset, limit)
+	case "GetGitHistoryFiles":
+		var rootDir, commitHash string
+		if err := decodeArgs(args, &rootDir, &commitHash); err != nil { return nil, err }
+		return a.GetGitHistoryFiles(rootDir, commitHash)
+	case "GetGitHistoryPreview":
+		var rootDir, commitHash, path string
+		if err := decodeArgs(args, &rootDir, &commitHash, &path); err != nil { return nil, err }
+		return a.GetGitHistoryPreview(rootDir, commitHash, path)
 	case "ReadSkillContent":
 		var skillPath string
 		if err := decodeArgs(args, &skillPath); err != nil { return nil, err }

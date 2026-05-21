@@ -428,16 +428,30 @@
                 </div>
             </div>
             <div class="file-browser-body">
+                <div class="file-browser-mode-bar">
+                    <button type="button" class="file-browser-mode-btn active" id="btnFileBrowserModeFiles" title="文件预览">🗃️</button>
+                    <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeGit" title="Git 变更">🔀</button>
+                </div>
                 <aside class="file-browser-list-panel">
-                    <div class="file-browser-git-section" id="fileBrowserGitSection">
-                        <button type="button" class="file-browser-git-header" id="fileBrowserGitToggle" onclick="toggleFileBrowserGitSection()">▼ Git 变更</button>
-                        <div class="file-browser-git-body" id="fileBrowserGitBody">
-                            <div class="file-browser-empty">正在检查 Git 状态...</div>
+                    <div class="file-browser-files-panel" id="fileBrowserFilesPanel">
+                        <div class="file-browser-path" id="fileBrowserPath">/</div>
+                        <div class="file-browser-empty" id="fileBrowserListEmpty">请选择目录</div>
+                        <div class="file-browser-list" id="fileBrowserList"></div>
+                    </div>
+                    <div class="file-browser-git-panel" id="fileBrowserGitPanel" style="display:none">
+                        <div class="file-browser-git-section">
+                            <button type="button" class="file-browser-git-header" id="fileBrowserGitCurrentToggle" onclick="toggleFileBrowserGitCurrentSection()">▶ 当前变更</button>
+                            <div class="file-browser-git-body" id="fileBrowserGitCurrentBody" style="display:none">
+                                <div class="file-browser-empty">正在检查 Git 状态...</div>
+                            </div>
+                        </div>
+                        <div class="file-browser-git-section">
+                            <button type="button" class="file-browser-git-header" id="fileBrowserGitHistoryToggle" onclick="toggleFileBrowserGitHistorySection()">▶ 提交历史</button>
+                            <div class="file-browser-git-body" id="fileBrowserGitHistoryBody" style="display:none">
+                                <div class="file-browser-empty">展开后加载最近 30 条提交</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="file-browser-path" id="fileBrowserPath">/</div>
-                    <div class="file-browser-empty" id="fileBrowserListEmpty">请选择目录</div>
-                    <div class="file-browser-list" id="fileBrowserList"></div>
                 </aside>
                 <div class="file-browser-resize-handle" id="fileBrowserResizeHandle" aria-hidden="true"></div>
                 <section class="file-browser-preview-panel">

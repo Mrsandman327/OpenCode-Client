@@ -86,6 +86,18 @@ export function GetFullConfig() {
   return window['go']['main']['App']['GetFullConfig']();
 }
 
+export function GetGitHistory(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetGitHistory'](arg1, arg2, arg3);
+}
+
+export function GetGitHistoryFiles(arg1, arg2) {
+  return window['go']['main']['App']['GetGitHistoryFiles'](arg1, arg2);
+}
+
+export function GetGitHistoryPreview(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetGitHistoryPreview'](arg1, arg2, arg3);
+}
+
 export function GetGitPreview(arg1, arg2) {
   return window['go']['main']['App']['GetGitPreview'](arg1, arg2);
 }

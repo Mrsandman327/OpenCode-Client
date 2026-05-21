@@ -172,6 +172,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnCloseFileBrowser')?.addEventListener('click', closeFileBrowserModal);
     document.getElementById('btnRefreshFiles')?.addEventListener('click', refreshFileBrowser);
     document.getElementById('btnFileBrowserUp')?.addEventListener('click', goFileBrowserUp);
+    document.getElementById('btnFileBrowserModeFiles')?.addEventListener('click', function() {
+        switchFileBrowserMode('files');
+    });
+    document.getElementById('btnFileBrowserModeGit')?.addEventListener('click', function() {
+        switchFileBrowserMode('git');
+    });
     document.getElementById('btnCancelProxy').addEventListener('click', hideProxyModal);
     document.getElementById('btnSaveProxy').addEventListener('click', applyProxyConfig);
     ['proxyEnabled', 'proxyHost', 'proxyPort', 'serviceHost', 'servicePort'].forEach(id => {

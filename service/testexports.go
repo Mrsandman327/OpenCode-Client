@@ -40,3 +40,8 @@ var (
 	TestWebSessMu       = &WebSessMu
 	TestSetWebSessNil   = func() { WebSess = nil }
 )
+
+// TestRunGitCommand 导出 git 命令执行器供测试仓库搭建使用。
+func TestRunGitCommand(dir string, args ...string) (string, error) {
+	return runGitCommand(dir, args...)
+}

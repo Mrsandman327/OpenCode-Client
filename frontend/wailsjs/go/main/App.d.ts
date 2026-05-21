@@ -45,6 +45,12 @@ export function GetFrontendWebStatus(arg1:string,arg2:number):Promise<model.WebR
 
 export function GetFullConfig():Promise<string>;
 
+export function GetGitHistory(arg1:string,arg2:number,arg3:number):Promise<model.GitHistoryResult>;
+
+export function GetGitHistoryFiles(arg1:string,arg2:string):Promise<model.GitCommitFilesResult>;
+
+export function GetGitHistoryPreview(arg1:string,arg2:string,arg3:string):Promise<model.GitCommitFilePreviewResult>;
+
 export function GetGitPreview(arg1:string,arg2:string):Promise<model.GitFilePreviewResult>;
 
 export function GetGitStatus(arg1:string):Promise<model.GitStatusResult>;

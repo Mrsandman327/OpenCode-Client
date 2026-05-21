@@ -33,6 +33,15 @@ async function fileBrowserApiGitPreview(rootDir, relPath) {
     return await resp.json();
 }
 
+async function fileBrowserApiGitHistoryPreview(rootDir, commitHash, relPath) {
+    if (window.runtime) {
+        return await api.GetGitHistoryPreview(rootDir, commitHash, relPath);
+    }
+    var resp = await fetch('/api/git/history/preview?rootDir=' + encodeURIComponent(rootDir || '') + '&commitHash=' + encodeURIComponent(commitHash || '') + '&path=' + encodeURIComponent(relPath || '/'));
+    if (!resp.ok) throw new Error('读取 Git 历史文件变更失败');
+    return await resp.json();
+}
+
 function fileBrowserBuildRawURL(rootDir, relPath) {
     return fileBrowserBuildApiURL('raw', rootDir, relPath);
 }
@@ -261,6 +270,27 @@ async function renderGitFilePreview(path) {
         bodyEl.innerHTML = '' +
             renderGitSection('已暂存修改', data.stagedBlocks || [], data.hasStaged) +
             renderGitSection('未暂存修改', data.unstagedBlocks || [], data.hasUnstaged);
+    } catch (err) {
+        bodyEl.innerHTML = '<div class="file-browser-empty error">' + fileBrowserEscapeHTML(err.message || err) + '</div>';
+    }
+}
+
+async function renderGitHistoryFilePreview(commitHash, path) {
+    var state = window.fileBrowserState;
+    if (!state || !commitHash || !path) return;
+    fileBrowserClearObjectURL();
+    state.previewMode = 'git-history';
+    state.selectedItem = null;
+    var titleEl = document.getElementById('filePreviewTitle');
+    var metaEl = document.getElementById('filePreviewMeta');
+    var bodyEl = document.getElementById('filePreviewBody');
+    if (titleEl) titleEl.textContent = path;
+    if (metaEl) metaEl.textContent = '提交历史 · ' + commitHash.slice(0, 7);
+    if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">正在读取提交历史文件变更...</div>';
+    try {
+        var data = await fileBrowserApiGitHistoryPreview(state.rootDir, commitHash, path);
+        var blocks = data.blocks || [];
+        bodyEl.innerHTML = renderGitSection('提交修改', blocks, true);
     } catch (err) {
         bodyEl.innerHTML = '<div class="file-browser-empty error">' + fileBrowserEscapeHTML(err.message || err) + '</div>';
     }
