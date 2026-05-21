@@ -4132,6 +4132,10 @@ input::placeholder, textarea::placeholder {
     opacity: 0.4;
     cursor: default;
 }
+.file-browser-git-discard-btn:hover:not(:disabled) {
+    border-color: var(--danger);
+    color: var(--danger);
+}
 
 /* 未同步图标 */
 .file-browser-git-sync-icon {

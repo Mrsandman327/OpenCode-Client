@@ -27,6 +27,8 @@ export function DeleteScheme(arg1:string):Promise<void>;
 
 export function DeleteSkillScheme(arg1:string):Promise<model.SaveResult>;
 
+export function DiscardFile(arg1:string,arg2:string):Promise<model.GitActionResult>;
+
 export function ExportConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function GetAgentDescriptions():Promise<Record<string, string>>;

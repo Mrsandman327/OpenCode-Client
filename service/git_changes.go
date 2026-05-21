@@ -541,7 +541,6 @@ func GitPush(dir string) (model.GitActionResult, error) {
 	// 先尝试直接 push
 	out, err := runGitCommand(dir, "push")
 	if err != nil {
-
 		return model.GitActionResult{Success: false, Message: strings.TrimSpace(out)}, nil
 	}
 	return model.GitActionResult{Success: true}, nil
@@ -588,6 +587,58 @@ func (h *frontendWebHandler) handleGitPull(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	result, _ := GitPull(req.RootDir)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func DiscardFile(dir, filePath string) (model.GitActionResult, error) {
+	if !IsGitRepository(dir) {
+		return model.GitActionResult{Success: false, Message: "当前目录未启用 Git 版本管理"}, nil
+	}
+	rel := strings.TrimPrefix(filePath, "/")
+	// 先检查文件状态
+	status := ListGitChanges(dir)
+	var changed *model.GitChangedFile
+	for i := range status.Files {
+		if status.Files[i].Path == filePath {
+			changed = &status.Files[i]
+			break
+		}
+	}
+	if changed == nil {
+		return model.GitActionResult{Success: false, Message: "未找到该文件"}, nil
+	}
+	// 未跟踪文件：直接删除
+	if !changed.Tracked {
+		if _, err := runGitCommand(dir, "clean", "-f", "--", rel); err != nil {
+			return model.GitActionResult{Success: false, Message: err.Error()}, nil
+		}
+		return model.GitActionResult{Success: true}, nil
+	}
+	// 已暂存：先取消暂存
+	if changed.HasStaged {
+		if _, err := runGitCommand(dir, "reset", "HEAD", "--", rel); err != nil {
+			return model.GitActionResult{Success: false, Message: err.Error()}, nil
+		}
+	}
+	// 撤销工作区改动
+	if _, err := runGitCommand(dir, "checkout", "--", rel); err != nil {
+		return model.GitActionResult{Success: false, Message: err.Error()}, nil
+	}
+	return model.GitActionResult{Success: true}, nil
+}
+
+func (h *frontendWebHandler) handleGitDiscard(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct{ RootDir, Path string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "请求体解析失败", http.StatusBadRequest)
+		return
+	}
+	result, _ := DiscardFile(req.RootDir, req.Path)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(result)
 }

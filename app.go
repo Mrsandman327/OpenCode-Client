@@ -192,6 +192,12 @@ func (a *App) GitPull(rootDir string) model.GitActionResult {
 	return result
 }
 
+// DiscardFile 撤销文件变更。
+func (a *App) DiscardFile(rootDir, path string) model.GitActionResult {
+	result, _ := service.DiscardFile(rootDir, path)
+	return result
+}
+
 // OpenDir 在文件资源管理器中打开指定目录。
 func (a *App) OpenDir(path string) error {
 	switch runtime.GOOS {
@@ -808,6 +814,10 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		var rootDir string
 		if err := decodeArgs(args, &rootDir); err != nil { return nil, err }
 		return a.GitPull(rootDir), nil
+	case "DiscardFile":
+		var rootDir, path string
+		if err := decodeArgs(args, &rootDir, &path); err != nil { return nil, err }
+		return a.DiscardFile(rootDir, path), nil
 	case "ReadSkillContent":
 		var skillPath string
 		if err := decodeArgs(args, &skillPath); err != nil { return nil, err }

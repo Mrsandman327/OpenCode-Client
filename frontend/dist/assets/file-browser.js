@@ -152,6 +152,19 @@ async function fileBrowserApiGitPull(rootDir) {
     return await resp.json();
 }
 
+async function fileBrowserApiDiscardFile(rootDir, path) {
+    if (fileBrowserUseWails()) {
+        return await api.DiscardFile(rootDir, path);
+    }
+    var resp = await fetch('/api/git/discard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootDir: rootDir || '', path: path || '' })
+    });
+    if (!resp.ok) throw new Error('撤销失败');
+    return await resp.json();
+}
+
 (function initFileBrowserResize() {
     var handle = document.getElementById('fileBrowserResizeHandle');
     var body = document.querySelector('.file-browser-body');
@@ -266,6 +279,23 @@ async function gitPull() {
         showToast(err.message || '拉取失败', 'error');
     }
     if (btn) btn.disabled = false;
+}
+
+async function discardFile(path) {
+    var state = window.fileBrowserState;
+    if (!state.rootDir || !path) return;
+    state.git.gitActionError = '';
+    try {
+        var result = await fileBrowserApiDiscardFile(state.rootDir, path);
+        if (result.success) {
+            showToast('已撤销变更', 'success');
+        } else {
+            showToast(result.message || '撤销失败', 'error');
+        }
+    } catch (err) {
+        showToast(err.message || '撤销失败', 'error');
+    }
+    await loadFileBrowserGitStatus();
 }
 
 function gitStatusClass(code) {
@@ -441,6 +471,7 @@ function renderFileBrowserGitGroup(title, files, groupName) {
         var fullPath = item.path.replace(/^\//, '');
         var displayName = item.name || fullPath;
         var actionBtn = '';
+        var discardBtn = '<button type="button" class="file-browser-git-action-btn file-browser-git-discard-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="discard" title="撤销变更">↩</button>';
         if (groupName === 'unstaged') {
             actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="stage" title="加入暂存区" ' + (window.fileBrowserState.git.stageLoadingPath === item.path || window.fileBrowserState.git.stageAllLoading ? 'disabled' : '') + '>+</button>';
         } else if (groupName === 'staged') {
@@ -454,6 +485,7 @@ function renderFileBrowserGitGroup(title, files, groupName) {
                     '<span class="file-browser-git-path">' + escapeHtml(fullPath) + '</span>' +
                 '</span>' +
             '</button>' +
+            discardBtn +
             actionBtn +
         '</div>';
     }).join('');
@@ -488,6 +520,13 @@ function bindCurrentGitFileEvents(bodyEl) {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
             unstageSingleFile(this.dataset.gitPath || '/');
+        });
+    });
+
+    bodyEl.querySelectorAll('.file-browser-git-discard-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            discardFile(this.dataset.gitPath || '/');
         });
     });
 

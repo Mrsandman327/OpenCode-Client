@@ -50,6 +50,10 @@ export function DeleteSkillScheme(arg1) {
   return window['go']['main']['App']['DeleteSkillScheme'](arg1);
 }
 
+export function DiscardFile(arg1, arg2) {
+  return window['go']['main']['App']['DiscardFile'](arg1, arg2);
+}
+
 export function ExportConfig(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExportConfig'](arg1, arg2, arg3);
 }
