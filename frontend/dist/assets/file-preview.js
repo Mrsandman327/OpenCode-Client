@@ -313,16 +313,17 @@ function renderGitSection(title, blocks, enabled) {
 }
 
 function renderGitDiffBlock(block) {
-    var html = '<div class="git-diff-grid">' +
-        '<div class="git-diff-col">';
-    (block.left || []).forEach(function(line) {
-        html += renderGitDiffLine(line, 'left');
-    });
-    html += '</div><div class="git-diff-col">';
-    (block.right || []).forEach(function(line) {
-        html += renderGitDiffLine(line, 'right');
-    });
-    html += '</div></div>';
+    var leftLines = block.left || [];
+    var rightLines = block.right || [];
+    var maxLen = Math.max(leftLines.length, rightLines.length);
+    var html = '<div class="git-diff-grid">';
+    for (var i = 0; i < maxLen; i++) {
+        var left = leftLines[i] || { kind: 'empty', oldNo: 0, newNo: 0, text: '' };
+        var right = rightLines[i] || { kind: 'empty', oldNo: 0, newNo: 0, text: '' };
+        html += renderGitDiffLine(left, 'left');
+        html += renderGitDiffLine(right, 'right');
+    }
+    html += '</div>';
     return html;
 }
 
