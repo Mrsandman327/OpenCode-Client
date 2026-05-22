@@ -366,14 +366,16 @@ async function deleteBrowserItem(item) {
         body.style.setProperty('--file-browser-left-width', saved + 'px');
     }
 
-    handle.addEventListener('mousedown', function(e) {
-        e.preventDefault();
-        var startX = e.clientX;
+    // 统一封装鼠标/触摸拖拽，保证移动端也能拖动目录宽度。
+    function startDrag(clientX) {
+        var startX = clientX;
         var startWidth = parseInt(getComputedStyle(body).getPropertyValue('--file-browser-left-width')) || 320;
         handle.classList.add('dragging');
 
         function onMove(ev) {
-            var newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth + (ev.clientX - startX)));
+            if (ev.touches) ev.preventDefault();
+            var x = ev.touches ? ev.touches[0].clientX : ev.clientX;
+            var newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth + (x - startX)));
             body.style.setProperty('--file-browser-left-width', newWidth + 'px');
         }
 
@@ -381,12 +383,26 @@ async function deleteBrowserItem(item) {
             handle.classList.remove('dragging');
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onUp);
             var finalWidth = parseInt(getComputedStyle(body).getPropertyValue('--file-browser-left-width')) || 320;
             localStorage.setItem(STORAGE_KEY, finalWidth);
         }
 
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+    }
+
+    handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        startDrag(e.clientX);
+    });
+
+    handle.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        startDrag(e.touches[0].clientX);
     });
 })();
 
@@ -405,14 +421,16 @@ async function deleteBrowserItem(item) {
     panel.style.setProperty('--git-current-pct', initPct + '%');
     panel.style.setProperty('--git-history-pct', (100 - initPct) + '%');
 
-    handle.addEventListener('mousedown', function(e) {
-        e.preventDefault();
+    // 统一封装鼠标/触摸拖拽，保证移动端也能调整 Git 历史区域高度。
+    function startDrag() {
         handle.classList.add('dragging');
 
         function onMove(ev) {
+            if (ev.touches) ev.preventDefault();
             var rect = panel.getBoundingClientRect();
             if (rect.height === 0) return;
-            var pct = Math.max(MIN_PCT, Math.min(MAX_PCT, ((ev.clientY - rect.top) / rect.height) * 100));
+            var y = ev.touches ? ev.touches[0].clientY : ev.clientY;
+            var pct = Math.max(MIN_PCT, Math.min(MAX_PCT, ((y - rect.top) / rect.height) * 100));
             panel.style.setProperty('--git-current-pct', pct + '%');
             panel.style.setProperty('--git-history-pct', (100 - pct) + '%');
         }
@@ -421,12 +439,26 @@ async function deleteBrowserItem(item) {
             handle.classList.remove('dragging');
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onUp);
             var finalPct = parseInt(panel.style.getPropertyValue('--git-current-pct')) || DEFAULT_PCT;
             localStorage.setItem(STORAGE_KEY, finalPct);
         }
 
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+    }
+
+    handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        startDrag();
+    });
+
+    handle.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        startDrag();
     });
 })();
 

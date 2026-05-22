@@ -240,19 +240,20 @@ function loadTreePanelWidth() {
 function initTreePanelResize() {
     const treeResizeHandle = document.getElementById('ocTreeResizeHandle');
     if (!treeResizeHandle) return;
-    treeResizeHandle.addEventListener('pointerdown', (event) => {
+    // 同时兼容鼠标与触摸拖拽，保证移动端也能调整项目树宽度。
+    const startResize = (startClientX) => {
         if (isMobileTreeMode()) return;
         const client = document.getElementById('webContainer');
         if (!client || client.classList.contains('hide-left')) return;
-        const startX = event.clientX;
         const startWidth = treePanelWidth;
         let currentWidth = startWidth;
         client.classList.add('tree-resizing');
         treeResizeHandle.classList.add('dragging');
-        treeResizeHandle.setPointerCapture?.(event.pointerId);
 
         const onMove = (moveEvent) => {
-            const delta = moveEvent.clientX - startX;
+            if (moveEvent.touches) moveEvent.preventDefault();
+            const clientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
+            const delta = clientX - startClientX;
             currentWidth = startWidth + delta;
             applyTreePanelWidth(currentWidth);
         };
@@ -264,12 +265,30 @@ function initTreePanelResize() {
             treeResizeHandle.classList.remove('dragging');
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', stopResize);
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', stopResize);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', stopResize);
             window.removeEventListener('blur', stopResize);
         };
 
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', stopResize);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', stopResize);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', stopResize);
         window.addEventListener('blur', stopResize);
+    };
+
+    treeResizeHandle.addEventListener('pointerdown', (event) => {
+        startResize(event.clientX);
+        treeResizeHandle.setPointerCapture?.(event.pointerId);
+    });
+
+    treeResizeHandle.addEventListener('touchstart', (event) => {
+        event.preventDefault();
+        startResize(event.touches[0].clientX);
     });
 }
 
@@ -368,19 +387,20 @@ function loadSidepanelWidth() {
 function initSidepanelResize() {
     const sidepanelResizeHandle = document.getElementById('ocSidepanelResizeHandle');
     if (!sidepanelResizeHandle) return;
-    sidepanelResizeHandle.addEventListener('pointerdown', (event) => {
+    // 同时兼容鼠标与触摸拖拽，保证移动端也能调整右侧面板宽度。
+    const startResize = (startClientX) => {
         if (isMobileTreeMode()) return;
         const client = document.getElementById('webContainer');
         if (!client || client.classList.contains('hide-right')) return;
-        const startX = event.clientX;
         const startWidth = sidepanelWidth;
         let currentWidth = startWidth;
         client.classList.add('sidepanel-resizing');
         sidepanelResizeHandle.classList.add('dragging');
-        sidepanelResizeHandle.setPointerCapture?.(event.pointerId);
 
         const onMove = (moveEvent) => {
-            const delta = startX - moveEvent.clientX;
+            if (moveEvent.touches) moveEvent.preventDefault();
+            const clientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
+            const delta = startClientX - clientX;
             currentWidth = startWidth + delta;
             applySidepanelWidth(currentWidth);
         };
@@ -392,12 +412,30 @@ function initSidepanelResize() {
             sidepanelResizeHandle.classList.remove('dragging');
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', stopResize);
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', stopResize);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', stopResize);
             window.removeEventListener('blur', stopResize);
         };
 
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', stopResize);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', stopResize);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', stopResize);
         window.addEventListener('blur', stopResize);
+    };
+
+    sidepanelResizeHandle.addEventListener('pointerdown', (event) => {
+        startResize(event.clientX);
+        sidepanelResizeHandle.setPointerCapture?.(event.pointerId);
+    });
+
+    sidepanelResizeHandle.addEventListener('touchstart', (event) => {
+        event.preventDefault();
+        startResize(event.touches[0].clientX);
     });
 }
 
