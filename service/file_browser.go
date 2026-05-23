@@ -52,11 +52,15 @@ func StatBrowserFile(rootDir, relPath string) (model.FileBrowserStatResult, erro
 	}
 	itemType := "file"
 	mimeType := detectBrowserMime(absPath, false)
+	previewKind := ""
+	previewable := false
 	if info.IsDir() {
 		itemType = "dir"
 		mimeType = "inode/directory"
+	} else {
+		previewKind, previewable = detectPreviewMeta(absPath)
 	}
-	return model.FileBrowserStatResult{RootDir: rootAbs, Name: info.Name(), Path: relPath, Type: itemType, Ext: strings.ToLower(filepath.Ext(info.Name())), Size: info.Size(), ModifiedAt: info.ModTime().Format(time.RFC3339), Mime: mimeType}, nil
+	return model.FileBrowserStatResult{RootDir: rootAbs, Name: info.Name(), Path: relPath, Type: itemType, Ext: strings.ToLower(filepath.Ext(info.Name())), Size: info.Size(), ModifiedAt: info.ModTime().Format(time.RFC3339), Mime: mimeType, PreviewKind: previewKind, Previewable: previewable}, nil
 }
 
 func ReadBrowserFile(rootDir, relPath string) (model.FileBrowserReadResult, error) {
@@ -75,8 +79,19 @@ func ReadBrowserFile(rootDir, relPath string) (model.FileBrowserReadResult, erro
 	if info.IsDir() {
 		return model.FileBrowserReadResult{}, fmt.Errorf("目标不是文件")
 	}
-	if !isTextPreviewFile(absPath) {
+	previewKind, previewable := detectPreviewMeta(absPath)
+	if filepath.Ext(absPath) == "" {
+		previewable = true
+	}
+	if !previewable {
 		return model.FileBrowserReadResult{}, fmt.Errorf("该文件类型不支持文本读取")
+	}
+	if filepath.Ext(absPath) != "" {
+		switch previewKind {
+		case "markdown", "text", "code", "csv":
+		default:
+			return model.FileBrowserReadResult{}, fmt.Errorf("该文件类型不支持文本读取")
+		}
 	}
 	data, err := os.ReadFile(absPath)
 	if err != nil {
@@ -234,9 +249,13 @@ func (h *frontendWebHandler) handleFilesStat(w http.ResponseWriter, r *http.Requ
 	}
 	itemType := "file"
 	mimeType := detectBrowserMime(absPath, false)
+	previewKind := ""
+	previewable := false
 	if info.IsDir() {
 		itemType = "dir"
 		mimeType = "inode/directory"
+	} else {
+		previewKind, previewable = detectPreviewMeta(absPath)
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(model.FileBrowserStatResult{
@@ -248,6 +267,8 @@ func (h *frontendWebHandler) handleFilesStat(w http.ResponseWriter, r *http.Requ
 		Size:       info.Size(),
 		ModifiedAt: info.ModTime().Format(time.RFC3339),
 		Mime:       mimeType,
+		PreviewKind: previewKind,
+		Previewable: previewable,
 	})
 }
 
@@ -276,9 +297,21 @@ func (h *frontendWebHandler) handleFilesRead(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "目标不是文件", http.StatusBadRequest)
 		return
 	}
-	if !isTextPreviewFile(absPath) {
+	previewKind, previewable := detectPreviewMeta(absPath)
+	if filepath.Ext(absPath) == "" {
+		previewable = true
+	}
+	if !previewable {
 		http.Error(w, "该文件类型不支持文本读取", http.StatusBadRequest)
 		return
+	}
+	if filepath.Ext(absPath) != "" {
+		switch previewKind {
+		case "markdown", "text", "code", "csv":
+		default:
+			http.Error(w, "该文件类型不支持文本读取", http.StatusBadRequest)
+			return
+		}
 	}
 	data, err := os.ReadFile(absPath)
 	if err != nil {

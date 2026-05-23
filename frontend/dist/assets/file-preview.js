@@ -73,30 +73,6 @@ async function fileBrowserResolveRawResource(rootDir, relPath) {
     return { url: fileBrowserBuildRawURL(rootDir, relPath), name: '', mime: '' };
 }
 
-function fileBrowserIsMarkdown(ext) {
-    return ext === '.md' || ext === '.markdown';
-}
-
-function fileBrowserIsImage(ext) {
-    return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'].indexOf(ext) >= 0;
-}
-
-function fileBrowserIsPDF(ext) {
-    return ext === '.pdf';
-}
-
-function fileBrowserIsCSV(ext) {
-    return ext === '.csv';
-}
-
-function fileBrowserIsSpreadsheet(ext) {
-    return ext === '.xlsx' || ext === '.xls';
-}
-
-function fileBrowserIsText(ext) {
-      return ['.gitignore','.txt', '.log', '.json','.jsonc','.yaml', '.yml', '.ini', '.env', '.xml', '.js', '.ts', '.tsx', '.jsx', '.go','.sum','.mod','.py', '.java', '.c', '.cpp', '.cc', '.rs', '.sh', '.bash' ,".bat", ".vbs",'.css', '.scss', '.less', '.html', '.htm', '.sql','.bat','.sh'].indexOf(ext) >= 0;
-}
-
 function fileBrowserEscapeHTML(text) {
     if (text == null) return '';
     var div = document.createElement('div');
@@ -124,18 +100,19 @@ function fileBrowserHighlightCode(code, ext) {
 
 function fileBrowserExtToLang(ext) {
     var map = {
-        '.js': 'javascript', '.jsx': 'javascript',
+        '.js': 'javascript', '.jsx': 'javascript','mjs':'javascript','cjs':'javascript',
         '.ts': 'typescript', '.tsx': 'typescript',
         '.go': 'go', '.mod': 'go', '.sum': 'go',
         '.py': 'python',
-        '.java': 'java',
+        '.java': 'java','.jsp': 'java',
         '.c': 'c', '.cpp': 'cpp', '.cc': 'cpp', '.h': 'c',
+        'cs':'csharp',
         '.rs': 'rust',
-        '.sh': 'bash', '.bash': 'bash',
+        '.sh': 'bash', '.bash': 'bash','.cmd': 'bash',
         '.css': 'css', '.scss': 'scss', '.less': 'less',
         '.html': 'xml', '.htm': 'xml', '.xml': 'xml',
         '.json': 'json','.jsonc': 'json',
-        '.yaml': 'yaml', '.yml': 'yaml',
+        '.yaml': 'yaml', '.yml': 'yaml','.toml': 'toml',
         '.sql': 'sql',
         '.ini': 'ini', '.env': 'ini',
         '.bat': 'dos',
@@ -224,6 +201,39 @@ async function renderFilePreview(item) {
             metaEl.textContent = [meta.ext || '', fileBrowserFormatBytes(meta.size || 0), meta.modifiedAt || ''].filter(Boolean).join(' · ');
         }
         var ext = (meta.ext || '').toLowerCase();
+        var previewKind = meta.previewKind || '';
+
+        if (previewKind === 'image') {
+            var previewImageRes = await fileBrowserResolveRawResource(state.rootDir, item.path);
+            bodyEl.innerHTML = '<div class="file-browser-image-wrap"><img class="file-browser-image" src="' + previewImageRes.url + '" alt="' + fileBrowserEscapeHTML(item.name) + '"></div>';
+            return;
+        }
+        if (previewKind === 'pdf') {
+            var previewPdfRes = await fileBrowserResolveRawResource(state.rootDir, item.path);
+            bodyEl.innerHTML = '<iframe class="file-browser-pdf" title="PDF预览" src="' + previewPdfRes.url + '"></iframe>';
+            return;
+        }
+        if (previewKind === 'spreadsheet') {
+            bodyEl.innerHTML = '<div class="file-browser-unsupported">' +
+                '<p>当前版本未启用 Excel 在线预览。</p>' +
+                '<p>文件：' + fileBrowserEscapeHTML(item.name) + '</p>' +
+                '</div>';
+            return;
+        }
+        if (previewKind === 'markdown' || previewKind === 'csv' || previewKind === 'text' || previewKind === 'code') {
+            var previewReadData = await fileBrowserApiRead(state.rootDir, item.path);
+            state.previewContent = previewReadData.content || '';
+            if (previewKind === 'markdown') {
+                bodyEl.innerHTML = '<div class="oc-text file-browser-markdown">' + fileBrowserSanitizeMarkedHtml(marked.parse(previewReadData.content || '')) + '</div>';
+                return;
+            }
+            if (previewKind === 'csv') {
+                bodyEl.innerHTML = renderCSVPreview(previewReadData.content || '');
+                return;
+            }
+            bodyEl.innerHTML = '<pre class="file-browser-code"><code class="hljs">' + fileBrowserHighlightCode(previewReadData.content || '', ext) + '</code></pre>';
+            return;
+        }
 
         if (!ext) {
             if (state.forcedTextPreview[item.path]) {
@@ -239,41 +249,6 @@ async function renderFilePreview(item) {
             }
             bodyEl.innerHTML = renderNoExtPreview(item, meta);
             bindNoExtPreviewActions(item);
-            return;
-        }
-
-        if (fileBrowserIsImage(ext)) {
-            var imageRes = await fileBrowserResolveRawResource(state.rootDir, item.path);
-            bodyEl.innerHTML = '<div class="file-browser-image-wrap"><img class="file-browser-image" src="' + imageRes.url + '" alt="' + fileBrowserEscapeHTML(item.name) + '"></div>';
-            return;
-        }
-        if (fileBrowserIsPDF(ext)) {
-            var pdfRes = await fileBrowserResolveRawResource(state.rootDir, item.path);
-            bodyEl.innerHTML = '<iframe class="file-browser-pdf" title="PDF预览" src="' + pdfRes.url + '"></iframe>';
-            return;
-        }
-
-        if (fileBrowserIsSpreadsheet(ext)) {
-            bodyEl.innerHTML = '<div class="file-browser-unsupported">' +
-                '<p>当前版本未启用 Excel 在线预览。</p>' +
-                '<p>文件：' + fileBrowserEscapeHTML(item.name) + '</p>' +
-                '</div>';
-            return;
-        }
-
-        if (fileBrowserIsCSV(ext) || fileBrowserIsMarkdown(ext) || fileBrowserIsText(ext)) {
-            var readData = await fileBrowserApiRead(state.rootDir, item.path);
-            state.previewContent = readData.content || '';
-
-            if (fileBrowserIsMarkdown(ext)) {
-                bodyEl.innerHTML = '<div class="oc-text file-browser-markdown">' + fileBrowserSanitizeMarkedHtml(marked.parse(readData.content || '')) + '</div>';
-                return;
-            }
-            if (fileBrowserIsCSV(ext)) {
-                bodyEl.innerHTML = renderCSVPreview(readData.content || '');
-                return;
-            }
-            bodyEl.innerHTML = '<pre class="file-browser-code"><code class="hljs">' + fileBrowserHighlightCode(readData.content || '', ext) + '</code></pre>';
             return;
         }
 

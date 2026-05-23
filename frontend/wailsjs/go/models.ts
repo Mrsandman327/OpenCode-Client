@@ -224,6 +224,8 @@ export namespace model {
 	    size: number;
 	    modifiedAt: string;
 	    mime: string;
+	    previewKind: string;
+	    previewable: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new FileBrowserStatResult(source);
@@ -239,6 +241,8 @@ export namespace model {
 	        this.size = source["size"];
 	        this.modifiedAt = source["modifiedAt"];
 	        this.mime = source["mime"];
+	        this.previewKind = source["previewKind"];
+	        this.previewable = source["previewable"];
 	    }
 	}
 	export class FileBrowserUploadResult {

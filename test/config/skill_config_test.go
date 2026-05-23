@@ -28,7 +28,7 @@ func setupTempSkillConfigDir(t *testing.T) string {
 // 返回该文件的完整路径。
 func writeTempSkillConfig(t *testing.T, dir string, content string) string {
 	t.Helper()
-	path := filepath.Join(dir, "skill-config.json")
+	path := filepath.Join(dir, "./skill-schemes/skill-config.json")
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("写入测试配置文件失败: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestSkillConfigPathReturnsJsonPath(t *testing.T) {
 		t.Fatalf("SkillConfigPath() 返回错误: %v", err)
 	}
 
-	expected := filepath.Join(configDir, "skill-config.json")
+	expected := filepath.Join(configDir, "./skill-schemes/skill-config.json")
 	if filepath.Clean(path) != filepath.Clean(expected) {
 		t.Fatalf("期望返回 %s，实际返回: %s", expected, path)
 	}
@@ -217,7 +217,7 @@ func TestSaveSkillConfigAtomicWrite(t *testing.T) {
 	configDir := setupTempSkillConfigDir(t)
 
 	// 先创建一个已有文件
-	existingPath := filepath.Join(configDir, "skill-config.json")
+	existingPath := filepath.Join(configDir, "./skill-schemes/skill-config.json")
 	if err := os.WriteFile(existingPath, []byte(`{"sourceDirs":["old"]}`), 0644); err != nil {
 		t.Fatalf("写入已有配置文件失败: %v", err)
 	}

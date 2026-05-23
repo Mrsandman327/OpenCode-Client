@@ -282,6 +282,8 @@ type FileBrowserStatResult struct {
 	Size        int64  `json:"size"`
 	ModifiedAt  string `json:"modifiedAt"`
 	Mime        string `json:"mime"`
+	PreviewKind string `json:"previewKind"`
+	Previewable bool   `json:"previewable"`
 }
 
 // FileBrowserReadResult 表示文本文件读取接口返回。

@@ -40,7 +40,7 @@ func SkillConfigPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "skill-config.json"), nil
+	return filepath.Join(dir, "skill-schemes","skill-config.json"), nil
 }
 
 // ========== 技能配置读写 ==========
