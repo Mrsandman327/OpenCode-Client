@@ -1,142 +1,149 @@
-# OC Manager
+# 🧩 OC Manager
 
-Wails v2 桌面应用，为 [OpenCode](https://github.com/anomalyco/opencode) 提供可视化管理界面（三端支持：桌面端、Web 端、手机端）。
+> OpenCode 全能工作台——让 AI 编程更优雅
 
----
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" />
+  <img src="https://img.shields.io/badge/Wails-v2.12-DF0000?logo=wails" />
+  <img src="https://img.shields.io/badge/三端-Windows%20|%20Web%20|%20Mobile-0066cc" />
+  <img src="https://img.shields.io/badge/build-passing-brightgreen" />
+</p>
 
-## 一、项目概览
-
-| 维度 | 详情 |
-|---|---|
-| **名称** | OC Manager — OpenCode 可视化管理中心 |
-| **框架** | Wails v2.12（Go 后端 + WebView2 / 浏览器前端） |
-| **语言** | Go 1.25 + 原生 HTML/CSS/JS |
-| **构建状态** | ✅ `go vet` 通过 / ✅ `go test` 通过 |
-| **三端支持** | Windows 桌面（Wails） / 浏览器直接打开 / 手机端自适应 |
+**OC Manager** 是一个精心打造的 [OpenCode](https://github.com/anomalyco/opencode) 可视化管理桌面应用。告别命令行，用直觉操作 AI。
 
 ---
 
-## 二、项目结构
+## ✨ 一览
 
-```
-opencode-manager-wails2/
-├── main.go                  # Wails 入口，Go embed 前端资源
-├── app.go                   # App 结构体，Wails 绑定方法（~800 行）
-├── config/
-│   ├── model_config.go      # 模型配置 JSONC 读写
-│   ├── provider_config.go   # 供应商配置读写
-│   ├── skill_config.go      # 技能源目录配置
-│   ├── skill_scheme.go      # 技能方案存储
-│   └── scheme_config.go     # OMO 方案管理
-├── model/
-│   └── types.go             # 共享数据类型
-├── service/
-│   ├── api.go               # OpenCode serve API 代理
-│   ├── process.go           # 进程管理 + 对话框辅助
-│   ├── sse.go               # SSE 事件流透传
-│   ├── tree.go              # 项目树构建
-│   └── dir_browser.go       # 目录浏览器
-├── skill/
-│   └── skill.go             # 技能管理（扫描/链接/方案应用）
-├── frontend/
-│   └── dist/                # 前端资源（20+ JS/CSS 模块）
-├── build/
-│   └── bin/                 # 构建产物 + 配置目录
-├── configs/                 # 运行时配置文件
-├── doc/                     # 文档 + 截图
-└── wails.json
-```
+<table>
+<tr>
+<td width="50%">
+
+### 🎯 一站式工作台
+启动服务、管理会话、浏览项目树——**一个窗口搞定全部**。左侧项目树、中间对话区、右侧信息面板，经典三栏布局，信息密度恰到好处。
+
+### 🎨 优雅的对话体验
+用户消息右对齐蓝边气泡，AI 回复左对齐卡片。推理过程、工具调用、文件操作**智能折叠**，想看才展开。Markdown 完整渲染，代码块语法高亮。
+
+</td>
+<td width="50%">
+
+### 📁 文件浏览器 + Git
+站内文件预览、编辑、上传、删除。**内置 Git 面板**——查看变更、暂存提交、推送拉取，支持代理连接。拖拽调整面板宽度。
+
+### 📱 三端通吃
+桌面端（Wails WebView2）、Web 端（内置 HTTP 服务）、手机端（自适应布局）——一套代码，随处使用。
+
+</td>
+</tr>
+</table>
 
 ---
 
-## 三、功能亮点
+## 🔥 配置管理
 
-> 详细使用说明见 [使用说明.md](doc/使用说明.md)
+<table>
+<tr>
+<td width="50%">
 
-### 🌐 三端支持
-
-| 平台 | 方式 | 说明 |
-|---|---|---|
-| **桌面端** | `oc-manager.exe`（Wails 编译产物） | 完整功能，原生文件对话框 |
-| **Web 端** | 浏览器打开 `http://host:port` | 内置 Web 服务器，mock 数据可离线预览 |
-| **手机端** | 浏览器自适应（≤800px 移动布局） | Enter 换行 / 按钮发送，拖动调整输入框 |
-
-> ![桌面端浅色](./doc/image/工作区-light.png)
-> ![桌面端深色](./doc/image/工作区-dark.png)
-
-### 🗂 项目树管理
-
-一目了然的项目→目录→会话三级树形结构。查看所有历史会话，点击快速切换，支持新建 / 删除会话。鼠标悬停显示会话详情（标题、目录、最近更新时间）。
-
-> ![项目树](./doc/image/项目树.png)
-
-### 💬 会话区友好展示
-
-参考主流聊天软件设计，用户消息右对齐（accent 蓝边框），模型回复左对齐（卡片式）。不同类型的回复采用分类折叠展示：推理过程、文件操作、工具调用默认折叠，点击展开查看详情。Markdown 渲染完整支持代码块、表格、列表、引用等。
-
-> ![会话区](./doc/image/会话区.png)
-> ![展开操作](./doc/image/展开操作.png)
-> ![Markdown 输出](./doc/image/输出.png)
-
-### ⚙️ OMO 方案配置
-
-支持 agent/category 粒度的模型映射配置。方案管理支持导出、导入、入库，切换方案即时预览编辑区，保存一键应用到配置文件。
-
-> ![OMO 配置](./doc/image/OMO配置.png)
-> ![OMO 方案](./doc/image/scheme-config.png)
+### ⚙️ OMO 模型配置
+agent / category 粒度的模型映射，方案**导出·导入·入库·应用**一气呵成。JSONC 编辑器实时预览，修改即生效。
 
 ### 📡 供应商管理
+一键拉取供应商模型列表，批量管理。支持自定义 API 地址和密钥。
 
-供应商配置页面，点击「📡 获取模型列表」自动调用供应商 `/models` API，获取完整模型列表。已配置模型显示「删除」，未配置显示「增加」，一键批量管理模型。
+</td>
+<td width="50%">
 
-> ![自动获取模型](./doc/image/供应商配置.png)
-> ![自动获取模型](./doc/image/模型列表.png)
+### 📁 项目级配置管理 <sup>NEW</sup>
+在项目树中点击 ⚙️ 即开——管理 `.opencode/` 下的**核心配置、技能、命令、规则、AGENTS.md**。Markdown 渲染预览，代码语法高亮，一键切换编辑。
 
-### 🔗 技能管理方案配置
+### 🔗 技能管理
+全局技能聚合扫描，冲突自动检测，一键启用/停用。**方案入库·一键切换**，支持嵌套技能。项目级技能**软链接导入**，来源目录自动识别已有和全局存在。
 
-多来源目录聚合扫描，自动检测冲突。技能启用/禁用一键 toggle，方案入库 / 应用一键切换，支持嵌套技能（如 `superpowers/brainstorming`）文件夹级链接。
-
-> ![技能管理](./doc/image/技能管理.png)
-
----
-
-## 四、其他功能
-
-| 模块 | 说明 |
-|---|---|
-| **工作区** | 一键启动/停止 OpenCode Web Serve；SSE 实时推送；Agent/Model/Variant 下拉选择；命令面板（`/` 触发） |
-| **网络配置** | 代理配置 + 前端 Web 服务独立端口管理 |
-| **右侧面板** | 服务健康状态、待办事项、文件变更 diff、子任务详情弹窗 |
-| **供应商配置** | 增删改供应商，管理 API 地址和密钥，模型列表手动/自动管理 |
-| **常用命令** | CLI/TUI 命令参考 + API 文档（支持搜索） |
+</td>
+</tr>
+</table>
 
 ---
 
-## 五、构建
+## 🪄 更多亮点
+
+| 🚀 功能 | 💡 说明 |
+|----------|---------|
+| **实时 SSE 事件流** | OpenCode 状态实时推送，服务健康一目了然 |
+| **子任务面板** | 自动提取 task 工具触发的子任务，卡片式展示，点击查看详情 |
+| **代办事项** | 从会话中智能提取 TODO，进行中 / 已完成分组 |
+| **文件变更 Diff** | 目录树展示，左右对照式 diff 渲染，暂存/未暂存一目了然 |
+| **命令面板** | 常用 CLI/TUI 命令参考，支持搜索，`/` 键唤起 |
+| **网络代理** | 代理配置一处搞定，Git 推送拉取自动走代理 |
+| **暗色模式** | 深色主题一键切换，护眼编程 |
+| **目录选择器** | 可视化盘符浏览，过滤隐藏/系统目录 |
+
+---
+
+## 📸 截图
+
+<details open>
+<summary><b>工作区</b></summary>
+<p align="center">
+  <img src="./doc/image/工作区-light.png" width="48%" />
+  <img src="./doc/image/工作区-dark.png" width="48%" />
+</p>
+</details>
+
+<details>
+<summary><b>会话区 · 文件树 · Markdown 输出</b></summary>
+<p align="center">
+  <img src="./doc/image/项目树.png" width="30%" />
+  <img src="./doc/image/会话区.png" width="60%" />
+  <img src="./doc/image/输出.png" width="48%" />
+  <img src="./doc/image/命令行.png" width="48%" />
+</p>
+</details>
+
+<details>
+<summary><b>配置管理</b></summary>
+<p align="center">
+  <img src="./doc/image/供应商配置.png" width="48%" />
+  <img src="./doc/image/OMO配置.png" width="48%" />
+  <img src="./doc/image/技能管理.png" width="48%" />
+  <img src="./doc/image/项目配置.png" width="48%" />
+</p>
+</details>
+
+<details>
+<summary><b>文件管理</b></summary>
+<p align="center">
+  <img src="./doc/image/文件浏览器-文件.png" width="48%" />
+  <img src="./doc/image/文件浏览器-上传.png" width="48%" />
+  <img src="./doc/image/文件浏览器-图片.png" width="48%" />
+  <img src="./doc/image/文件浏览器-Git.png" width="48%" />
+</p>
+</details>
+
+---
+
+## 🛠 构建
 
 ```bash
-# 开发模式（热重载前端）
-wails dev
-
-# 生产构建
-wails build
-
-# 仅 Go 后端编译
-go build ./...
-
-# 运行测试
-go test ./...
-
-# 静态检查
-go vet ./...
+wails dev          # 开发模式，热重载
+wails build        # 生产构建 → build/bin/oc-manager.exe
+go build ./...     # 仅编译 Go 后端
+go test ./...      # 运行测试
+go vet ./...       # 静态检查
 ```
 
-构建产物：`build/bin/oc-manager.exe`
-
-**前置条件**：Go 1.21+ / Wails CLI / Windows WebView2 运行时
+> **前置条件**：Go 1.21+ · Wails CLI · Windows WebView2
 
 ---
 
-## 六、使用说明
+## 📖 使用指南
 
-完整使用指南见 **[doc/使用说明.md](doc/使用说明.md)**，包含各功能模块的详细操作步骤和截图。
+详细操作手册见 **[doc/使用说明.md](doc/使用说明.md)**
+
+---
+
+<p align="center">
+  <sub>Made with ❤️ for the OpenCode community</sub>
+</p>
