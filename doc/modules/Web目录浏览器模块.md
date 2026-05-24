@@ -13,14 +13,15 @@
 ## 二、核心职责
 
 ### 后端
-位于 `service/dir_browser.go`：
+位于 `service/filebrowser/dir.go`：
 
-- `ListBrowsableDirs("")` 返回系统根目录列表
+- `ListBrowsableDirs("")` 返回系统根目录列表（Windows 盘符，Unix `/`）
 - `ListBrowsableDirs(path)` 返回指定目录下的一级子目录
 - 只返回目录，不返回文件
+- 过滤隐藏/系统目录（`.` 开头、`$` 开头、Windows FILE_ATTRIBUTE_HIDDEN/SYSTEM）
 
 ### 前端
-主要位于 `frontend/dist/chat.js`：
+目录选择弹窗位于 `filebrowser/dir.js`，项目树 `＋` 按钮处理位于 `chat/tree.js`：
 
 - `openDirBrowserModal()`
 - `loadDirBrowserList(path)`

@@ -8,9 +8,9 @@
 
 管理 `oh-my-openagent.jsonc` 的模型配置。按 agent / category 维度分组编辑模型映射，支持本地方案的导入/导出/入库/切换。
 
-**后端**：`config/model_config.go`（行级保存）、`config/agent_descriptions.go`（描述表）、`service/scheme.go`（方案管理）
+**后端**：`config/omo/model.go`（行级保存）、`config/omo/agent_desc.go`（描述表）、`config/omo/scheme.go`（方案管理）
 
-**前端**：`omo-config.js`（~660 行）
+**前端**：`views/omo-config.js`
 
 ---
 
@@ -284,7 +284,7 @@ function createModelGroup(title, entries, entryType) {
 └── ...
 ```
 
-- `service/scheme.go` 管理该目录
+- `config/omo/scheme.go` 管理该目录
 - `ListSchemes()` 扫描返回 `SchemeInfo[]`
 - `SaveScheme(name, content)` 写入文件
 - `ReadScheme(name)` 读取文件
@@ -294,7 +294,7 @@ function createModelGroup(title, entries, entryType) {
 
 ## 七、后端实现
 
-### 7.1 行级保存（model_config.go）
+### 7.1 行级保存（config/omo/model.go）
 
 ```go
 func SaveConfig(entries []model.ModelEntry) error {
@@ -308,7 +308,7 @@ func SaveConfig(entries []model.ModelEntry) error {
 }
 ```
 
-### 7.2 描述文件读写（agent_descriptions.go）
+### 7.2 描述文件读写（config/omo/agent_desc.go）
 
 ```go
 func LoadAgentDescriptions() (map[string]string, error) {
@@ -324,7 +324,7 @@ func ApplyDescriptions(entries []struct{Key, Comment string}) error {
 }
 ```
 
-### 7.3 方案文件管理（service/scheme.go）
+### 7.3 方案文件管理（config/omo/scheme.go）
 
 ```go
 const schemeDirRel = ".sisyphus\\omo-schemes"
