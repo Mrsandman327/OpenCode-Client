@@ -52,7 +52,7 @@ function renderTree(tree) {
         html += `<div class="oc-tree-children">`;
         for (const dir of (proj.children || [])) {
             html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
-            html += `<div class="oc-tree-toggle">▼</div><span class="oc-tree-label" title="${escapeHtml(dir.title)}">📂 ${escapeHtml(dir.title)}</span>`;
+            html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">▼</div><span class="oc-tree-label" title="${escapeHtml(dir.title)}">📂 ${escapeHtml(dir.title)}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
             html += `<div class="oc-tree-children">`;
             for (const ses of (dir.children || [])) {
                 const fullTitle = ses.title;
@@ -111,6 +111,15 @@ function renderTree(tree) {
             if (!sid) return;
             await deleteSession(sid);
             await buildTree();
+        });
+    });
+    container.querySelectorAll('.oc-tree-config').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dir = btn.dataset.configDir;
+            if (dir && typeof openProjectConfig === 'function') {
+                openProjectConfig(dir);
+            }
         });
     });
 }

@@ -558,6 +558,26 @@
         </div>
     </div>
 
+    <!-- ===== 项目配置弹窗 ===== -->
+    <div class="modal-overlay" id="projectConfigModal" style="display:none">
+        <div class="modal project-config-modal" onclick="event.stopPropagation()">
+            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center">
+                <h3 id="projectConfigTitle">项目配置</h3>
+                <button type="button" class="btn btn-sm" id="btnCloseProjectConfig">✕ 关闭</button>
+            </div>
+            <div class="project-config-tabs" id="projectConfigTabs">
+                <button class="pc-tab active" data-pc-tab="coreConfig">核心配置</button>
+                <button class="pc-tab" data-pc-tab="skills">技能管理</button>
+                <button class="pc-tab" data-pc-tab="agentsMd">项目准则</button>
+                <button class="pc-tab" data-pc-tab="commands">用户命令</button>
+                <button class="pc-tab" data-pc-tab="rules">用户规则</button>
+            </div>
+            <div class="project-config-body" id="projectConfigBody">
+                <div class="oc-empty">加载中...</div>
+            </div>
+        </div>
+    </div>
+
     <input type="file" id="ocFileInput" multiple hidden />
     <input type="file" id="fileBrowserUploadInput" hidden />
     <!-- 模块化 JS，按依赖顺序加载 -->
@@ -584,6 +604,7 @@
     <script src="/filebrowser/browser.js"></script>
     <script src="/filebrowser/dir.js"></script>
     <!-- 独立功能视图 -->
+    <script src="/views/project-config.js"></script>
     <script src="/views/omo-config.js"></script>
     <script src="/views/skill-manager.js"></script>
     <script src="/views/commands.js"></script>

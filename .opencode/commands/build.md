@@ -1,9 +1,7 @@
 ---
-description: 编译项目并自动修复编译错误
+description: 编译项目
 agent: build
 ---
-
-请执行项目的编译命令，分析所有编译错误，并尝试自动修复它们。
 
 编译命令：
 !`wails build`

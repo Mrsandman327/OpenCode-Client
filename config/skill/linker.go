@@ -3,11 +3,11 @@ package skill
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
+
+	"oc-manager/internal/symlink"
 )
 
 // IsLinked 检查指定技能名称是否已在全局目录中存在链接。
@@ -25,45 +25,20 @@ func (m *Manager) ToggleSkill(skillPath, skillName string, enable bool) (bool, e
 	linkPath := filepath.Join(m.globalDir, topName)
 
 	if enable {
-		if _, err := os.Readlink(linkPath); err == nil {
-			if runtime.GOOS == "windows" {
-				rmdirCmd := exec.Command("cmd", "/c", "rmdir", linkPath)
-				rmdirCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-				rmdirCmd.Run()
-			} else {
-				os.Remove(linkPath)
-			}
+		// 先移除旧链接，再创建新链接
+		if err := symlink.Remove(linkPath); err != nil {
+			return false, fmt.Errorf("移除旧链接失败: %w", err)
 		}
-		if err := os.Symlink(topSource, linkPath); err == nil {
-			return true, nil
+		if err := symlink.Create(topSource, linkPath); err != nil {
+			return false, fmt.Errorf("创建链接失败: %w", err)
 		}
-		if runtime.GOOS == "windows" {
-			absSource, _ := filepath.Abs(topSource)
-			absDest, _ := filepath.Abs(linkPath)
-			cmd := exec.Command("cmd", "/c", "mklink", "/J", absDest, absSource)
-			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-			if output, err := cmd.CombinedOutput(); err != nil {
-				return false, fmt.Errorf("创建链接失败: %w\n输出: %s", err, strings.TrimSpace(string(output)))
-			}
-			return true, nil
-		}
-		return false, fmt.Errorf("创建符号链接失败")
-	} else {
-		if runtime.GOOS == "windows" {
-			if _, err := os.Readlink(linkPath); err == nil {
-				rmCmd := exec.Command("cmd", "/c", "rmdir", linkPath)
-				rmCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-				if output, err := rmCmd.CombinedOutput(); err != nil {
-					return false, fmt.Errorf("删除链接失败: %w\n输出: %s", err, strings.TrimSpace(string(output)))
-				}
-				return false, nil
-			}
-		}
-		if err := os.Remove(linkPath); err != nil && !os.IsNotExist(err) {
-			return false, fmt.Errorf("删除链接失败: %w", err)
-		}
-		return false, nil
+		return true, nil
 	}
+
+	if err := symlink.Remove(linkPath); err != nil {
+		return false, fmt.Errorf("删除链接失败: %w", err)
+	}
+	return false, nil
 }
 
 // resolveTopLevelLink 解析嵌套技能的顶层链接信息。
@@ -85,31 +60,12 @@ func resolveTopLevelLink(skillPath, skillName string) (topName, topSource string
 func (m *Manager) LinkSkill(skillPath, skillName string) error {
 	topName, topSource := resolveTopLevelLink(skillPath, skillName)
 	linkPath := filepath.Join(m.globalDir, topName)
-	if _, err := os.Lstat(linkPath); err == nil {
-		if runtime.GOOS == "windows" {
-			if _, err := os.Readlink(linkPath); err == nil {
-				rmCmd := exec.Command("cmd", "/c", "rmdir", linkPath)
-				rmCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-				rmCmd.Run()
-			} else {
-				os.Remove(linkPath)
-			}
-		}
+
+	// 先移除旧链接
+	if err := symlink.Remove(linkPath); err != nil {
+		return fmt.Errorf("移除旧链接失败: %w", err)
 	}
-	if err := os.Symlink(topSource, linkPath); err == nil {
-		return nil
-	}
-	if runtime.GOOS == "windows" {
-		absSource, _ := filepath.Abs(topSource)
-		absDest, _ := filepath.Abs(linkPath)
-		cmd := exec.Command("cmd", "/c", "mklink", "/J", absDest, absSource)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		if output, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("创建链接失败: %w\n输出: %s", err, strings.TrimSpace(string(output)))
-		}
-		return nil
-	}
-	return fmt.Errorf("创建链接失败")
+	return symlink.Create(topSource, linkPath)
 }
 
 // normalizeComparePath 规范化路径用于前缀比较。
@@ -196,7 +152,7 @@ func (m *Manager) ClearManagedLinks(sourceDirs []string) error {
 	}
 	for _, name := range managed {
 		linkPath := filepath.Join(m.globalDir, name)
-		os.Remove(linkPath)
+		symlink.Remove(linkPath)
 	}
 	return nil
 }

@@ -401,3 +401,52 @@ type GitActionResult struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }
+
+// ========== 项目配置管理 ==========
+
+// ProjectConfigFileEntry 表示项目配置目录下的单个文件或目录条目。
+type ProjectConfigFileEntry struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+}
+
+// ProjectConfigTab 表示项目配置单个 tab 的状态。
+type ProjectConfigTab struct {
+	Exists  bool                     `json:"exists"`
+	Message string                   `json:"message"`
+	Files   []ProjectConfigFileEntry `json:"files"`
+}
+
+// ProjectConfigSummary 表示四个配置 tab 的聚合信息。
+type ProjectConfigSummary struct {
+	RootDir    string           `json:"rootDir"`
+	CoreConfig ProjectConfigTab `json:"coreConfig"`
+	Skills     ProjectConfigTab `json:"skills"`
+	AgentsMd   ProjectConfigTab `json:"agentsMd"`
+	Commands   ProjectConfigTab `json:"commands"`
+	Rules      ProjectConfigTab `json:"rules"`
+}
+
+// ProjectConfigFileResult 表示项目配置文件的读写结果。
+type ProjectConfigFileResult struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+// GlobalConfigInfo 全局配置信息。
+type GlobalConfigInfo struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+// ImportableSkill 可导入技能信息。
+type ImportableSkill struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	SourceDir   string `json:"sourceDir"`
+	SourcePath  string `json:"sourcePath"`
+	Imported    bool   `json:"imported"`
+	GlobalExist bool   `json:"globalExist"`
+}

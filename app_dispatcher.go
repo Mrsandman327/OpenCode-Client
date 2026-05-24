@@ -398,6 +398,56 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.DeleteScheme(name), nil
+	case "GetProjectConfigSummary":
+		var rootDir string
+		if err := decodeArgs(args, &rootDir); err != nil {
+			return nil, err
+		}
+		return a.GetProjectConfigSummary(rootDir), nil
+	case "ReadProjectConfigFile":
+		var rootDir, category, relPath string
+		if err := decodeArgs(args, &rootDir, &category, &relPath); err != nil {
+			return nil, err
+		}
+		return a.ReadProjectConfigFile(rootDir, category, relPath)
+	case "SaveProjectConfigFile":
+		var rootDir, category, relPath, content string
+		if err := decodeArgs(args, &rootDir, &category, &relPath, &content); err != nil {
+			return nil, err
+		}
+		return a.SaveProjectConfigFile(rootDir, category, relPath, content)
+	case "GetGlobalOpenCodeConfig":
+		return a.GetGlobalOpenCodeConfig(), nil
+	case "ListProjectConfigDir":
+		var rootDir, category, relPath string
+		if err := decodeArgs(args, &rootDir, &category, &relPath); err != nil {
+			return nil, err
+		}
+		return a.ListProjectConfigDir(rootDir, category, relPath)
+	case "CreateProjectEntry":
+		var rootDir, category, name string
+		if err := decodeArgs(args, &rootDir, &category, &name); err != nil {
+			return nil, err
+		}
+		return a.CreateProjectEntry(rootDir, category, name)
+	case "DeleteProjectEntry":
+		var rootDir, category, relPath string
+		if err := decodeArgs(args, &rootDir, &category, &relPath); err != nil {
+			return nil, err
+		}
+		return nil, a.DeleteProjectEntry(rootDir, category, relPath)
+	case "GetImportableSkills":
+		var rootDir string
+		if err := decodeArgs(args, &rootDir); err != nil {
+			return nil, err
+		}
+		return a.GetImportableSkills(rootDir), nil
+	case "ImportSkill":
+		var rootDir, sourcePath, skillName string
+		if err := decodeArgs(args, &rootDir, &sourcePath, &skillName); err != nil {
+			return nil, err
+		}
+		return nil, a.ImportSkill(rootDir, sourcePath, skillName)
 	default:
 		return nil, fmt.Errorf("unsupported method: %s", method)
 	}

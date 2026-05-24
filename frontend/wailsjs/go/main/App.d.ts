@@ -15,11 +15,15 @@ export function AppCall(arg1:string,arg2:Array<json.RawMessage>):Promise<any>;
 
 export function ApplySkillScheme(arg1:string):Promise<model.SchemeApplyResult>;
 
+export function CreateProjectEntry(arg1:string,arg2:string,arg3:string):Promise<model.ProjectConfigFileEntry>;
+
 export function DeleteBrowserEntry(arg1:string,arg2:string):Promise<model.SaveResult>;
 
 export function DeleteModelEntry(arg1:string,arg2:string):Promise<model.SaveResult>;
 
 export function DeleteModelType(arg1:string):Promise<model.SaveResult>;
+
+export function DeleteProjectEntry(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DeleteProvider(arg1:string):Promise<model.SaveResult>;
 
@@ -55,9 +59,15 @@ export function GetGitPreview(arg1:string,arg2:string):Promise<model.GitFilePrev
 
 export function GetGitStatus(arg1:string):Promise<model.GitStatusResult>;
 
+export function GetGlobalOpenCodeConfig():Promise<model.GlobalConfigInfo>;
+
+export function GetImportableSkills(arg1:string):Promise<Array<model.ImportableSkill>>;
+
 export function GetModelConfig():Promise<Array<model.ModelEntry>>;
 
 export function GetModelList(arg1:string,arg2:string):Promise<Array<string>>;
+
+export function GetProjectConfigSummary(arg1:string):Promise<model.ProjectConfigSummary>;
 
 export function GetProjectTree(arg1:string):Promise<string>;
 
@@ -85,11 +95,15 @@ export function GitPull(arg1:string):Promise<model.GitActionResult>;
 
 export function GitPush(arg1:string):Promise<model.GitActionResult>;
 
+export function ImportSkill(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function LaunchWindowsTerminal(arg1:string,arg2:string,arg3:string):Promise<model.WebResult>;
 
 export function ListBrowsableDirs(arg1:string):Promise<Array<model.DirectoryEntry>>;
 
 export function ListBrowserFiles(arg1:string,arg2:string):Promise<model.FileBrowserListResult>;
+
+export function ListProjectConfigDir(arg1:string,arg2:string,arg3:string):Promise<model.ProjectConfigTab>;
 
 export function ListSchemes():Promise<Array<model.SchemeInfo>>;
 
@@ -109,6 +123,8 @@ export function ReadBrowserFile(arg1:string,arg2:string):Promise<model.FileBrows
 
 export function ReadBrowserRawBase64(arg1:string,arg2:string):Promise<model.FileBrowserRawResult>;
 
+export function ReadProjectConfigFile(arg1:string,arg2:string,arg3:string):Promise<model.ProjectConfigFileResult>;
+
 export function ReadScheme(arg1:string):Promise<string>;
 
 export function ReadSkillContent(arg1:string):Promise<string>;
@@ -122,6 +138,8 @@ export function RejectQuestion(arg1:string):Promise<model.APIResult>;
 export function RemoveSkillSourceDir(arg1:string):Promise<model.SaveResult>;
 
 export function SaveFullConfig(arg1:string):Promise<model.SaveResult>;
+
+export function SaveProjectConfigFile(arg1:string,arg2:string,arg3:string,arg4:string):Promise<model.ProjectConfigFileResult>;
 
 export function SaveProvider(arg1:model.ProviderSave):Promise<model.SaveResult>;
 

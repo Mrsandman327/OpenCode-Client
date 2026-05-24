@@ -553,6 +553,42 @@ export namespace model {
 		    return a;
 		}
 	}
+	export class GlobalConfigInfo {
+	    path: string;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GlobalConfigInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.content = source["content"];
+	    }
+	}
+	export class ImportableSkill {
+	    name: string;
+	    description: string;
+	    sourceDir: string;
+	    sourcePath: string;
+	    imported: boolean;
+	    globalExist: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportableSkill(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.sourceDir = source["sourceDir"];
+	        this.sourcePath = source["sourcePath"];
+	        this.imported = source["imported"];
+	        this.globalExist = source["globalExist"];
+	    }
+	}
 	export class ModelEntry {
 	    key: string;
 	    type: string;
@@ -587,6 +623,113 @@ export namespace model {
 	        this.name = source["name"];
 	    }
 	}
+	export class ProjectConfigFileEntry {
+	    name: string;
+	    path: string;
+	    type: string;
+	    description?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectConfigFileEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.type = source["type"];
+	        this.description = source["description"];
+	    }
+	}
+	export class ProjectConfigFileResult {
+	    path: string;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectConfigFileResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.content = source["content"];
+	    }
+	}
+	export class ProjectConfigTab {
+	    exists: boolean;
+	    message: string;
+	    files: ProjectConfigFileEntry[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectConfigTab(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.exists = source["exists"];
+	        this.message = source["message"];
+	        this.files = this.convertValues(source["files"], ProjectConfigFileEntry);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ProjectConfigSummary {
+	    rootDir: string;
+	    coreConfig: ProjectConfigTab;
+	    skills: ProjectConfigTab;
+	    agentsMd: ProjectConfigTab;
+	    commands: ProjectConfigTab;
+	    rules: ProjectConfigTab;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectConfigSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rootDir = source["rootDir"];
+	        this.coreConfig = this.convertValues(source["coreConfig"], ProjectConfigTab);
+	        this.skills = this.convertValues(source["skills"], ProjectConfigTab);
+	        this.agentsMd = this.convertValues(source["agentsMd"], ProjectConfigTab);
+	        this.commands = this.convertValues(source["commands"], ProjectConfigTab);
+	        this.rules = this.convertValues(source["rules"], ProjectConfigTab);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class ProviderInfo {
 	    key: string;
 	    name: string;

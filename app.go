@@ -16,6 +16,7 @@ import (
 	"oc-manager/model"
 	"oc-manager/service/filebrowser"
 	"oc-manager/service/opencode"
+	"oc-manager/service/projectconfig"
 	"oc-manager/service/web"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -618,4 +619,49 @@ func (a *App) GetFrontendWebStatus(hostname string, port int) model.WebResult {
 // GetCommands 返回所有常用命令分组数据。
 func (a *App) GetCommands() []CmdGroup {
 	return commands.GetCommands()
+}
+
+// GetProjectConfigSummary 返回项目 .opencode/ 配置的四个 tab 聚合信息。
+func (a *App) GetProjectConfigSummary(rootDir string) model.ProjectConfigSummary {
+	return projectconfig.GetProjectConfigSummary(rootDir)
+}
+
+// ReadProjectConfigFile 读取项目配置文件内容。
+func (a *App) ReadProjectConfigFile(rootDir, category, relPath string) (model.ProjectConfigFileResult, error) {
+	return projectconfig.ReadProjectFile(rootDir, category, relPath)
+}
+
+// SaveProjectConfigFile 写入项目配置文件。
+func (a *App) SaveProjectConfigFile(rootDir, category, relPath, content string) (model.ProjectConfigFileResult, error) {
+	return projectconfig.SaveProjectFile(rootDir, category, relPath, content)
+}
+
+// GetGlobalOpenCodeConfig 返回全局 opencode 配置文件的路径和内容。
+func (a *App) GetGlobalOpenCodeConfig() model.GlobalConfigInfo {
+	return projectconfig.GetGlobalOpenCodeConfig()
+}
+
+// ListProjectConfigDir 列出项目配置目录下的文件列表。
+func (a *App) ListProjectConfigDir(rootDir, category, relPath string) (model.ProjectConfigTab, error) {
+	return projectconfig.ListProjectDir(rootDir, category, relPath)
+}
+
+// CreateProjectEntry 在项目配置目录下创建新文件。
+func (a *App) CreateProjectEntry(rootDir, category, name string) (model.ProjectConfigFileEntry, error) {
+	return projectconfig.CreateProjectEntry(rootDir, category, name)
+}
+
+// DeleteProjectEntry 删除项目配置目录下的文件或空目录。
+func (a *App) DeleteProjectEntry(rootDir, category, relPath string) error {
+	return projectconfig.DeleteProjectEntry(rootDir, category, relPath)
+}
+
+// GetImportableSkills 返回可导入到项目中的技能列表。
+func (a *App) GetImportableSkills(rootDir string) []model.ImportableSkill {
+	return projectconfig.GetImportableSkills(rootDir)
+}
+
+// ImportSkill 将技能通过软链接导入到项目 .opencode/skills/ 中。
+func (a *App) ImportSkill(rootDir, sourcePath, skillName string) error {
+	return projectconfig.ImportSkill(rootDir, sourcePath, skillName)
 }

@@ -4882,3 +4882,381 @@ input::placeholder, textarea::placeholder {
     background: var(--danger);
     color: #fff;
 }
+
+
+
+/* ========== 项目配置弹窗 ========== */
+
+.project-config-modal {
+    width: 92vw;
+    max-width: 1100px;
+    height: 90vh;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.project-config-modal .modal-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.project-config-modal .modal-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.022em;
+    margin: 0;
+}
+
+/* ===== Tab 栏 ===== */
+
+.project-config-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+}
+
+.pc-tab {
+    padding: 11px 20px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    letter-spacing: -0.2px;
+    transition: color .15s, border-color .15s;
+}
+
+.pc-tab:hover { color: var(--text); }
+
+.pc-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+}
+
+/* ===== 内容区 ===== */
+
+.project-config-body {
+    flex: 1;
+    overflow: auto;
+    margin: 5px 25px;
+}
+
+/* ===== 空状态 ===== */
+
+.pc-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 15px;
+}
+
+.pc-empty-icon { font-size: 40px; margin-bottom: 16px; opacity: .5; }
+
+.pc-empty p { margin: 0 0 4px; font-weight: 500; }
+
+.pc-empty-desc { font-size: 13px; font-weight: 400; margin-top: 4px; }
+
+.pc-empty-btn { margin-top: 16px; }
+
+.pc-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* ===== 文件列表 ===== */
+
+.pc-file-list {
+    padding: 8px 20px;
+}
+
+.pc-file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background .12s;
+}
+
+.pc-file-item:hover { background: var(--hover); }
+
+.pc-file-icon { font-size: 18px; flex-shrink: 0; }
+
+.pc-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 450; }
+
+.pc-file-arrow { color: var(--text-muted); font-size: 12px; flex-shrink: 0; opacity: 0; transition: opacity .12s; }
+
+.pc-file-item:hover .pc-file-arrow { opacity: 1; }
+
+/* 删除按钮 */
+.pc-file-del {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    text-align: center;
+    line-height: 22px;
+    opacity: 0;
+    transition: opacity .12s, color .12s, background .12s;
+}
+
+.pc-file-item:hover .pc-file-del { opacity: 1; }
+
+.pc-skill-card:hover .pc-file-del { opacity: 1; }
+
+.pc-file-del:hover { color: var(--danger); background: var(--hover); }
+
+/* 新增按钮底部 */
+.pc-file-list-footer {
+    padding: 8px 20px;
+}
+
+/* ===== 编辑器 ===== */
+
+.pc-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.pc-editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface);
+}
+
+.pc-editor-filename {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pc-editor-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.pc-ro-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+/* ===== 编辑模式：纯 textarea，无行号 ===== */
+
+.pc-editor-textarea-simple {
+    flex: 1;
+    border: none;
+    outline: none;
+    resize: none;
+    margin: 0;
+    padding: 14px 16px;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    tab-size: 4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    overflow: auto;
+}
+
+/* ===== 预览模式（文件浏览器的 hljs-line grid） ===== */
+
+.pc-editor-viewer {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+}
+
+.pc-editor-viewer .hljs-line {
+    display: grid;
+    grid-template-columns: 4.5em minmax(0, 1fr);
+    align-items: start;
+}
+
+.pc-editor-viewer .hljs-line-no {
+    display: block;
+    padding-right: .8em;
+    text-align: right;
+    color: var(--text-muted);
+    user-select: none;
+    border-right: 1px solid rgba(128,128,128,.15);
+    margin-right: .8em;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.pc-editor-viewer .hljs-line-content {
+    min-width: 0;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* ===== 项目树设置按钮 ===== */
+
+.oc-tree-config {
+    margin-left: auto;
+    padding: 2px 6px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity .15s, color .15s, background .15s;
+}
+
+.oc-tree-dir-row:hover .oc-tree-config,
+.oc-tree-directory:hover .oc-tree-config { opacity: 1; }
+
+.oc-tree-config:hover {
+    color: var(--primary);
+    background: var(--hover);
+}
+
+.oc-tree-dir-row {
+    display: flex;
+    align-items: center;
+}
+
+/* ===== 技能管理卡片 ===== */
+
+.pc-skill-list {
+    padding: 12px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pc-skill-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: border-color .15s, background .15s;
+}
+
+.pc-skill-card:hover {
+    border-color: var(--primary);
+    background: var(--hover);
+}
+
+.pc-skill-info { flex: 1; min-width: 0; }
+
+.pc-skill-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+}
+
+.pc-skill-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pc-skill-view {
+    flex-shrink: 0;
+}
+
+.pc-skill-card-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.pc-skills-actions {
+    padding: 10px 20px;
+    display: flex;
+    gap: 8px;
+}
+
+.pc-skill-src {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.pc-import-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 500;
+    border-radius: 4px;
+    padding: 1px 6px;
+    vertical-align: middle;
+}
+.pc-import-tag.imported { color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); }
+.pc-import-tag.global { color: var(--warning); background: var(--warning-bg, #fff3cd); }
+
+/* ===== 幽灵按钮 ===== */
+.btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+}
+.btn-ghost:hover { background: var(--hover); color: var(--text); }

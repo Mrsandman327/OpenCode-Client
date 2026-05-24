@@ -15,7 +15,7 @@ type Manager struct {
 	globalDir string
 }
 
-// NewManager 创建新的 Manager 实例。
+// NewManager 创建新的 Manager 实例，指向全局 opencode 技能目录。
 func NewManager() *Manager {
 	dir := os.Getenv("XDG_CONFIG_HOME")
 	if dir != "" {
@@ -23,6 +23,11 @@ func NewManager() *Manager {
 	}
 	homeDir, _ := os.UserHomeDir()
 	return &Manager{globalDir: filepath.Join(homeDir, ".config", "opencode", "skills")}
+}
+
+// NewManagerWithDir 创建指向指定技能目录的 Manager 实例。
+func NewManagerWithDir(skillsDir string) *Manager {
+	return &Manager{globalDir: skillsDir}
 }
 
 // SourceDir 返回 opencode 技能目录路径。

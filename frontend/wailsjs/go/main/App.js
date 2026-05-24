@@ -26,6 +26,10 @@ export function ApplySkillScheme(arg1) {
   return window['go']['main']['App']['ApplySkillScheme'](arg1);
 }
 
+export function CreateProjectEntry(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateProjectEntry'](arg1, arg2, arg3);
+}
+
 export function DeleteBrowserEntry(arg1, arg2) {
   return window['go']['main']['App']['DeleteBrowserEntry'](arg1, arg2);
 }
@@ -36,6 +40,10 @@ export function DeleteModelEntry(arg1, arg2) {
 
 export function DeleteModelType(arg1) {
   return window['go']['main']['App']['DeleteModelType'](arg1);
+}
+
+export function DeleteProjectEntry(arg1, arg2, arg3) {
+  return window['go']['main']['App']['DeleteProjectEntry'](arg1, arg2, arg3);
 }
 
 export function DeleteProvider(arg1) {
@@ -106,12 +114,24 @@ export function GetGitStatus(arg1) {
   return window['go']['main']['App']['GetGitStatus'](arg1);
 }
 
+export function GetGlobalOpenCodeConfig() {
+  return window['go']['main']['App']['GetGlobalOpenCodeConfig']();
+}
+
+export function GetImportableSkills(arg1) {
+  return window['go']['main']['App']['GetImportableSkills'](arg1);
+}
+
 export function GetModelConfig() {
   return window['go']['main']['App']['GetModelConfig']();
 }
 
 export function GetModelList(arg1, arg2) {
   return window['go']['main']['App']['GetModelList'](arg1, arg2);
+}
+
+export function GetProjectConfigSummary(arg1) {
+  return window['go']['main']['App']['GetProjectConfigSummary'](arg1);
 }
 
 export function GetProjectTree(arg1) {
@@ -166,6 +186,10 @@ export function GitPush(arg1) {
   return window['go']['main']['App']['GitPush'](arg1);
 }
 
+export function ImportSkill(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ImportSkill'](arg1, arg2, arg3);
+}
+
 export function LaunchWindowsTerminal(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchWindowsTerminal'](arg1, arg2, arg3);
 }
@@ -176,6 +200,10 @@ export function ListBrowsableDirs(arg1) {
 
 export function ListBrowserFiles(arg1, arg2) {
   return window['go']['main']['App']['ListBrowserFiles'](arg1, arg2);
+}
+
+export function ListProjectConfigDir(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ListProjectConfigDir'](arg1, arg2, arg3);
 }
 
 export function ListSchemes() {
@@ -214,6 +242,10 @@ export function ReadBrowserRawBase64(arg1, arg2) {
   return window['go']['main']['App']['ReadBrowserRawBase64'](arg1, arg2);
 }
 
+export function ReadProjectConfigFile(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ReadProjectConfigFile'](arg1, arg2, arg3);
+}
+
 export function ReadScheme(arg1) {
   return window['go']['main']['App']['ReadScheme'](arg1);
 }
@@ -240,6 +272,10 @@ export function RemoveSkillSourceDir(arg1) {
 
 export function SaveFullConfig(arg1) {
   return window['go']['main']['App']['SaveFullConfig'](arg1);
+}
+
+export function SaveProjectConfigFile(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveProjectConfigFile'](arg1, arg2, arg3, arg4);
 }
 
 export function SaveProvider(arg1) {
