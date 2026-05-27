@@ -56,20 +56,6 @@ type ToggleResult struct {
 	Error     *string `json:"error,omitempty"`
 }
 
-// SkillContent 技能文件内容。
-type SkillContent struct {
-	Path    string `json:"path"`
-	Content string `json:"content"`
-}
-
-// SkillFileNode 技能目录浏览树节点。
-type SkillFileNode struct {
-	Name     string          `json:"name"`
-	Path     string          `json:"path"`
-	Type     string          `json:"type"`
-	Children []SkillFileNode `json:"children,omitempty"`
-}
-
 // DirectoryEntry 目录浏览器中的目录项。
 type DirectoryEntry struct {
 	Name string `json:"name"`

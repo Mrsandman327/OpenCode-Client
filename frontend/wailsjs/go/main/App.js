@@ -214,10 +214,6 @@ export function ListSchemes() {
   return window['go']['main']['App']['ListSchemes']();
 }
 
-export function ListSkillFiles(arg1) {
-  return window['go']['main']['App']['ListSkillFiles'](arg1);
-}
-
 export function ListSkillSchemes() {
   return window['go']['main']['App']['ListSkillSchemes']();
 }
@@ -254,14 +250,6 @@ export function ReadScheme(arg1) {
   return window['go']['main']['App']['ReadScheme'](arg1);
 }
 
-export function ReadSkillContent(arg1) {
-  return window['go']['main']['App']['ReadSkillContent'](arg1);
-}
-
-export function ReadSkillFile(arg1, arg2) {
-  return window['go']['main']['App']['ReadSkillFile'](arg1, arg2);
-}
-
 export function Refresh() {
   return window['go']['main']['App']['Refresh']();
 }
@@ -292,14 +280,6 @@ export function SaveProvider(arg1) {
 
 export function SaveScheme(arg1, arg2) {
   return window['go']['main']['App']['SaveScheme'](arg1, arg2);
-}
-
-export function SaveSkillContent(arg1, arg2) {
-  return window['go']['main']['App']['SaveSkillContent'](arg1, arg2);
-}
-
-export function SaveSkillFile(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SaveSkillFile'](arg1, arg2, arg3);
 }
 
 export function SaveSkillScheme(arg1) {

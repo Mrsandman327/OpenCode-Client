@@ -143,31 +143,6 @@ const mockApi = (() => {
             stats: { globalSkills: mockSkills.length }
         }),
         ToggleSkill: async (path, name, enable) => ({ success: true }),
-        ReadSkillContent: async (path) => {
-            var name = path.replace(/\\/g, '/').split('/').pop().replace('.md', '');
-            return '# ' + name + '\n\n## 描述\n\n这是 ' + name + ' 技能的 mock SKILL.md 内容。\n\n## 使用\n\n当用户请求相关任务时自动加载。\n\n## 配置\n\n```json\n{\n  \"enabled\": true\n}\n```';
-        },
-        ListSkillFiles: async (path) => ({
-            name: path.replace(/\\/g, '/').split('/').pop() || 'mock-skill',
-            path: '.',
-            type: 'dir',
-            children: [
-                { name: 'SKILL.md', path: 'SKILL.md', type: 'file' },
-                { name: 'docs', path: 'docs', type: 'dir', children: [
-                    { name: 'note.txt', path: 'docs/note.txt', type: 'file' }
-                ] }
-            ]
-        }),
-        ReadSkillFile: async (skillPath, relativePath) => ({
-            path: relativePath,
-            content: 'mock file preview for ' + relativePath
-        }),
-        SaveSkillFile: async (skillPath, relativePath, content) => ({
-            success: true,
-            path: relativePath,
-            content: content
-        }),
-        SaveSkillContent: async (path, content) => ({ success: true }),
         Refresh: async () => {},
         OpenDir: async (path) => { console.log('mock open:', path); showToast(`模拟打开目录: ${path}`, 'info'); },
         OpenDirectoryDialog: async () => 'E:\\data\\ai_test\\feishu\\skill-manager',

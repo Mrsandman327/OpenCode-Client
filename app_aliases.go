@@ -5,7 +5,6 @@ import "oc-manager/model"
 // 以下通过类型别名保持前端 Wails bind 兼容。
 type (
 	SkillInfo         = model.SkillInfo
-	SkillContent      = model.SkillContent
 	Stats             = model.Stats
 	ToggleResult      = model.ToggleResult
 	WebResult         = model.WebResult

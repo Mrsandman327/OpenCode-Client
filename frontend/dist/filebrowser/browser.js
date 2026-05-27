@@ -527,12 +527,15 @@ function gitStatusClass(code) {
     return 'modify';
 }
 
-function openFileBrowserModal(rootDir) {
+function openFileBrowserModal(rootDir, options) {
     var modal = document.getElementById('fileBrowserModal');
     var title = document.getElementById('fileBrowserTitle');
     if (!modal) return;
+    var features = (options && Array.isArray(options.features)) ? options.features : [];
+    var hasExtraFeatures = features.length > 0;
     window.fileBrowserState.mode = 'files';
     window.fileBrowserState.rootDir = rootDir || '';
+    window.fileBrowserState.features = features;
     window.fileBrowserState.currentPath = '/';
     window.fileBrowserState.parentPath = '/';
     window.fileBrowserState.selectedItem = null;
@@ -568,6 +571,11 @@ function openFileBrowserModal(rootDir) {
         stageAllLoading: false,
     };
     if (title) title.textContent = '文件浏览 - ' + (rootDir || '');
+    if (hasExtraFeatures) {
+        modal.classList.remove('file-browser-compact');
+    } else {
+        modal.classList.add('file-browser-compact');
+    }
     modal.style.display = 'flex';
     renderFileBrowserMode();
     loadFileBrowserList('/');
@@ -575,7 +583,10 @@ function openFileBrowserModal(rootDir) {
 
 function closeFileBrowserModal() {
     var modal = document.getElementById('fileBrowserModal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('file-browser-compact');
+    }
     if (typeof fileBrowserClearObjectURL === 'function') fileBrowserClearObjectURL();
     if (typeof destroyFileBrowserEditor === 'function') destroyFileBrowserEditor();
     closeFileBrowserCreateDirInline();
@@ -1107,6 +1118,7 @@ async function gitCommit() {
 
 function switchFileBrowserMode(mode) {
     var state = window.fileBrowserState;
+    if (mode === 'git' && (!state.features || state.features.indexOf('git') < 0)) return;
     state.mode = mode === 'git' ? 'git' : 'files';
     renderFileBrowserMode();
     if (state.mode === 'git' && !state.git.historyItems.length && !state.git.historyLoading) {
@@ -1125,8 +1137,12 @@ function renderFileBrowserMode() {
     var gitBtn = document.getElementById('btnFileBrowserModeGit');
     var filesPanel = document.getElementById('fileBrowserFilesPanel');
     var gitPanel = document.getElementById('fileBrowserGitPanel');
+    var hasGit = state.features && state.features.indexOf('git') >= 0;
     if (filesBtn) filesBtn.classList.toggle('active', state.mode === 'files');
-    if (gitBtn) gitBtn.classList.toggle('active', state.mode === 'git');
+    if (gitBtn) {
+        gitBtn.style.display = hasGit ? '' : 'none';
+        gitBtn.classList.toggle('active', state.mode === 'git');
+    }
     if (filesPanel) filesPanel.style.display = state.mode === 'files' ? 'flex' : 'none';
     if (gitPanel) gitPanel.style.display = state.mode === 'git' ? 'flex' : 'none';
 }

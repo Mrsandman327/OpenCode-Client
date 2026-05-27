@@ -256,31 +256,6 @@ func (a *App) ToggleSkill(skillPath, skillName string, enable bool) model.Toggle
 	return result
 }
 
-// ReadSkillContent 读取技能 SKILL.md 内容。
-func (a *App) ReadSkillContent(skillPath string) (string, error) {
-	return a.sm.ReadSkillContent(skillPath)
-}
-
-// SaveSkillContent 保存技能 SKILL.md 内容。
-func (a *App) SaveSkillContent(skillPath, content string) error {
-	return a.sm.SaveSkillContent(skillPath, content)
-}
-
-// ListSkillFiles 返回技能目录树。
-func (a *App) ListSkillFiles(skillPath string) (model.SkillFileNode, error) {
-	return a.sm.ListSkillFiles(skillPath)
-}
-
-// ReadSkillFile 读取技能目录内的文本文件。
-func (a *App) ReadSkillFile(skillPath, relativePath string) (model.SkillContent, error) {
-	return a.sm.ReadSkillFile(skillPath, relativePath)
-}
-
-// SaveSkillFile 保存技能目录内的文本文件。
-func (a *App) SaveSkillFile(skillPath, relativePath, content string) error {
-	return a.sm.SaveSkillFile(skillPath, relativePath, content)
-}
-
 // Refresh 重新扫描技能目录并刷新状态。
 func (a *App) Refresh() error {
 	a.sm = skill.NewManager()

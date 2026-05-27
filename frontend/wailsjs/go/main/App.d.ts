@@ -109,8 +109,6 @@ export function ListProjectConfigDir(arg1:string,arg2:string,arg3:string):Promis
 
 export function ListSchemes():Promise<Array<model.SchemeInfo>>;
 
-export function ListSkillFiles(arg1:string):Promise<model.SkillFileNode>;
-
 export function ListSkillSchemes():Promise<Array<string>>;
 
 export function OpenCodeAPI(arg1:string,arg2:string,arg3:string):Promise<model.APIResult>;
@@ -129,10 +127,6 @@ export function ReadProjectConfigFile(arg1:string,arg2:string,arg3:string):Promi
 
 export function ReadScheme(arg1:string):Promise<string>;
 
-export function ReadSkillContent(arg1:string):Promise<string>;
-
-export function ReadSkillFile(arg1:string,arg2:string):Promise<model.SkillContent>;
-
 export function Refresh():Promise<void>;
 
 export function RejectQuestion(arg1:string):Promise<model.APIResult>;
@@ -148,10 +142,6 @@ export function SaveProjectConfigFile(arg1:string,arg2:string,arg3:string,arg4:s
 export function SaveProvider(arg1:model.ProviderSave):Promise<model.SaveResult>;
 
 export function SaveScheme(arg1:string,arg2:string):Promise<void>;
-
-export function SaveSkillContent(arg1:string,arg2:string):Promise<void>;
-
-export function SaveSkillFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SaveSkillScheme(arg1:string):Promise<model.SaveResult>;
 

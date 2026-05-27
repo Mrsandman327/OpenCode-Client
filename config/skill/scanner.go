@@ -9,6 +9,31 @@ import (
 	"oc-manager/model"
 )
 
+// Manager 管理 opencode 技能。
+type Manager struct {
+	globalDir string
+}
+
+// NewManager 创建新的 Manager 实例，指向全局 opencode 技能目录。
+func NewManager() *Manager {
+	dir := os.Getenv("XDG_CONFIG_HOME")
+	if dir != "" {
+		return &Manager{globalDir: filepath.Join(dir, "opencode", "skills")}
+	}
+	homeDir, _ := os.UserHomeDir()
+	return &Manager{globalDir: filepath.Join(homeDir, ".config", "opencode", "skills")}
+}
+
+// NewManagerWithDir 创建指向指定技能目录的 Manager 实例。
+func NewManagerWithDir(skillsDir string) *Manager {
+	return &Manager{globalDir: skillsDir}
+}
+
+// SourceDir 返回 opencode 技能目录路径。
+func (m *Manager) SourceDir() string {
+	return m.globalDir
+}
+
 // GetAllSkills 扫描 opencode 技能目录，兼容软链接和真实目录。
 func (m *Manager) GetAllSkills() []model.SkillInfo {
 	skills := m.scanDir(m.globalDir, "global", "")

@@ -367,21 +367,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof applySkillScheme === 'function') await applySkillScheme();
     });
 
-    // Modal 关闭事件
-    document.getElementById('skillModalClose').addEventListener('click', closeSkillModal);
-    document.getElementById('skillModal').addEventListener('click', function(e) {
-        if (e.target.id === 'skillModal') closeSkillModal();
-    });
-    document.getElementById('skillModalEdit').addEventListener('click', function() {
-        editSkill(document.getElementById('skillModal').dataset.skillPath);
-    });
-    document.getElementById('skillModalSave').addEventListener('click', saveSkillEdit);
-    document.getElementById('skillModalCancel').addEventListener('click', function() {
-        if (currentSkillBrowserState && currentSkillBrowserState.selectedPath) {
-            cancelSkillBrowserEdit();
-            return;
-        }
-    });
 
     // ========================
     // 命令视图事件绑定

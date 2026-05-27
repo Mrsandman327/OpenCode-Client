@@ -178,36 +178,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.DiscardFile(rootDir, path), nil
-	case "ReadSkillContent":
-		var skillPath string
-		if err := decodeArgs(args, &skillPath); err != nil {
-			return nil, err
-		}
-		return a.ReadSkillContent(skillPath)
-	case "SaveSkillContent":
-		var skillPath, content string
-		if err := decodeArgs(args, &skillPath, &content); err != nil {
-			return nil, err
-		}
-		return map[string]bool{"success": a.SaveSkillContent(skillPath, content) == nil}, nil
-	case "ListSkillFiles":
-		var skillPath string
-		if err := decodeArgs(args, &skillPath); err != nil {
-			return nil, err
-		}
-		return a.ListSkillFiles(skillPath)
-	case "ReadSkillFile":
-		var skillPath, relativePath string
-		if err := decodeArgs(args, &skillPath, &relativePath); err != nil {
-			return nil, err
-		}
-		return a.ReadSkillFile(skillPath, relativePath)
-	case "SaveSkillFile":
-		var skillPath, relativePath, content string
-		if err := decodeArgs(args, &skillPath, &relativePath, &content); err != nil {
-			return nil, err
-		}
-		return map[string]bool{"success": a.SaveSkillFile(skillPath, relativePath, content) == nil}, nil
 	case "ToggleSkill":
 		var skillPath, skillName string
 		var enable bool

@@ -96,7 +96,7 @@ async function selectSession(id) {
             var p = info?.directory || '';
             if (!p) return;
             // 桌面端和 Web 端统一：都打开站内文件浏览器
-            openFileBrowserModal(p);
+            openFileBrowserModal(p, { features: ['git'] });
         };
     }
     document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';
