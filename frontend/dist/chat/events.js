@@ -82,6 +82,7 @@ function handleOcEvent(event) {
             const status = props.status || props;
             if (status?.type === 'idle') {
                 loadMessages();
+                refreshSessionTitle();
             } else if (getCachedMessages(sid).length) {
                 scheduleRenderCachedMessages(sid);
                 scheduleSubtaskExtraction(sid);
@@ -97,6 +98,7 @@ function handleOcEvent(event) {
         if (sid === currentSessionId) {
             updateSendButton();
             loadMessages();
+            refreshSessionTitle();
         }
         return;
     }

@@ -174,7 +174,7 @@ func GetProjectTree(knownDirs string) string {
 		return "[]"
 	}
 	client := http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 20 * time.Second,
 		Transport: &http.Transport{
 			MaxIdleConns:        20,
 			MaxIdleConnsPerHost: 20,

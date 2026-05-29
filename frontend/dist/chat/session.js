@@ -68,6 +68,109 @@ async function loadAgentModelSelectors() {
 }
 
 let pendingWorkDir = '';
+let currentSessionRefreshPending = false;
+
+/** 从 OpenCode API 获取当前会话的最新标题，更新标题栏、_sessionMap 和项目树节点 */
+async function refreshSessionTitle() {
+    if (!currentSessionId) return;
+    try {
+        const data = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(currentSessionId)}`);
+        const title = data?.title || data?.Title;
+        if (!title) return;
+        // 从 _sessionMap 读取旧标题（可能因时序问题尚未存在）
+        const oldTitle = window._sessionMap?.[currentSessionId]?.title;
+        if (oldTitle === title) return;
+        // 确保 _sessionMap 存在并更新
+        if (!window._sessionMap) window._sessionMap = {};
+        if (!window._sessionMap[currentSessionId]) window._sessionMap[currentSessionId] = {};
+        window._sessionMap[currentSessionId].title = title;
+        // 更新会话区标题栏
+        document.getElementById('ocChatTitle').textContent = title;
+        // 更新项目树中的会话节点
+        const escapedId = currentSessionId.replace(/[&<>"']/g, function(m) {
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+        });
+        const treeNode = document.querySelector('.oc-tree-session[data-session-id="' + escapedId + '"]');
+        if (treeNode) {
+            const label = treeNode.querySelector('.oc-tree-label');
+            if (label) {
+                label.textContent = '💬 ' + title;
+            }
+            const tooltipTitle = treeNode.querySelector('.oc-tree-tooltip-title');
+            if (tooltipTitle) tooltipTitle.textContent = title;
+        }
+    } catch (_) {}
+}
+
+/**
+ * 刷新当前会话视图。
+ * 与切换会话后的加载流程类似，但保留当前会话的局部阅读状态，
+ * 不清空展开状态、不清空 question 自定义输入，也不切换会话本身。
+ */
+async function refreshCurrentSession() {
+    if (!webRunning) return;
+    if (!currentSessionId) {
+        showToast('当前没有可刷新的会话', 'info');
+        return;
+    }
+    if (currentSessionRefreshPending) return;
+
+    const refreshBtn = document.getElementById('btnRefreshCurrentSession');
+    const box = document.getElementById('ocMessages');
+    const refreshSessionId = currentSessionId;
+
+    currentSessionRefreshPending = true;
+    if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = '⏳';
+        refreshBtn.title = '正在刷新当前会话';
+    }
+
+    markdownCache = {};
+    lastMessageCount = 0;
+    messageLoadSeq++;
+    if (box) {
+        box.innerHTML = '<div class="oc-empty">正在刷新会话消息...</div>';
+    }
+
+    try {
+        await loadMessages();
+        if (refreshSessionId !== currentSessionId) return;
+
+        if (!isMobileTreeMode()) {
+            extractSubtaskSummaries(currentSessionId);
+            renderSubtaskPanel();
+            await loadDiff();
+        }
+
+        try {
+            const statuses = await loadSessionStatuses();
+            if (refreshSessionId === currentSessionId && statuses) {
+                sessionStatuses = statuses || sessionStatuses;
+            }
+        } catch (_) {}
+
+        if (refreshSessionId !== currentSessionId) return;
+
+        updateSendButton();
+        if (isSessionBusy(currentSessionId)) {
+            scheduleRefresh();
+        }
+        smartScroll(document.getElementById('ocMessages'), true);
+        showToast('已刷新当前会话', 'success');
+    } catch (e) {
+        if (refreshSessionId === currentSessionId) {
+            showToast('刷新当前会话失败: ' + (e.message || e), 'error');
+        }
+    } finally {
+        currentSessionRefreshPending = false;
+        if (refreshBtn) {
+            refreshBtn.disabled = !webRunning || !currentSessionId;
+            refreshBtn.textContent = '↻';
+            refreshBtn.title = '刷新当前会话';
+        }
+    }
+}
 
 /** 选择/切换会话：更新标题、目录路径，加载消息和子任务 */
 async function selectSession(id) {
@@ -548,7 +651,8 @@ function scheduleRefresh() {
             if (!busy) {
                 clearInterval(refreshTimer);
                 refreshTimer = null;
-                loadMessages()
+                loadMessages();
+                refreshSessionTitle();
             }
         }).catch(() => {
             // 状态刷新失败时不要影响 SSE 流式输出
@@ -663,12 +767,6 @@ async function sendPrompt() {
         const directoryQuery = requestDir ? `?directory=${encodeURIComponent(requestDir)}` : '';
         await api.OpenCodeCall('POST', `/session/${encodeURIComponent(currentSessionId)}/prompt_async${directoryQuery}`, body);
         if (isNew) {
-            const title = text.slice(0, 15) + (text.length > 15 ? '...' : '');
-            await api.OpenCodeCall('PATCH', `/session/${encodeURIComponent(currentSessionId)}`, { title })
-                .catch(() => {});
-            await buildTree();
-            //更新会话标题，绑定路径响应函数
-            document.getElementById('ocChatTitle').textContent = title;
             dirEl.onclick = function() {
                 openFileBrowserModal(requestDir, { features: ['git'] });
             };

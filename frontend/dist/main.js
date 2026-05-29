@@ -108,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnToggleSessions').addEventListener('click', toggleSessions);
     document.getElementById('btnToggleSidepanel').addEventListener('click', toggleSidepanel);
     document.getElementById('btnScrollBottom').addEventListener('click', scrollMessagesToBottom);
+    document.getElementById('btnRefreshCurrentSession').addEventListener('click', refreshCurrentSession);
 
     if (typeof initTreePanelResize === 'function') {
         initTreePanelResize();

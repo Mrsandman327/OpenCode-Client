@@ -35,7 +35,7 @@ async function loadDirBrowserList(path) {
 			list.innerHTML = '<div class="oc-empty">当前层没有可进入的目录</div>';
 			return;
 		}
-		list.innerHTML = dirs.map(dir => '<button type="button" class="btn btn-sm skill-file-dir-toggle" data-path="' + escapeHtml(dir.path) + '" style="margin:4px 0;width:100%;">📁 ' + escapeHtml(dir.name) + '</button>').join('');
+		list.innerHTML = dirs.map(dir => '<button type="button" class="btn btn-sm skill-file-dir-toggle" data-path="' + escapeHtml(dir.path) + '" style="width:100%;height:3.4vh;">📁 ' + escapeHtml(dir.name) + '</button>').join('');
 		list.querySelectorAll('[data-path]').forEach(btn => {
 			btn.addEventListener('click', async () => {
 				await loadDirBrowserList(btn.dataset.path || '');
