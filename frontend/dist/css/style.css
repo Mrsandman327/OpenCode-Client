@@ -2227,6 +2227,9 @@ input::placeholder, textarea::placeholder {
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
 }
+#dirBrowserModal {
+    z-index: 360;
+}
 .modal {
     background: var(--bg-secondary);
     border: 1px solid var(--border);

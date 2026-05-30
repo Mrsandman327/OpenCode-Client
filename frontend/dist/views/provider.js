@@ -3,6 +3,31 @@
 // ============================================================
 let providerCache = [];
 
+function getProviderConfigDir(cfgPath) {
+    var fullPath = String(cfgPath || '').trim();
+    if (!fullPath) return '';
+    return fullPath.replace(/[\\/][^\\/]+$/, '');
+}
+
+async function openProviderConfigDirInBrowser() {
+    var pathEl = document.getElementById('providerConfigPath');
+    var cfgPath = pathEl ? String(pathEl.textContent || '').trim() : '';
+    var dir = getProviderConfigDir(cfgPath);
+    if (!dir || dir === '未知' || dir === '加载中...') {
+        showToast('配置文件目录不可用', 'error');
+        return;
+    }
+    try {
+        if (typeof openFileBrowserModal === 'function') {
+            openFileBrowserModal(dir);
+        } else {
+            showToast('文件浏览器模块未加载', 'error');
+        }
+    } catch (err) {
+        showToast('打开目录失败: ' + (err.message || err), 'error');
+    }
+}
+
 const PROVIDER_NPM_OPTIONS = [
     { label: 'OpenAI Responses', value: '@ai-sdk/openai' },
     { label: 'OpenAI Compatible', value: '@ai-sdk/openai-compatible' },
@@ -15,18 +40,31 @@ const PROVIDER_NPM_UNMATCHED = '__unmatched__';
 
 async function loadProviders() {
     const list = document.getElementById('providersList');
+    const openBtn = document.getElementById('btnOpenProviderConfigDir');
     list.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在加载供应商...</p></div>';
+    if (openBtn) openBtn.disabled = true;
     try {
         const [providers, cfgPath] = await Promise.all([
             api.GetProviders(),
             api.GetProviderConfigPath(),
         ]);
         document.getElementById('providerConfigPath').textContent = cfgPath || '未知';
+        if (openBtn) openBtn.disabled = !getProviderConfigDir(cfgPath);
         renderProviders(providers || []);
     } catch (err) {
         list.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeHtml(err.message||err)}</p></div>`;
+        if (openBtn) openBtn.disabled = true;
     }
 }
+
+(function bindProviderConfigActions() {
+    var openBtn = document.getElementById('btnOpenProviderConfigDir');
+    if (!openBtn || openBtn.dataset.bound) return;
+    openBtn.dataset.bound = 'true';
+    openBtn.addEventListener('click', function() {
+        openProviderConfigDirInBrowser();
+    });
+})();
 
 function emptyProvider() {
     return { key: '', name: '', baseURL: '', apiKey: '', npm: '@ai-sdk/openai-compatible', npmRaw: '@ai-sdk/openai-compatible', enabled: true, models: [], _new: true };
