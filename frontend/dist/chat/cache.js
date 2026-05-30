@@ -174,7 +174,12 @@ function ensurePendingAssistant(sessionID) {
     const list = getCachedMessages(sessionID);
     const last = list[list.length - 1];
     const role = last?.info?.role || last?.role;
-    if (role === 'assistant') return;
+    if (role === 'assistant') {
+        const info = last?.info || last || {};
+        const hasTerminalError = !!(info.error?.message || info.error?.data?.message || info.error);
+        const isCompleted = !!info.time?.completed;
+        if (!hasTerminalError && !isCompleted) return;
+    }
     list.push({
         info: {
             id: 'pending_' + Date.now(),

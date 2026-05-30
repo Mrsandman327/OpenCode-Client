@@ -695,8 +695,20 @@ async function abortSession() {
     btn.disabled = true;
     const sessionID = currentSessionId;
     try {
-        await api.OpenCodeCall('POST', `/session/${encodeURIComponent(sessionID)}/abort`);
+        const dirEl = document.getElementById('ocSideDirPath');
+        const requestDir = (dirEl?.textContent || window._sessionMap?.[sessionID]?.directory || '').trim();
+        const directoryQuery = requestDir ? `?directory=${encodeURIComponent(requestDir)}` : '';
+        try {
+            await api.OpenCodeCall('POST', `/session/${encodeURIComponent(sessionID)}/abort${directoryQuery}`);
+        } catch (err) {
+            if (directoryQuery) {
+                await api.OpenCodeCall('POST', `/session/${encodeURIComponent(sessionID)}/abort`);
+            } else {
+                throw err;
+            }
+        }
         showToast('已停止', 'info');
+        delete sessionErrors[sessionID];
         sessionStatuses[sessionID] = 'idle';
         updateSendButton();
         await loadMessages();
@@ -739,6 +751,7 @@ async function sendPrompt() {
             }
         }
         if (currentSessionId) {
+            delete sessionErrors[currentSessionId];
             sessionStatuses[currentSessionId] = 'busy';
             ensurePendingAssistant(currentSessionId);
             if (isMobileTreeMode()) {
