@@ -347,14 +347,34 @@ function partExpandKey(part, fallback) {
     return part?.id || `${part?.type || 'part'}:${part?.messageID || ''}:${fallback || ''}`;
 }
 
+// 格式化数字：<1000 原样显示；≥1000 显示 xx.xxk；≥1000000 显示 xx.xxM
+function formatNumber(num) {
+  // 安全处理：不是数字就返回 0
+  if (isNaN(num) || num === null || num === undefined) return '0';
+
+  if (num < 1000) {
+    // 小于 1000，直接返回数字（可选择保留0位小数）
+    return num.toFixed(0);
+  } else if (num < 1000000) {
+    // 1000 ~ 999,999 → 显示 xx.xx k
+    return (num / 1000).toFixed(2) + ' k';
+  } else {
+    // ≥1,000,000 → 显示 xx.xx M
+    return (num / 1000000).toFixed(2) + ' M';
+  }
+}
+
+
 /** 渲染步骤分割线（开始/结束 + token 统计） */
 function renderStepDivider(part, phase) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-step-divider';
     if (phase === 'finish' && part.tokens) {
         const t = part.tokens;
+        const input = (t.input || 0) + (t.cache?.read || 0) + (t.cache?.write || 0)
+        const ouput = (t.output||0) + (t.reasoning||0);
         const total = t.total || (t.input || 0) + (t.output || 0) + (t.reasoning || 0);
-        el.innerHTML = `<span class="oc-step-label">步骤结束</span><span class="oc-step-cost">↥${t.input||0} ↧${t.output||0} 🧠${t.reasoning||0} ≈${total} tokens</span>`;
+        el.innerHTML = `<span class="oc-step-label">步骤结束</span><span class="oc-step-cost">输入:${input} 输出:${ouput} 统计:${formatNumber(total)}tokens</span>`;
     } else {
         el.innerHTML = '<span class="oc-step-label">步骤开始</span>';
     }
