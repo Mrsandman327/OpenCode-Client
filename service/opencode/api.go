@@ -60,9 +60,28 @@ func OpenCodeAPI(method, path, body string) model.APIResult {
 	return model.APIResult{Success: resp.StatusCode >= 200 && resp.StatusCode < 300, Status: resp.StatusCode, Body: string(data)}
 }
 
+// findSessionDirectory 根据 sessionID 反查当前会话所属工作目录。
+// question 接口是按 directory 作用域隔离的，因此必须先拿到目录再请求。
+func findSessionDirectory(base, sessionID string) (string, error) {
+	resp, err := http.Get(base + "/session/" + url.QueryEscape(sessionID))
+	if err != nil {
+		return "", fmt.Errorf("获取会话列表失败: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var sessions treeSession
+	if err := json.Unmarshal(body, &sessions); err != nil {
+		return "", fmt.Errorf("解析会话列表失败: %v", err)
+	}
+
+	return sessions.Directory , nil
+}
+
 // findQuestionID 从 /question API 查找匹配 sessionID 的待回答问题 ID。
-func findQuestionID(base, sessionID string) (string, error) {
-	resp, err := http.Get(base + "/question")
+func findQuestionID(base, sessionID, directory string) (string, error) {
+	questionURL := base + "/question?directory=" + url.QueryEscape(directory)
+	resp, err := http.Get(questionURL)
 	if err != nil {
 		return "", fmt.Errorf("获取问题列表失败: %v", err)
 	}
@@ -92,15 +111,20 @@ func AnswerQuestion(sessionID, answerLabel string) model.APIResult {
 	if err != nil {
 		return model.APIResult{Error: err.Error()}
 	}
+	directory, err := findSessionDirectory(base, sessionID)
+	if err != nil {
+		return model.APIResult{Error: err.Error()}
+	}
 
-	requestID, err := findQuestionID(base, sessionID)
+	requestID, err := findQuestionID(base, sessionID, directory)
 	if err != nil {
 		return model.APIResult{Error: err.Error()}
 	}
 
 	replyBody := fmt.Sprintf(`{"answers":[["%s"]]}`, answerLabel)
+	replyURL := fmt.Sprintf("%s/question/%s/reply?directory=%s", base, requestID, url.QueryEscape(directory))
 	replyResp, err := http.Post(
-		fmt.Sprintf("%s/question/%s/reply", base, requestID),
+		replyURL,
 		"application/json",
 		strings.NewReader(replyBody),
 	)
@@ -123,14 +147,19 @@ func RejectQuestion(sessionID string) model.APIResult {
 	if err != nil {
 		return model.APIResult{Error: err.Error()}
 	}
-
-	requestID, err := findQuestionID(base, sessionID)
+	directory, err := findSessionDirectory(base, sessionID)
 	if err != nil {
 		return model.APIResult{Error: err.Error()}
 	}
 
+	requestID, err := findQuestionID(base, sessionID, directory)
+	if err != nil {
+		return model.APIResult{Error: err.Error()}
+	}
+
+	rejectURL := fmt.Sprintf("%s/question/%s/reject?directory=%s", base, requestID, url.QueryEscape(directory))
 	req, _ := http.NewRequest(http.MethodPost,
-		fmt.Sprintf("%s/question/%s/reject", base, requestID), nil)
+		rejectURL, nil)
 	rejectResp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return model.APIResult{Error: fmt.Sprintf("忽略问题失败: %v", err)}
