@@ -5,10 +5,10 @@
 window.fileBrowserState = {
     rootDir: '',
     mode: 'files',
-    currentPath: '/',
-    parentPath: '/',
-    items: [],
     selectedItem: null,
+    // 文件树相关状态
+    rootNode: null,
+    selectedPath: '',
     previewMeta: null,
     previewContent: null,
     previewReadResult: null,
@@ -92,6 +92,267 @@ function fileBrowserGetProxy() {
         proxyHost: host ? host.value : '',
         proxyPort: port ? port.value : ''
     };
+}
+
+// ======== 文件树：TreeNode 结构 ========
+// 节点字段: { title, path, type, children, expanded, loaded }
+
+/** 将后端文件项转为树节点 */
+function createTreeNode(item) {
+    return {
+        title: item.name || '',
+        path: item.path || '/',
+        type: (item.type === 'dir') ? 'dir' : 'file',
+        children: [],
+        expanded: false,
+        loaded: (item.type !== 'dir') // 文件节点天生就是已加载
+    };
+}
+
+/** 在树中按 path 查找节点 */
+function findNodeByPath(node, path) {
+    if (!node) return null;
+    if (node.path === path) return node;
+    for (var i = 0; i < (node.children || []).length; i++) {
+        var found = findNodeByPath(node.children[i], path);
+        if (found) return found;
+    }
+    return null;
+}
+
+/** 加载目录节点的 children（懒加载） */
+async function loadDirChildren(node) {
+    var state = window.fileBrowserState;
+    if (!node || node.type !== 'dir' || node.loaded) return;
+    try {
+        var data = await fileBrowserApiList(state.rootDir, node.path);
+        var items = data.items || [];
+        node.children = items.map(function(item) {
+            return createTreeNode(item);
+        });
+        node.loaded = true;
+    } catch (err) {
+        showToast('加载目录失败: ' + (err.message || err), 'error');
+    }
+}
+
+/** 根据 path 查找节点并重新加载其 children */
+async function reloadDirChildren(dirPath) {
+    var state = window.fileBrowserState;
+    var node = findNodeByPath(state.rootNode, dirPath);
+    if (node && node.type === 'dir') {
+        node.loaded = false;
+        node.children = [];
+        await loadDirChildren(node);
+    }
+}
+
+/** 递归渲染文件树 */
+function renderFileTree(rootNode) {
+    var listEl = document.getElementById('fileBrowserList');
+    var emptyEl = document.getElementById('fileBrowserListEmpty');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    if (!rootNode || !rootNode.children.length) {
+        if (emptyEl) {
+            emptyEl.textContent = '当前目录为空';
+            emptyEl.style.display = 'block';
+        }
+        return;
+    }
+    if (emptyEl) emptyEl.style.display = 'none';
+    renderTreeChildren(rootNode.children, listEl, 0);
+    bindFileTreeEvents(listEl);
+}
+
+/** 递归渲染树节点的 children */
+function renderTreeChildren(children, container, depth) {
+    for (var i = 0; i < children.length; i++) {
+        var node = children[i];
+        var row = createTreeNodeRow(node, depth);
+        container.appendChild(row);
+        if (node.type === 'dir' && node.expanded && node.children.length) {
+            renderTreeChildren(node.children, container, depth + 1);
+        }
+    }
+}
+
+/** 创建单个树节点 DOM 行 */
+function createTreeNodeRow(node, depth) {
+    var state = window.fileBrowserState;
+    var row = document.createElement('div');
+    row.className = 'file-browser-item-row file-browser-tree-row';
+    row.dataset.path = node.path;
+
+    var indent = document.createElement('span');
+    indent.className = 'file-browser-tree-indent';
+    indent.style.width = (depth * 18) + 'px';
+    row.appendChild(indent);
+
+    var toggle = document.createElement('span');
+    toggle.className = 'file-browser-tree-toggle';
+    if (node.type === 'dir') {
+        toggle.textContent = node.expanded ? '▼' : '⯈';
+    }
+    row.appendChild(toggle);
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'file-browser-item ' + node.type;
+    btn.dataset.path = node.path;
+    btn.dataset.type = node.type;
+
+    var icon = document.createElement('span');
+    icon.className = 'file-browser-item-icon';
+    icon.textContent = (node.type === 'dir') ? '📁' : '📄';
+    btn.appendChild(icon);
+
+    var name = document.createElement('span');
+    name.className = 'file-browser-item-name';
+    name.textContent = node.title;
+    btn.appendChild(name);
+
+    row.appendChild(btn);
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'file-browser-item-delete';
+    delBtn.dataset.deletePath = node.path;
+    delBtn.title = '删除';
+    delBtn.textContent = '✕';
+    row.appendChild(delBtn);
+
+    return row;
+}
+
+/** 给文件树容器绑定点击事件 */
+function bindFileTreeEvents(container) {
+    var state = window.fileBrowserState;
+
+    // 文件/目录点击
+    container.querySelectorAll('.file-browser-item').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var path = this.dataset.path || '/';
+            var type = this.dataset.type || 'file';
+            if (type === 'dir') {
+                handleTreeDirClick(path);
+            } else {
+                handleTreeFileClick(path);
+            }
+        });
+    });
+
+    // 切换箭头点击
+    container.querySelectorAll('.file-browser-tree-toggle').forEach(function(toggle) {
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var row = this.closest('.file-browser-item-row');
+            if (!row) return;
+            var path = row.dataset.path;
+            if (path) handleTreeDirClick(path);
+        });
+    });
+
+    // 删除按钮
+    container.querySelectorAll('.file-browser-item-delete').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var path = this.dataset.deletePath || '/';
+            var node = findNodeByPath(state.rootNode, path);
+            if (node) {
+                deleteBrowserTreeItem(node);
+            }
+        });
+    });
+}
+
+/** 处理树目录点击：展开/收起/懒加载 */
+async function handleTreeDirClick(path) {
+    var state = window.fileBrowserState;
+    var node = findNodeByPath(state.rootNode, path);
+    if (!node || node.type !== 'dir') return;
+    state.selectedPath = path;
+    state.selectedItem = null;
+    clearFileBrowserPreview();
+
+    if (!node.loaded) {
+        // 懒加载
+        await loadDirChildren(node);
+        node.expanded = true;
+    } else {
+        node.expanded = !node.expanded;
+    }
+
+    renderFileTree(state.rootNode);
+    markTreeSelection(state.rootNode, state.selectedPath);
+}
+
+/** 处理树文件点击：选中 + 预览 */
+function handleTreeFileClick(path) {
+    var state = window.fileBrowserState;
+    state.selectedPath = path;
+    // 构造 item 供预览使用
+    state.selectedItem = treeNodeToItem(state.rootNode, path);
+    renderFileTree(state.rootNode);
+    markTreeSelection(state.rootNode, path);
+    if (state.selectedItem) {
+        renderFilePreview(state.selectedItem);
+    }
+}
+
+/** 把树节点信息转成预览用的 item */
+function treeNodeToItem(rootNode, path) {
+    var node = findNodeByPath(rootNode, path);
+    if (!node) return null;
+    return { name: node.title, path: node.path, type: node.type };
+}
+
+/** 标记树节点选中状态 */
+function markTreeSelection(rootNode, path) {
+    var listEl = document.getElementById('fileBrowserList');
+    if (!listEl) return;
+    listEl.querySelectorAll('.file-browser-item').forEach(function(el) {
+        el.classList.toggle('active', el.dataset.path === path);
+    });
+}
+
+/** 获取当前目录操作目标路径：选中目录用目录本身，选中文件用其父目录，默认根目录 */
+function getCurrentDirPath() {
+    var state = window.fileBrowserState;
+    if (!state.rootNode || !state.selectedPath) return '/';
+    var node = findNodeByPath(state.rootNode, state.selectedPath);
+    if (!node) return '/';
+    if (node.type === 'dir') return node.path;
+    var parentPath = node.path.substring(0, node.path.lastIndexOf('/'));
+    return parentPath || '/';
+}
+
+/** 删除树节点（文件或空目录） */
+async function deleteBrowserTreeItem(node) {
+    var state = window.fileBrowserState;
+    if (!node || !state.rootDir) return;
+    var confirmed = await fileBrowserConfirmDelete({ name: node.title, type: node.type });
+    if (!confirmed) return;
+    try {
+        var result = await fileBrowserApiDelete(state.rootDir, node.path);
+        if (!result.success) {
+            showToast(result.error || '删除失败', 'error');
+            return;
+        }
+        if (state.selectedPath === node.path) {
+            state.selectedPath = '';
+            state.selectedItem = null;
+            clearFileBrowserPreview();
+        }
+        showToast('已删除' + (node.type === 'dir' ? '文件夹' : '文件') + '：' + node.title, 'success');
+        // 重新加载父目录
+        var parentPath = node.path.substring(0, node.path.lastIndexOf('/'));
+        if (parentPath === '') parentPath = '/';
+        await reloadDirChildren(parentPath);
+        renderFileTree(state.rootNode);
+    } catch (err) {
+        showToast(err.message || '删除失败', 'error');
+    }
 }
 
 async function fileBrowserApiGitPush(rootDir) {
@@ -185,6 +446,7 @@ async function submitFileBrowserCreateDir() {
     var state = window.fileBrowserState;
     var input = document.getElementById('fileBrowserCreateDirInput');
     var dirName = input ? String(input.value || '').trim() : '';
+    var targetDirPath = getCurrentDirPath();
     if (!dirName) {
         showToast('请输入文件夹名称', 'error');
         if (input) input.focus();
@@ -192,7 +454,7 @@ async function submitFileBrowserCreateDir() {
     }
     setFileBrowserCreateDirLoading(true);
     try {
-        var result = await fileBrowserApiCreateDir(state.rootDir, state.currentPath || '/', dirName);
+        var result = await fileBrowserApiCreateDir(state.rootDir, targetDirPath, dirName);
         if (!result.success) {
             showToast(result.error || '创建文件夹失败', 'error');
             if (input) input.focus();
@@ -200,7 +462,9 @@ async function submitFileBrowserCreateDir() {
         }
         closeFileBrowserCreateDirInline();
         showToast('已创建文件夹：' + dirName, 'success');
-        await loadFileBrowserList(state.currentPath || '/');
+        await reloadDirChildren(targetDirPath);
+        renderFileTree(state.rootNode);
+        markTreeSelection(state.rootNode, state.selectedPath);
     } catch (err) {
         showToast(err.message || '创建文件夹失败', 'error');
     } finally {
@@ -245,13 +509,16 @@ function showFileBrowserRenameMode() {
 
 async function submitBrowserUpload(fileName, overwrite) {
     var state = window.fileBrowserState;
-    var result = await fileBrowserApiUpload(state.rootDir, state.currentPath || '/', fileName, state.pendingUploadBase64 || '', overwrite);
+    var targetDirPath = getCurrentDirPath();
+    var result = await fileBrowserApiUpload(state.rootDir, targetDirPath, fileName, state.pendingUploadBase64 || '', overwrite);
     if (result.success) {
         closeFileBrowserUploadConflictModal();
         state.pendingUploadFileName = '';
         state.pendingUploadBase64 = '';
         showToast('上传成功', 'success');
-        await loadFileBrowserList(state.currentPath || '/');
+        await reloadDirChildren(targetDirPath);
+        renderFileTree(state.rootNode);
+        markTreeSelection(state.rootNode, state.selectedPath);
         return;
     }
     if (result.conflict) {
@@ -265,15 +532,18 @@ async function submitBrowserUpload(fileName, overwrite) {
 async function handleBrowserUploadSelected(file) {
     if (!file) return;
     var state = window.fileBrowserState;
+    var targetDirPath = getCurrentDirPath();
     state.pendingUploadFileName = file.name || '';
     state.pendingUploadBase64 = await fileToBase64(file);
     try {
-        var result = await fileBrowserApiUpload(state.rootDir, state.currentPath || '/', state.pendingUploadFileName, state.pendingUploadBase64, false);
+        var result = await fileBrowserApiUpload(state.rootDir, targetDirPath, state.pendingUploadFileName, state.pendingUploadBase64, false);
         if (result.success) {
             state.pendingUploadFileName = '';
             state.pendingUploadBase64 = '';
             showToast('上传成功', 'success');
-            await loadFileBrowserList(state.currentPath || '/');
+            await reloadDirChildren(targetDirPath);
+            renderFileTree(state.rootNode);
+            markTreeSelection(state.rootNode, state.selectedPath);
             return;
         }
         if (result.conflict) {
@@ -298,6 +568,7 @@ async function fileBrowserConfirmDelete(item) {
 
 async function deleteBrowserItem(item) {
     var state = window.fileBrowserState;
+    var targetDirPath = getCurrentDirPath();
     if (!item || !state.rootDir) return;
     var confirmed = await fileBrowserConfirmDelete(item);
     if (!confirmed) return;
@@ -309,10 +580,13 @@ async function deleteBrowserItem(item) {
         }
         if (state.selectedItem && state.selectedItem.path === item.path) {
             state.selectedItem = null;
+            state.selectedPath = '';
             clearFileBrowserPreview();
         }
         showToast('已删除' + (item.type === 'dir' ? '文件夹' : '文件') + '：' + item.name, 'success');
-        await loadFileBrowserList(state.currentPath || '/');
+        await reloadDirChildren(targetDirPath);
+        renderFileTree(state.rootNode);
+        markTreeSelection(state.rootNode, state.selectedPath);
     } catch (err) {
         showToast(err.message || '删除失败', 'error');
     }
@@ -536,9 +810,9 @@ function openFileBrowserModal(rootDir, options) {
     window.fileBrowserState.mode = 'files';
     window.fileBrowserState.rootDir = rootDir || '';
     window.fileBrowserState.features = features;
-    window.fileBrowserState.currentPath = '/';
-    window.fileBrowserState.parentPath = '/';
     window.fileBrowserState.selectedItem = null;
+    window.fileBrowserState.rootNode = null;
+    window.fileBrowserState.selectedPath = '';
     window.fileBrowserState.previewMode = 'file';
     window.fileBrowserState.previewRenderMode = 'preview';
     window.fileBrowserState.previewEditorValue = '';
@@ -693,17 +967,23 @@ async function loadFileBrowserList(path) {
     if (!listEl || !state.rootDir) return;
     closeFileBrowserCreateDirInline();
     state.loadingList = true;
-    state.currentPath = path || '/';
+    var targetPath = path || '/';
     if (listEl) listEl.innerHTML = '<div class="file-browser-empty">正在读取目录...</div>';
     if (emptyEl) emptyEl.style.display = 'none';
     clearFileBrowserPreview();
     try {
-        var data = await fileBrowserApiList(state.rootDir, state.currentPath);
-        state.currentPath = data.currentPath || '/';
-        state.parentPath = data.parentPath || '/';
-        state.items = data.items || [];
-        renderFileBrowserBreadcrumb();
-        renderFileBrowserList();
+        var data = await fileBrowserApiList(state.rootDir, targetPath);
+        // 构建根节点
+        state.rootNode = {
+            title: state.rootDir || '/',
+            path: '/',
+            type: 'dir',
+            children: (data.items || []).map(function(item) { return createTreeNode(item); }),
+            expanded: true,
+            loaded: true
+        };
+        renderFileTree(state.rootNode);
+        markTreeSelection(state.rootNode, state.selectedPath);
         loadFileBrowserGitStatus();
     } catch (err) {
         if (listEl) listEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
@@ -909,81 +1189,12 @@ function renderFileBrowserGitHistory(bodyEl) {
     }
 }
 
-function renderFileBrowserBreadcrumb() {
-    var pathEl = document.getElementById('fileBrowserPath');
-    var upBtn = document.getElementById('btnFileBrowserUp');
-    var state = window.fileBrowserState;
-    if (pathEl) {
-        var parts = state.currentPath.split('/').filter(Boolean);
-        var html = '<span class="file-browser-crumb" data-path="/">根目录</span>';
-        var acc = '/';
-        parts.forEach(function(part) {
-            acc += part + '/';
-            html += '<span class="file-browser-crumb-sep">/</span><span class="file-browser-crumb" data-path="' + escapeHtml(acc) + '">' + escapeHtml(part) + '</span>';
-        });
-        pathEl.innerHTML = html;
-        pathEl.querySelectorAll('[data-path]').forEach(function(node) {
-            node.addEventListener('click', function() {
-                loadFileBrowserList(this.dataset.path || '/');
-            });
-        });
-    }
-    if (upBtn) upBtn.disabled = (state.currentPath === '/' || state.currentPath === '');
-}
-
-function renderFileBrowserList() {
-    var listEl = document.getElementById('fileBrowserList');
-    var emptyEl = document.getElementById('fileBrowserListEmpty');
-    var state = window.fileBrowserState;
-    if (!listEl) return;
-    if (!state.items.length) {
-        listEl.innerHTML = '';
-        if (emptyEl) {
-            emptyEl.textContent = '当前目录为空';
-            emptyEl.style.display = 'block';
-        }
-        return;
-    }
-    if (emptyEl) emptyEl.style.display = 'none';
-    listEl.innerHTML = state.items.map(function(item) {
-        var icon = item.type === 'dir' ? '📁' : '📄';
-        return '<div class="file-browser-item-row">' +
-            '<button type="button" class="file-browser-item ' + (item.type === 'dir' ? 'dir' : 'file') + '" data-path="' + escapeHtml(item.path) + '" data-type="' + escapeHtml(item.type) + '">' +
-                '<span class="file-browser-item-icon">' + icon + '</span>' +
-                '<span class="file-browser-item-name">' + escapeHtml(item.name) + '</span>' +
-            '</button>' +
-            '<button type="button" class="file-browser-item-delete" data-delete-path="' + escapeHtml(item.path) + '" title="删除">✕</button>' +
-        '</div>';
-    }).join('');
-    listEl.querySelectorAll('.file-browser-item').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var path = this.dataset.path || '/';
-            var type = this.dataset.type || 'file';
-            if (type === 'dir') {
-                loadFileBrowserList(path);
-            } else {
-                state.selectedItem = state.items.find(function(item) { return item.path === path; }) || null;
-                renderFileBrowserSelection();
-                renderFilePreview(state.selectedItem);
-            }
-        });
-    });
-    listEl.querySelectorAll('.file-browser-item-delete').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var path = this.dataset.deletePath || '/';
-            var item = state.items.find(function(entry) { return entry.path === path; }) || null;
-            deleteBrowserItem(item);
-        });
-    });
-}
-
 function renderFileBrowserSelection() {
     var listEl = document.getElementById('fileBrowserList');
     var state = window.fileBrowserState;
     if (!listEl) return;
     listEl.querySelectorAll('.file-browser-item').forEach(function(node) {
-        node.classList.toggle('active', !!state.selectedItem && node.dataset.path === state.selectedItem.path);
+        node.classList.toggle('active', node.dataset.path === state.selectedPath);
     });
     var gitPanel = document.getElementById('fileBrowserGitPanel');
     if (gitPanel) {
@@ -1124,11 +1335,6 @@ function switchFileBrowserMode(mode) {
     if (state.mode === 'git' && !state.git.historyItems.length && !state.git.historyLoading) {
         loadFileBrowserGitHistory(false);
     }
-    var uPBtn = document.getElementById('btnFileBrowserUp');
-    if (state.mode === 'files')
-        uPBtn.style.display = ''
-    else
-        uPBtn.style.display = 'none'
 }
 
 function renderFileBrowserMode() {
@@ -1147,15 +1353,9 @@ function renderFileBrowserMode() {
     if (gitPanel) gitPanel.style.display = state.mode === 'git' ? 'flex' : 'none';
 }
 
-function goFileBrowserUp() {
-    var state = window.fileBrowserState;
-    if (!state.currentPath || state.currentPath === '/') return;
-    loadFileBrowserList(state.parentPath || '/');
-}
-
 function refreshFileBrowser() {
     var state = window.fileBrowserState;
-    loadFileBrowserList(state.currentPath || '/').then(function() {
+    loadFileBrowserList('/').then(function() {
         if (state.selectedItem) {
             renderFilePreview(state.selectedItem);
         }
@@ -1176,12 +1376,6 @@ function refreshFileBrowser() {
     if (refreshBtn && !refreshBtn.dataset.bound) {
         refreshBtn.dataset.bound = 'true';
         refreshBtn.addEventListener('click', refreshFileBrowser);
-    }
-
-    var upBtn = document.getElementById('btnFileBrowserUp');
-    if (upBtn && !upBtn.dataset.bound) {
-        upBtn.dataset.bound = 'true';
-        upBtn.addEventListener('click', goFileBrowserUp);
     }
 
     var downloadBtn = document.getElementById('btnFileBrowserDownload');

@@ -987,12 +987,13 @@ input::placeholder, textarea::placeholder {
 .oc-tree-project-row {
     padding: 1px 4px;
     border-radius: var(--radius-sm);
+    cursor: pointer;
 }
 .oc-tree-project-row:hover {
     background: var(--bg-sidebar-hover);
 }
 .oc-tree-label {
-    cursor: default;
+    cursor: pointer;
     vertical-align: middle;
     max-width: calc(100% - 20px);
     overflow: hidden;
@@ -1011,13 +1012,13 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     color: var(--text-secondary);
     border-radius: var(--radius-sm);
-    padding: 3px 6px 3px 4px;
+    padding: 1px 3px 3px 8px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     display: flex;
     align-items: center;
-    gap: 4px;
+    font-size: 12px;
 }
 .oc-tree-session .oc-tree-label { flex: 1; min-width: 0; }
 .oc-tree-add-dir {
@@ -3324,7 +3325,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .cmd-group-title.collapsed::before {
-    content: '▶ ';
+    content: '⯈ ';
     font-size: 11px;
 }
 
@@ -4091,30 +4092,6 @@ input::placeholder, textarea::placeholder {
     color: var(--text-primary);
     letter-spacing: -0.022em;
 }
-.file-browser-path {
-    padding: 8px 16px;
-    font-size: 13px;
-    font-family: "SF Mono", "Cascadia Code", monospace;
-    color: var(--text-muted);
-    background: var(--bg-input);
-    border-bottom: 1px solid var(--border);
-    letter-spacing: -0.01em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: bold;
-}
-.file-browser-crumb {
-    color: var(--accent);
-    cursor: pointer;
-}
-.file-browser-crumb:hover {
-    text-decoration: underline;
-}
-.file-browser-crumb-sep {
-    margin: 0 4px;
-    color: var(--text-muted);
-}
 .file-browser-body {
     display: grid;
     grid-template-columns: 52px var(--file-browser-left-width, 320px) 8px minmax(0, 1fr);
@@ -4661,8 +4638,8 @@ input::placeholder, textarea::placeholder {
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
+    gap: 4px;
+    padding: 1px 1px;
     border: none;
     background: transparent;
     color: var(--text-primary);
@@ -4713,9 +4690,32 @@ input::placeholder, textarea::placeholder {
 }
 
 .file-browser-item-delete:hover {
-	border-color: var(--danger);
-	color: var(--danger);
-	background: var(--danger-bg);
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--danger-bg);
+}
+/* ── 文件树样式 ── */
+.file-browser-tree-row {
+    gap: 2px;
+}
+.file-browser-tree-indent {
+    flex-shrink: 0;
+}
+.file-browser-tree-toggle {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+}
+.file-browser-tree-toggle:hover {
+    color: var(--text-primary);
 }
 .file-browser-preview-panel {
     min-height: 0;
@@ -5490,6 +5490,7 @@ input::placeholder, textarea::placeholder {
 .oc-tree-dir-row {
     display: flex;
     align-items: center;
+    cursor: pointer;
 }
 
 /* ===== 技能管理卡片 ===== */

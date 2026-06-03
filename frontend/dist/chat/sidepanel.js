@@ -157,7 +157,7 @@ function renderTreeNode(container, node, depth) {
             head.addEventListener('click', () => {
                 icon.classList.toggle('expanded');
                 icon.classList.toggle('collapsed');
-                icon.textContent = icon.classList.contains('expanded') ? '▼' : '▶';
+                icon.textContent = icon.classList.contains('expanded') ? '▼' : '⯈';
                 sub.classList.toggle('hidden');
             });
         } else {

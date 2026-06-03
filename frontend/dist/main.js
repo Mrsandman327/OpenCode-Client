@@ -175,7 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('btnCloseFileBrowser')?.addEventListener('click', closeFileBrowserModal);
     document.getElementById('btnRefreshFiles')?.addEventListener('click', refreshFileBrowser);
-    document.getElementById('btnFileBrowserUp')?.addEventListener('click', goFileBrowserUp);
     document.getElementById('btnFileBrowserUpload')?.addEventListener('click', openFileBrowserUploadPicker);
     document.getElementById('btnFileBrowserDownload')?.addEventListener('click', async function() {
         try {

@@ -46,13 +46,14 @@ function renderTree(tree) {
     }
     window._sessionMap = {};
     let html = '';
+    const toggleIcon = (expanded) => expanded ? '▼' : '⯈';
     for (const proj of tree) {
         html += `<div class="oc-tree-node oc-tree-project" data-id="${escapeHtml(proj.id)}">`;
-        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">▼</div><span class="oc-tree-label" title="${escapeHtml(proj.title)}">📁 ${escapeHtml(proj.title)}</span><button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button></div>`;
+        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label" title="${escapeHtml(proj.title)}">📁 ${escapeHtml(proj.title)}</span><button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button></div>`;
         html += `<div class="oc-tree-children">`;
         for (const dir of (proj.children || [])) {
             html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
-            html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">▼</div><span class="oc-tree-label" title="${escapeHtml(dir.title)}">📂 ${escapeHtml(dir.title)}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
+            html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label" title="${escapeHtml(dir.title)}">📂 ${escapeHtml(dir.title)}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
             html += `<div class="oc-tree-children">`;
             for (const ses of (dir.children || [])) {
                 const fullTitle = ses.title;
@@ -71,14 +72,31 @@ function renderTree(tree) {
     }
     container.innerHTML = html;
 
+    // 点击项目行/目录行（非按钮区域）触发展开/折叠
+    container.querySelectorAll('.oc-tree-project-row, .oc-tree-dir-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+            // 排除按钮点击（添加目录、项目配置、删除）
+            if (e.target.closest('button')) return;
+            const node = row.closest('.oc-tree-node');
+            const children = node.querySelector('.oc-tree-children');
+            if (!children) return;
+            const isOpen = children.style.display !== 'none';
+            children.style.display = isOpen ? 'none' : '';
+            var toggle = row.querySelector('.oc-tree-toggle');
+            if (toggle) toggle.textContent = toggleIcon(!isOpen);
+        });
+    });
+
+    // 小箭头单独绑定（保留，防止事件冒泡问题）
     container.querySelectorAll('.oc-tree-toggle').forEach(el => {
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
             const node = el.closest('.oc-tree-node');
             const children = node.querySelector('.oc-tree-children');
             if (children) {
                 const isOpen = children.style.display !== 'none';
                 children.style.display = isOpen ? 'none' : '';
-                el.textContent = isOpen ? '▶' : '▼';
+                el.textContent = toggleIcon(!isOpen);
             }
         });
     });
