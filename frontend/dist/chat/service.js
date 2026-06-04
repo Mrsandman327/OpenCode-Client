@@ -170,9 +170,11 @@ function renderServiceStatus() {
         '<div class="oc-service-card">' +
             '<div class="oc-service-item"><span class="oc-service-dot ' + serviceHealthClass(health) + '"></span>健康状态 <span class="oc-service-state">' + escapeHtml(health) + '</span></div>' +
             '<div class="oc-service-field"><span>URL</span><code title="' + escapeHtml(url) + '">' + escapeHtml(url) + '</code></div>' +
-            '<div class="oc-service-field"><span>版本</span><code>' + escapeHtml(version) + '</code></div>' +
+            '<div class="oc-service-field"><span>版本</span><code>' + escapeHtml(version) + '</code><span class="oc-version-check" id="ocVersionCheck"></span></div>' +
         '</div>';
     box.appendChild(serverSec);
+
+    renderVersionCheck(version);
 
     // ── MCP 服务 — 点击展开/折叠 ──
     if (mcpStatus) {
@@ -388,4 +390,54 @@ function updateWebUI() {
         btnFrontendWebDot.classList.toggle('on', frontendWebRunning);
         btnFrontendWebDot.classList.toggle('off', !frontendWebRunning);
     }
+}
+
+// ===== OpenCode 版本检测 =====
+
+/** 版本检测状态：idle / checking / latest / outdated */
+var ocVersionStatus = 'idle';
+var ocVersionLatest = '';
+
+/** 渲染版本检测按钮/状态 */
+function renderVersionCheck(version) {
+    var el = document.getElementById('ocVersionCheck');
+    if (!el) return;
+    if (ocVersionStatus === 'checking') {
+        el.innerHTML = ' <span class="oc-version-check-label checking">⏳ 检测中...</span>';
+        return;
+    }
+    if (ocVersionStatus === 'latest') {
+        el.innerHTML = ' <span class="oc-version-check-label latest">✅ 已是最新</span>';
+        return;
+    }
+    if (ocVersionStatus === 'outdated') {
+        el.innerHTML = ' <span class="oc-version-check-label outdated">⚠️ 最新版本: ' + escapeHtml(ocVersionLatest || '') + '</span>';
+        return;
+    }
+    // idle
+    el.innerHTML = ' <a href="javascript:void(0)" class="oc-version-check-btn" id="ocVersionCheckBtn">检测更新</a>';
+    var btn = document.getElementById('ocVersionCheckBtn');
+    if (btn) {
+        btn.addEventListener('click', function() {
+            checkOpenCodeVersion(version);
+        });
+    }
+}
+
+/** 执行版本检测 */
+async function checkOpenCodeVersion(version) {
+    ocVersionStatus = 'checking';
+    renderVersionCheck(version);
+    try {
+        var result = await api.CheckOpenCodeVersion(version || '');
+        if (result.isLatest) {
+            ocVersionStatus = 'latest';
+        } else {
+            ocVersionStatus = 'outdated';
+            ocVersionLatest = result.latestVersion || '';
+        }
+    } catch (e) {
+        ocVersionStatus = 'idle'; // 失败回退到 idle
+    }
+    renderVersionCheck(version);
 }

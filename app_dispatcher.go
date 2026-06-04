@@ -432,6 +432,12 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return nil, a.ImportSkill(rootDir, sourcePath, skillName)
+	case "CheckOpenCodeVersion":
+		var currentVersion string
+		if err := decodeArgs(args, &currentVersion); err != nil {
+			return nil, err
+		}
+		return a.CheckOpenCodeVersion(currentVersion), nil
 	default:
 		return nil, fmt.Errorf("unsupported method: %s", method)
 	}

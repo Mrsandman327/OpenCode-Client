@@ -15,6 +15,8 @@ export function AppCall(arg1:string,arg2:Array<json.RawMessage>):Promise<any>;
 
 export function ApplySkillScheme(arg1:string):Promise<model.SchemeApplyResult>;
 
+export function CheckOpenCodeVersion(arg1:string):Promise<model.VersionCheckResult>;
+
 export function CreateBrowserDir(arg1:string,arg2:string,arg3:string):Promise<model.SaveResult>;
 
 export function CreateProjectEntry(arg1:string,arg2:string,arg3:string):Promise<model.ProjectConfigFileEntry>;

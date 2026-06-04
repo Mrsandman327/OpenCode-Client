@@ -996,6 +996,24 @@ export namespace model {
 	        this.error = source["error"];
 	    }
 	}
+	export class VersionCheckResult {
+	    currentVersion: string;
+	    latestVersion: string;
+	    isLatest: boolean;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VersionCheckResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.currentVersion = source["currentVersion"];
+	        this.latestVersion = source["latestVersion"];
+	        this.isLatest = source["isLatest"];
+	        this.error = source["error"];
+	    }
+	}
 	export class WebResult {
 	    running: boolean;
 	    success: boolean;

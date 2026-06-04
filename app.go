@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	iofs "io/fs"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"oc-manager/config/commands"
 	"oc-manager/config/omo"
@@ -649,4 +653,36 @@ func (a *App) GetImportableSkills(rootDir string) []model.ImportableSkill {
 // ImportSkill 将技能通过软链接导入到项目 .opencode/skills/ 中。
 func (a *App) ImportSkill(rootDir, sourcePath, skillName string) error {
 	return projectconfig.ImportSkill(rootDir, sourcePath, skillName)
+}
+
+// CheckOpenCodeVersion 检测 opencode 最新版本。
+func (a *App) CheckOpenCodeVersion(currentVersion string) model.VersionCheckResult {
+	result := model.VersionCheckResult{CurrentVersion: currentVersion, IsLatest: true}
+
+	resp, err := http.Get("https://api.github.com/repos/anomalyco/opencode/releases/latest")
+	if err != nil {
+		result.Error = "获取最新版本信息失败"
+		return result
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		result.Error = "读取版本信息失败"
+		return result
+	}
+
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.Unmarshal(body, &release); err != nil {
+		result.Error = "解析版本信息失败"
+		return result
+	}
+
+	latest := strings.TrimPrefix(release.TagName, "v")
+	current := strings.TrimPrefix(currentVersion, "v")
+	result.LatestVersion = release.TagName
+	result.IsLatest = current == latest
+	return result
 }

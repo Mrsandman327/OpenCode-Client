@@ -1783,7 +1783,7 @@ input::placeholder, textarea::placeholder {
     color: var(--text-secondary);
 }
 .oc-service-field span {
-    width: 42px;
+    width: 45px;
     flex-shrink: 0;
     color: var(--text-muted);
 }
@@ -1796,6 +1796,32 @@ input::placeholder, textarea::placeholder {
     color: var(--text-primary);
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     font-size: 11px;
+}
+
+/* ── 版本检测 ── */
+.oc-version-check {
+    flex-shrink: 0;
+    margin-left: 6px;
+    font-size: 11px;
+    min-width: 120px;
+    text-align: right;
+}
+.oc-version-check-btn {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+}
+.oc-version-check-btn:hover {
+    text-decoration: underline;
+}
+.oc-version-check-label.checking {
+    color: var(--text-muted);
+}
+.oc-version-check-label.latest {
+    color: var(--success);
+}
+.oc-version-check-label.outdated {
+    color: var(--warning);
 }
 
 .oc-todos {

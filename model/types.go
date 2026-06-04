@@ -154,6 +154,14 @@ type APIResult struct {
 	Error   string `json:"error,omitempty"`
 }
 
+// VersionCheckResult 版本检测结果。
+type VersionCheckResult struct {
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion"`
+	IsLatest       bool   `json:"isLatest"`
+	Error          string `json:"error,omitempty"`
+}
+
 // ProxyConfig 是启动 opencode serve 时注入的代理配置。
 type ProxyConfig struct {
 	ProxyEnabled bool   `json:"proxyEnabled"`

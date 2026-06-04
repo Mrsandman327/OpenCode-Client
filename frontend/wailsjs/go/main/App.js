@@ -26,6 +26,10 @@ export function ApplySkillScheme(arg1) {
   return window['go']['main']['App']['ApplySkillScheme'](arg1);
 }
 
+export function CheckOpenCodeVersion(arg1) {
+  return window['go']['main']['App']['CheckOpenCodeVersion'](arg1);
+}
+
 export function CreateBrowserDir(arg1, arg2, arg3) {
   return window['go']['main']['App']['CreateBrowserDir'](arg1, arg2, arg3);
 }
