@@ -141,7 +141,11 @@ function handleOcEvent(event) {
         return;
     }
     if (type === 'session.deleted') {
-        buildTree();
+        if (window._skipSessionDeletedRebuild) {
+            window._skipSessionDeletedRebuild = false;
+        } else {
+            buildTree();
+        }
         loadDiff();
         return;
     }

@@ -954,6 +954,39 @@ input::placeholder, textarea::placeholder {
     gap: 6px;
 }
 
+.oc-tree-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px 6px;
+    border-bottom: 1px solid var(--border);
+}
+.oc-tree-search-bar input {
+    flex: 1;
+    min-width: 0;
+}
+.oc-tree-search-count {
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+.oc-tree-search-hit > .oc-tree-row,
+.oc-tree-search-hit > .oc-tree-session {
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+.oc-tree-search-hit .oc-tree-label {
+    color: inherit;
+    font-weight: 600;
+}
+.oc-tree-search-path > .oc-tree-row,
+.oc-tree-search-path > .oc-tree-session {
+    background: var(--bg-card-hover);
+}
+.oc-tree-search-hidden {
+    display: none;
+}
+
 /* ==================== 项目树 ==================== */
 .oc-tree {
     flex: 1;
@@ -974,6 +1007,30 @@ input::placeholder, textarea::placeholder {
     font-size: 10px;
     vertical-align: middle;
     user-select: none;
+}
+/* ── 项目树右键菜单 ── */
+.oc-tree-context-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 140px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    padding: 4px 0;
+}
+.oc-tree-context-menu-item {
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.oc-tree-context-menu-item:hover {
+    background: var(--bg-card-hover);
+}
+.oc-tree-context-menu-item[data-action="delete"] {
+    color: var(--danger);
 }
 .oc-tree-indent {
     display: inline-block;

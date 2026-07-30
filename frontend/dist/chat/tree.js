@@ -8,6 +8,10 @@
 // 项目树 — 构建、渲染、操作
 // ============================
 
+let treeSearchQuery = '';
+let treeSearchDebounceTimer = null;
+let treeSearchSnapshotTaken = false;
+
 /** 构建项目树（从后端获取项目→目录→会话三层结构） */
 async function buildTree() {
     if (!webRunning) return;
@@ -42,8 +46,29 @@ function renderTree(tree) {
     const container = document.getElementById('ocTree');
     if (!tree || tree.length === 0) {
         container.innerHTML = '<div class="oc-empty">暂无项目</div>';
+        updateTreeSearchStatus(0, 0);
         return;
     }
+
+    // 保存展开状态和滚动位置
+    var expandedMap = {};
+    container.querySelectorAll('.oc-tree-node').forEach(function(node) {
+        var children = node.querySelector('.oc-tree-children');
+        if (children && children.style.display === 'none') {
+            var key = node.dataset.id || '';
+            if (key) expandedMap[key] = true;
+        }
+    });
+    var savedScrollTop = container.scrollTop;
+
+    // 稳定排序：项目按标题、目录按标题、会话按更新时间
+    // 解决后端 goroutine 并发导致每次刷新顺序随机的问题
+    tree.sort(function(a, b) { return (a.title || '').localeCompare(b.title || ''); });
+    tree.forEach(function(proj) {
+        var dirs = proj.children || [];
+        dirs.sort(function(a, b) { return (a.title || '').localeCompare(b.title || ''); });
+    });
+
     window._sessionMap = {};
     let html = '';
     const toggleIcon = (expanded) => expanded ? '▼' : '⯈';
@@ -55,7 +80,12 @@ function renderTree(tree) {
             html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
             html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label" title="${escapeHtml(dir.title)}">📂 ${escapeHtml(dir.title)}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
             html += `<div class="oc-tree-children">`;
-            for (const ses of (dir.children || [])) {
+            // 按更新时间稳定排序，保持会话位置固定
+            var sesList = (dir.children || []).slice();
+            sesList.sort(function(a, b) {
+                return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+            });
+            for (const ses of sesList) {
                 const fullTitle = ses.title;
                 const updatedAt = ses.updatedAt || '';
                 const sesDir = ses.directory || dir.title;
@@ -71,6 +101,22 @@ function renderTree(tree) {
         html += `</div></div>`;
     }
     container.innerHTML = html;
+
+    // 恢复展开状态
+    if (Object.keys(expandedMap).length) {
+        container.querySelectorAll('.oc-tree-node').forEach(function(node) {
+            var key = node.dataset.id || '';
+            if (expandedMap[key]) {
+                var children = node.querySelector('.oc-tree-children');
+                if (children) {
+                    children.style.display = 'none';
+                    var toggle = node.querySelector('.oc-tree-toggle');
+                    if (toggle) toggle.textContent = toggleIcon(false);
+                }
+            }
+        });
+    }
+    container.scrollTop = savedScrollTop;
 
     // 点击项目行/目录行（非按钮区域）触发展开/折叠
     container.querySelectorAll('.oc-tree-project-row, .oc-tree-dir-row').forEach(row => {
@@ -139,7 +185,167 @@ function renderTree(tree) {
             }
         });
     });
+
+    applyTreeSearchFilter();
 }
+
+function updateTreeSearchStatus(matchCount, totalCount) {
+    var countEl = document.getElementById('ocTreeSearchCount');
+    var clearBtn = document.getElementById('ocTreeSearchClear');
+    if (countEl) {
+        if (!treeSearchQuery) {
+            countEl.textContent = totalCount > 0 ? ('共 ' + totalCount + ' 项') : '-';
+        } else {
+            countEl.textContent = matchCount + '/' + totalCount;
+        }
+    }
+    if (clearBtn) {
+        clearBtn.disabled = !treeSearchQuery;
+    }
+}
+
+function captureTreeSearchSnapshot() {
+    if (treeSearchSnapshotTaken) return;
+    document.querySelectorAll('#ocTree .oc-tree-children').forEach(function(children) {
+        children.dataset.searchPrevDisplay = children.style.display || '';
+    });
+    treeSearchSnapshotTaken = true;
+}
+
+function restoreTreeSearchSnapshot() {
+    document.querySelectorAll('#ocTree .oc-tree-children').forEach(function(children) {
+        if (children.dataset.searchPrevDisplay !== undefined) {
+            children.style.display = children.dataset.searchPrevDisplay;
+            delete children.dataset.searchPrevDisplay;
+        }
+    });
+    treeSearchSnapshotTaken = false;
+}
+
+function applyTreeSearchFilter() {
+    var container = document.getElementById('ocTree');
+    if (!container) return;
+    var nodes = Array.prototype.slice.call(container.querySelectorAll('.oc-tree-node'));
+    var totalCount = container.querySelectorAll('.oc-tree-label').length;
+
+    nodes.forEach(function(node) {
+        node.classList.remove('oc-tree-search-hit', 'oc-tree-search-path', 'oc-tree-search-hidden');
+    });
+
+    if (!treeSearchQuery) {
+        restoreTreeSearchSnapshot();
+        nodes.forEach(function(node) {
+            var toggle = node.querySelector(':scope > .oc-tree-row .oc-tree-toggle');
+            var children = node.querySelector(':scope > .oc-tree-children');
+            if (toggle && children) {
+                toggle.textContent = children.style.display === 'none' ? '⯈' : '▼';
+            }
+        });
+        updateTreeSearchStatus(0, totalCount);
+        return;
+    }
+
+    captureTreeSearchSnapshot();
+    var query = treeSearchQuery.toLowerCase();
+    var matchCount = 0;
+
+    function filterNode(node) {
+        var label = node.querySelector(':scope > .oc-tree-row .oc-tree-label, :scope > .oc-tree-label');
+        var labelText = label ? String(label.textContent || '').toLowerCase() : '';
+        var selfMatched = !!labelText && labelText.indexOf(query) >= 0;
+        var descendantsMatched = false;
+        var children = node.querySelector(':scope > .oc-tree-children');
+        var toggle = node.querySelector(':scope > .oc-tree-row .oc-tree-toggle');
+
+        if (children) {
+            Array.prototype.slice.call(children.children || []).forEach(function(child) {
+                if (child.classList && child.classList.contains('oc-tree-node')) {
+                    if (filterNode(child)) {
+                        descendantsMatched = true;
+                    }
+                }
+            });
+        }
+
+        var visible = selfMatched || descendantsMatched;
+        if (!visible) {
+            node.classList.add('oc-tree-search-hidden');
+        } else if (selfMatched) {
+            node.classList.add('oc-tree-search-hit');
+            matchCount += 1;
+        } else {
+            node.classList.add('oc-tree-search-path');
+        }
+
+        if (children) {
+            children.style.display = visible ? '' : 'none';
+            if (toggle) {
+                toggle.textContent = visible ? '▼' : '⯈';
+            }
+        }
+        return visible;
+    }
+
+    Array.prototype.slice.call(container.children || []).forEach(function(child) {
+        if (child.classList && child.classList.contains('oc-tree-node')) {
+            filterNode(child);
+        }
+    });
+
+    if (!matchCount) {
+        container.querySelectorAll('.oc-tree-node').forEach(function(node) {
+            node.classList.add('oc-tree-search-hidden');
+        });
+        container.insertAdjacentHTML('beforeend', '<div class="oc-empty oc-tree-search-empty">未找到匹配项</div>');
+    }
+
+    var empty = container.querySelector('.oc-tree-search-empty');
+    if (empty && matchCount) {
+        empty.remove();
+    }
+    updateTreeSearchStatus(matchCount, totalCount);
+}
+
+function setTreeSearchQuery(value) {
+    treeSearchQuery = String(value || '').trim();
+    var empty = document.querySelector('#ocTree .oc-tree-search-empty');
+    if (empty) empty.remove();
+    applyTreeSearchFilter();
+}
+
+function clearTreeSearch() {
+    var input = document.getElementById('ocTreeSearchInput');
+    if (input) {
+        input.value = '';
+    }
+    setTreeSearchQuery('');
+}
+
+function initTreeSearch() {
+    var input = document.getElementById('ocTreeSearchInput');
+    var clearBtn = document.getElementById('ocTreeSearchClear');
+    if (!input || input.dataset.boundTreeSearch === '1') return;
+
+    input.dataset.boundTreeSearch = '1';
+    input.addEventListener('input', function(e) {
+        clearTimeout(treeSearchDebounceTimer);
+        treeSearchDebounceTimer = setTimeout(function() {
+            setTreeSearchQuery(e.target.value || '');
+        }, 200);
+    });
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            clearTreeSearch();
+        }
+    });
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearTreeSearch);
+    }
+    updateTreeSearchStatus(0, 0);
+}
+
+initTreeSearch();
 
 /** 记住用户添加过的目录（存 localStorage 以便下次自动加载） */
 function rememberKnownDir(dir) {
@@ -207,6 +413,8 @@ async function deleteSession(id) {
     if (!id) return;
     if (!confirm('确定要删除该会话吗？此操作不可撤销。')) return;
     try {
+        window._skipSessionDeletedRebuild = true;
+        setTimeout(function() { window._skipSessionDeletedRebuild = false; }, 2000);
         await api.OpenCodeCall('DELETE', `/session/${encodeURIComponent(id)}`);
         showToast('已删除', 'success');
         if (id === currentSessionId) {
@@ -217,23 +425,37 @@ async function deleteSession(id) {
             document.getElementById('ocChatTitle').textContent = '未选择会话';
             updateModelInfo(null);
         }
-        await loadSessions();
+        // 从 DOM 移除会话节点，避免整树重建闪烁
+        var container = document.getElementById('ocTree');
+        if (container) {
+            var sessions = container.querySelectorAll('.oc-tree-session');
+            for (var i = 0; i < sessions.length; i++) {
+                if (sessions[i].dataset.sessionId === id) {
+                    sessions[i].remove();
+                    break;
+                }
+            }
+        }
+        delete window._sessionMap[id];
     } catch (e) {
         showToast('删除失败: ' + (e.message || e), 'error');
     }
 }
 
-/** 创建新会话（打开目录选择器，在首次发送时创建） */
-async function createNewSession() {
+/** 创建新会话（打开目录选择器，在首次发送时创建）。
+ *  如果指定了 dir 字符串则跳过目录选择器。 */
+async function createNewSession(dir) {
     if (!webRunning) return;
     try {
-        let dir = '';
-        if (isBrowserRuntimeForMain()) {
-            dir = await openDirBrowserModal();
-        } else {
-            dir = await api.OpenDirectoryDialog();
+        var hasDirParam = typeof dir === 'string' && dir.length > 0;
+        if (!hasDirParam) {
+            if (isBrowserRuntimeForMain()) {
+                dir = await openDirBrowserModal();
+            } else {
+                dir = await api.OpenDirectoryDialog();
+            }
+            if (!dir) return;
         }
-        if (!dir) return;
         pendingWorkDir = dir;
         if (isMobileTreeMode()) {
             closeMobileTree();
@@ -252,4 +474,116 @@ async function createNewSession() {
         showToast('选择目录失败: ' + (e.message || e), 'error');
     }
 }
+
+// ===== 项目树右键菜单 =====
+
+/** 当前右键菜单关联的数据 */
+var treeContextData = null;
+
+/** 显示右键菜单 */
+function showTreeContextMenu(e, type, data) {
+    e.preventDefault();
+    e.stopPropagation();
+    treeContextData = { type: type, data: data };
+    var menu = document.getElementById('ocTreeContextMenu');
+    if (!menu) return;
+    menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
+        var action = item.dataset.action;
+        if (type === 'dir') {
+            item.style.display = (action === 'new-session' || action === 'project-config') ? '' : 'none';
+        } else if (type === 'session') {
+            item.style.display = (action === 'rename' || action === 'delete') ? '' : 'none';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+    menu.style.display = 'block';
+}
+
+/** 隐藏右键菜单 */
+function hideTreeContextMenu() {
+    var menu = document.getElementById('ocTreeContextMenu');
+    if (menu) menu.style.display = 'none';
+    treeContextData = null;
+}
+
+/** 初始化右键菜单事件 */
+function initTreeContextMenu() {
+    var tree = document.getElementById('ocTree');
+    if (!tree) return;
+    tree.addEventListener('contextmenu', function(e) {
+        var dirRow = e.target.closest('.oc-tree-dir-row');
+        if (dirRow) {
+            // 从 config 按钮的 data-config-dir 取纯净目录路径，避免获取到标签里的 📂 图标
+            var configBtn = dirRow.querySelector('.oc-tree-config');
+            var title = configBtn ? configBtn.dataset.configDir : '';
+            if (!title) {
+                var label = dirRow.querySelector('.oc-tree-label');
+                title = label ? label.textContent.replace(/^📂\s*/, '').trim() : '';
+            }
+            showTreeContextMenu(e, 'dir', { title: title });
+            return;
+        }
+        var sesDiv = e.target.closest('.oc-tree-session');
+        if (sesDiv) {
+            var sid = sesDiv.dataset.sessionId;
+            if (!sid) return;
+            showTreeContextMenu(e, 'session', { sid: sid });
+            return;
+        }
+    });
+
+    var menu = document.getElementById('ocTreeContextMenu');
+    if (!menu) return;
+    menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            var action = item.dataset.action;
+            if (!treeContextData) return;
+            var type = treeContextData.type;
+            var data = treeContextData.data;
+            hideTreeContextMenu();
+            if (type === 'dir' && action === 'new-session') {
+                createNewSession(data.title);
+            } else if (type === 'dir' && action === 'project-config') {
+                if (typeof openProjectConfig === 'function') {
+                    openProjectConfig(data.title);
+                }
+            } else if (type === 'session' && action === 'rename') {
+                renameSession(data.sid);
+            } else if (type === 'session' && action === 'delete') {
+                deleteSession(data.sid);
+            }
+        });
+    });
+
+    document.addEventListener('click', function(e) {
+        if (menu.style.display !== 'none' && !menu.contains(e.target)) {
+            hideTreeContextMenu();
+        }
+    });
+}
+
+/** 重命名会话 */
+async function renameSession(sid) {
+    if (!sid) return;
+    var info = window._sessionMap && window._sessionMap[sid];
+    var oldTitle = (info && info.title) || sid;
+    var newTitle = prompt('请输入新名称：', oldTitle);
+    if (!newTitle || newTitle.trim() === '' || newTitle.trim() === oldTitle) return;
+    newTitle = newTitle.trim();
+    try {
+        await api.OpenCodeCall('PATCH', '/session/' + encodeURIComponent(sid), { title: newTitle });
+        showToast('已重命名', 'success');
+        if (sid === currentSessionId) {
+            document.getElementById('ocChatTitle').textContent = newTitle;
+        }
+        await buildTree();
+    } catch (e) {
+        showToast('重命名失败: ' + (e.message || e), 'error');
+    }
+}
+
+initTreeContextMenu();
 

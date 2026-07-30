@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	eventMu   sync.Mutex
-	eventStop context.CancelFunc
+	eventMu           sync.Mutex
+	eventStop         context.CancelFunc
 	browserSSEMu      sync.Mutex
 	browserSSENextID  int
 	browserSSEClients = map[int]chan BrowserSSEEvent{}
@@ -62,7 +62,7 @@ func StartOpenCodeEvents(ctx context.Context) model.APIResult {
 
 		scanner := bufio.NewScanner(resp.Body)
 		buf := make([]byte, 0, 64*1024)
-		scanner.Buffer(buf, 1024*1024)
+		scanner.Buffer(buf, 5*1024*1024)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if strings.HasPrefix(line, "data:") {

@@ -65,8 +65,19 @@
                             <span>项目树</span>
                             <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshTree" disabled>刷新</button>
                         </div>
+                        <div class="oc-tree-search-bar">
+                            <input type="search" id="ocTreeSearchInput" placeholder="搜索项目树..." autocomplete="off" />
+                            <button type="button" class="btn btn-sm" id="ocTreeSearchClear" disabled>清空</button>
+                            <span class="oc-tree-search-count" id="ocTreeSearchCount">-</span>
+                        </div>
                         <div class="oc-tree" id="ocTree">
                             <div class="oc-empty">启动服务后加载项目树</div>
+                        </div>
+                        <div class="oc-tree-context-menu" id="ocTreeContextMenu" style="display:none">
+                            <div class="oc-tree-context-menu-item" data-action="new-session">✨ 新建会话</div>
+                            <div class="oc-tree-context-menu-item" data-action="project-config">⚙️ 项目配置</div>
+                            <div class="oc-tree-context-menu-item" data-action="rename">✏️ 重命名</div>
+                            <div class="oc-tree-context-menu-item" data-action="delete">🗑️ 删除会话</div>
                         </div>
                         <div class="oc-sessions-footer">
                             <button type="button" class="btn btn-primary" id="btnNewSession" disabled>＋ 新建会话</button>
