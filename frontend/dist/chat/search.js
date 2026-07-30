@@ -226,12 +226,15 @@ var userNavIndex = -1;
 var userNavHighlightTimer = null;
 /** 用户消息导航：滚动检测防抖定时器 */
 var userNavScrollTimer = null;
+/** 用户消息导航：是否已经完成事件绑定，避免重复初始化 */
+var userNavInited = false;
 
 /**
  * 初始化用户消息导航按钮
  * 绑定 ▲ ▼ 按钮的点击事件，在页面加载后调用一次
  */
 function initUserNav() {
+    if (userNavInited) return;
     var prevBtn = document.getElementById('btnUserNavPrev');
     var nextBtn = document.getElementById('btnUserNavNext');
     if (prevBtn) prevBtn.addEventListener('click', function() { navigateUserMessage(-1); });
@@ -240,6 +243,7 @@ function initUserNav() {
     // 监听消息区滚动，自动同步当前用户消息位置
     var msgBox = document.getElementById('ocMessages');
     if (msgBox) msgBox.addEventListener('scroll', onUserNavScroll);
+    userNavInited = true;
 }
 
 /**
