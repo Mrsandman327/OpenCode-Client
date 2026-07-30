@@ -1014,27 +1014,33 @@ input::placeholder, textarea::placeholder {
     z-index: 1000;
     min-width: 140px;
     background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: var(--radius-md);
+    box-shadow: rgba(0,0,0,0.08) 0 2px 12px;
     padding: 4px 0;
+    overflow: hidden;
 }
 .oc-tree-context-menu-item {
-    padding: 6px 14px;
-    font-size: 12px;
+    padding: 7px 16px;
+    font-size: 13px;
     color: var(--text-primary);
     cursor: pointer;
     white-space: nowrap;
+    transition: background 0.12s ease;
 }
 .oc-tree-context-menu-item:hover {
-    background: var(--bg-card-hover);
+    background: rgba(0,0,0,0.04);
 }
 .oc-tree-context-menu-item[data-action="delete"] {
+    color: var(--ink-muted-48, #7a7a7a);
+}
+.oc-tree-context-menu-item[data-action="delete"]:hover {
     color: var(--danger);
+    background: rgba(220,38,38,0.06);
 }
 .oc-tree-indent {
     display: inline-block;
-    width: 1px;
+    width: 16px;
 }
 .oc-tree-row {
     display: flex;
@@ -1068,7 +1074,7 @@ input::placeholder, textarea::placeholder {
 /* ── 层级引导线 ── */
 .oc-tree-children {
     border-left: 1px solid rgba(0,0,0,0.06);
-    margin-left: 6px;
+    margin-left: 16px;
 }
 
 .oc-tree-session {
