@@ -1034,7 +1034,7 @@ input::placeholder, textarea::placeholder {
 }
 .oc-tree-indent {
     display: inline-block;
-    width: 12px;
+    width: 1px;
 }
 .oc-tree-row {
     display: flex;
@@ -1063,21 +1063,35 @@ input::placeholder, textarea::placeholder {
     min-width: 0;
 }
 .oc-tree-project { padding-left: 0; }
-.oc-tree-directory { padding-left: 8px; }
+.oc-tree-directory { padding-left: 16px; }
+
+/* ── 层级引导线 ── */
+.oc-tree-children {
+    border-left: 1px solid rgba(0,0,0,0.06);
+    margin-left: 6px;
+}
 
 .oc-tree-session {
     cursor: pointer;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     border-radius: var(--radius-sm);
-    padding: 1px 3px 3px 8px;
+    background: var(--bg-card);
+    border: 1px solid rgba(0,0,0,0.04);
+    padding: 2px 5px;
+    margin-left: 12px;
+    margin-right:25px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     display: flex;
     align-items: center;
-    font-size: 12px;
+    font-size: 13px;
 }
-.oc-tree-session .oc-tree-label { flex: 1; min-width: 0; }
+.oc-tree-session .oc-tree-label { 
+    flex: 1; 
+    min-width: 0;
+    color: var(--text-primary);
+}
 .oc-tree-add-dir {
     display: none;
     flex-shrink: 0;
