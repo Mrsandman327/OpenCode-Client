@@ -1040,7 +1040,7 @@ input::placeholder, textarea::placeholder {
 }
 .oc-tree-indent {
     display: inline-block;
-    width: 16px;
+    width: 1px;
 }
 .oc-tree-row {
     display: flex;
@@ -1058,7 +1058,7 @@ input::placeholder, textarea::placeholder {
 .oc-tree-label {
     cursor: pointer;
     vertical-align: middle;
-    max-width: calc(100% - 20px);
+    max-width: calc(100% - 1px);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -1074,7 +1074,12 @@ input::placeholder, textarea::placeholder {
 /* ── 层级引导线 ── */
 .oc-tree-children {
     border-left: 1px solid rgba(0,0,0,0.06);
-    margin-left: 16px;
+    margin-left: 8px;
+}
+
+.oc-tree-node .oc-tree-directory .oc-tree-children{
+    border-left: 1px solid rgba(0,0,0,0.06);
+    margin-left: 5px; 
 }
 
 .oc-tree-session {
