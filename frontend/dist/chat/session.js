@@ -86,6 +86,14 @@ async function refreshSessionTitle() {
         window._sessionMap[currentSessionId].title = title;
         // 更新会话区标题栏
         document.getElementById('ocChatTitle').textContent = title;
+        // 同步 Tab 标题
+        if (typeof openTabs !== 'undefined' && Array.isArray(openTabs)) {
+            var tab = openTabs.find(function(t) { return t.sessionID === currentSessionId; });
+            if (tab) {
+                tab.title = title;
+                if (typeof renderTabsBar === 'function') renderTabsBar();
+            }
+        }
         // 更新项目树中的会话节点
         const escapedId = currentSessionId.replace(/[&<>"']/g, function(m) {
             return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
@@ -116,7 +124,7 @@ async function refreshCurrentSession() {
     if (currentSessionRefreshPending) return;
 
     const refreshBtn = document.getElementById('btnRefreshCurrentSession');
-    const box = document.getElementById('ocMessages');
+    const box = getActiveMessagesEl();
     const refreshSessionId = currentSessionId;
 
     currentSessionRefreshPending = true;
@@ -156,7 +164,7 @@ async function refreshCurrentSession() {
         if (isSessionBusy(currentSessionId)) {
             scheduleRefresh();
         }
-        smartScroll(document.getElementById('ocMessages'), true);
+        smartScroll(getActiveMessagesEl(), true);
         showToast('已刷新当前会话', 'success');
     } catch (e) {
         if (refreshSessionId === currentSessionId) {
@@ -175,7 +183,18 @@ async function refreshCurrentSession() {
 /** 选择/切换会话：更新标题、目录路径，加载消息和子任务 */
 async function selectSession(id) {
     if (!id) return;
+    var info = window._sessionMap?.[id];
+    // 已打开的 Tab：走 Tab 快速切换（保存快照 + 秒切/分帧渲染）
+    if (openTabs.some(function(t) { return t.sessionID === id; })) {
+        openSessionTab(id, info?.title);
+        return;
+    }
+    // 首次打开：注册 Tab 并走原有完整加载流程
+    openSessionTab(id, info?.title);
     currentSessionId = id;
+    activeTabId = id;
+    // 重新渲染 Tab 栏，确保新 tab 呈激活态（openSessionTab 内部已渲染一次，但此时 activeTabId 还未更新）
+    if (typeof renderTabsBar === 'function') renderTabsBar();
     if (isMobileTreeMode()) { 
         visibleMessageCount = MOBILE_MESSAGE_RENDER_LIMIT; 
     }
@@ -187,8 +206,6 @@ async function selectSession(id) {
     lastMessageCount = 0;
     messageLoadSeq++;
     questionCustomInput = ''; // 清除 question 自定义输入
-    resetUserNav(); // 重置用户消息导航状态
-    const info = window._sessionMap?.[id];
     document.getElementById('ocChatTitle').textContent = info?.title || id;
     const dirEl = document.getElementById('ocSideDirPath');
     if (dirEl) {
@@ -203,7 +220,23 @@ async function selectSession(id) {
             openFileBrowserModal(p, { features: ['git'] });
         };
     }
-    document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';
+    // 创建并激活该会话容器，显示加载态
+    var sessBox = ensureTabMessagesEl(id);
+    if (sessBox) {
+        sessBox.classList.add('active');
+        sessBox.style.display = 'flex';
+        sessBox.innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';
+        // 隐藏其他 tab 容器
+        var poolEl = document.getElementById('ocMessagesPool');
+        if (poolEl) {
+            poolEl.querySelectorAll('.oc-messages-tab').forEach(function(c) {
+                if (c !== sessBox) { c.classList.remove('active'); c.style.display = 'none'; }
+            });
+        }
+    }
+    // 重置用户消息导航状态（必须在容器激活后、loadMessages 前调用，
+    // 避免 getActiveMessagesEl 仍指向旧容器导致 userNavIndex 被污染）
+    resetUserNav();
     loadMessages().then(() => {
         if (id !== currentSessionId) return;
         if (!isMobileTreeMode()) {
@@ -211,7 +244,7 @@ async function selectSession(id) {
             renderSubtaskPanel();
             loadDiff();
         }
-        smartScroll(document.getElementById('ocMessages'), true);
+        smartScroll(sessBox || getActiveMessagesEl(), true);
     }).catch(() => {});
 }
 
@@ -228,19 +261,21 @@ async function createSessionWithDir(dir) {
     return session;
 }
 
-/** 加载当前会话消息列表（含竞态保护） */
+/** 加载当前会话消息列表（含竞态保护；渲染到当前会话自己的 tab 容器） */
 async function loadMessages() {
-    const box = document.getElementById('ocMessages');
     const seq = ++messageLoadSeq;
     if (!currentSessionId) {
-        box.innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+        var box0 = getActiveMessagesEl();
+        if (box0) box0.innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
         return;
     }
+    const box = ensureTabMessagesEl(currentSessionId);
+    if (!box) return;
     try {
         const messages = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(currentSessionId)}/message`);
         if (seq !== messageLoadSeq) return;
         cacheMessages(currentSessionId, messages || []);
-        renderMessages(getCachedMessages(currentSessionId));
+        renderMessages(getCachedMessages(currentSessionId), box);
         if (!isMobileTreeMode()) {
             extractSubtaskSummaries(currentSessionId);
             renderSubtaskPanel();
@@ -746,6 +781,12 @@ async function sendPrompt() {
                 //设置当前目录
                 document.getElementById('ocSideDirPath').textContent = sessionDir;
                 currentSessionId = session.id || session.ID;
+                activeTabId = currentSessionId;
+                // 新建会话自动打开 Tab
+                if (typeof openSessionTab === 'function') {
+                    var newTitle = (window._sessionMap && window._sessionMap[currentSessionId] && window._sessionMap[currentSessionId].title) || currentSessionId;
+                    openSessionTab(currentSessionId, newTitle);
+                }
             } else {
                  showToast('请先新建会话，设置会话目录', 'error');
                  return;
@@ -760,7 +801,7 @@ async function sendPrompt() {
             } else {
                 renderCachedMessages(currentSessionId);
             }
-            smartScroll(document.getElementById('ocMessages'), true);
+            smartScroll(getActiveMessagesEl(), true);
             updateSendButton();
         }
         const body = { parts: buildParts(text) };
@@ -789,7 +830,7 @@ async function sendPrompt() {
         if (!isMobileTreeMode()) {
             await loadMessages();
         }
-        smartScroll(document.getElementById('ocMessages'), true);
+        smartScroll(getActiveMessagesEl(), true);
         scheduleRefresh();
         updateSendButton();
     } catch (e) {

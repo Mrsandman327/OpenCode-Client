@@ -123,7 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSidepanelWidth();
     }
 
-    document.getElementById('ocMessages').addEventListener('scroll', updateScrollBottomButton);
+    // 消息容器事件绑定到容器池（scroll 事件不冒泡，用 capture 捕获子容器滚动，覆盖所有 tab 容器）
+    var msgPool = document.getElementById('ocMessagesPool');
+    if (msgPool) {
+        msgPool.addEventListener('scroll', updateScrollBottomButton, true);
+        msgPool.addEventListener('mousedown', () => { userScrolling = true; });
+        msgPool.addEventListener('mouseup', () => { userScrolling = false; });
+        msgPool.addEventListener('mouseleave', () => { userScrolling = false; });
+    }
     document.querySelector('.oc-chat').addEventListener('click', (e) => {
         if (e.target.closest('.modal-overlay')) return;
         if (isMobileTreeMode()) {
@@ -132,9 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 跟踪用户拖拽滚动条
-    document.getElementById('ocMessages').addEventListener('mousedown', () => { userScrolling = true; });
-    document.getElementById('ocMessages').addEventListener('mouseup', () => { userScrolling = false; });
-    document.getElementById('ocMessages').addEventListener('mouseleave', () => { userScrolling = false; });
 
     // 附件
     document.getElementById('btnAttachFile').addEventListener('click', () => {

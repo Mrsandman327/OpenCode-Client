@@ -757,6 +757,73 @@ input::placeholder, textarea::placeholder {
     -webkit-user-select: none;
     min-width: 0;
 }
+/* ── 多会话 Tab 栏 ── */
+.oc-tabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 8px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: thin;
+}
+.oc-tabs-bar:empty {
+    display: none;
+}
+.oc-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 220px;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    flex-shrink: 0;
+}
+.oc-tab:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent);
+}
+.oc-tab.active {
+    background: var(--accent-ghost);
+    color: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+}
+.oc-tab.active .oc-tab-close {
+    color: var(--accent);
+    opacity: 0.7;
+}
+.oc-tab.active .oc-tab-close:hover {
+    color: var(--danger);
+    opacity: 1;
+}
+.oc-tab-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.oc-tab-close {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 2px;
+    border-radius: var(--radius-xs);
+    line-height: 1;
+}
+.oc-tab-close:hover {
+    color: var(--danger);
+}
 .oc-chat-head-title {
     min-width: 0;
     overflow: hidden;
@@ -1198,6 +1265,14 @@ input::placeholder, textarea::placeholder {
     min-height: 0;
     position: relative;
 }
+.oc-messages-pool {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
 .oc-messages {
     flex: 1;
     overflow-y: auto;
@@ -1210,6 +1285,13 @@ input::placeholder, textarea::placeholder {
     user-select: text;
     -webkit-user-select: text;
     contain: layout paint style;
+}
+.oc-messages-tab {
+    min-height: 0;
+    height: 100%;
+}
+.oc-messages-tab.active {
+    display: flex !important;
 }
 .oc-scroll-bottom {
     position: absolute;

@@ -85,6 +85,7 @@
                         <div class="oc-tree-resize-handle" id="ocTreeResizeHandle" aria-hidden="true"></div>
                     </aside>
                     <main class="oc-chat">
+                        <div class="oc-tabs-bar" id="ocTabsBar"></div>
                         <div class="oc-chat-head">
                             <button type="button" class="oc-chat-head-mobile-toggle" id="btnMobileTree" title="打开项目树">☰</button>
                             <span class="oc-chat-head-title" id="ocChatTitle">未选择会话</span>
@@ -98,7 +99,7 @@
                             <button type="button" class="btn btn-sm" id="ocSearchClose">×</button>
                         </div>
                         <div class="oc-messages-wrap">
-                            <div class="oc-messages" id="ocMessages">
+                            <div class="oc-messages-pool" id="ocMessagesPool">
                                 <div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>
                             </div>
                             <button type="button" class="oc-scroll-bottom" id="btnScrollBottom" title="回到会话底部">↓</button>
@@ -604,6 +605,7 @@
     <script src="/chat/sidepanel.js"></script>
     <script src="/chat/cache.js"></script>
     <script src="/chat/render.js"></script>
+    <script src="/chat/tabs.js"></script>
     <script src="/chat/events.js"></script>
     <script src="/chat/session.js"></script>
     <script src="/chat/commands.js"></script>

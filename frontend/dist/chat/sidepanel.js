@@ -337,7 +337,7 @@ function onSubtaskCardClick(e) {
 
 /** 定位到父消息在消息列表中的位置 */
 function locateParentMessage(msgId) {
-    const box = document.getElementById('ocMessages');
+    const box = getActiveMessagesEl();
     if (!box) return;
     const old = box.querySelectorAll('.oc-message.highlight');
     old.forEach(el => el.classList.remove('highlight'));

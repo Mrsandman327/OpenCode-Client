@@ -105,30 +105,35 @@ function handleOcEvent(event) {
 
     if (type === 'message.updated' && props.info) {
         upsertMessage(props.info);
+        bumpTabCacheVersion(sid);
         scheduleRenderCachedMessages(sid);
         scheduleSubtaskExtraction(sid);
         return;
     }
     if (type === 'message.part.updated' && props.part) {
         upsertPart(props.part);
+        bumpTabCacheVersion(sid);
         scheduleRenderCachedMessages(sid);
         scheduleSubtaskExtraction(sid);
         return;
     }
     if (type === 'message.part.delta') {
         applyPartDelta(props);
+        bumpTabCacheVersion(sid);
         scheduleRenderCachedMessages(sid);
         scheduleSubtaskExtraction(sid);
         return;
     }
     if (type === 'message.part.removed') {
         removePart(props);
+        bumpTabCacheVersion(sid);
         scheduleRenderCachedMessages(sid);
         scheduleSubtaskExtraction(sid);
         return;
     }
     if (type === 'message.removed') {
         removeMessage(props);
+        bumpTabCacheVersion(sid);
         scheduleRenderCachedMessages(sid);
         scheduleSubtaskExtraction(sid);
         return;
@@ -161,6 +166,11 @@ async function loadSessionStatuses() {
     } catch {
         return {};
     }
+}
+
+/** 会话缓存版本自增：SSE 更新消息缓存时调用，供 Tab 切回判断是否需要重建 DOM */
+function bumpTabCacheVersion(sessionID) {
+    if (sessionID) tabCacheVersion[sessionID] = (tabCacheVersion[sessionID] || 0) + 1;
 }
 
 /** 切换会话（转发到 selectSession） */

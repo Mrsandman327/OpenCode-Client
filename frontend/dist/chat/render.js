@@ -32,25 +32,25 @@ function trimMessagesForRender(items) {
 }
 
 /** 渲染移动端折叠提示按钮（点击加载更多历史消息） */
-function renderCollapsedHistoryNotice(totalCount, hiddenCount) {
-	const box = document.getElementById('ocMessages');
-	if (!box || hiddenCount <= 0) return;
+function renderCollapsedHistoryNotice(totalCount, hiddenCount, box) {
+	const boxEl = box || getActiveMessagesEl();
+	if (!boxEl || hiddenCount <= 0) return;
 	const notice = document.createElement('button');
 	notice.type = 'button';
 	notice.className = 'btn btn-sm oc-history-more';
 	notice.textContent = `已折叠较早消息，点击加载更多（前面还有 ${hiddenCount} 条）`;
 	notice.addEventListener('click', () => {
-		const prevHeight = box.scrollHeight;
+		const prevHeight = boxEl.scrollHeight;
         if (isMobileTreeMode()) { 
             visibleMessageCount += MOBILE_MESSAGE_LOAD_MORE_STEP; 
         }else{
             visibleMessageCount += PC_MESSAGE_LOAD_MORE_STEP;
         }
-		renderMessages(getCachedMessages(currentSessionId));
-		const nextHeight = box.scrollHeight;
-		box.scrollTop += nextHeight - prevHeight;
+		renderMessages(getCachedMessages(currentSessionId), boxEl);
+		const nextHeight = boxEl.scrollHeight;
+		boxEl.scrollTop += nextHeight - prevHeight;
 	});
-	box.prepend(notice);
+	boxEl.prepend(notice);
 }
 
 /** 保存元素焦点状态（用于 DOM 重建后恢复焦点） */
@@ -77,9 +77,84 @@ function restoreFocusState(container, state) {
     } catch (_) {}
 }
 
-/** 渲染完整消息列表（支持增量更新、滚动保持、移动端截断） */
-function renderMessages(items) {
-    const box = document.getElementById('ocMessages');
+/** 构建单条消息节点（user/assistant 卡片），供 renderMessages 与分帧渲染复用 */
+function buildMessageNode(item) {
+    const info = item.info || item;
+    const role = info.role || info.author || 'message';
+    const displayRole = role === 'user' ? '你' : (role === 'assistant' ? '助手' : role);
+    const parts = item.parts || [];
+    const node = document.createElement('div');
+    node.className = `oc-message ${role}`;
+    if (info.id) node.dataset.messageId = info.id;
+    node.innerHTML = `<div class="oc-message-role">${escapeHtml(displayRole)}</div>`;
+    const body = document.createElement('div');
+    body.className = 'oc-message-parts';
+    const partList = Array.isArray(parts) ? parts : [parts];
+    const messageErrorText = info.error?.message || info.error?.data?.message || '';
+    if (role === 'assistant' && messageErrorText) {
+        const errEl = document.createElement('div');
+        errEl.className = 'oc-part error-msg';
+        errEl.textContent = messageErrorText;
+        body.appendChild(errEl);
+    }
+    if (partList.length) {
+        partList.forEach(part => body.appendChild(renderPart(part)));
+    } else if (role === 'assistant') {
+        if (messageErrorText) {
+            // 已在上方输出 message-level error
+        } else if (isSessionBusy(currentSessionId)) {
+            const pending = document.createElement('div');
+            pending.className = 'oc-part pending';
+            pending.textContent = getSessionPendingText(currentSessionId);
+            body.appendChild(pending);
+        } else if (hasSessionError(currentSessionId)) {
+            const errEl = document.createElement('div');
+            errEl.className = 'oc-part error-msg';
+            errEl.textContent = '模型调用失败：' + (sessionErrors[currentSessionId] || '未知错误，请检查 opencode 提供商配置');
+            body.appendChild(errEl);
+        } else {
+            const empty = document.createElement('div');
+            empty.className = 'oc-part pending';
+            empty.textContent = messageErrorText || (info.time?.completed ? '已停止或本次未产生回复内容' : '正在等待模型回复...');
+            body.appendChild(empty);
+        }
+    } else {
+        const pre = document.createElement('pre');
+        pre.textContent = safeText(item);
+        body.appendChild(pre);
+    }
+    node.appendChild(body);
+    // 输出卡片：显示 agent / model 信息
+    if (role === 'assistant' && (info.agent || info.modelID || (info.model && info.model.modelID))) {
+        var metaParts = [];
+        if (info.agent) metaParts.push('🤖 ' + info.agent);
+        var metaModel = info.modelID || (info.model && info.model.modelID) || '';
+        if (info.providerID && metaModel) metaModel = info.providerID + '/' + metaModel;
+        if (metaModel) metaParts.push('🧠 ' + metaModel);
+        if (metaParts.length) {
+            const metaEl = document.createElement('div');
+            metaEl.className = 'oc-message-meta';
+            metaEl.textContent = metaParts.join(' · ');
+            node.appendChild(metaEl);
+        }
+    }
+    // 消息时间：user / assistant 都显示在卡片底部（右下角）
+    const msgTime = formatStepTime(info.time?.created || info.time?.updated || info.createdAt);
+    if (msgTime && (role === 'user' || role === 'assistant')) {
+        const timeEl = document.createElement('div');
+        timeEl.className = 'oc-message-time';
+        timeEl.textContent = '⏱ ' + msgTime;
+        node.appendChild(timeEl);
+    }
+    return node;
+}
+
+/** 渲染完整消息列表（支持增量更新、滚动保持、移动端截断）
+ *  @param {Array} items 消息数组
+ *  @param {HTMLElement} [targetBox] 目标容器；不传则用当前活动 tab 容器
+ */
+function renderMessages(items, targetBox) {
+    const box = targetBox || getActiveMessagesEl();
     const sourceList = (items || []).map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
     const list = trimMessagesForRender(sourceList);
 
@@ -137,81 +212,14 @@ function renderMessages(items) {
 
     box.innerHTML = '';
     list.forEach(item => {
-        const info = item.info || item;
-        const role = info.role || info.author || 'message';
-        const displayRole = role === 'user' ? '你' : (role === 'assistant' ? '助手' : role);
-        const parts = item.parts || [];
-        const node = document.createElement('div');
-        node.className = `oc-message ${role}`;
-        if (info.id) node.dataset.messageId = info.id;
-        node.innerHTML = `<div class="oc-message-role">${escapeHtml(displayRole)}</div>`;
-        const body = document.createElement('div');
-        body.className = 'oc-message-parts';
-        const partList = Array.isArray(parts) ? parts : [parts];
-        const messageErrorText = info.error?.message || info.error?.data?.message || '';
-        if (role === 'assistant' && messageErrorText) {
-            const errEl = document.createElement('div');
-            errEl.className = 'oc-part error-msg';
-            errEl.textContent = messageErrorText;
-            body.appendChild(errEl);
-        }
-        if (partList.length) {
-            partList.forEach(part => body.appendChild(renderPart(part)));
-        } else if (role === 'assistant') {
-            if (messageErrorText) {
-                // 已在上方输出 message-level error
-            } else if (isSessionBusy(currentSessionId)) {
-                const pending = document.createElement('div');
-                pending.className = 'oc-part pending';
-                pending.textContent = getSessionPendingText(currentSessionId);
-                body.appendChild(pending);
-            } else if (hasSessionError(currentSessionId)) {
-                const errEl = document.createElement('div');
-                errEl.className = 'oc-part error-msg';
-                errEl.textContent = '模型调用失败：' + (sessionErrors[currentSessionId] || '未知错误，请检查 opencode 提供商配置');
-                body.appendChild(errEl);
-            } else {
-                const empty = document.createElement('div');
-                empty.className = 'oc-part pending';
-                empty.textContent = messageErrorText || (info.time?.completed ? '已停止或本次未产生回复内容' : '正在等待模型回复...');
-                body.appendChild(empty);
-            }
-        } else {
-            const pre = document.createElement('pre');
-            pre.textContent = safeText(item);
-            body.appendChild(pre);
-        }
-        node.appendChild(body);
-        // 输出卡片：显示 agent / model 信息
-        if (role === 'assistant' && (info.agent || info.modelID || (info.model && info.model.modelID))) {
-            var metaParts = [];
-            if (info.agent) metaParts.push('🤖 ' + info.agent);
-            var metaModel = info.modelID || (info.model && info.model.modelID) || '';
-            if (info.providerID && metaModel) metaModel = info.providerID + '/' + metaModel;
-            if (metaModel) metaParts.push('🧠 ' + metaModel);
-            if (metaParts.length) {
-                const metaEl = document.createElement('div');
-                metaEl.className = 'oc-message-meta';
-                metaEl.textContent = metaParts.join(' · ');
-                node.appendChild(metaEl);
-            }
-        }
-        // 消息时间：user / assistant 都显示在卡片底部（右下角）
-        const msgTime = formatStepTime(info.time?.created || info.time?.updated || info.createdAt);
-        if (msgTime && (role === 'user' || role === 'assistant')) {
-            const timeEl = document.createElement('div');
-            timeEl.className = 'oc-message-time';
-            timeEl.textContent = '⏱ ' + msgTime;
-            node.appendChild(timeEl);
-        }
-        box.appendChild(node);
+        box.appendChild(buildMessageNode(item));
     });
 
     updateModelInfo(items);
     restoreScroll(box, scrollState, false);
     updateScrollBottomButton();
     renderTodos();
-	renderCollapsedHistoryNotice(sourceList.length, sourceList.length - list.length);
+	renderCollapsedHistoryNotice(sourceList.length, sourceList.length - list.length, box);
     updateUserNav();
 
 }
@@ -300,7 +308,7 @@ function restoreScroll(box, state, force) {
 
 /** 更新「滚到底」按钮可见性 */
 function updateScrollBottomButton() {
-    const box = document.getElementById('ocMessages');
+    const box = getActiveMessagesEl();
     const btn = document.getElementById('btnScrollBottom');
     if (!box || !btn) return;
     const canScroll = box.scrollHeight > box.clientHeight + 8;
@@ -310,7 +318,7 @@ function updateScrollBottomButton() {
 
 /** 平滑动画滚动到消息列表底部（easeOutCubic） */
 function scrollMessagesToBottom() {
-    const box = document.getElementById('ocMessages');
+    const box = getActiveMessagesEl();
     if (!box) return;
 
     // 自定义动画：每帧用最新 scrollHeight 做插值，流式回复期间目标值自动跟上

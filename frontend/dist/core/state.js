@@ -32,6 +32,23 @@ let sessionStatuses = {};
 let sessionErrors = {};
 
 // ============================
+// 多会话 Tab 页
+// ============================
+
+/** 已打开的 tab 列表：{ sessionID, title } */
+let openTabs = [];
+/** 当前活动 tab 的会话 ID（与 currentSessionId 保持一致） */
+let activeTabId = '';
+/** 每个会话的缓存版本号，SSE 更新缓存时自增 */
+let tabCacheVersion = {};
+/** 每个会话最后渲染的版本号，切回时对比以决定是否重建 DOM */
+let tabRenderedVersion = {};
+/** 每个会话的滚动位置快照 */
+let tabScrollPositions = {};
+/** 每个会话的展开状态快照 */
+let tabExpandedParts = {};
+
+// ============================
 // 定时器
 // ============================
 

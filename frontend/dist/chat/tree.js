@@ -388,7 +388,7 @@ async function addDirectoryToProject() {
         const ok = await buildTree();
         if (!ok || !treeHasSessionsForDir(window._lastProjectTree, dir)) {
             document.getElementById('ocChatTitle').textContent = '工作目录 @ ' + dir;
-            document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">该目录下没有会话记录，请先在该目录下新建会话</div>';
+            getActiveMessagesEl().innerHTML = '<div class="oc-empty">该目录下没有会话记录，请先在该目录下新建会话</div>';
             showToast('该目录下没有会话记录，请先在该目录下新建会话', 'warning');
             return;
         }
@@ -421,7 +421,7 @@ async function deleteSession(id) {
             currentSessionId = '';
             messageCache[currentSessionId] = null;
             expandedParts = {};
-            document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+            getActiveMessagesEl().innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
             document.getElementById('ocChatTitle').textContent = '未选择会话';
             updateModelInfo(null);
         }
@@ -437,6 +437,10 @@ async function deleteSession(id) {
             }
         }
         delete window._sessionMap[id];
+        // 清理对应 Tab（若被删除的是活动 Tab，自动切到相邻 Tab）
+        if (typeof closeSessionTab === 'function') {
+            closeSessionTab(id);
+        }
     } catch (e) {
         showToast('删除失败: ' + (e.message || e), 'error');
     }
@@ -466,7 +470,7 @@ async function createNewSession(dir) {
         subtaskSummaries = [];
         detailMessageCache = {};
         document.getElementById('ocChatTitle').textContent = '新建会话 @ ' + dir;
-        document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">输入内容后 Enter 发送，会话将在首次发送时创建</div>';
+        getActiveMessagesEl().innerHTML = '<div class="oc-empty">输入内容后 Enter 发送，会话将在首次发送时创建</div>';
         document.getElementById('ocDiff').innerHTML = '<div class="oc-empty">选择会话后查看变更</div>';
         document.getElementById('ocPrompt').value = '';
         document.getElementById('ocPrompt').focus();

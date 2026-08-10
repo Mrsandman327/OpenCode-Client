@@ -74,22 +74,28 @@ function getCachedMessages(sessionID) {
     return messageCache[sessionID];
 }
 
-/** 渲染会话缓存消息 */
+/** 渲染会话缓存消息（渲染到该会话自己的 tab 容器；容器不存在则跳过） */
 function renderCachedMessages(sessionID) {
-    if (!sessionID || sessionID !== currentSessionId) return;
-    renderMessages(getCachedMessages(sessionID));
+    if (!sessionID) return;
+    var el = getTabMessagesEl(sessionID);
+    if (!el) return;
+    renderMessages(getCachedMessages(sessionID), el);
 }
 
-/** 调度下一帧渲染缓存消息（防抖：同一帧内多次调用只触发一次） */
+/** 调度下一帧渲染缓存消息（防抖；多会话各自记录待渲染，一帧内多次调用只触发一次） */
+var _pendingRenderSessions = {};
+var _pendingRenderFrame = 0;
 function scheduleRenderCachedMessages(sessionID) {
-    if (!sessionID || sessionID !== currentSessionId) return;
-    pendingMessageRenderSession = sessionID;
-    if (pendingMessageRenderFrame) return;
-    pendingMessageRenderFrame = requestAnimationFrame(() => {
-        const target = pendingMessageRenderSession;
-        pendingMessageRenderFrame = 0;
-        pendingMessageRenderSession = '';
-        renderCachedMessages(target);
+    if (!sessionID) return;
+    _pendingRenderSessions[sessionID] = true;
+    if (_pendingRenderFrame) return;
+    _pendingRenderFrame = requestAnimationFrame(() => {
+        _pendingRenderFrame = 0;
+        var targets = Object.keys(_pendingRenderSessions);
+        _pendingRenderSessions = {};
+        targets.forEach(function(sid) {
+            renderCachedMessages(sid);
+        });
     });
 }
 
@@ -194,7 +200,7 @@ function ensurePendingAssistant(sessionID) {
 /** 渲染等待助手回复的占位提示 */
 function renderPendingAssistantPlaceholder(sessionID) {
 	if (!sessionID || sessionID !== currentSessionId) return;
-	const box = document.getElementById('ocMessages');
+	const box = getTabMessagesEl(sessionID);
 	if (!box) return;
 	box.innerHTML = '<div class="oc-empty">正在等待模型回复...</div>';
 }

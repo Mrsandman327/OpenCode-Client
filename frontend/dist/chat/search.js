@@ -68,7 +68,7 @@ function doSearch(query) {
     if (nextBtn) nextBtn.disabled = true;
     if (!query || query.length < 2) return;
 
-    var msgContainer = document.getElementById('ocMessages');
+    var msgContainer = getActiveMessagesEl();
     if (!msgContainer) return;
 
     var walker = document.createTreeWalker(msgContainer, NodeFilter.SHOW_TEXT, null, false);
@@ -118,7 +118,7 @@ function navigateSearch(dir) {
     var current = searchResults[searchIndex];
     current.classList.add('oc-search-active');
     temporarilyRevealSearchResult(current);
-    var container = document.getElementById('ocMessages');
+    var container = getActiveMessagesEl();
     if (container) {
         scrollSearchResultIntoView(current, container);
     }
@@ -240,9 +240,9 @@ function initUserNav() {
     if (prevBtn) prevBtn.addEventListener('click', function() { navigateUserMessage(-1); });
     if (nextBtn) nextBtn.addEventListener('click', function() { navigateUserMessage(1); });
 
-    // 监听消息区滚动，自动同步当前用户消息位置
-    var msgBox = document.getElementById('ocMessages');
-    if (msgBox) msgBox.addEventListener('scroll', onUserNavScroll);
+    // 监听消息区滚动（scroll 事件不冒泡，需用 capture 捕获子容器滚动），自动同步当前用户消息位置
+    var msgPool = document.getElementById('ocMessagesPool');
+    if (msgPool) msgPool.addEventListener('scroll', onUserNavScroll, true);
     userNavInited = true;
 }
 
@@ -253,7 +253,7 @@ function initUserNav() {
 function onUserNavScroll() {
     if (userNavScrollTimer) clearTimeout(userNavScrollTimer);
     userNavScrollTimer = setTimeout(function() {
-        var container = document.getElementById('ocMessages');
+        var container = getActiveMessagesEl();
         if (!container) return;
 
         var msgs = collectUserMessages();
@@ -305,7 +305,7 @@ function onUserNavScroll() {
  * @returns {HTMLElement[]}
  */
 function collectUserMessages() {
-    var container = document.getElementById('ocMessages');
+    var container = getActiveMessagesEl();
     if (!container) return [];
     return Array.from(container.querySelectorAll('.oc-message.user'));
 }
@@ -334,7 +334,7 @@ function navigateUserMessage(dir) {
     target.classList.add('oc-user-highlight');
 
     // 滚动到可视区域中间偏上位置
-    var container = document.getElementById('ocMessages');
+    var container = getActiveMessagesEl();
     if (container) {
         var targetTop = target.offsetTop - container.offsetTop;
         var targetScroll = targetTop - container.clientHeight * 0.3;

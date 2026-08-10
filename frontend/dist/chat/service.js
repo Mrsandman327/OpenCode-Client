@@ -303,6 +303,17 @@ async function stopWeb() {
         detailMessageCache = {};
         detailLoading = {};
         detailExpandedParts = {};
+        // 清理多会话 Tab
+        if (typeof openTabs !== 'undefined') {
+            openTabs = [];
+            activeTabId = '';
+            tabCacheVersion = {};
+            tabRenderedVersion = {};
+            tabScrollPositions = {};
+            tabExpandedParts = {};
+            var tabsBar = document.getElementById('ocTabsBar');
+            if (tabsBar) tabsBar.innerHTML = '';
+        }
         serverStatus = normalizeServerStatus(null);
         mcpStatus = null;
         lspStatus = null;
@@ -338,7 +349,7 @@ async function launchTerminal() {
 function clearClientUI() {
     document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
     document.getElementById('ocChatTitle').textContent = '未选择会话';
-    document.getElementById('ocMessages').innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+    getActiveMessagesEl().innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
     document.getElementById('ocSubtasks').innerHTML = '<div class="oc-empty">当前会话暂无子任务</div>';
     document.getElementById('ocTodos').innerHTML = '<div class="oc-empty">当前会话暂无代办</div>';
     renderServiceStatus();
