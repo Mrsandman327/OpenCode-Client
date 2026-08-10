@@ -1359,6 +1359,19 @@ input::placeholder, textarea::placeholder {
     letter-spacing: 0.5px;
 }
 .oc-message.user .oc-message-role { color: var(--accent); text-align: right; }
+.oc-message-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-align: left;
+}
+.oc-message-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: right;
+    margin-top: 4px;
+    font-family: "SF Mono", "Cascadia Code", monospace;
+}
 .oc-message pre {
     white-space: pre-wrap;
     word-break: break-word;
@@ -1405,6 +1418,7 @@ input::placeholder, textarea::placeholder {
 }
 .oc-step-label { font-weight: 600; }
 .oc-step-cost { font-family: "SF Mono", "Cascadia Code", monospace; font-size: 10px; }
+.oc-step-time { font-family: "SF Mono", "Cascadia Code", monospace; font-size: 10px; color: var(--text-muted); }
 
 /* ── 上下文压缩 ── */
 .oc-compaction {

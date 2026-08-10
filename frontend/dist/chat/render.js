@@ -3,6 +3,25 @@
 // 负责消息列表渲染、12 种 part 类型渲染器、滚动管理和模型信息同步
 // ============================================================
 
+/** 清洗 marked 渲染结果：移除会引发副作用的标签（脚本、meta 跳转、iframe 等）与事件属性 */
+function sanitizeMarkedHtml(html) {
+    var template = document.createElement('template');
+    template.innerHTML = html;
+    var dangerousTags = ['SCRIPT', 'META', 'IFRAME', 'OBJECT', 'EMBED', 'STYLE', 'LINK', 'BASE', 'FORM', 'INPUT', 'BUTTON'];
+    template.content.querySelectorAll('*').forEach(function(node) {
+        if (dangerousTags.indexOf(node.tagName) >= 0) {
+            node.parentNode.removeChild(node);
+            return;
+        }
+        Array.prototype.slice.call(node.attributes || []).forEach(function(attr) {
+            if (/^on/i.test(attr.name)) {
+                node.removeAttribute(attr.name);
+            }
+        });
+    });
+    return template.innerHTML;
+}
+
 /** 移动端消息截断：限制可见消息数量，返回末尾 N 条 */
 function trimMessagesForRender(items) {
 	const list = Array.isArray(items) ? items : [];
@@ -163,6 +182,28 @@ function renderMessages(items) {
             body.appendChild(pre);
         }
         node.appendChild(body);
+        // 输出卡片：显示 agent / model 信息
+        if (role === 'assistant' && (info.agent || info.modelID || (info.model && info.model.modelID))) {
+            var metaParts = [];
+            if (info.agent) metaParts.push('🤖 ' + info.agent);
+            var metaModel = info.modelID || (info.model && info.model.modelID) || '';
+            if (info.providerID && metaModel) metaModel = info.providerID + '/' + metaModel;
+            if (metaModel) metaParts.push('🧠 ' + metaModel);
+            if (metaParts.length) {
+                const metaEl = document.createElement('div');
+                metaEl.className = 'oc-message-meta';
+                metaEl.textContent = metaParts.join(' · ');
+                node.appendChild(metaEl);
+            }
+        }
+        // 消息时间：user / assistant 都显示在卡片底部（右下角）
+        const msgTime = formatStepTime(info.time?.created || info.time?.updated || info.createdAt);
+        if (msgTime && (role === 'user' || role === 'assistant')) {
+            const timeEl = document.createElement('div');
+            timeEl.className = 'oc-message-time';
+            timeEl.textContent = '⏱ ' + msgTime;
+            node.appendChild(timeEl);
+        }
         box.appendChild(node);
     });
 
@@ -365,19 +406,31 @@ function formatNumber(num) {
   }
 }
 
+/** 格式化时间戳为「年月日时分秒」，非法值返回空串 */
+function formatStepTime(ts) {
+    if (!ts) return '';
+    var d = new Date(Number(ts));
+    if (isNaN(d.getTime())) return '';
+    var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+        + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
 
-/** 渲染步骤分割线（开始/结束 + token 统计） */
+
+/** 渲染步骤分割线（开始/结束 + token 统计 + 时间） */
 function renderStepDivider(part, phase) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-step-divider';
+    const timeText = formatStepTime(part.time?.start || part.time?.created || part.time?.updated);
+    const timeHtml = timeText ? `<span class="oc-step-time">⏱ ${timeText}</span>` : '';
     if (phase === 'finish' && part.tokens) {
         const t = part.tokens;
         const input = (t.input || 0) + (t.cache?.read || 0) + (t.cache?.write || 0)
         const ouput = (t.output||0) + (t.reasoning||0);
         const total = t.total || (t.input || 0) + (t.output || 0) + (t.reasoning || 0);
-        el.innerHTML = `<span class="oc-step-label">步骤结束</span><span class="oc-step-cost">输入:${input} 输出:${ouput} 统计:${formatNumber(total)} tokens</span>`;
+        el.innerHTML = `<span class="oc-step-label">步骤结束</span><span class="oc-step-cost">输入:${input} 输出:${ouput} 统计:${formatNumber(total)} tokens</span>${timeHtml}`;
     } else {
-        el.innerHTML = '<span class="oc-step-label">步骤开始</span>';
+        el.innerHTML = `<span class="oc-step-label">步骤开始</span>${timeHtml}`;
     }
     return el;
 }
@@ -395,7 +448,7 @@ function renderReasoning(part) {
     body.className = 'oc-reasoning-body' + (expanded ? '' : ' hidden');
     body.dataset.expandKey = key;
     body.innerHTML = typeof marked !== 'undefined'
-        ? marked.parse(part.text || '', { breaks: true })
+        ? sanitizeMarkedHtml(marked.parse(part.text || '', { breaks: true }))
         : `<pre>${escapeHtml(part.text || '')}</pre>`;
     head.querySelector('.oc-reasoning-toggle').textContent = expanded ? '收起' : '展开';
     head.addEventListener('click', () => {
@@ -695,7 +748,7 @@ function renderTextPart(part) {
     el.className = 'oc-part oc-text';
     const text = (part && (part.text || part.content || part.message || part.value)) || '';
     el.innerHTML = typeof marked !== 'undefined'
-        ? marked.parse(text || '', { breaks: true })
+        ? sanitizeMarkedHtml(marked.parse(text || '', { breaks: true }))
         : `<pre>${escapeHtml(text || '')}</pre>`;
     return el;
 }
