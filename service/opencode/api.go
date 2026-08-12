@@ -106,7 +106,8 @@ func findQuestionID(base, sessionID, directory string) (string, error) {
 }
 
 // AnswerQuestion 回答 question 工具调用。
-func AnswerQuestion(sessionID, answerLabel string) model.APIResult {
+// answers 为按问题顺序的二维数组（每个问题一个 string[]），支持多问题一次提交。
+func AnswerQuestion(sessionID string, answers [][]string) model.APIResult {
 	base, err := getWebSessionBase()
 	if err != nil {
 		return model.APIResult{Error: err.Error()}
@@ -121,12 +122,12 @@ func AnswerQuestion(sessionID, answerLabel string) model.APIResult {
 		return model.APIResult{Error: err.Error()}
 	}
 
-	replyBody := fmt.Sprintf(`{"answers":[["%s"]]}`, answerLabel)
+	payload, _ := json.Marshal(map[string]any{"answers": answers})
 	replyURL := fmt.Sprintf("%s/question/%s/reply?directory=%s", base, requestID, url.QueryEscape(directory))
 	replyResp, err := http.Post(
 		replyURL,
 		"application/json",
-		strings.NewReader(replyBody),
+		strings.NewReader(string(payload)),
 	)
 	if err != nil {
 		return model.APIResult{Error: fmt.Sprintf("回答问题失败: %v", err)}

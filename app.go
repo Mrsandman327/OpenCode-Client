@@ -546,9 +546,9 @@ func (a *App) OpenCodeAPI(method, path, body string) model.APIResult {
 	return opencode.OpenCodeAPI(method, path, body)
 }
 
-// AnswerQuestion 回答 question 工具调用。
-func (a *App) AnswerQuestion(sessionID, answerLabel string) model.APIResult {
-	return opencode.AnswerQuestion(sessionID, answerLabel)
+// AnswerQuestion 回答 question 工具调用（answers 为按问题顺序的二维数组）。
+func (a *App) AnswerQuestion(sessionID string, answers [][]string) model.APIResult {
+	return opencode.AnswerQuestion(sessionID, answers)
 }
 
 // RejectQuestion 忽略 question 工具调用。

@@ -469,7 +469,7 @@ function renderReasoning(part) {
     return el;
 }
 
-/** 渲染 Question 工具（选项按钮、自定义输入、跳过） */
+/** 渲染 Question 工具（选项按钮、自定义输入、跳过、底部总提交） */
 function renderQuestionTool(part) {
     const state = part.state || {};
     const status = state.status || '';
@@ -479,6 +479,11 @@ function renderQuestionTool(part) {
     const isError = status === 'error' && !isDismissed;
     const questions = (state.input && state.input.questions) || [];
     const output = state.output;
+
+    // 多问题逐题收集答案：挂到 part 上，避免跨渲染丢失
+    if (!part.__pendingAnswers) part.__pendingAnswers = [];
+    if (!part.__pendingCustom) part.__pendingCustom = [];
+    if (!part.__pendingSkipped) part.__pendingSkipped = [];
 
     const el = document.createElement('div');
     el.className = `oc-part oc-tool oc-tool-question` + (isCompleted ? ' done' : '') + (isDismissed ? ' dismissed' : '') + (isError ? ' error' : '') + (isRunning ? ' running' : '');
@@ -490,8 +495,27 @@ function renderQuestionTool(part) {
     if (isCompleted) { statusText = '✓ 已回答'; statusClass = 'ok'; }
     else if (isDismissed) { statusText = '↩ 已跳过'; statusClass = 'skipped'; }
     else if (isError) { statusText = '✗ 失败'; statusClass = 'err'; }
-    else { statusText = '⏳ 等待回答'; statusClass = 'running'; }
+    else {
+        const answeredCount = part.__pendingAnswers.filter(function(a) { return a && a.length; }).length;
+        statusText = questions.length > 1 && answeredCount > 0
+            ? '⏳ 已答 ' + answeredCount + '/' + questions.length
+            : '⏳ 等待回答';
+        statusClass = 'running';
+    }
     head.innerHTML = `<span class="oc-tool-icon">❓</span> 提问 <span class="oc-tool-status ${statusClass}">${statusText}</span>`;
+
+    // 组装所有答案并提交（含自定义输入；跳过的题传空数组）
+    const submitAllAnswers = function() {
+        const all = questions.map(function(q, i) {
+            if (part.__pendingSkipped[i]) return [];
+            const opts = part.__pendingAnswers[i] || [];
+            const custom = part.__pendingCustom[i] || '';
+            if (opts.length) return opts;
+            if (custom.trim()) return [custom.trim()];
+            return [];
+        });
+        answerQuestion(all);
+    };
 
     const body = document.createElement('div');
     body.className = 'oc-tool-body';
@@ -512,12 +536,44 @@ function renderQuestionTool(part) {
         qText.textContent = q.question || '';
         qBlock.appendChild(qText);
 
-        // 已回答
-        if (isCompleted && output) {
-            const answerDiv = document.createElement('div');
-            answerDiv.className = 'oc-question-answer';
-            answerDiv.innerHTML = `<span class="oc-question-answer-label">✅ 已选：</span>${escapeHtml(safeText(output))}`;
-            qBlock.appendChild(answerDiv);
+        // 该题已跳过：直接显示跳过状态，不渲染选项/输入
+        const qSkipped = part.__pendingSkipped && part.__pendingSkipped[qi];
+        if (isRunning && qSkipped) {
+            const skippedDiv = document.createElement('div');
+            skippedDiv.className = 'oc-question-answer oc-question-dismissed';
+            skippedDiv.textContent = '↩ 已跳过此问题';
+            qBlock.appendChild(skippedDiv);
+            body.appendChild(qBlock);
+            return;
+        }
+
+        // 该问题已答标识（选项或自定义输入均可）
+        const qAnswered = part.__pendingAnswers[qi] && part.__pendingAnswers[qi].length;
+        const qCustom = part.__pendingCustom[qi] && part.__pendingCustom[qi].trim();
+        const hasAnswer = !!(qAnswered || qCustom);
+        if (isRunning && hasAnswer) {
+            const answeredHint = document.createElement('div');
+            answeredHint.className = 'oc-question-answered-hint';
+            answeredHint.textContent = '✅ 已答：' + (qAnswered ? part.__pendingAnswers[qi].join(', ') : qCustom);
+            qBlock.appendChild(answeredHint);
+        }
+
+        // 已回答：只显示该问题对应的答案
+        if (isCompleted) {
+            var metaAnswers = state.metadata && state.metadata.answers;
+            var thisAnswer = (Array.isArray(metaAnswers) && metaAnswers[qi]) ? metaAnswers[qi] : null;
+            if (thisAnswer && thisAnswer.length) {
+                const answerDiv = document.createElement('div');
+                answerDiv.className = 'oc-question-answer';
+                answerDiv.innerHTML = `<span class="oc-question-answer-label">✅ 已选：</span>${escapeHtml(thisAnswer.join(', '))}`;
+                qBlock.appendChild(answerDiv);
+            } else if (output) {
+                // 无 metadata 时降级：从汇总输出中尝试提取对应答案
+                const answerDiv = document.createElement('div');
+                answerDiv.className = 'oc-question-answer';
+                answerDiv.innerHTML = `<span class="oc-question-answer-label">✅ 已选：</span>${escapeHtml(safeText(output))}`;
+                qBlock.appendChild(answerDiv);
+            }
         }
         // 已跳过
         if (isDismissed) {
@@ -537,41 +593,81 @@ function renderQuestionTool(part) {
                 btn.className = 'oc-question-option-btn';
                 const label = (opt.label || '');
                 const desc = opt.description || '';
+                // 已选该选项时高亮
+                const answered = part.__pendingAnswers[qi];
+                if (answered && answered.indexOf(label) >= 0) btn.classList.add('selected');
                 let btnHtml = `<span class="oc-option-label">${escapeHtml(label)}</span>`;
                 if (desc) btnHtml += `<span class="oc-option-desc">${escapeHtml(desc)}</span>`;
                 btn.innerHTML = btnHtml;
+                // 点击只 toggle 选中状态，不提交、不关闭；直接更新当前 DOM
                 btn.addEventListener('click', () => {
-                    answerQuestion(label);
+                    const isMulti = !!q.multiple;
+                    let cur = part.__pendingAnswers[qi] || [];
+                    if (isMulti) {
+                        cur = cur.indexOf(label) >= 0 ? cur.filter(x => x !== label) : cur.concat([label]);
+                    } else {
+                        cur = [label];
+                        // 单选：清除该问题其他选项的高亮
+                        optsDiv.querySelectorAll('.oc-question-option-btn').forEach(function(b) {
+                            b.classList.remove('selected');
+                        });
+                    }
+                    part.__pendingAnswers[qi] = cur;
+                    // 当前按钮高亮
+                    btn.classList.toggle('selected', cur.indexOf(label) >= 0);
+                    // 更新该问题"已答"提示
+                    const answeredHint = qBlock.querySelector('.oc-question-answered-hint');
+                    if (cur.length) {
+                        if (!answeredHint) {
+                            const hint = document.createElement('div');
+                            hint.className = 'oc-question-answered-hint';
+                            hint.textContent = '✅ 已答：' + cur.join(', ');
+                            qBlock.appendChild(hint);
+                        } else {
+                            answeredHint.textContent = '✅ 已答：' + cur.join(', ');
+                        }
+                    } else if (answeredHint) {
+                        answeredHint.remove();
+                    }
+                    // 更新头部计数
+                    const headStatus = el.querySelector('.oc-tool-status');
+                    if (headStatus) {
+                        const answeredCount = part.__pendingAnswers.filter(function(a) { return a && a.length; }).length;
+                        headStatus.textContent = questions.length > 1 && answeredCount > 0
+                            ? '⏳ 已答 ' + answeredCount + '/' + questions.length
+                            : '⏳ 等待回答';
+                    }
                 });
                 optsDiv.appendChild(btn);
             });
             qBlock.appendChild(optsDiv);
 
-            // 自定义输入
+            // 自定义输入（仅记录，无独立发送按钮，随底部总提交一起提交）
             const customRow = document.createElement('div');
             customRow.className = 'oc-question-custom';
             const customInput = document.createElement('input');
             customInput.className = 'oc-question-custom-input';
             customInput.placeholder = '✏️ 输入自定义回答...';
-            customInput.value = questionCustomInput || '';
+            customInput.value = part.__pendingCustom[qi] || '';
             customInput.addEventListener('input', () => {
-                questionCustomInput = customInput.value;
-            });
-            const customBtn = document.createElement('button');
-            customBtn.className = 'oc-question-custom-btn';
-            customBtn.textContent = '发送';
-            const doCustomAnswer = () => {
+                part.__pendingCustom[qi] = customInput.value;
+                // 同步"已答"提示
                 const val = customInput.value.trim();
-                if (!val) return;
-                questionCustomInput = '';
-                answerQuestion(val);
-            };
-            customBtn.addEventListener('click', doCustomAnswer);
-            customInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.preventDefault(); doCustomAnswer(); }
+                const answeredHint = qBlock.querySelector('.oc-question-answered-hint');
+                if (val) {
+                    if (!answeredHint) {
+                        const hint = document.createElement('div');
+                        hint.className = 'oc-question-answered-hint';
+                        hint.textContent = '✅ 已答：' + val;
+                        qBlock.appendChild(hint);
+                    } else {
+                        answeredHint.textContent = '✅ 已答：' + val;
+                    }
+                } else if (answeredHint) {
+                    answeredHint.remove();
+                }
             });
             customRow.appendChild(customInput);
-            customRow.appendChild(customBtn);
             qBlock.appendChild(customRow);
 
             // 跳过按钮
@@ -580,24 +676,34 @@ function renderQuestionTool(part) {
             const skipBtn = document.createElement('button');
             skipBtn.className = 'oc-question-skip-btn';
             skipBtn.textContent = '↩ 跳过此问题';
-            skipBtn.addEventListener('click', async () => {
-                questionCustomInput = '';
-                skipBtn.disabled = true;
-                skipBtn.textContent = '跳过中...';
-                try {
-                    const result = await api.RejectQuestion(currentSessionId);
-                    if (result && result.success) {
-                        showToast('已跳过问题', 'info');
-                    } else {
-                        showToast('操作失败: ' + ((result && result.error) || '未知错误'), 'error');
-                        skipBtn.disabled = false;
-                        skipBtn.textContent = '↩ 跳过此问题';
-                    }
-                } catch (e) {
-                    showToast('操作失败: ' + (e.message || e), 'error');
-                    skipBtn.disabled = false;
-                    skipBtn.textContent = '↩ 跳过此问题';
+            // 单题跳过：标记该题跳过，不调 reject（reject 会跳过整个问题集）
+            skipBtn.addEventListener('click', () => {
+                part.__pendingSkipped[qi] = true;
+                // 清掉该题已选答案
+                part.__pendingAnswers[qi] = [];
+                part.__pendingCustom[qi] = '';
+                // 原位更新：隐藏选项/输入/跳过，显示已跳过
+                const optsDiv = qBlock.querySelector('.oc-question-options');
+                if (optsDiv) optsDiv.style.display = 'none';
+                const customRow = qBlock.querySelector('.oc-question-custom');
+                if (customRow) customRow.style.display = 'none';
+                const skipRow = qBlock.querySelector('.oc-question-skip-row');
+                if (skipRow) skipRow.style.display = 'none';
+                const answeredHint = qBlock.querySelector('.oc-question-answered-hint');
+                if (answeredHint) answeredHint.remove();
+                const skippedDiv = document.createElement('div');
+                skippedDiv.className = 'oc-question-answer oc-question-dismissed';
+                skippedDiv.textContent = '↩ 已跳过此问题';
+                qBlock.appendChild(skippedDiv);
+                // 更新头部计数
+                const headStatus = el.querySelector('.oc-tool-status');
+                if (headStatus) {
+                    const answeredCount = part.__pendingAnswers.filter(function(a) { return a && a.length; }).length;
+                    headStatus.textContent = questions.length > 1 && answeredCount > 0
+                        ? '⏳ 已答 ' + answeredCount + '/' + questions.length
+                        : '⏳ 等待回答';
                 }
+                showToast('已跳过该问题', 'info');
             });
             skipRow.appendChild(skipBtn);
             qBlock.appendChild(skipRow);
@@ -610,6 +716,20 @@ function renderQuestionTool(part) {
         if (state.input) {
             body.innerHTML += `<div class="oc-tool-io oc-tool-input"><div class="oc-tool-io-label">输入</div><pre><code>${escapeHtml(safeText(state.input))}</code></pre></div>`;
         }
+    }
+
+    // 运行中：底部统一提交按钮
+    if (isRunning && questions.length) {
+        const submitRow = document.createElement('div');
+        submitRow.className = 'oc-question-submit-row';
+        const submitBtn = document.createElement('button');
+        submitBtn.className = 'oc-question-finish-btn';
+        submitBtn.textContent = '✓ 提交回答';
+        submitBtn.addEventListener('click', function() {
+            submitAllAnswers();
+        });
+        submitRow.appendChild(submitBtn);
+        body.appendChild(submitRow);
     }
 
     if (!isRunning) {
@@ -729,24 +849,31 @@ function renderTool(part) {
 }
 // ── question 工具回复 ──
 
-/** 提交 Question 工具的回答 */
-async function answerQuestion(answerText) {
+/**
+ * 提交 Question 工具的回答。
+ * 多问题场景：answers 为按问题顺序的二维数组（每个问题一个 string[]）。
+ */
+async function answerQuestion(answers) {
     if (!currentSessionId) return;
     questionCustomInput = '';
     const input = document.getElementById('ocPrompt');
     try {
-        const result = await api.AnswerQuestion(currentSessionId, answerText);
+        // 兼容单值：传字符串时转成单问题单答案
+        const answersArr = Array.isArray(answers)
+            ? answers
+            : [[answers]];
+        const result = await api.AnswerQuestion(currentSessionId, answersArr);
         if (result && result.success) {
-            showToast('已回答: ' + answerText, 'success');
+            showToast('已回答', 'success');
             if (input) input.value = '';
             // SSE 事件会自动推送模型响应，无需手动 loadMessages
         } else {
             showToast('回答失败: ' + ((result && result.error) || '未知错误'), 'error');
-            if (input) { input.value = answerText; input.focus(); }
+            if (input) { input.value = typeof answers === 'string' ? answers : ''; input.focus(); }
         }
     } catch (e) {
         showToast('回答失败: ' + (e.message || e), 'error');
-        if (input) { input.value = answerText; input.focus(); }
+        if (input) { input.value = typeof answers === 'string' ? answers : ''; input.focus(); }
     }
 }
 

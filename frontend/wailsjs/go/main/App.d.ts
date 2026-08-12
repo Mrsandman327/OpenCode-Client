@@ -9,7 +9,7 @@ export function AddModelType(arg1:string):Promise<model.SaveResult>;
 
 export function AddSkillSourceDir(arg1:string):Promise<model.SaveResult>;
 
-export function AnswerQuestion(arg1:string,arg2:string):Promise<model.APIResult>;
+export function AnswerQuestion(arg1:string,arg2:Array<any>):Promise<model.APIResult>;
 
 export function AppCall(arg1:string,arg2:Array<json.RawMessage>):Promise<any>;
 

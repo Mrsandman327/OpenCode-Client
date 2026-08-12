@@ -280,8 +280,8 @@ const mockApi = (() => {
         GetWorkDir: async () => 'E:\\data\\ai_test\\feishu\\skill-manager',
         AddModelType: async () => ({ success: true }),
         DeleteModelType: async () => ({ success: true }),
-        AnswerQuestion: async (sessionID, label) => {
-            console.log('mock answer question:', sessionID, label);
+        AnswerQuestion: async (sessionID, answers) => {
+            console.log('mock answer question:', sessionID, answers);
             return { success: true, status: 200 };
         },
         RejectQuestion: async (sessionID) => {

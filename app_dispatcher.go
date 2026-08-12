@@ -266,11 +266,12 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 	case "GetSkillSourceDirs":
 		return a.GetSkillSourceDirs(), nil
 	case "AnswerQuestion":
-		var sessionID, answerLabel string
-		if err := decodeArgs(args, &sessionID, &answerLabel); err != nil {
+		var sessionID string
+		var answers [][]string
+		if err := decodeArgs(args, &sessionID, &answers); err != nil {
 			return nil, err
 		}
-		return a.AnswerQuestion(sessionID, answerLabel), nil
+		return a.AnswerQuestion(sessionID, answers), nil
 	case "RejectQuestion":
 		var sessionID string
 		if err := decodeArgs(args, &sessionID); err != nil {
