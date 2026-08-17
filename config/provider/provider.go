@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -91,8 +92,14 @@ func GetProviders() []model.ProviderInfo {
 
 		models := make([]model.ModelInfo, 0)
 		if entry.Models != nil {
-			for mid, m := range entry.Models {
-				models = append(models, model.ModelInfo{ID: mid, Name: m.Name})
+			// 模型是 map，遍历顺序随机；按键排序保证显示顺序稳定
+			modelKeys := make([]string, 0, len(entry.Models))
+			for mid := range entry.Models {
+				modelKeys = append(modelKeys, mid)
+			}
+			sort.Strings(modelKeys)
+			for _, mid := range modelKeys {
+				models = append(models, model.ModelInfo{ID: mid, Name: entry.Models[mid].Name})
 			}
 		}
 
@@ -116,6 +123,10 @@ func GetProviders() []model.ProviderInfo {
 			Models:  models,
 		})
 	}
+	// cfg.Provider 是 map，遍历顺序随机；按键排序保证供应商卡片显示顺序稳定
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Key < result[j].Key
+	})
 	return result
 }
 
