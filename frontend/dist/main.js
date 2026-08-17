@@ -1,15 +1,64 @@
 // ============================================================
 // OpenCode 管理中心 - 全局事件绑定 + 应用启动
-// 模块文件按顺序在 index.html 中加载
+// ES Modules 入口：所有业务模块在此统一 import
 // ============================================================
+
+// ============================
+// 模块导入（依赖关系显式声明）
+// ============================
+import { toggleTheme } from './core/theme.js';
+import { isBrowserRuntimeForMain, showToast } from './core/utils.js';
+import { api } from './core/apicall.js';
+import { store } from './core/state.js';
+import {
+    isMobileTreeMode, toggleMobileTree, closeMobileTree,
+    toggleSessions, toggleSidepanel,
+} from './chat/mobile.js';
+import {
+    showProxyModal, hideProxyModal, applyProxyConfig, updateProxyPreview, updateProxyButton,
+    showFrontendWebModal, closeFrontendWebModal, startFrontendWeb, stopFrontendWeb,
+    copyFrontendWebUrl, persistFrontendWebConfigFromInputs, loadFrontendWebConfigToInputs,
+    checkFrontendWebStatus,
+} from './chat/config.js';
+import {
+    startWeb, stopWeb, checkWebStatus, loadServiceStatus, launchTerminal,
+} from './chat/service.js';
+import { refreshTree, createNewSession } from './chat/tree.js';
+import { loadDiff } from './chat/sidepanel.js';
+import { isSessionBusy, scrollMessagesToBottom, updateScrollBottomButton } from './chat/render.js';
+import {
+    sendPrompt, abortSession, addAttachment, refreshCurrentSession, scheduleRefresh,
+    initTreePanelResize, loadTreePanelWidth, applyTreePanelWidth,
+    initSidepanelResize, loadSidepanelWidth, applySidepanelWidth,
+    treePanelWidth, sidepanelWidth,
+} from './chat/session.js';
+import { closeDirBrowserModal, goDirBrowserUp, selectDirBrowserCurrent } from './filebrowser/dir.js';
+import {
+    closeFileBrowserModal, closeFileBrowserUploadConflictModal, refreshFileBrowser,
+    openFileBrowserUploadPicker, handleBrowserUploadSelected, submitBrowserUpload,
+    showFileBrowserRenameMode, switchFileBrowserMode, downloadCurrentFilePreview,
+} from './filebrowser/browser.js';
+import {
+    showAddTypeModal, loadModelConfig, handleSchemeSwitch, handleSchemeImport,
+    handleSchemeExport, handleSchemeSave, handleSchemeApply,
+} from './views/omo-config.js';
+import {
+    loadSkillsData, renderSkillList, bindSkillManagerEvents,
+    addSourceDir, removeSourceDir, openSelectedSourceDir,
+    saveSkillScheme, deleteSkillScheme, applySkillScheme,
+} from './views/skill-manager.js';
+import {
+    renderCommandsCard, renderApiDocs, apiDocLoaded,
+} from './views/commands.js';
+import { loadProviders } from './views/provider.js';
+// 副作用模块：聊天命令面板在模块顶层自绑定键盘/输入事件（无导出符号被消费）
+import './chat/cmd-palette.js';
+// 副作用模块：侧边栏导航在模块顶层绑定点击事件并恢复折叠状态
+import './chat/navigation.js';
 
 // ============================
 // 工作区事件绑定
 // ============================
-
-function isBrowserRuntimeForMain() {
-    return !window.runtime;
-}
 
 document.addEventListener('DOMContentLoaded', () => {
     if (isBrowserRuntimeForMain()) {
@@ -88,10 +137,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 移动端输入时暂停后台轮询，避免与键入争抢渲染
     document.getElementById('ocPrompt').addEventListener('focus', () => {
-        if (isMobileTreeMode()) { clearInterval(refreshTimer); refreshTimer = null; }
+        if (isMobileTreeMode()) { clearInterval(store.refreshTimer); store.refreshTimer = null; }
     });
     document.getElementById('ocPrompt').addEventListener('blur', () => {
-        if (isMobileTreeMode() && !refreshTimer) { scheduleRefresh(); }
+        if (isMobileTreeMode() && !store.refreshTimer) { scheduleRefresh(); }
     });
 
     // 输入框 placeholder 按平台切换
@@ -127,9 +176,9 @@ document.addEventListener('DOMContentLoaded', () => {
     var msgPool = document.getElementById('ocMessagesPool');
     if (msgPool) {
         msgPool.addEventListener('scroll', updateScrollBottomButton, true);
-        msgPool.addEventListener('mousedown', () => { userScrolling = true; });
-        msgPool.addEventListener('mouseup', () => { userScrolling = false; });
-        msgPool.addEventListener('mouseleave', () => { userScrolling = false; });
+        msgPool.addEventListener('mousedown', () => { store.userScrolling = true; });
+        msgPool.addEventListener('mouseup', () => { store.userScrolling = false; });
+        msgPool.addEventListener('mouseleave', () => { store.userScrolling = false; });
     }
     document.querySelector('.oc-chat').addEventListener('click', (e) => {
         if (e.target.closest('.modal-overlay')) return;
@@ -249,9 +298,9 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.textContent = '⏳ 刷新中...';
         try {
             const newModels = await api.OpenCodeCall('GET', '/provider');
-            if (newModels) availableModels = newModels;
+            if (newModels) store.availableModels = newModels;
             await loadModelConfig();
-            showToast(`获取到 ${availableModels.length} 个可用模型`, 'success');
+            showToast(`获取到 ${store.availableModels.length} 个可用模型`, 'success');
         } catch (err) {
             showToast('刷新模型列表失败: ' + (err.message || err), 'error');
         }
@@ -324,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.textContent = '⏳ 刷新中...';
         try {
             await api.Refresh();
-            skillsLoaded = false;
+            store.skillsLoaded = false;
             await loadSkillsData();
             showToast('列表已刷新', 'success');
         } catch (err) {
@@ -381,9 +430,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tabBtn || !tabBtn.dataset.cmdTab) return;
 
         const tab = tabBtn.dataset.cmdTab;
-        if (tab === cmdActiveTab) return;
+        if (tab === store.cmdActiveTab) return;
 
-        cmdActiveTab = tab;
+        store.cmdActiveTab = tab;
 
         document.querySelectorAll('.cmd-tab').forEach(t => {
             t.classList.toggle('active', t.dataset.cmdTab === tab);
@@ -394,8 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
     var apiDocSearchInput = document.getElementById('apiDocSearch');
     if (apiDocSearchInput) {
         apiDocSearchInput.addEventListener('input', function(e) {
-            apiDocKeyword = e.target.value || '';
-            if (cmdActiveTab === 'api' && apiDocLoaded) {
+            store.apiDocKeyword = e.target.value || '';
+            if (store.cmdActiveTab === 'api' && apiDocLoaded) {
                 renderApiDocs();
             }
         });

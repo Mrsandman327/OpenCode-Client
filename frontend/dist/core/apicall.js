@@ -4,7 +4,10 @@
 // api 延迟绑定：Wails 就绪前脚本可能已执行，此时 window.go 不存在
 // 因此每次调用时先检测真实 API，就绪后自动切换
 
-const api = new Proxy({}, {
+import { store } from './state.js';
+import { showToast } from './utils.js';
+
+export const api = new Proxy({}, {
     get(_, prop) {
         if (prop === 'OpenCodeCall') {
             return async (method, path, data) => {
@@ -151,20 +154,20 @@ const mockApi = (() => {
         unOpenCode: async (sid, cont) => { console.log('mock launch:', sid, cont); },
         // web 管理
         StartOpenCodeWeb: async (port, hostname, proxy) => {
-            webURL = `http://${hostname || '127.0.0.1'}:${port || 4096}`;
-            webRunning = true;
-            serverStatus = { url: webURL, health: '在线', version: 'mock' };
-            updateWebUI();
-            return { running: true, success: true, url: webURL, health: '在线', version: 'mock' };
+            store.webURL = `http://${hostname || '127.0.0.1'}:${port || 4096}`;
+            store.webRunning = true;
+            store.serverStatus = { url: store.webURL, health: '在线', version: 'mock' };
+            // 不再直接调用业务层 updateWebUI，由调用方（service.startWeb）负责 UI 刷新
+            return { running: true, success: true, url: store.webURL, health: '在线', version: 'mock' };
         },
         StopOpenCodeWeb: async () => {
-            webRunning = false; webURL = '';
-            serverStatus = normalizeServerStatus(null);
-            updateWebUI(); clearClientUI();
+            store.webRunning = false; store.webURL = '';
+            store.serverStatus = { url: '', health: '离线', version: '' };
+            // 不再直接调用业务层 updateWebUI/clearClientUI，由调用方（service.stopWeb）负责 UI 刷新
             return { success: true };
         },
         GetWebStatus: async (hostname, port) => {
-            return { running: webRunning, url: webURL || `http://${hostname || '127.0.0.1'}:${port || 4096}`, health: webRunning ? '在线' : '离线', version: webRunning ? 'mock' : '' };
+            return { running: store.webRunning, url: store.webURL || `http://${hostname || '127.0.0.1'}:${port || 4096}`, health: store.webRunning ? '在线' : '离线', version: store.webRunning ? 'mock' : '' };
         },
         LaunchWindowsTerminal: async (mode, url, dir) => {
             console.log('mock launch wt:', mode, url, dir);

@@ -1,7 +1,17 @@
 // ============================================================
 // OpenCode 管理中心 - 侧边栏导航
+// 依赖：core/utils.js（$$）、chat/service.js（checkWebStatus）；
+//       views/omo-config.js（loadModelConfig）、views/skill-manager.js（loadSkillsData）、
+//       views/commands.js（loadCommands）——views 层尚未改造，保留全局守卫调用
 // ============================================================
-function switchView(viewId) {
+
+import { $$ } from '../core/utils.js';
+import { checkWebStatus } from './service.js';
+import { loadModelConfig } from '../views/omo-config.js';
+import { loadSkillsData } from '../views/skill-manager.js';
+import { loadCommands } from '../views/commands.js';
+
+export function switchView(viewId) {
     // 更新导航项高亮
     $$('.nav-item').forEach(item => {
         item.classList.toggle('active', item.dataset.view === viewId);
@@ -35,13 +45,13 @@ document.getElementById('sidebar').addEventListener('click', (e) => {
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebarCollapsed';
 
-function applySidebarCollapseState(collapsed) {
+export function applySidebarCollapseState(collapsed) {
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
     sidebar.classList.toggle('collapsed', collapsed);
 }
 
-function loadSidebarCollapseState() {
+export function loadSidebarCollapseState() {
     let collapsed = true;
     try {
         const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
@@ -52,7 +62,7 @@ function loadSidebarCollapseState() {
     applySidebarCollapseState(collapsed);
 }
 
-function toggleSidebarCollapse() {
+export function toggleSidebarCollapse() {
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
     const nextCollapsed = !sidebar.classList.contains('collapsed');

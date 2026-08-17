@@ -1,20 +1,24 @@
 // ============================================================
 // OpenCode 管理中心 - 常用命令视图
 // ============================================================
-let commandsData = [];
-let commandsLoaded = false;
-let cmdActiveTab = 'cli';
-let apiDocData = null;
-let apiDocLoaded = false;
-let apiDocKeyword = '';
+// 说明：ES Modules 化改造。core 层依赖静态导入；本文件不依赖
+// filebrowser/chat 模块，无守卫调用。
+import { api } from '../core/apicall.js';
+import { escapeHtml } from '../core/utils.js';
+import { store } from '../core/state.js';
 
-function updateApiDocSearchVisibility(tab) {
+export let commandsData = [];
+export let commandsLoaded = false;
+export let apiDocData = null;
+export let apiDocLoaded = false;
+
+export function updateApiDocSearchVisibility(tab) {
     const searchBar = document.getElementById('apiDocSearchBar');
     if (!searchBar) return;
     searchBar.style.display = tab === 'api' ? '' : 'none';
 }
 
-function renderCommandsCard(tab) {
+export function renderCommandsCard(tab) {
     updateApiDocSearchVisibility(tab);
     if (tab === 'api') {
         if (apiDocLoaded) {
@@ -31,7 +35,7 @@ function renderCommandsCard(tab) {
     }
 }
 
-async function loadCommands() {
+export async function loadCommands() {
     const content = document.getElementById('cmdContent');
     if (commandsLoaded) return;
 
@@ -41,17 +45,20 @@ async function loadCommands() {
         const data = await api.GetCommands();
         commandsData = data || [];
         commandsLoaded = true;
-        renderCommands(cmdActiveTab);
+        renderCommands(store.cmdActiveTab);
     } catch (err) {
         content.innerHTML = `<div class="error">
             <p>⚠️ 加载命令失败</p>
             <p class="error-detail">${escapeHtml(err.message || err)}</p>
-            <button class="btn btn-primary" onclick="loadCommands()">重试</button>
+            <button class="btn btn-primary">重试</button>
         </div>`;
+        // ESM 下内联 onclick 失效，改为事件监听绑定
+        var retryBtn = content.querySelector('.btn.btn-primary');
+        if (retryBtn) retryBtn.addEventListener('click', loadCommands);
     }
 }
 
-function renderCommands(tab) {
+export function renderCommands(tab) {
     const content = document.getElementById('cmdContent');
     const isCLI = tab === 'cli';
     const filtered = commandsData.filter(g => g.isTui === !isCLI);
@@ -118,8 +125,8 @@ function renderCommands(tab) {
     });
 }
 
-function filterApiDocsEntries(entries) {
-    const keyword = apiDocKeyword.trim().toLowerCase();
+export function filterApiDocsEntries(entries) {
+    const keyword = store.apiDocKeyword.trim().toLowerCase();
     if (!keyword) return entries;
 
     return entries.filter(({ path, detail }) => {
@@ -137,7 +144,7 @@ function filterApiDocsEntries(entries) {
  * 加载 opencode 服务的 API 文档（OpenAPI 3.1.0 JSON）
  * 从网络配置中读取 ip:port，访问 http://ip:port/doc
  */
-async function loadApiDocs() {
+export async function loadApiDocs() {
     const content = document.getElementById('cmdContent');
     content.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在加载 API 文档...</p></div>';
 
@@ -150,15 +157,18 @@ async function loadApiDocs() {
         content.innerHTML = `<div class="error">
             <p>⚠️ 加载 API 文档失败</p>
             <p class="error-detail">${escapeHtml(err.message || err)}（请确认 OpenCode 服务已启动）</p>
-            <button class="btn btn-primary" onclick="apiDocLoaded=false; loadApiDocs()">重试</button>
+            <button class="btn btn-primary">重试</button>
         </div>`;
+        // ESM 下内联 onclick 失效，改为事件监听绑定
+        var retryBtn = content.querySelector('.btn.btn-primary');
+        if (retryBtn) retryBtn.addEventListener('click', function() { apiDocLoaded = false; loadApiDocs(); });
     }
 }
 
 /**
  * 渲染 API 文档：按 tag 分组，表格展示端点
  */
-function renderApiDocs() {
+export function renderApiDocs() {
     const content = document.getElementById('cmdContent');
     content.innerHTML = '';
 

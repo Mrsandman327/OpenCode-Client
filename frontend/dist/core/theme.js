@@ -1,14 +1,14 @@
 // ============================================================
 // OpenCode 管理中心 - 主题切换
 // ============================================================
-const THEME_KEY = 'oc-manager-theme';
-const NETWORK_CONFIG_KEY = 'oc-manager-proxy-config';
+export const THEME_KEY = 'oc-manager-theme';
+export const NETWORK_CONFIG_KEY = 'oc-manager-proxy-config';
 
-function getTheme() {
+export function getTheme() {
     return localStorage.getItem(THEME_KEY) || 'dark';
 }
 
-function setTheme(theme) {
+export function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem(THEME_KEY, theme);
     updateThemeIcon(theme);
@@ -20,7 +20,7 @@ function setTheme(theme) {
     }
 }
 
-function toggleTheme() {
+export function toggleTheme() {
     const current = getTheme();
     setTheme(current === 'dark' ? 'light' : 'dark');
 }

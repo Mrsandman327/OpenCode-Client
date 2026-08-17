@@ -589,38 +589,9 @@
 
     <input type="file" id="ocFileInput" multiple hidden />
     <input type="file" id="fileBrowserUploadInput" hidden />
-    <!-- 模块化 JS，按依赖顺序加载 -->
-    <!-- 核心基础层：常量、工具、全局状态、API 代理（必须最先加载） -->
-    <script src="/core/theme.js"></script>
-    <script src="/core/utils.js"></script>
-    <script src="/core/apicall.js"></script>
-    <script src="/core/state.js"></script>
-    <!-- 聊天工作区模块 -->
-    <script src="/chat/navigation.js"></script>
-    <script src="/chat/mobile.js"></script>
-    <script src="/chat/search.js"></script>
-    <script src="/chat/config.js"></script>
-    <script src="/chat/service.js"></script>
-    <script src="/chat/tree.js"></script>
-    <script src="/chat/sidepanel.js"></script>
-    <script src="/chat/cache.js"></script>
-    <script src="/chat/render.js"></script>
-    <script src="/chat/tabs.js"></script>
-    <script src="/chat/events.js"></script>
-    <script src="/chat/session.js"></script>
-    <script src="/chat/commands.js"></script>
-    <!-- 文件浏览器模块 -->
-    <script src="/filebrowser/preview.js"></script>
-    <script src="/filebrowser/browser.js"></script>
-    <script src="/filebrowser/dir.js"></script>
-    <!-- 独立功能视图 -->
+    <!-- ES Modules 化：所有业务模块由 main.js 统一 import，依赖关系在模块内显式声明 -->
+    <!-- lib 第三方库仍用普通 script 全局加载（marked、CodeMirror 均非 ESM 导出） -->
     <script src="/lib/codemirror-project-config.js"></script>
-    <script src="/views/project-config.js"></script>
-    <script src="/views/omo-config.js"></script>
-    <script src="/views/skill-manager.js"></script>
-    <script src="/views/commands.js"></script>
-    <script src="/views/provider.js"></script>
-    <!-- 主入口：全局事件绑定 + 应用启动 -->
-    <script src="/main.js"></script>
+    <script type="module" src="/main.js"></script>
 </body>
 </html>

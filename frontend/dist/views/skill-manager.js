@@ -1,11 +1,18 @@
 // OpenCode 管理中心 - 技能管理视图
-let skills = [];
-let skillsLoaded = false;
-let addingSourceDir = false;  // 防重入 guard
+// 说明：ES Modules 化改造。core 层依赖静态导入；filebrowser 依赖
+// 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import。
+import { api } from '../core/apicall.js';
+import { escapeHtml, showToast, isBrowserRuntimeForMain } from '../core/utils.js';
+import { store } from '../core/state.js';
+import { openFileBrowserModal } from '../filebrowser/browser.js';
+import { openDirBrowserModal } from '../filebrowser/dir.js';
 
-async function loadSkillsData() {
-    if (skillsLoaded) return;
-    skillsLoaded = true;
+export let skills = [];
+export let addingSourceDir = false;  // 防重入 guard
+
+export async function loadSkillsData() {
+    if (store.skillsLoaded) return;
+    store.skillsLoaded = true;
     try {
         var result = await api.GetSkillConfig();
         skills = result.skills || [];
@@ -14,16 +21,16 @@ async function loadSkillsData() {
         renderSkillList();
         await loadSkillSchemes();
     } catch (err) {
-        skillsLoaded = false;
+        store.skillsLoaded = false;
         showToast('加载技能数据失败: ' + (err.message || err), 'error');
     }
 }
 
-function renderStats(stats) {
+export function renderStats(stats) {
     document.getElementById('statGlobal').textContent = stats ? (stats.globalSkills || 0) : 0;
 }
 
-function renderSkillList(filter) {
+export function renderSkillList(filter) {
     filter = filter || '';
     var list = document.getElementById('skillList');
     if (!skills.length) {
@@ -89,7 +96,7 @@ function renderSkillList(filter) {
 // 搜索事件在 main.js 中绑定
 // 技能 Modal 事件在 DOMContentLoaded 中绑定（main.js）
 
-function bindSkillManagerEvents() {
+export function bindSkillManagerEvents() {
     var skillList = document.getElementById('skillList');
     if (skillList && !skillList.dataset.bound) {
         skillList.dataset.bound = 'true';
@@ -97,7 +104,7 @@ function bindSkillManagerEvents() {
     }
 }
 
-async function handleSkillManagerActionClick(event) {
+export async function handleSkillManagerActionClick(event) {
     var target = event.target.closest('[data-action]');
     if (!target) return;
     var action = target.dataset.action;
@@ -122,11 +129,11 @@ async function handleSkillManagerActionClick(event) {
 
 // ========== Toggle 开关 ==========
 
-async function toggleSkill(skillPath, skillName, enable) {
+export async function toggleSkill(skillPath, skillName, enable) {
     var result = await api.ToggleSkill(skillPath, skillName, enable);
     if (result.success) {
         showToast((enable ? '已启用 ' : '已禁用 ') + skillName, 'success');
-        skillsLoaded = false;
+        store.skillsLoaded = false;
         await loadSkillsData();
         return;
     }
@@ -135,21 +142,17 @@ async function toggleSkill(skillPath, skillName, enable) {
 }
 
 // 打开技能目录（复用文件浏览器）
-async function openSkillDir(skillPath) {
+export async function openSkillDir(skillPath) {
     try {
-        if (typeof openFileBrowserModal === 'function') {
-            openFileBrowserModal(skillPath);
-        } else {
-            showToast('文件浏览器模块未加载', 'error');
-        }
-    } catch (err) {
-        showToast('打开目录失败: ' + (err.message || err), 'error');
+        openFileBrowserModal(skillPath);
+    } catch (e) {
+        showToast('打开技能目录失败: ' + (e.message || e), 'error');
     }
 }
 
 // ========== 源目录管理 ==========
 
-function renderSourceDirs(dirs) {
+export function renderSourceDirs(dirs) {
     var select = document.getElementById('sourceDirSelect');
     if (!select) return;
     if (!dirs || dirs.length === 0) {
@@ -161,7 +164,7 @@ function renderSourceDirs(dirs) {
     }).join('');
 }
 
-async function addSourceDir() {
+export async function addSourceDir() {
     var dir = '';
     if (isBrowserRuntimeForMain()) {
         dir = await openDirBrowserModal();
@@ -173,7 +176,7 @@ async function addSourceDir() {
     return;
 }
 
-async function performAddSourceDir(dir) {
+export async function performAddSourceDir(dir) {
     try {
         var result = await api.AddSkillSourceDir(dir);
         if (result && result.success === false) {
@@ -190,14 +193,14 @@ async function performAddSourceDir(dir) {
             select.appendChild(opt);
             select.value = dir;
         }
-        skillsLoaded = false;
+        store.skillsLoaded = false;
         await loadSkillsData();
     } catch (err) {
         showToast('添加目录失败: ' + (err.message || err), 'error');
     }
 }
 
-async function removeSourceDir() {
+export async function removeSourceDir() {
     var select = document.getElementById('sourceDirSelect');
     var dir = select ? select.value : '';
     if (!dir) {
@@ -220,14 +223,14 @@ async function removeSourceDir() {
             return;
         }
         showToast('已删除目录: ' + dir, 'success');
-        skillsLoaded = false;
+        store.skillsLoaded = false;
         await loadSkillsData();
     } catch (err) {
         showToast('删除目录失败: ' + (err.message || err), 'error');
     }
 }
 
-async function openSelectedSourceDir() {
+export async function openSelectedSourceDir() {
     var select = document.getElementById('sourceDirSelect');
     var dir = select ? select.value : '';
     if (!dir) {
@@ -243,7 +246,7 @@ async function openSelectedSourceDir() {
 
 // ========== 技能方案管理 ==========
 
-async function loadSkillSchemes() {
+export async function loadSkillSchemes() {
     try {
         var schemes = await api.ListSkillSchemes();
         var select = document.getElementById('skillSchemeSelect');
@@ -262,7 +265,7 @@ async function loadSkillSchemes() {
     }
 }
 
-async function saveSkillScheme() {
+export async function saveSkillScheme() {
     var name = prompt('请输入方案名称：');
     if (!name || name.trim() === '') return;
     name = name.trim();
@@ -287,7 +290,7 @@ async function saveSkillScheme() {
     }
 }
 
-async function deleteSkillScheme() {
+export async function deleteSkillScheme() {
     var select = document.getElementById('skillSchemeSelect');
     var name = select ? select.value : '';
     if (!name) {
@@ -308,7 +311,7 @@ async function deleteSkillScheme() {
     }
 }
 
-async function applySkillScheme() {
+export async function applySkillScheme() {
     var select = document.getElementById('skillSchemeSelect');
     var name = select ? select.value : '';
     if (!name) {
@@ -323,7 +326,7 @@ async function applySkillScheme() {
         if (result.conflicts && result.conflicts.length > 0) msgParts.push('✗ ' + result.conflicts.length + ' 个技能冲突: ' + result.conflicts.join(', '));
         if (result.errors && result.errors.length > 0) msgParts.push('✗ 错误: ' + result.errors.join(', '));
         showToast(msgParts.join(' | '), result.success ? 'success' : 'error');
-        skillsLoaded = false;
+        store.skillsLoaded = false;
         await loadSkillsData();
     } catch (err) {
         showToast('应用方案失败: ' + (err.message || err), 'error');

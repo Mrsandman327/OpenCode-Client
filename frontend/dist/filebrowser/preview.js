@@ -1,28 +1,35 @@
 // ============================================================
 // 站内文件浏览器 - 预览器分发
+// 依赖：core/apicall.js(api)、core/utils.js(showToast)、
+//       browser.js(setFileBrowserDownloadTarget，循环引用)，
+//       全局 lib：marked、window.ProjectConfigCodeEditor
 // ============================================================
 
-async function fileBrowserApiStat(rootDir, relPath) {
+import { api } from '../core/apicall.js';
+import { showToast } from '../core/utils.js';
+import { setFileBrowserDownloadTarget } from './browser.js';
+
+export async function fileBrowserApiStat(rootDir, relPath) {
     return await api.StatBrowserFile(rootDir, relPath);
 }
 
-async function fileBrowserApiRead(rootDir, relPath) {
+export async function fileBrowserApiRead(rootDir, relPath) {
     return await api.ReadBrowserFile(rootDir, relPath);
 }
 
-async function fileBrowserApiSave(rootDir, relPath, content) {
+export async function fileBrowserApiSave(rootDir, relPath, content) {
     return await api.SaveBrowserFile(rootDir, relPath, content);
 }
 
-async function fileBrowserApiGitPreview(rootDir, relPath) {
+export async function fileBrowserApiGitPreview(rootDir, relPath) {
     return await api.GetGitPreview(rootDir, relPath);
 }
 
-async function fileBrowserApiGitHistoryPreview(rootDir, commitHash, relPath) {
+export async function fileBrowserApiGitHistoryPreview(rootDir, commitHash, relPath) {
     return await api.GetGitHistoryPreview(rootDir, commitHash, relPath);
 }
 
-function fileBrowserClearObjectURL() {
+export function fileBrowserClearObjectURL() {
     var state = window.fileBrowserState;
     if (state && state.previewObjectURL) {
         URL.revokeObjectURL(state.previewObjectURL);
@@ -43,7 +50,7 @@ function fileBrowserClearObjectURL() {
     }
 }
 
-function base64ToBlob(base64, mime) {
+export function base64ToBlob(base64, mime) {
     var binary = atob(base64 || '');
     var len = binary.length;
     var bytes = new Uint8Array(len);
@@ -51,7 +58,7 @@ function base64ToBlob(base64, mime) {
     return new Blob([bytes], { type: mime || 'application/octet-stream' });
 }
 
-async function fileBrowserResolveRawResource(rootDir, relPath) {
+export async function fileBrowserResolveRawResource(rootDir, relPath) {
     var raw = await api.ReadBrowserRawBase64(rootDir, relPath);
     var blob = base64ToBlob(raw.base64 || '', raw.mime || 'application/octet-stream');
     var url = URL.createObjectURL(blob);
@@ -59,7 +66,7 @@ async function fileBrowserResolveRawResource(rootDir, relPath) {
     return { url: url, name: raw.name || '', mime: raw.mime || 'application/octet-stream' };
 }
 
-function fileBrowserTrackObjectURL(url) {
+export function fileBrowserTrackObjectURL(url) {
     var state = window.fileBrowserState;
     if (!state || !url) return url;
     if (!Array.isArray(state.previewObjectURLs)) {
@@ -69,21 +76,21 @@ function fileBrowserTrackObjectURL(url) {
     return url;
 }
 
-async function fileBrowserResolveRawResourceMulti(rootDir, relPath) {
+export async function fileBrowserResolveRawResourceMulti(rootDir, relPath) {
     var raw = await api.ReadBrowserRawBase64(rootDir, relPath);
     var blob = base64ToBlob(raw.base64 || '', raw.mime || 'application/octet-stream');
     var url = fileBrowserTrackObjectURL(URL.createObjectURL(blob));
     return { url: url, name: raw.name || '', mime: raw.mime || 'application/octet-stream' };
 }
 
-function fileBrowserEscapeHTML(text) {
+export function fileBrowserEscapeHTML(text) {
     if (text == null) return '';
     var div = document.createElement('div');
     div.textContent = String(text);
     return div.innerHTML;
 }
 
-function fileBrowserHighlightCode(code, ext) {
+export function fileBrowserHighlightCode(code, ext) {
     var lines = String(code || '').split('\n');
     var numbered = '';
     for (var i = 0; i < lines.length; i++) {
@@ -92,7 +99,7 @@ function fileBrowserHighlightCode(code, ext) {
     return numbered;
 }
 
-function fileBrowserSanitizeMarkedHtml(html) {
+export function fileBrowserSanitizeMarkedHtml(html) {
     var template = document.createElement('template');
     template.innerHTML = html;
     var allowedTags = new Set(['A', 'P', 'BR', 'STRONG', 'EM', 'CODE', 'PRE', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HR', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'IMG', 'DETAILS', 'SUMMARY']);
@@ -100,7 +107,7 @@ function fileBrowserSanitizeMarkedHtml(html) {
     return template.innerHTML;
 }
 
-function sanitizeNodeTree(root, allowedTags) {
+export function sanitizeNodeTree(root, allowedTags) {
     var children = Array.prototype.slice.call(root.childNodes || []);
     children.forEach(function(node) {
         if (node.nodeType === Node.TEXT_NODE) return;
@@ -138,7 +145,7 @@ function sanitizeNodeTree(root, allowedTags) {
     });
 }
 
-function fileBrowserFormatBytes(bytes) {
+export function fileBrowserFormatBytes(bytes) {
     if (!bytes) return '0 B';
     var units = ['B', 'KB', 'MB', 'GB'];
     var i = 0;
@@ -150,24 +157,22 @@ function fileBrowserFormatBytes(bytes) {
     return (i === 0 ? val : val.toFixed(1)) + ' ' + units[i];
 }
 
-function updateFileBrowserDownloadButton(item) {
+export function updateFileBrowserDownloadButton(item) {
     var path = item && item.path ? item.path : '';
     var name = item && item.name ? item.name : '';
-    if (typeof setFileBrowserDownloadTarget === 'function') {
-        setFileBrowserDownloadTarget(path, name);
-    }
+    setFileBrowserDownloadTarget(path, name);
 }
 
-function fileBrowserCanEdit(meta) {
+export function fileBrowserCanEdit(meta) {
     return !!(meta && meta.editable);
 }
 
-function isFileBrowserDarkTheme(theme) {
+export function isFileBrowserDarkTheme(theme) {
     var current = theme || document.documentElement.getAttribute('data-theme') || 'dark';
     return current === 'dark';
 }
 
-function destroyFileBrowserEditor() {
+export function destroyFileBrowserEditor() {
     var state = window.fileBrowserState;
     stopFileBrowserSearchButtonSync();
     if (state && state.previewEditorInstance && window.ProjectConfigCodeEditor) {
@@ -178,7 +183,7 @@ function destroyFileBrowserEditor() {
     }
 }
 
-function syncFileBrowserEditorTheme(theme) {
+export function syncFileBrowserEditorTheme(theme) {
     var state = window.fileBrowserState;
     if (state && state.previewEditorInstance && window.ProjectConfigCodeEditor) {
         window.ProjectConfigCodeEditor.setTheme(state.previewEditorInstance, isFileBrowserDarkTheme(theme));
@@ -187,12 +192,12 @@ function syncFileBrowserEditorTheme(theme) {
 
 window.syncFileBrowserEditorTheme = syncFileBrowserEditorTheme;
 
-function fileBrowserIsSearchOpen() {
+export function fileBrowserIsSearchOpen() {
     var state = window.fileBrowserState;
     return !!(state && state.previewEditorInstance && window.ProjectConfigCodeEditor && window.ProjectConfigCodeEditor.isSearchOpen(state.previewEditorInstance));
 }
 
-function refreshFileBrowserSearchButtonState() {
+export function refreshFileBrowserSearchButtonState() {
     var searchBtn = document.getElementById('btnFilePreviewSearch');
     if (!searchBtn) return;
     var isOpen = fileBrowserIsSearchOpen();
@@ -200,7 +205,7 @@ function refreshFileBrowserSearchButtonState() {
     searchBtn.textContent = isOpen ? '关闭搜索' : '搜索';
 }
 
-function stopFileBrowserSearchButtonSync() {
+export function stopFileBrowserSearchButtonSync() {
     var state = window.fileBrowserState;
     if (state && state.previewSearchSyncTimer) {
         clearInterval(state.previewSearchSyncTimer);
@@ -208,14 +213,14 @@ function stopFileBrowserSearchButtonSync() {
     }
 }
 
-function startFileBrowserSearchButtonSync() {
+export function startFileBrowserSearchButtonSync() {
     var state = window.fileBrowserState;
     stopFileBrowserSearchButtonSync();
     if (!state || !state.previewEditorInstance) return;
     state.previewSearchSyncTimer = setInterval(refreshFileBrowserSearchButtonState, 200);
 }
 
-function fileBrowserCanPreview(meta) {
+export function fileBrowserCanPreview(meta) {
     if (!meta) return false;
     if (meta.previewKind === 'binary') return false;
     if (meta.previewKind === 'markdown') return true;
@@ -224,23 +229,23 @@ function fileBrowserCanPreview(meta) {
     return !!meta.previewable || !meta.ext;
 }
 
-function isHtmlExtension(ext) {
+export function isHtmlExtension(ext) {
     var normalized = (ext || '').toLowerCase();
     return normalized === '.html' || normalized === '.htm';
 }
 
-function fileBrowserGetPreferredRenderMode(meta) {
+export function fileBrowserGetPreferredRenderMode(meta) {
     if (!meta) return 'preview';
     if (fileBrowserCanEdit(meta)) return 'edit';
     return 'preview';
 }
 
-function fileBrowserIsDirty() {
+export function fileBrowserIsDirty() {
     var state = window.fileBrowserState;
     return (state.previewEditorValue || '') !== (state.previewOriginalContent || '');
 }
 
-function renderFilePreviewToolbar() {
+export function renderFilePreviewToolbar() {
     var state = window.fileBrowserState;
     var actionsEl = document.getElementById('filePreviewActions');
     if (!actionsEl) return;
@@ -299,7 +304,7 @@ function renderFilePreviewToolbar() {
     }
 }
 
-function renderFilePreviewEditor(item, meta, readData) {
+export function renderFilePreviewEditor(item, meta, readData) {
     var state = window.fileBrowserState;
     var bodyEl = document.getElementById('filePreviewBody');
     if (!bodyEl) return;
@@ -330,7 +335,7 @@ function renderFilePreviewEditor(item, meta, readData) {
 }
 
 // 规范化相对路径（处理 ../ 和 ./ ）
-function normalizeRelativePath(p) {
+export function normalizeRelativePath(p) {
     var parts = p.replace(/\\/g, '/').split('/');
     var result = [];
     for (var i = 0; i < parts.length; i++) {
@@ -346,7 +351,7 @@ function normalizeRelativePath(p) {
 }
 
 // 解析 markdown HTML 中图片的相对路径，替换为 blob URL
-async function resolveMarkdownImages(rawHtml, rootDir, mdFilePath) {
+export async function resolveMarkdownImages(rawHtml, rootDir, mdFilePath) {
     var template = document.createElement('template');
     template.innerHTML = rawHtml;
     var imgs = template.content.querySelectorAll('img');
@@ -372,7 +377,7 @@ async function resolveMarkdownImages(rawHtml, rootDir, mdFilePath) {
     return template.innerHTML;
 }
 
-async function resolveHtmlResources(rawHtml, rootDir, htmlFilePath) {
+export async function resolveHtmlResources(rawHtml, rootDir, htmlFilePath) {
     var template = document.createElement('template');
     template.innerHTML = rawHtml;
     var htmlDir = htmlFilePath.substring(0, htmlFilePath.lastIndexOf('/') + 1);
@@ -441,7 +446,7 @@ async function resolveHtmlResources(rawHtml, rootDir, htmlFilePath) {
     return template.innerHTML;
 }
 
-async function renderHtmlPreview(item, readData) {
+export async function renderHtmlPreview(item, readData) {
     var state = window.fileBrowserState;
     var bodyEl = document.getElementById('filePreviewBody');
     if (!bodyEl || !state) return;
@@ -548,7 +553,7 @@ async function renderHtmlPreview(item, readData) {
     iframe.src = blobURL;
 }
 
-async function renderTextualFilePreview(item, meta, readData, ext) {
+export async function renderTextualFilePreview(item, meta, readData, ext) {
     var state = window.fileBrowserState;
     var bodyEl = document.getElementById('filePreviewBody');
     if (!bodyEl) return;
@@ -573,7 +578,7 @@ async function renderTextualFilePreview(item, meta, readData, ext) {
     bodyEl.innerHTML = '<pre class="file-browser-code"><code class="hljs">' + fileBrowserHighlightCode(readData.content || '', ext) + '</code></pre>';
 }
 
-function switchFilePreviewRenderMode(mode) {
+export function switchFilePreviewRenderMode(mode) {
     var state = window.fileBrowserState;
     var meta = state.previewMeta;
     if (!meta) return;
@@ -589,7 +594,7 @@ function switchFilePreviewRenderMode(mode) {
     }
 }
 
-async function saveCurrentFilePreview() {
+export async function saveCurrentFilePreview() {
     var state = window.fileBrowserState;
     var meta = state.previewMeta;
     var item = state.selectedItem;
@@ -621,7 +626,7 @@ async function saveCurrentFilePreview() {
     }
 }
 
-async function renderFilePreview(item, options) {
+export async function renderFilePreview(item, options) {
     var state = window.fileBrowserState;
     options = options || {};
     if (!state || !item || item.type !== 'file') return;
@@ -718,7 +723,7 @@ async function renderFilePreview(item, options) {
     }
 }
 
-function renderNoExtPreview(item, meta) {
+export function renderNoExtPreview(item, meta) {
     return '<div class="file-browser-noext">' +
         '<div class="file-browser-noext-title">无扩展名文件</div>' +
         '<div class="file-browser-noext-hint">系统暂时无法自动判断该文件类型。你可以按普通文本方式尝试预览。</div>' +
@@ -729,7 +734,7 @@ function renderNoExtPreview(item, meta) {
     '</div>';
 }
 
-function bindNoExtPreviewActions(item) {
+export function bindNoExtPreviewActions(item) {
     var openBtn = document.getElementById('btnOpenNoExtAsText');
     if (openBtn) {
         openBtn.onclick = function() {
@@ -740,7 +745,7 @@ function bindNoExtPreviewActions(item) {
     }
 }
 
-function renderCSVPreview(content) {
+export function renderCSVPreview(content) {
     var lines = String(content || '').split(/\r?\n/).filter(function(line) { return line !== ''; });
     if (!lines.length) return '<div class="file-browser-empty">CSV 文件为空</div>';
     var rows = lines.map(function(line) { return line.split(','); });
@@ -760,7 +765,7 @@ function renderCSVPreview(content) {
     return html;
 }
 
-async function renderGitFilePreview(path) {
+export async function renderGitFilePreview(path) {
     var state = window.fileBrowserState;
     if (!state || !path) return;
     fileBrowserClearObjectURL();
@@ -792,7 +797,7 @@ async function renderGitFilePreview(path) {
     }
 }
 
-async function renderGitHistoryFilePreview(commitHash, path) {
+export async function renderGitHistoryFilePreview(commitHash, path) {
     var state = window.fileBrowserState;
     if (!state || !commitHash || !path) return;
     fileBrowserClearObjectURL();
@@ -815,7 +820,7 @@ async function renderGitHistoryFilePreview(commitHash, path) {
     }
 }
 
-function renderGitSection(title, blocks, enabled) {
+export function renderGitSection(title, blocks, enabled) {
     if (!enabled || !blocks || !blocks.length) {
         return '<div class="git-preview-section">' +
             '<div class="git-preview-section-title">' + fileBrowserEscapeHTML(title) + '</div>' +
@@ -831,7 +836,7 @@ function renderGitSection(title, blocks, enabled) {
     return html;
 }
 
-function renderGitDiffBlock(block) {
+export function renderGitDiffBlock(block) {
     var leftLines = block.left || [];
     var rightLines = block.right || [];
     var maxLen = Math.max(leftLines.length, rightLines.length);
@@ -846,7 +851,7 @@ function renderGitDiffBlock(block) {
     return html;
 }
 
-function renderGitDiffLine(line, side) {
+export function renderGitDiffLine(line, side) {
     var no = side === 'left' ? line.oldNo : line.newNo;
     var noText = no ? String(no) : '';
     return '<div class="git-diff-line ' + fileBrowserEscapeHTML(line.kind || 'context') + '">' +

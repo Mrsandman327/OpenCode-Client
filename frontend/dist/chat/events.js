@@ -1,14 +1,31 @@
-// ============================================================
+﻿// ============================================================
 // chat-events.js — SSE 事件流处理
 // 负责 SSE 连接建立、事件分发解析、事件处理逻辑
+// 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getCachedMessages）、core/apicall.js（api）、
+//       chat/service.js（safeText）、chat/session.js（loadMessages, refreshSessionTitle, selectSession）、
+//       chat/render.js（updateSendButton）、chat/cache.js（scheduleRenderCachedMessages, upsertMessage 等）、
+//       chat/sidepanel.js（scheduleSubtaskExtraction, loadDiff）、chat/tree.js（buildTree）
 // ============================================================
+
+import { store } from '../core/state.js';
+import { api } from '../core/apicall.js';
+import { showToast, escapeHtml, getCachedMessages } from '../core/utils.js';
+import { safeText } from './service.js';
+import { loadMessages, refreshSessionTitle, selectSession } from './session.js';
+import { updateSendButton } from './render.js';
+import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
+import { scheduleSubtaskExtraction, loadDiff } from './sidepanel.js';
+import { buildTree } from './tree.js';
 
 // ============================
 // SSE 事件处理
 // ============================
 
+/** EventSource 断线重连计数（浏览器模式；Wails 模式经 runtime 事件自动重连） */
+let reconnectAttempts = 0;
+
 /** 解析 SSE 事件原始 JSON 载荷，解包 payload 字段 */
-function parseEventPayload(raw) {
+export function parseEventPayload(raw) {
     try {
         const event = JSON.parse(raw);
         if (event.payload?.type) {
@@ -23,7 +40,7 @@ function parseEventPayload(raw) {
 }
 
 /** 启动 SSE 事件流连接（Wails EventsOn / 浏览器 EventSource 双模式） */
-function startEventStream() {
+export function startEventStream() {
     if (window.runtime && !startEventStream.bound) {
         window.runtime.EventsOn('oc-event', (raw) => handleOcEvent(parseEventPayload(raw)));
         window.runtime.EventsOn('oc-event-error', (msg) => {
@@ -57,10 +74,10 @@ function startEventStream() {
 }
 
 /** 主事件处理中枢：按 type 分发到缓存、渲染、会话、树、面板等模块 */
-function handleOcEvent(event) {
+export function handleOcEvent(event) {
     const type = event.type || event.name || '';
     const props = event.properties || event.data || event;
-    const sid = props.sessionID || props.sessionId || props.info?.sessionID || props.part?.sessionID || currentSessionId;
+    const sid = props.sessionID || props.sessionId || props.info?.sessionID || props.part?.sessionID || store.currentSessionId;
 
     if (type === 'server.connected' || type === 'server.heartbeat') return;
 
@@ -71,13 +88,13 @@ function handleOcEvent(event) {
     }
 
     if (type === 'session.error' && sid && props.error) {
-        sessionErrors[sid] = typeof props.error === 'string' ? props.error : (props.error.message || safeText(props.error));
-        if (sid === currentSessionId) loadMessages();
+        store.sessionErrors[sid] = typeof props.error === 'string' ? props.error : (props.error.message || safeText(props.error));
+        if (sid === store.currentSessionId) loadMessages();
         return;
     }
     if (type === 'session.status' && sid) {
-        sessionStatuses[sid] = props.status || props;
-        if (sid === currentSessionId) {
+        store.sessionStatuses[sid] = props.status || props;
+        if (sid === store.currentSessionId) {
             updateSendButton();
             const status = props.status || props;
             if (status?.type === 'idle') {
@@ -93,9 +110,9 @@ function handleOcEvent(event) {
         return;
     }
     if (type === 'session.idle' && sid) {
-        delete sessionErrors[sid];
-        sessionStatuses[sid] = 'idle';
-        if (sid === currentSessionId) {
+        delete store.sessionErrors[sid];
+        store.sessionStatuses[sid] = 'idle';
+        if (sid === store.currentSessionId) {
             updateSendButton();
             loadMessages();
             refreshSessionTitle();
@@ -139,7 +156,7 @@ function handleOcEvent(event) {
         return;
     }
 
-    const isCurrentSession = sid && sid === currentSessionId;
+    const isCurrentSession = sid && sid === store.currentSessionId;
     if (type === 'session.created' && isCurrentSession) {
         buildTree();
         loadDiff();
@@ -160,7 +177,7 @@ function handleOcEvent(event) {
 }
 
 /** 加载所有会话的运行状态（busy/idle/error） */
-async function loadSessionStatuses() {
+export async function loadSessionStatuses() {
     try {
         return await api.OpenCodeCall('GET', '/session/status') || {};
     } catch {
@@ -169,9 +186,9 @@ async function loadSessionStatuses() {
 }
 
 /** 会话缓存版本自增：SSE 更新消息缓存时调用，供 Tab 切回判断是否需要重建 DOM */
-function bumpTabCacheVersion(sessionID) {
-    if (sessionID) tabCacheVersion[sessionID] = (tabCacheVersion[sessionID] || 0) + 1;
+export function bumpTabCacheVersion(sessionID) {
+    if (sessionID) store.tabCacheVersion[sessionID] = (store.tabCacheVersion[sessionID] || 0) + 1;
 }
 
 /** 切换会话（转发到 selectSession） */
-async function switchSession(id) { await selectSession(id); }
+export async function switchSession(id) { await selectSession(id); }

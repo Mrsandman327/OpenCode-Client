@@ -1,8 +1,24 @@
-// ============================================================
+﻿// ============================================================
 // chat-tree.js — 项目树 & 目录浏览器
-// 依赖：core/state.js（webRunning, currentSessionId, expandedParts, subtaskSummaries, detailMessageCache）、
-//       chat/service.js（api.OpenCodeCall）、chat/mobile.js（isMobileTreeMode, closeMobileTree）、core/utils.js（escapeHtml, showToast）
+// 依赖：core/state.js（webRunning, currentSessionId, pendingWorkDir 等）、core/apicall.js（api）、
+//       core/utils.js（escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain）、
+//       chat/mobile.js（isMobileTreeMode, closeMobileTree）、chat/events.js（switchSession）、
+//       chat/tabs.js（closeSessionTab, renderTabsBar）、chat/search.js（resetUserNav）、
+//       chat/render.js（updateModelInfo）
+//       views/project-config.js（openProjectConfig）、filebrowser/dir.js（openDirBrowserModal）
+//       —— views/filebrowser 尚未改造，保留全局守卫调用
 // ============================================================
+
+import { api } from '../core/apicall.js';
+import { store } from '../core/state.js';
+import { escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain } from '../core/utils.js';
+import { isMobileTreeMode, closeMobileTree } from './mobile.js';
+import { switchSession } from './events.js';
+import { closeSessionTab, renderTabsBar } from './tabs.js';
+import { resetUserNav } from './search.js';
+import { updateModelInfo } from './render.js';
+import { openProjectConfig } from '../views/project-config.js';
+import { openDirBrowserModal } from '../filebrowser/dir.js';
 
 // ============================
 // 项目树 — 构建、渲染、操作
@@ -13,8 +29,8 @@ let treeSearchDebounceTimer = null;
 let treeSearchSnapshotTaken = false;
 
 /** 构建项目树（从后端获取项目→目录→会话三层结构） */
-async function buildTree() {
-    if (!webRunning) return;
+export async function buildTree() {
+    if (!store.webRunning) return;
     try {
         const knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
         const json = await api.GetProjectTree(JSON.stringify(knownDirs));
@@ -36,13 +52,13 @@ async function buildTree() {
 }
 
 /** 手动刷新项目树 */
-async function refreshTree() {
+export async function refreshTree() {
     const ok = await buildTree();
     showToast(ok ? '刷新成功' : '刷新失败', ok ? 'success' : 'error');
 }
 
 /** 渲染项目树 DOM */
-function renderTree(tree) {
+export function renderTree(tree) {
     const container = document.getElementById('ocTree');
     if (!tree || tree.length === 0) {
         container.innerHTML = '<div class="oc-empty">暂无项目</div>';
@@ -151,7 +167,7 @@ function renderTree(tree) {
         el.addEventListener('click', async (e) => {
             if (e.target.closest('.oc-tree-del')) return;
             const sid = el.dataset.sessionId;
-            if (sid && sid !== currentSessionId) {
+            if (sid && sid !== store.currentSessionId) {
                 if (isMobileTreeMode()) {
                     closeMobileTree();
                 }
@@ -180,7 +196,7 @@ function renderTree(tree) {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const dir = btn.dataset.configDir;
-            if (dir && typeof openProjectConfig === 'function') {
+            if (dir) {
                 openProjectConfig(dir);
             }
         });
@@ -189,7 +205,7 @@ function renderTree(tree) {
     applyTreeSearchFilter();
 }
 
-function updateTreeSearchStatus(matchCount, totalCount) {
+export function updateTreeSearchStatus(matchCount, totalCount) {
     var countEl = document.getElementById('ocTreeSearchCount');
     var clearBtn = document.getElementById('ocTreeSearchClear');
     if (countEl) {
@@ -204,7 +220,7 @@ function updateTreeSearchStatus(matchCount, totalCount) {
     }
 }
 
-function captureTreeSearchSnapshot() {
+export function captureTreeSearchSnapshot() {
     if (treeSearchSnapshotTaken) return;
     document.querySelectorAll('#ocTree .oc-tree-children').forEach(function(children) {
         children.dataset.searchPrevDisplay = children.style.display || '';
@@ -212,7 +228,7 @@ function captureTreeSearchSnapshot() {
     treeSearchSnapshotTaken = true;
 }
 
-function restoreTreeSearchSnapshot() {
+export function restoreTreeSearchSnapshot() {
     document.querySelectorAll('#ocTree .oc-tree-children').forEach(function(children) {
         if (children.dataset.searchPrevDisplay !== undefined) {
             children.style.display = children.dataset.searchPrevDisplay;
@@ -222,7 +238,7 @@ function restoreTreeSearchSnapshot() {
     treeSearchSnapshotTaken = false;
 }
 
-function applyTreeSearchFilter() {
+export function applyTreeSearchFilter() {
     var container = document.getElementById('ocTree');
     if (!container) return;
     var nodes = Array.prototype.slice.call(container.querySelectorAll('.oc-tree-node'));
@@ -306,14 +322,14 @@ function applyTreeSearchFilter() {
     updateTreeSearchStatus(matchCount, totalCount);
 }
 
-function setTreeSearchQuery(value) {
+export function setTreeSearchQuery(value) {
     treeSearchQuery = String(value || '').trim();
     var empty = document.querySelector('#ocTree .oc-tree-search-empty');
     if (empty) empty.remove();
     applyTreeSearchFilter();
 }
 
-function clearTreeSearch() {
+export function clearTreeSearch() {
     var input = document.getElementById('ocTreeSearchInput');
     if (input) {
         input.value = '';
@@ -321,7 +337,7 @@ function clearTreeSearch() {
     setTreeSearchQuery('');
 }
 
-function initTreeSearch() {
+export function initTreeSearch() {
     var input = document.getElementById('ocTreeSearchInput');
     var clearBtn = document.getElementById('ocTreeSearchClear');
     if (!input || input.dataset.boundTreeSearch === '1') return;
@@ -348,7 +364,7 @@ function initTreeSearch() {
 initTreeSearch();
 
 /** 记住用户添加过的目录（存 localStorage 以便下次自动加载） */
-function rememberKnownDir(dir) {
+export function rememberKnownDir(dir) {
     if (!dir) return;
     try {
         const dirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
@@ -360,7 +376,7 @@ function rememberKnownDir(dir) {
 }
 
 /** 检测指定目录下项目树中是否有会话记录 */
-function treeHasSessionsForDir(tree, dir) {
+export function treeHasSessionsForDir(tree, dir) {
     const target = String(dir || '').replace(/\\+$/).toLowerCase();
     for (const proj of (tree || [])) {
         for (const child of (proj.children || [])) {
@@ -374,8 +390,8 @@ function treeHasSessionsForDir(tree, dir) {
 }
 
 /** 向项目中添加工作目录 */
-async function addDirectoryToProject() {
-    if (!webRunning) return;
+export async function addDirectoryToProject() {
+    if (!store.webRunning) return;
     try {
         let dir = ''
         if (isBrowserRuntimeForMain()) {
@@ -403,13 +419,13 @@ async function addDirectoryToProject() {
 // ============================
 
 /** 加载会话列表（刷新树的简易入口） */
-async function loadSessions() {
-    if (!webRunning) return;
+export async function loadSessions() {
+    if (!store.webRunning) return;
     await buildTree();
 }
 
 /** 删除指定会话及相关缓存 */
-async function deleteSession(id) {
+export async function deleteSession(id) {
     if (!id) return;
     if (!confirm('确定要删除该会话吗？此操作不可撤销。')) return;
     try {
@@ -417,10 +433,10 @@ async function deleteSession(id) {
         setTimeout(function() { window._skipSessionDeletedRebuild = false; }, 2000);
         await api.OpenCodeCall('DELETE', `/session/${encodeURIComponent(id)}`);
         showToast('已删除', 'success');
-        if (id === currentSessionId) {
-            currentSessionId = '';
-            messageCache[currentSessionId] = null;
-            expandedParts = {};
+        if (id === store.currentSessionId) {
+            store.currentSessionId = '';
+            store.messageCache[store.currentSessionId] = null;
+            store.expandedParts = {};
             setMessagesEmpty('选择会话后查看消息，或输入内容创建新会话');
             document.getElementById('ocChatTitle').textContent = '未选择会话';
             updateModelInfo(null);
@@ -438,9 +454,7 @@ async function deleteSession(id) {
         }
         delete window._sessionMap[id];
         // 清理对应 Tab（若被删除的是活动 Tab，自动切到相邻 Tab）
-        if (typeof closeSessionTab === 'function') {
-            closeSessionTab(id);
-        }
+        closeSessionTab(id);
     } catch (e) {
         showToast('删除失败: ' + (e.message || e), 'error');
     }
@@ -448,8 +462,8 @@ async function deleteSession(id) {
 
 /** 创建新会话（打开目录选择器，在首次发送时创建）。
  *  如果指定了 dir 字符串则跳过目录选择器。 */
-async function createNewSession(dir) {
-    if (!webRunning) return;
+export async function createNewSession(dir) {
+    if (!store.webRunning) return;
     try {
         var hasDirParam = typeof dir === 'string' && dir.length > 0;
         if (!hasDirParam) {
@@ -460,16 +474,16 @@ async function createNewSession(dir) {
             }
             if (!dir) return;
         }
-        pendingWorkDir = dir;
+        store.pendingWorkDir = dir;
         if (isMobileTreeMode()) {
             closeMobileTree();
         }
-        currentSessionId = '';
-        activeTabId = '';   // 不再指向旧 tab
-        sessionStatuses = {};
-        sessionErrors = {};
-        subtaskSummaries = [];
-        detailMessageCache = {};
+        store.currentSessionId = '';
+        store.activeTabId = '';   // 不再指向旧 tab
+        store.sessionStatuses = {};
+        store.sessionErrors = {};
+        store.subtaskSummaries = [];
+        store.detailMessageCache = {};
         document.getElementById('ocChatTitle').textContent = '新建会话 @ ' + dir;
         // 隐藏所有已打开 tab 容器（保留其内容，切回时还在），显示新建会话占位提示；
         // 不再直接写 getActiveMessagesEl().innerHTML，否则会清空当前活动 tab 的会话内容
@@ -489,9 +503,9 @@ async function createNewSession(dir) {
             ph.textContent = '输入内容后 Enter 发送，会话将在首次发送时创建';
         }
         // 刷新 Tab 栏激活态（activeTabId 已置空，所有 tab 显示为非激活）
-        if (typeof renderTabsBar === 'function') renderTabsBar();
+        renderTabsBar();
         // 重置用户消息导航索引（旧会话的定位索引不再适用）
-        if (typeof resetUserNav === 'function') resetUserNav();
+        resetUserNav();
         document.getElementById('ocDiff').innerHTML = '<div class="oc-empty">选择会话后查看变更</div>';
         document.getElementById('ocPrompt').value = '';
         document.getElementById('ocPrompt').focus();
@@ -506,7 +520,7 @@ async function createNewSession(dir) {
 var treeContextData = null;
 
 /** 显示右键菜单 */
-function showTreeContextMenu(e, type, data) {
+export function showTreeContextMenu(e, type, data) {
     e.preventDefault();
     e.stopPropagation();
     treeContextData = { type: type, data: data };
@@ -528,14 +542,14 @@ function showTreeContextMenu(e, type, data) {
 }
 
 /** 隐藏右键菜单 */
-function hideTreeContextMenu() {
+export function hideTreeContextMenu() {
     var menu = document.getElementById('ocTreeContextMenu');
     if (menu) menu.style.display = 'none';
     treeContextData = null;
 }
 
 /** 初始化右键菜单事件 */
-function initTreeContextMenu() {
+export function initTreeContextMenu() {
     var tree = document.getElementById('ocTree');
     if (!tree) return;
     tree.addEventListener('contextmenu', function(e) {
@@ -572,9 +586,7 @@ function initTreeContextMenu() {
             if (type === 'dir' && action === 'new-session') {
                 createNewSession(data.title);
             } else if (type === 'dir' && action === 'project-config') {
-                if (typeof openProjectConfig === 'function') {
-                    openProjectConfig(data.title);
-                }
+                openProjectConfig(data.title);
             } else if (type === 'session' && action === 'rename') {
                 renameSession(data.sid);
             } else if (type === 'session' && action === 'delete') {
@@ -591,7 +603,7 @@ function initTreeContextMenu() {
 }
 
 /** 重命名会话 */
-async function renameSession(sid) {
+export async function renameSession(sid) {
     if (!sid) return;
     var info = window._sessionMap && window._sessionMap[sid];
     var oldTitle = (info && info.title) || sid;
@@ -601,7 +613,7 @@ async function renameSession(sid) {
     try {
         await api.OpenCodeCall('PATCH', '/session/' + encodeURIComponent(sid), { title: newTitle });
         showToast('已重命名', 'success');
-        if (sid === currentSessionId) {
+        if (sid === store.currentSessionId) {
             document.getElementById('ocChatTitle').textContent = newTitle;
         }
         await buildTree();

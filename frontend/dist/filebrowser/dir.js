@@ -1,32 +1,37 @@
 // ============================
 // 目录浏览器 — 弹窗式目录选择
+// 依赖：core/apicall.js(api)、core/state.js(store)、core/utils.js(showToast/escapeHtml)
 // ============================
 
+import { api } from '../core/apicall.js';
+import { store } from '../core/state.js';
+import { showToast, escapeHtml } from '../core/utils.js';
+
 /** 打开目录浏览器弹窗，返回 Promise<dir> */
-async function openDirBrowserModal() {
-	dirBrowserCurrentPath = '';
+export async function openDirBrowserModal() {
+	store.dirBrowserCurrentPath = '';
 	document.getElementById('dirBrowserModal').style.display = 'flex';
 	await loadDirBrowserList('');
 	return new Promise((resolve, reject) => {
-		dirBrowserResolver = resolve;
-		dirBrowserRejecter = reject;
+		store.dirBrowserResolver = resolve;
+		store.dirBrowserRejecter = reject;
 	});
 }
 
 /** 关闭目录浏览器弹窗 */
-function closeDirBrowserModal() {
-	if (dirBrowserRejecter) {
-		dirBrowserRejecter(new Error('已取消目录选择'));
-		dirBrowserRejecter = null;
-		dirBrowserResolver = null;
+export function closeDirBrowserModal() {
+	if (store.dirBrowserRejecter) {
+		store.dirBrowserRejecter(new Error('已取消目录选择'));
+		store.dirBrowserRejecter = null;
+		store.dirBrowserResolver = null;
 	}
 	document.getElementById('dirBrowserModal').style.display = 'none';
 }
 
 /** 加载目录浏览器列表 */
-async function loadDirBrowserList(path) {
-	dirBrowserCurrentPath = path || '';
-	document.getElementById('dirBrowserPath').textContent = dirBrowserCurrentPath || '根目录';
+export async function loadDirBrowserList(path) {
+	store.dirBrowserCurrentPath = path || '';
+	document.getElementById('dirBrowserPath').textContent = store.dirBrowserCurrentPath || '根目录';
 	const list = document.getElementById('dirBrowserList');
 	list.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在读取目录...</p></div>';
 	try {
@@ -48,24 +53,24 @@ async function loadDirBrowserList(path) {
 }
 
 /** 选中目录浏览器当前路径 */
-async function selectDirBrowserCurrent() {
-	if (!dirBrowserCurrentPath) {
+export async function selectDirBrowserCurrent() {
+	if (!store.dirBrowserCurrentPath) {
 		showToast('请先进入目标目录', 'warning');
 		return;
 	}
-	const selected = dirBrowserCurrentPath;
-	if (dirBrowserResolver) {
-		dirBrowserResolver(selected);
-		dirBrowserResolver = null;
-		dirBrowserRejecter = null;
+	const selected = store.dirBrowserCurrentPath;
+	if (store.dirBrowserResolver) {
+		store.dirBrowserResolver(selected);
+		store.dirBrowserResolver = null;
+		store.dirBrowserRejecter = null;
 	}
 	document.getElementById('dirBrowserModal').style.display = 'none';
 }
 
 /** 目录浏览器返回上一级 */
-async function goDirBrowserUp() {
-	if (!dirBrowserCurrentPath) return;
-	const current = String(dirBrowserCurrentPath).replace(/[\\/]+$/);
+export async function goDirBrowserUp() {
+	if (!store.dirBrowserCurrentPath) return;
+	const current = String(store.dirBrowserCurrentPath).replace(/[\\/]+$/);
 	let parent = current.replace(/[\\/][^\\/]+$/, '');
 	if (!parent || parent === current) {
 		await loadDirBrowserList('');

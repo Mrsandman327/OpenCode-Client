@@ -1,28 +1,33 @@
 // ============================================================
 // OpenCode 管理中心 - OMO 配置视图
 // ============================================================
+// 说明：ES Modules 化改造。core 层依赖静态导入；本文件不依赖
+// filebrowser/chat 模块，无守卫调用。以下 modelEntries 等均为本
+// 文件内的模块级变量（非 core/state.js 的 store），保持局部。
+import { api } from '../core/apicall.js';
+import { escapeHtml, showToast } from '../core/utils.js';
+import { store } from '../core/state.js';
 
-let modelEntries = [];
-let modelTypes = [];
-let availableModels = [];
-let originalEntries = [];
-let modelSectionsLoaded = false;
+export let modelEntries = [];
+export let modelTypes = [];
+export let originalEntries = [];
+export let modelSectionsLoaded = false;
 
-const VARIANT_OPTIONS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+export const VARIANT_OPTIONS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 
-let fullConfigJson = {};
-let workingConfigJson = {};
-let saveBaseConfigJson = {};
+export let fullConfigJson = {};
+export let workingConfigJson = {};
+export let saveBaseConfigJson = {};
 
 // ========== 方案管理状态 ==========
-let schemeDir = '';
-let schemeList = [];
-let currentSourceType = '';   // 'system' | 'imported' | 'scheme' | ''
-let currentSourceName = '';   // display name
-let hasUnsavedChanges = false;
-let originalState = '';       // JSON serialized comparison baseline
+export let schemeDir = '';
+export let schemeList = [];
+export let currentSourceType = '';   // 'system' | 'imported' | 'scheme' | ''
+export let currentSourceName = '';   // display name
+export let hasUnsavedChanges = false;
+export let originalState = '';       // JSON serialized comparison baseline
 
-async function loadModelConfig() {
+export async function loadModelConfig() {
     const container = document.getElementById('modelConfig');
 
     container.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在加载OMO 配置...</p></div>';
@@ -73,20 +78,23 @@ async function loadModelConfig() {
         // 后台尝试加载模型列表，不阻塞页面
         api.OpenCodeCall('GET', '/provider').then(function(models) {
             if (models && models.length) {
-                availableModels = models;
+                store.availableModels = models;
                 renderModelConfig();
             }
         }).catch(function() {});
     } catch (err) {
-        container.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeHtml(err.message||err)}</p><button class="btn btn-primary" onclick="loadModelConfig()">重试</button></div>`;
+        container.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeHtml(err.message||err)}</p><button class="btn btn-primary">重试</button></div>`;
+        // ESM 下内联 onclick 失效，改为事件监听绑定
+        var retryBtn = container.querySelector('.btn.btn-primary');
+        if (retryBtn) retryBtn.addEventListener('click', loadModelConfig);
     }
 }
 
-function modelEntryId(type, key) {
+export function modelEntryId(type, key) {
     return `${type}\u0000${key}`;
 }
 
-function modelSelectOptions(models, currentModel) {
+export function modelSelectOptions(models, currentModel) {
     const options = models && models.length ? [...models] : [];
     if (currentModel && !options.includes(currentModel)) {
         options.unshift(currentModel);
@@ -94,24 +102,24 @@ function modelSelectOptions(models, currentModel) {
     return options;
 }
 
-function sameModelEntry(a, b) {
+export function sameModelEntry(a, b) {
     return a && b && a.type === b.type && a.key === b.key;
 }
 
-function isModelSection(section) {
+export function isModelSection(section) {
     if (!section || Array.isArray(section) || typeof section !== 'object') return false;
     const values = Object.values(section);
     if (values.length === 0) return false;
     return values.every(value => value && typeof value === 'object' && !Array.isArray(value) && Object.prototype.hasOwnProperty.call(value, 'model'));
 }
 
-function isEmptyModelSectionName(type) {
+export function isEmptyModelSectionName(type) {
     if (type === 'agents' || type === 'categories') return true;
     if (['mcp', 'provider', 'providers', 'commands', 'settings'].includes(type)) return false;
     return type.length > 3 && type.endsWith('s');
 }
 
-function stripJsonComments(jsonStr) {
+export function stripJsonComments(jsonStr) {
     if (jsonStr == null) return '';
     return String(jsonStr).replace(/(?<!:)\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 }
@@ -120,7 +128,7 @@ function stripJsonComments(jsonStr) {
 // 渲染OMO 配置
 // ============================
 
-function renderModelConfig() {
+export function renderModelConfig() {
     const container = document.getElementById('modelConfig');
     const actions = document.getElementById('modelActions');
 
@@ -142,7 +150,7 @@ function renderModelConfig() {
         <label class="batch-check"><input type="checkbox" id="selectAllModels" /> <span>全选</span></label>
         <select class="batch-model-select" id="batchModelSelect">
             <option value="">-- 批量设置模型 --</option>
-            ${availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}
+            ${store.availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}
         </select>
         <button class="btn btn-sm btn-open" id="btnApplyBatch">应用</button>
     `;
@@ -212,12 +220,12 @@ function renderModelConfig() {
     checkUnsavedChanges();
 }
 
-function modelTypeTitle(type) {
+export function modelTypeTitle(type) {
     const builtIn = { agents: '🤖 Agents', categories: '📦 Categories' };
     return builtIn[type] || `🧩 ${type}`;
 }
 
-function createModelGroup(title, entries, entryType) {
+export function createModelGroup(title, entries, entryType) {
     const group = document.createElement('div');
     group.className = 'model-group';
 
@@ -300,7 +308,7 @@ function createModelGroup(title, entries, entryType) {
         select.className = 'model-select';
         select.dataset.key = entry.key;
         select.dataset.id = entry.id;
-        modelSelectOptions(availableModels, entry.model).forEach(m => {
+        modelSelectOptions(store.availableModels, entry.model).forEach(m => {
             const opt = document.createElement('option');
             opt.value = m; opt.textContent = m;
             if (m === entry.model) opt.selected = true;
@@ -367,7 +375,7 @@ function createModelGroup(title, entries, entryType) {
     return group;
 }
 
-async function deleteModelType(entryType, entryCount) {
+export async function deleteModelType(entryType, entryCount) {
     const warning = entryCount > 0 ? `，其中包含 ${entryCount} 个条目` : '';
     if (!confirm(`确定删除类型 ${entryType}${warning}？此操作会立即写入配置文件。`)) return;
     const result = await api.DeleteModelType(entryType);
@@ -385,19 +393,20 @@ async function deleteModelType(entryType, entryCount) {
     showToast(`已删除类型 ${entryType}`, 'success');
 }
 
-function showAddTypeModal() {
+export function showAddTypeModal() {
     const old = document.querySelector('.modal-overlay');
     if (old) old.remove();
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal">
             <h3>添加OMO 配置类型</h3>
             <div class="modal-field"><label>类型名称（顶层 section）</label><input id="modalTypeKey" placeholder="如 agents / categories / reviewers" /></div>
             <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAddType">取消</button><button class="btn btn-primary" id="btnConfirmAddType">➕ 添加类型</button></div>
         </div>`;
     document.body.appendChild(overlay);
     overlay.addEventListener('click', () => overlay.remove());
+    overlay.querySelector('.modal').addEventListener('click', (e) => e.stopPropagation());
     overlay.querySelector('#btnCancelAddType').addEventListener('click', () => overlay.remove());
     overlay.querySelector('#btnConfirmAddType').addEventListener('click', async () => {
         const type = overlay.querySelector('#modalTypeKey').value.trim();
@@ -414,22 +423,23 @@ function showAddTypeModal() {
     });
 }
 
-function showAddEntryModal(entryType) {
+export function showAddEntryModal(entryType) {
     const old = document.querySelector('.modal-overlay');
     if (old) old.remove();
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal">
             <h3>添加 ${modelTypeTitle(entryType).replace(/^[^\w\u4e00-\u9fa5]+\s*/, '')}</h3>
             <div class="modal-field"><label>Key（唯一标识）</label><input id="modalEntryKey" placeholder="如 my-agent" /></div>
-            <div class="modal-field"><label>模型</label><select id="modalEntryModel" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)">${availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
+            <div class="modal-field"><label>模型</label><select id="modalEntryModel" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)">${store.availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
             <div class="modal-field"><label>Variant</label><select id="modalEntryVariant" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)">${VARIANT_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('')}</select></div>
             <div class="modal-field"><label>描述（作为注释）</label><input id="modalEntryComment" placeholder="简要描述用途" /></div>
             <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAdd">取消</button><button class="btn btn-primary" id="btnConfirmAdd">💾 添加</button></div>
         </div>`;
     document.body.appendChild(overlay);
     overlay.addEventListener('click', () => overlay.remove());
+    overlay.querySelector('.modal').addEventListener('click', (e) => e.stopPropagation());
     overlay.querySelector('#btnCancelAdd').addEventListener('click', () => overlay.remove());
     overlay.querySelector('#btnConfirmAdd').addEventListener('click', () => {
         const key = overlay.querySelector('#modalEntryKey').value.trim();
@@ -449,7 +459,7 @@ function showAddEntryModal(entryType) {
     });
 }
 
-function updateSaveStatus() {
+export function updateSaveStatus() {
     const changed = modelEntries.filter(e => {
         const orig = originalEntries.find(o => sameModelEntry(o, e));
         return !orig || orig.model !== e.model || orig.variant !== e.variant;
@@ -472,7 +482,7 @@ function updateSaveStatus() {
 // ============================================================
 
 // ========== 方案初始化 ==========
-async function initSchemes() {
+export async function initSchemes() {
     try {
         schemeDir = await api.GetSchemeDir();
         schemeList = await api.ListSchemes() || [];
@@ -483,7 +493,7 @@ async function initSchemes() {
 }
 
 // ========== 方案数据加载 ==========
-async function loadSchemeIntoEditor(name) {
+export async function loadSchemeIntoEditor(name) {
     try {
         const content = await api.ReadScheme(name);
         const data = JSON.parse(stripJsonComments(content));
@@ -503,14 +513,14 @@ async function loadSchemeIntoEditor(name) {
     }
 }
 
-function checkUnsavedChanges() {
+export function checkUnsavedChanges() {
     // 每次模型条目变更后调用
     const current = JSON.stringify(buildModelConfig());
     hasUnsavedChanges = current !== originalState;
     updateSchemeStatus();
 }
 
-function buildModelConfig() {
+export function buildModelConfig() {
     const map = {};
     modelEntries.forEach(e => {
         if (!map[e.type]) map[e.type] = {};
@@ -519,7 +529,7 @@ function buildModelConfig() {
     return map;
 }
 
-function buildMergedConfigForSave() {
+export function buildMergedConfigForSave() {
     const merged = JSON.parse(JSON.stringify(saveBaseConfigJson || {}));
     const visibleConfig = buildModelConfig();
     for (const type of modelTypes) {
@@ -532,7 +542,7 @@ function buildMergedConfigForSave() {
 }
 
 // 从 workingConfigJson 重建编辑条目（不调用 renderModelConfig）
-function rebuildModelEntriesFromFull(data) {
+export function rebuildModelEntriesFromFull(data) {
     modelEntries = [];
     modelTypes = [];
     for (const [type, section] of Object.entries(data || {})) {
@@ -545,7 +555,7 @@ function rebuildModelEntriesFromFull(data) {
 }
 
 // 从后端加载描述表并应用到当前 modelEntries
-async function applyDescriptions() {
+export async function applyDescriptions() {
     if (typeof api.GetAgentDescriptions !== 'function') return;
     try {
         const descs = await api.GetAgentDescriptions();
@@ -557,7 +567,7 @@ async function applyDescriptions() {
 }
 
 // 从外部数据渲染（用于方案导入/加载，不改变原始配置引用）
-function renderModelConfigFromData(data) {
+export function renderModelConfigFromData(data) {
     modelEntries = [];
     modelTypes = [];
     const commentMap = {}; // 方案文件无注释映射
@@ -573,7 +583,7 @@ function renderModelConfigFromData(data) {
 }
 
 // ========== 方案交互处理 ==========
-async function handleSchemeImport() {
+export async function handleSchemeImport() {
     if (hasUnsavedChanges) {
         if (!confirm('当前编辑区有未保存修改，继续导入将覆盖当前内容。是否继续？')) return;
     }
@@ -602,7 +612,7 @@ async function handleSchemeImport() {
     input.click();
 }
 
-async function handleSchemeExport() {
+export async function handleSchemeExport() {
     const name = prompt('请输入导出文件名：', 'oh-my-openagent.jsonc');
     if (!name) return;
     // 弹出目录选择对话框
@@ -618,7 +628,7 @@ async function handleSchemeExport() {
     }
 }
 
-async function handleSchemeSave() {
+export async function handleSchemeSave() {
     const name = prompt('请输入方案名称：');
     if (!name) return;
     if (/[\\/:*?"<>|]/.test(name)) {
@@ -636,7 +646,7 @@ async function handleSchemeSave() {
     }
 }
 
-async function handleSchemeSwitch(name) {
+export async function handleSchemeSwitch(name) {
     if (!name) return;
     if (hasUnsavedChanges) {
         if (!confirm('当前编辑区有未保存修改，切换方案将覆盖当前内容。是否继续？')) return;
@@ -648,7 +658,7 @@ async function handleSchemeSwitch(name) {
     }
 }
 
-async function handleSchemeApply() {
+export async function handleSchemeApply() {
     // 保存当前编辑内容到实际配置文件
     const totalChanges = modelEntries.filter(e => {
         const orig = originalEntries.find(o => sameModelEntry(o, e));
@@ -696,7 +706,7 @@ async function handleSchemeApply() {
 }
 
 // ========== 方案 UI 更新 ==========
-function updateSchemeStatus() {
+export function updateSchemeStatus() {
     const bar = document.getElementById('omoSchemeStatus');
     if (!bar) return;
     if (currentSourceType === 'system' && !hasUnsavedChanges) {
@@ -723,7 +733,7 @@ function updateSchemeStatus() {
     bar.style.background = 'transparent';
 }
 
-function updateSchemeDropdown() {
+export function updateSchemeDropdown() {
     const sel = document.getElementById('schemeSelect');
     if (!sel) return;
     sel.innerHTML = '<option value="">' + (schemeList.length ? '请选择方案' : '（无可用方案）') + '</option>';

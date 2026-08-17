@@ -1,7 +1,15 @@
-// ============================================================
+﻿// ============================================================
 // chat-cache.js — 消息缓存管理
 // 负责消息的内存缓存、增量合并、SSE delta 应用和渲染调度
+// 依赖：core/state.js（messageCache, currentSessionId）、core/utils.js（getTabMessagesEl, getCachedMessages）、
+//       chat/render.js（renderMessages）、chat/service.js（normalizeMessageItem, isInternalUserMessage）
+// 说明：getCachedMessages 已移入 core/utils.js 以打破 cache↔render 循环依赖
 // ============================================================
+
+import { store } from '../core/state.js';
+import { getTabMessagesEl, getCachedMessages } from '../core/utils.js';
+import { renderMessages, isSessionBusy } from './render.js';
+import { normalizeMessageItem, isInternalUserMessage } from './service.js';
 
 // ============================
 // 消息缓存与渲染
@@ -11,10 +19,10 @@
  * 缓存会话消息（增量合并模式）
  * 会话非忙碌或缓存为空时直接覆盖，否则按 id 逐个合并新消息
  */
-function cacheMessages(sessionID, items) {
+export function cacheMessages(sessionID, items) {
     const incoming = (items || []).map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
-    if (!isSessionBusy(sessionID) || !messageCache[sessionID]?.length) {
-        messageCache[sessionID] = incoming;
+    if (!isSessionBusy(sessionID) || !store.messageCache[sessionID]?.length) {
+        store.messageCache[sessionID] = incoming;
         return;
     }
     const existing = getCachedMessages(sessionID);
@@ -27,11 +35,11 @@ function cacheMessages(sessionID, items) {
             existing.push(item);
         }
     }
-    messageCache[sessionID] = existing;
+    store.messageCache[sessionID] = existing;
 }
 
 /** 合并两条消息（info 浅合并，parts 逐个按 id 合并） */
-function mergeMessage(existing, incoming) {
+export function mergeMessage(existing, incoming) {
     if (!existing) return incoming;
     const existingParts = Array.isArray(existing.parts) ? existing.parts : [];
     const incomingParts = Array.isArray(incoming.parts) ? incoming.parts : [];
@@ -55,7 +63,7 @@ function mergeMessage(existing, incoming) {
  * 保护流式输出中的长文本不被后续较短增量覆盖
  * （当新文本长度 < 旧文本长度且未标记 time.end 时保留旧文本）
  */
-function mergePart(existing, incoming) {
+export function mergePart(existing, incoming) {
     if (!existing) return incoming;
     const merged = { ...existing, ...incoming };
     for (const field of ['text', 'content']) {
@@ -68,14 +76,8 @@ function mergePart(existing, incoming) {
     return merged;
 }
 
-/** 获取会话缓存消息（不存在则初始化为空数组） */
-function getCachedMessages(sessionID) {
-    if (!messageCache[sessionID]) messageCache[sessionID] = [];
-    return messageCache[sessionID];
-}
-
 /** 渲染会话缓存消息（渲染到该会话自己的 tab 容器；容器不存在则跳过） */
-function renderCachedMessages(sessionID) {
+export function renderCachedMessages(sessionID) {
     if (!sessionID) return;
     var el = getTabMessagesEl(sessionID);
     if (!el) return;
@@ -85,7 +87,7 @@ function renderCachedMessages(sessionID) {
 /** 调度下一帧渲染缓存消息（防抖；多会话各自记录待渲染，一帧内多次调用只触发一次） */
 var _pendingRenderSessions = {};
 var _pendingRenderFrame = 0;
-function scheduleRenderCachedMessages(sessionID) {
+export function scheduleRenderCachedMessages(sessionID) {
     if (!sessionID) return;
     _pendingRenderSessions[sessionID] = true;
     if (_pendingRenderFrame) return;
@@ -100,11 +102,11 @@ function scheduleRenderCachedMessages(sessionID) {
 }
 
 /** 按 info 插入或更新消息 */
-function upsertMessage(info) {
+export function upsertMessage(info) {
     if (!info?.sessionID || !info.id) return;
     const list = getCachedMessages(info.sessionID);
     if (info.role === 'assistant') {
-        messageCache[info.sessionID] = list.filter(item => !(item.info?.id || item.id || '').startsWith('pending_'));
+        store.messageCache[info.sessionID] = list.filter(item => !(item.info?.id || item.id || '').startsWith('pending_'));
     }
     const nextList = getCachedMessages(info.sessionID);
     const index = nextList.findIndex(item => (item.info?.id || item.id) === info.id);
@@ -116,7 +118,7 @@ function upsertMessage(info) {
 }
 
 /** 按 id 插入或更新 part */
-function upsertPart(part) {
+export function upsertPart(part) {
     if (!part?.sessionID || !part.messageID || !part.id) return;
     const list = getCachedMessages(part.sessionID);
     let message = list.find(item => (item.info?.id || item.id) === part.messageID);
@@ -135,8 +137,8 @@ function upsertPart(part) {
 }
 
 /** 应用流式文本增量到消息 part */
-function applyPartDelta(props) {
-    const sessionID = props.sessionID || currentSessionId;
+export function applyPartDelta(props) {
+    const sessionID = props.sessionID || store.currentSessionId;
     const field = props.field || 'text';
     if (!sessionID || !props.messageID || !props.partID || typeof props.delta !== 'string') return;
     const list = getCachedMessages(sessionID);
@@ -156,8 +158,8 @@ function applyPartDelta(props) {
 }
 
 /** 按 id 移除 part */
-function removePart(props) {
-    const sessionID = props.sessionID || currentSessionId;
+export function removePart(props) {
+    const sessionID = props.sessionID || store.currentSessionId;
     if (!sessionID || !props.messageID || !props.partID) return;
     const message = getCachedMessages(sessionID).find(item => (item.info?.id || item.id) === props.messageID);
     if (!message || !Array.isArray(message.parts)) return;
@@ -165,17 +167,17 @@ function removePart(props) {
 }
 
 /** 按 id 移除消息 */
-function removeMessage(props) {
-    const sessionID = props.sessionID || currentSessionId;
+export function removeMessage(props) {
+    const sessionID = props.sessionID || store.currentSessionId;
     if (!sessionID || !props.messageID) return;
-    messageCache[sessionID] = getCachedMessages(sessionID).filter(item => (item.info?.id || item.id) !== props.messageID);
+    store.messageCache[sessionID] = getCachedMessages(sessionID).filter(item => (item.info?.id || item.id) !== props.messageID);
 }
 
 /**
  * 确保会话缓存末尾有 pending assistant
  * 发送消息前调用，若最后一条不是 assistant 角色则插入占位项
  */
-function ensurePendingAssistant(sessionID) {
+export function ensurePendingAssistant(sessionID) {
     if (!sessionID) return;
     const list = getCachedMessages(sessionID);
     const last = list[list.length - 1];
@@ -198,8 +200,8 @@ function ensurePendingAssistant(sessionID) {
 }
 
 /** 渲染等待助手回复的占位提示 */
-function renderPendingAssistantPlaceholder(sessionID) {
-	if (!sessionID || sessionID !== currentSessionId) return;
+export function renderPendingAssistantPlaceholder(sessionID) {
+	if (!sessionID || sessionID !== store.currentSessionId) return;
 	const box = getTabMessagesEl(sessionID);
 	if (!box) return;
 	box.innerHTML = '<div class="oc-empty">正在等待模型回复...</div>';

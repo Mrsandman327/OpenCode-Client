@@ -1,6 +1,13 @@
-// ============================================================
+﻿// ============================================================
 // OpenCode 管理中心 - 命令面板（输入 / 触发快捷命令选择）
+// 依赖：core/state.js（webRunning, currentSessionId）、core/utils.js（escapeHtml, showToast, getCachedMessages）、
+//       core/apicall.js（api）、chat/session.js（loadMessages）
 // ============================================================
+
+import { api } from '../core/apicall.js';
+import { store } from '../core/state.js';
+import { escapeHtml, showToast, getCachedMessages } from '../core/utils.js';
+import { loadMessages } from './session.js';
 
 let cmdPaletteItems = [];
 let cmdPaletteLoaded = false;
@@ -21,7 +28,7 @@ const cmdInputEl = document.getElementById('ocPrompt');
 // 数据加载
 // ============================
 
-async function loadCmdPalette() {
+export async function loadCmdPalette() {
     if (cmdPaletteLoaded) return;
     try {
         cmdPaletteItems = await api.OpenCodeCall('GET', '/command') || [];
@@ -33,7 +40,7 @@ async function loadCmdPalette() {
     cmdPaletteLoaded = true;
 }
 
-function filterCmdItems(query) {
+export function filterCmdItems(query) {
     if (!query) return cmdPaletteItems;
     const q = query.toLowerCase();
     return cmdPaletteItems.filter(item =>
@@ -45,7 +52,7 @@ function filterCmdItems(query) {
 // 显示/隐藏
 // ============================
 
-async function showCmdPalette() {
+export async function showCmdPalette() {
     await loadCmdPalette();
     cmdPaletteVisible = true;
     cmdPaletteIndex = 0;
@@ -54,7 +61,7 @@ async function showCmdPalette() {
     cmdPaletteEl.style.display = 'block';
 }
 
-function hideCmdPalette() {
+export function hideCmdPalette() {
     cmdPaletteVisible = false;
     cmdPaletteIndex = -1;
     cmdPaletteEl.style.display = 'none';
@@ -64,7 +71,7 @@ function hideCmdPalette() {
 // 渲染
 // ============================
 
-function renderCmdPalette(query) {
+export function renderCmdPalette(query) {
     const filtered = filterCmdItems(query);
     if (cmdPaletteIndex >= filtered.length) cmdPaletteIndex = Math.max(0, filtered.length - 1);
 
@@ -161,7 +168,7 @@ document.addEventListener('click', (e) => {
 // 导航与选中
 // ============================
 
-function navigateCmdPalette(direction) {
+export function navigateCmdPalette(direction) {
     const filtered = filterCmdItems(cmdInputEl.value.slice(1));
     if (!filtered.length) return;
 
@@ -173,14 +180,14 @@ function navigateCmdPalette(direction) {
     renderCmdPalette(cmdInputEl.value.slice(1));
 }
 
-function selectCmdPalette() {
+export function selectCmdPalette() {
     const active = cmdPaletteScroll.querySelector('.oc-cmd-item.active');
     if (active) {
         selectCmdItem(active.dataset.cmd, active.dataset.source);
     }
 }
 
-function selectCmdItem(cmdName, source) {
+export function selectCmdItem(cmdName, source) {
     if (source === 'fixed') {
         executeFixedCmd(cmdName);
     } else {
@@ -188,12 +195,12 @@ function selectCmdItem(cmdName, source) {
     }
 }
 
-async function executeFixedCmd(cmdName) {
-    if (!webRunning || !currentSessionId) {
+export async function executeFixedCmd(cmdName) {
+    if (!store.webRunning || !store.currentSessionId) {
         showToast('请先启动服务并选择会话', 'error');
         return;
     }
-    const sid = currentSessionId;
+    const sid = store.currentSessionId;
     hideCmdPalette();
     showToast(`执行 /${cmdName}...`, 'info');
 
@@ -247,7 +254,7 @@ async function executeFixedCmd(cmdName) {
     cmdInputEl.value = '';
 }
 
-function insertCmdToPrompt(cmdName) {
+export function insertCmdToPrompt(cmdName) {
     cmdInputEl.value = '/' + cmdName + ' ';
     cmdInputEl.focus();
     hideCmdPalette();

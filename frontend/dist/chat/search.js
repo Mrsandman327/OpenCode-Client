@@ -1,7 +1,11 @@
 ﻿// ============================================================
 // OpenCode 管理中心 - 消息搜索
 // Ctrl+F 在当前会话中搜索消息内容
+// 依赖：core/state.js（expandedParts）、core/utils.js（getActiveMessagesEl）
 // ============================================================
+
+import { store } from '../core/state.js';
+import { getActiveMessagesEl } from '../core/utils.js';
 
 /** 搜索结果中高亮标记的 DOM 元素数组 */
 var searchResults = [];
@@ -17,7 +21,7 @@ let searchTemporaryExpansion = null;
  * - 绑定输入框的输入事件（200ms 防抖执行搜索）
  * - 绑定关闭、上一条、下一条按钮
  */
-function initSearch() {
+export function initSearch() {
     document.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.key === 'f') {
             e.preventDefault();
@@ -55,7 +59,7 @@ function initSearch() {
  * 遍历消息容器中的所有文本节点，用 <mark> 标签包裹匹配文本
  * @param {string} query - 搜索关键词，长度小于 2 时跳过
  */
-function doSearch(query) {
+export function doSearch(query) {
     restoreSearchTemporaryExpansion();
     clearHighlights();
     searchResults = [];
@@ -109,7 +113,7 @@ function doSearch(query) {
  * 导航到上一条/下一条搜索结果
  * @param {number} dir - 方向：1 为下一条，-1 为上一条
  */
-function navigateSearch(dir) {
+export function navigateSearch(dir) {
     for (var i = 0; i < searchResults.length; i++) {
         searchResults[i].classList.remove('oc-search-active');
     }
@@ -127,7 +131,7 @@ function navigateSearch(dir) {
 }
 
 /** 将搜索结果滚动到可视区域的上三分之一处 */
-function scrollSearchResultIntoView(node, container) {
+export function scrollSearchResultIntoView(node, container) {
     var targetTop = getSearchAnchorTop(node, container);
     var targetScroll = targetTop - container.clientHeight / 3;
     var maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
@@ -138,7 +142,7 @@ function scrollSearchResultIntoView(node, container) {
 }
 
 /** 计算搜索结果相对于消息容器的偏移高度，用于精确滚动定位 */
-function getSearchAnchorTop(node, container) {
+export function getSearchAnchorTop(node, container) {
     var anchor = node.closest('.oc-part') || node.closest('.oc-message') || node;
     var top = 0;
     var el = anchor;
@@ -151,7 +155,7 @@ function getSearchAnchorTop(node, container) {
 }
 
 /** 临时展开搜索结果所在的折叠区域，让隐藏的搜索结果可见 */
-function temporarilyRevealSearchResult(node) {
+export function temporarilyRevealSearchResult(node) {
     var hiddenAncestor = node.closest('.hidden');
     if (!hiddenAncestor) return;
     var targetPart = node.closest('.oc-part');
@@ -165,7 +169,7 @@ function temporarilyRevealSearchResult(node) {
 }
 
 /** 恢复搜索时临时展开的区域，如果该区域没有保持展开的必要则重新折叠 */
-function restoreSearchTemporaryExpansion() {
+export function restoreSearchTemporaryExpansion() {
     if (!searchTemporaryExpansion) return;
     var body = searchTemporaryExpansion.body;
     if (body && body.classList && body.classList.contains('oc-search-temp-expanded')) {
@@ -185,17 +189,17 @@ function restoreSearchTemporaryExpansion() {
  * 判断一个 part 是否应该保持展开状态
  * 检查 expandedParts 中是否有对应的展开记录
  */
-function shouldKeepTemporaryExpansionVisible(body) {
+export function shouldKeepTemporaryExpansionVisible(body) {
     var key = body.dataset ? body.dataset.expandKey : '';
     if (!key) return false;
-    if (Object.prototype.hasOwnProperty.call(expandedParts, key)) {
-        return !!expandedParts[key];
+    if (Object.prototype.hasOwnProperty.call(store.expandedParts, key)) {
+        return !!store.expandedParts[key];
     }
     return body.dataset.defaultExpanded === 'true';
 }
 
 /** 清除所有搜索结果的高亮标记，恢复原始 DOM 结构 */
-function clearHighlights() {
+export function clearHighlights() {
     var marks = document.querySelectorAll('.oc-search-highlight');
     for (var m = marks.length - 1; m >= 0; m--) {
         var parent = marks[m].parentNode;
@@ -205,7 +209,7 @@ function clearHighlights() {
 }
 
 /** 关闭搜索栏：恢复临时展开、清除高亮、隐藏搜索栏 */
-function closeSearch() {
+export function closeSearch() {
     restoreSearchTemporaryExpansion();
     clearHighlights();
     var bar = document.getElementById('ocSearchBar');
@@ -233,7 +237,7 @@ var userNavInited = false;
  * 初始化用户消息导航按钮
  * 绑定 ▲ ▼ 按钮的点击事件，在页面加载后调用一次
  */
-function initUserNav() {
+export function initUserNav() {
     if (userNavInited) return;
     var prevBtn = document.getElementById('btnUserNavPrev');
     var nextBtn = document.getElementById('btnUserNavNext');
@@ -250,7 +254,7 @@ function initUserNav() {
  * 用户滚动时自动更新导航位置
  * 100ms 防抖，检测当前可视区域内最接近顶部的用户消息
  */
-function onUserNavScroll() {
+export function onUserNavScroll() {
     if (userNavScrollTimer) clearTimeout(userNavScrollTimer);
     userNavScrollTimer = setTimeout(function() {
         var container = getActiveMessagesEl();
@@ -304,7 +308,7 @@ function onUserNavScroll() {
  * 收集当前 DOM 中所有用户消息卡片节点
  * @returns {HTMLElement[]}
  */
-function collectUserMessages() {
+export function collectUserMessages() {
     var container = getActiveMessagesEl();
     if (!container) return [];
     return Array.from(container.querySelectorAll('.oc-message.user'));
@@ -314,7 +318,7 @@ function collectUserMessages() {
  * 导航到上一条/下一条用户消息
  * @param {number} dir - 方向：1=下一条，-1=上一条
  */
-function navigateUserMessage(dir) {
+export function navigateUserMessage(dir) {
     var msgs = collectUserMessages();
     if (!msgs.length) return;
 
@@ -356,7 +360,7 @@ function navigateUserMessage(dir) {
 }
 
 /** 立即清除用户消息高亮和定时器 */
-function clearUserNavHighlight() {
+export function clearUserNavHighlight() {
     if (userNavHighlightTimer) {
         clearTimeout(userNavHighlightTimer);
         userNavHighlightTimer = null;
@@ -369,7 +373,7 @@ function clearUserNavHighlight() {
  * 刷新用户导航按钮状态
  * 在消息渲染后调用，更新计数和按钮可用性，控制导航条显隐
  */
-function updateUserNav() {
+export function updateUserNav() {
     var navEl = document.getElementById('ocUserNav');
     var prevBtn = document.getElementById('btnUserNavPrev');
     var nextBtn = document.getElementById('btnUserNavNext');
@@ -408,7 +412,7 @@ function updateUserNav() {
 /**
  * 重置用户导航状态（切换会话、清空消息时调用）
  */
-function resetUserNav() {
+export function resetUserNav() {
     clearUserNavHighlight();
     userNavIndex = -1;
     updateUserNav();

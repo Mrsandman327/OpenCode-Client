@@ -2,14 +2,16 @@
 // OpenCode 管理中心 - 工具函数
 // ============================================================
 
+import { store } from './state.js';
+
 // DOM 快捷引用
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
+export const $ = (sel) => document.querySelector(sel);
+export const $$ = (sel) => document.querySelectorAll(sel);
 
 // Toast 通知
 let toastTimer = null;
 
-function showToast(message, type = 'info') {
+export function showToast(message, type = 'info') {
     const toast = $('#toast');
     toast.textContent = message;
     toast.className = `toast ${type} show`;
@@ -20,11 +22,20 @@ function showToast(message, type = 'info') {
 }
 
 // HTML 转义
-function escapeHtml(text) {
+export function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ============================================================
+// 运行环境判定
+// ============================================================
+
+/** 是否为纯浏览器环境（无 Wails runtime） */
+export function isBrowserRuntimeForMain() {
+    return !window.runtime;
 }
 
 // ============================================================
@@ -33,7 +44,7 @@ function escapeHtml(text) {
 // ============================================================
 
 /** 取指定会话的消息容器（tab 容器），不存在返回 null */
-function getTabMessagesEl(sessionID) {
+export function getTabMessagesEl(sessionID) {
     if (!sessionID) return null;
     var pool = document.getElementById('ocMessagesPool');
     if (!pool) return null;
@@ -41,7 +52,7 @@ function getTabMessagesEl(sessionID) {
 }
 
 /** 取当前活动 tab 的消息容器；无活动 tab 时回退到池本身 */
-function getActiveMessagesEl() {
+export function getActiveMessagesEl() {
     var pool = document.getElementById('ocMessagesPool');
     if (!pool) return document.getElementById('ocMessages');
     var active = pool.querySelector('.oc-messages-tab.active');
@@ -55,7 +66,7 @@ function getActiveMessagesEl() {
  *   - 池中有活动 tab 容器 → 只写入该容器
  *   - 无活动但有隐藏 tab 容器（新建会话占位态）→ 更新/创建占位提示，保留 tab 容器
  *   - 无任何 tab 容器 → 直接写 pool */
-function setMessagesEmpty(text) {
+export function setMessagesEmpty(text) {
     var pool = document.getElementById('ocMessagesPool');
     if (!pool) return;
     var active = pool.querySelector('.oc-messages-tab.active');
@@ -79,7 +90,7 @@ function setMessagesEmpty(text) {
 }
 
 /** 创建指定会话的消息容器（若不存在），返回容器元素 */
-function ensureTabMessagesEl(sessionID) {
+export function ensureTabMessagesEl(sessionID) {
     var pool = document.getElementById('ocMessagesPool');
     if (!pool) return null;
     var el = getTabMessagesEl(sessionID);
@@ -96,4 +107,16 @@ function ensureTabMessagesEl(sessionID) {
     el.style.display = 'none';
     pool.appendChild(el);
     return el;
+}
+
+// ============================================================
+// 消息缓存访问
+// getCachedMessages 原属 chat/cache.js，为打破 cache.js ↔ render.js
+// 循环依赖，统一移入 utils.js（它只依赖 store.messageCache）。
+// ============================================================
+
+/** 获取会话缓存消息（不存在则初始化为空数组） */
+export function getCachedMessages(sessionID) {
+    if (!store.messageCache[sessionID]) store.messageCache[sessionID] = [];
+    return store.messageCache[sessionID];
 }

@@ -1,9 +1,17 @@
+// ============================================================
+// 静态开发服务器（ES Modules 化后供浏览器调试用）
+// 说明：本文件是 Node CommonJS 开发工具，不随应用打包。
+// 已被 go:embed all:frontend/dist 排除在构建产物外（位于 frontend/ 而非 frontend/dist）。
+// 用法：node frontend/server.js
+// ============================================================
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
 const PORT = 3000;
+// 静态资源根目录 = 本文件所在目录下的 dist
+const DIST_DIR = path.join(__dirname, 'dist');
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -30,15 +38,15 @@ function isDirectory(pathname) {
 
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url);
-  let pathname = path.join(__dirname, parsedUrl.pathname);
-  
+  let pathname = path.join(DIST_DIR, parsedUrl.pathname);
+
   console.log(`请求: ${req.url} -> ${pathname}`);
-  
+
   // 处理根路径
   if (parsedUrl.pathname === '/' || parsedUrl.pathname === '') {
-    pathname = path.join(__dirname, 'index.html');
+    pathname = path.join(DIST_DIR, 'index.html');
   }
-  
+
   // 检查路径是否存在
   fs.exists(pathname, (exist) => {
     if (!exist) {
@@ -48,7 +56,7 @@ const server = http.createServer((req, res) => {
       res.end(`<h1>404 Not Found</h1><p>找不到文件: ${req.url}</p>`);
       return;
     }
-    
+
     // 如果是目录，返回 index.html（用于 SPA）
     if (isDirectory(pathname)) {
       const indexFile = path.join(pathname, 'index.html');
@@ -63,7 +71,7 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
-    
+
     // 是文件，直接提供
     serveFile(pathname, res);
   });
@@ -91,7 +99,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`📁 本地访问: http://localhost:${PORT}`);
   console.log(`🌐 网络访问: http://${getLocalIP()}:${PORT}`);
   console.log('----------------------------------------');
-  console.log(`工作目录: ${__dirname}`);
+  console.log(`静态目录: ${DIST_DIR}`);
 });
 
 // 获取本机 IP 地址

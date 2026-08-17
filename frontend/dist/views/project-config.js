@@ -1,6 +1,12 @@
 // ============================================================
 // project-config.js — 项目配置管理弹窗（Apple 风格）
 // ============================================================
+// 说明：ES Modules 化改造。core 层依赖静态导入；filebrowser 依赖
+// 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import；
+// marked 与 window.ProjectConfigCodeEditor 为全局 lib 符号，保持现状。
+import { api } from '../core/apicall.js';
+import { escapeHtml, showToast } from '../core/utils.js';
+import { fileBrowserSanitizeMarkedHtml, fileBrowserHighlightCode } from '../filebrowser/preview.js';
 
 window._projectConfig = {
     rootDir: '',
@@ -14,7 +20,7 @@ window._projectConfig = {
     searchButtonSyncTimer: null
 };
 
-function stopProjectConfigSearchButtonSync() {
+export function stopProjectConfigSearchButtonSync() {
     var state = window._projectConfig;
     if (state.searchButtonSyncTimer) {
         clearInterval(state.searchButtonSyncTimer);
@@ -22,12 +28,12 @@ function stopProjectConfigSearchButtonSync() {
     }
 }
 
-function isProjectConfigDarkTheme(theme) {
+export function isProjectConfigDarkTheme(theme) {
     var current = theme || document.documentElement.getAttribute('data-theme') || 'dark';
     return current === 'dark';
 }
 
-function updateProjectConfigDirtyBadge() {
+export function updateProjectConfigDirtyBadge() {
     var dirtyBadge = document.getElementById('pcEditorDirtyBadge');
     if (!dirtyBadge) {
         return;
@@ -35,7 +41,7 @@ function updateProjectConfigDirtyBadge() {
     dirtyBadge.style.display = isProjectConfigEditorDirty() ? 'inline' : 'none';
 }
 
-function destroyProjectConfigEditor() {
+export function destroyProjectConfigEditor() {
     var state = window._projectConfig;
     stopProjectConfigSearchButtonSync();
     if (state.editorInstance && window.ProjectConfigCodeEditor) {
@@ -46,7 +52,7 @@ function destroyProjectConfigEditor() {
     state.editorInitialContent = '';
 }
 
-function getProjectConfigEditorContent() {
+export function getProjectConfigEditorContent() {
     var state = window._projectConfig;
     if (state.editorInstance && window.ProjectConfigCodeEditor) {
         return window.ProjectConfigCodeEditor.getValue(state.editorInstance);
@@ -55,7 +61,7 @@ function getProjectConfigEditorContent() {
     return textarea ? textarea.value : '';
 }
 
-function isProjectConfigEditorDirty() {
+export function isProjectConfigEditorDirty() {
     var state = window._projectConfig;
     if (state.editorInstance && window.ProjectConfigCodeEditor) {
         return window.ProjectConfigCodeEditor.isDirty(state.editorInstance);
@@ -67,14 +73,14 @@ function isProjectConfigEditorDirty() {
     return false;
 }
 
-function confirmProjectConfigDiscardChanges() {
+export function confirmProjectConfigDiscardChanges() {
     if (!isProjectConfigEditorDirty()) {
         return true;
     }
     return confirm('当前文件有未保存修改，确定要放弃吗？');
 }
 
-function ensureProjectConfigCanLeaveEditMode() {
+export function ensureProjectConfigCanLeaveEditMode() {
     if (!window._projectConfig.editorInstance) {
         return true;
     }
@@ -85,7 +91,7 @@ function ensureProjectConfigCanLeaveEditMode() {
     return true;
 }
 
-function createProjectConfigEditor(fileName, content) {
+export function createProjectConfigEditor(fileName, content) {
     var mount = document.getElementById('pcCodeEditor');
     if (!mount || !window.ProjectConfigCodeEditor) {
         return false;
@@ -110,14 +116,14 @@ function createProjectConfigEditor(fileName, content) {
     return true;
 }
 
-function syncProjectConfigEditorTheme(theme) {
+export function syncProjectConfigEditorTheme(theme) {
     var state = window._projectConfig;
     if (state.editorInstance && window.ProjectConfigCodeEditor) {
         window.ProjectConfigCodeEditor.setTheme(state.editorInstance, isProjectConfigDarkTheme(theme));
     }
 }
 
-function refreshProjectConfigSearchButtonState() {
+export function refreshProjectConfigSearchButtonState() {
     var searchBtn = document.querySelector('.pc-btn-search');
     if (!searchBtn) {
         return;
@@ -128,7 +134,7 @@ function refreshProjectConfigSearchButtonState() {
     searchBtn.textContent = isOpen ? '关闭搜索' : '搜索';
 }
 
-function startProjectConfigSearchButtonSync() {
+export function startProjectConfigSearchButtonSync() {
     var state = window._projectConfig;
     stopProjectConfigSearchButtonSync();
     if (!state.editorInstance) {
@@ -143,7 +149,7 @@ window.syncProjectConfigEditorTheme = syncProjectConfigEditorTheme;
 // 弹窗开关
 // ============================
 
-function openProjectConfig(rootDir) {
+export function openProjectConfig(rootDir) {
     var state = window._projectConfig;
     destroyProjectConfigEditor();
     state.rootDir = rootDir;
@@ -161,7 +167,7 @@ function openProjectConfig(rootDir) {
     loadProjectConfigSummary();
 }
 
-function closeProjectConfig() {
+export function closeProjectConfig() {
     if (!ensureProjectConfigCanLeaveEditMode()) {
         return;
     }
@@ -175,7 +181,7 @@ function closeProjectConfig() {
 // 数据加载
 // ============================
 
-async function loadProjectConfigSummary() {
+export async function loadProjectConfigSummary() {
     var state = window._projectConfig;
     var body = document.getElementById('projectConfigBody');
     if (!body) return;
@@ -193,7 +199,7 @@ async function loadProjectConfigSummary() {
 // Tab 切换
 // ============================
 
-function switchProjectConfigTab(tabName) {
+export function switchProjectConfigTab(tabName) {
     if (!ensureProjectConfigCanLeaveEditMode()) {
         return;
     }
@@ -205,7 +211,7 @@ function switchProjectConfigTab(tabName) {
     renderCurrentTab();
 }
 
-function renderCurrentTab() {
+export function renderCurrentTab() {
     var state = window._projectConfig;
     var summary = state.summary;
     if (!summary) return;
@@ -225,7 +231,7 @@ function renderCurrentTab() {
 // Tab 1: 核心配置
 // ============================
 
-function renderCoreConfigTab(tab) {
+export function renderCoreConfigTab(tab) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists) {
         body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon">⚙️</div><p>无项目配置</p><p class="pc-empty-desc">该项目下没有 .opencode/opencode.jsonc 或 opencode.json</p><button class="btn btn-sm btn-primary pc-empty-btn" id="btnViewGlobalConfig">查看全局配置</button></div>';
@@ -235,7 +241,7 @@ function renderCoreConfigTab(tab) {
     openFileEditor('coreConfig', tab.files[0].path);
 }
 
-async function viewGlobalConfig() {
+export async function viewGlobalConfig() {
     var body = document.getElementById('projectConfigBody');
     body.innerHTML = '<div class="pc-loading"><div class="spinner"></div><p>加载全局配置...</p></div>';
     try {
@@ -254,7 +260,7 @@ async function viewGlobalConfig() {
 // Tab 2: 技能管理
 // ============================
 
-function renderSkillsTab(tab) {
+export function renderSkillsTab(tab) {
     var body = document.getElementById('projectConfigBody');
 
     // 顶部操作栏
@@ -312,7 +318,7 @@ function renderSkillsTab(tab) {
 // 导入技能弹窗
 // ============================
 
-function showImportSkillsModal() {
+export function showImportSkillsModal() {
     var body = document.getElementById('projectConfigBody');
     body.innerHTML = '<div class="pc-loading"><div class="spinner"></div><p>加载可导入技能...</p></div>';
 
@@ -353,11 +359,11 @@ function showImportSkillsModal() {
     });
 }
 
-function renderSkillsHeader() {
+export function renderSkillsHeader() {
     return '<div class="pc-skills-actions"><button class="btn btn-sm btn-ghost pc-btn-back-to-skills">← 返回技能列表</button></div>';
 }
 
-function bindImportEvents() {
+export function bindImportEvents() {
     var backBtn = document.querySelector('.pc-btn-back-to-skills');
     if (backBtn) backBtn.addEventListener('click', function() { renderCurrentTab(); });
 
@@ -379,7 +385,7 @@ function bindImportEvents() {
     });
 }
 
-function browseSkillDir(skillPath) {
+export function browseSkillDir(skillPath) {
     var state = window._projectConfig;
     var body = document.getElementById('projectConfigBody');
     body.innerHTML = '<div class="pc-loading"><div class="spinner"></div><p>加载中...</p></div>';
@@ -395,7 +401,7 @@ function browseSkillDir(skillPath) {
 }
 
 /** 渲染目录浏览视图 */
-function renderBrowseView(category, dirPath, result, backLabel, backAction) {
+export function renderBrowseView(category, dirPath, result, backLabel, backAction) {
     var body = document.getElementById('projectConfigBody');
     if (!result.exists || !result.files || !result.files.length) {
         body.innerHTML = '<div class="pc-editor">' +
@@ -421,7 +427,7 @@ function renderBrowseView(category, dirPath, result, backLabel, backAction) {
     bindAddEntryButton(category, dirPath, function() { browseSubDir(category, dirPath); });
 }
 
-function renderFileListHtml(category, basePath, files, showDelete) {
+export function renderFileListHtml(category, basePath, files, showDelete) {
     var html = '<div class="pc-file-list">';
     files.forEach(function(f) {
         var fullPath = (basePath ? basePath + '/' : '') + f.path;
@@ -439,7 +445,7 @@ function renderFileListHtml(category, basePath, files, showDelete) {
     return html;
 }
 
-function bindBrowseEvents(category, currentPath) {
+export function bindBrowseEvents(category, currentPath) {
     var body = document.getElementById('projectConfigBody');
     body.querySelectorAll('.pc-file-item').forEach(function(item) {
         item.addEventListener('click', function(e) {
@@ -457,7 +463,7 @@ function bindBrowseEvents(category, currentPath) {
     });
 }
 
-function browseSubDir(category, dirPath) {
+export function browseSubDir(category, dirPath) {
     var state = window._projectConfig;
     var body = document.getElementById('projectConfigBody');
     body.innerHTML = '<div class="pc-loading"><div class="spinner"></div><p>加载中...</p></div>';
@@ -470,7 +476,7 @@ function browseSubDir(category, dirPath) {
 }
 
 /** 返回上一级目录 */
-function goBrowseBack() {
+export function goBrowseBack() {
     var state = window._projectConfig;
     state.browseStack.pop(); // 出栈当前
     if (state.browseStack.length === 0) {
@@ -485,7 +491,7 @@ function goBrowseBack() {
 // Tab 3: 项目准则
 // ============================
 
-function renderAgentsMdTab(tab) {
+export function renderAgentsMdTab(tab) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists) {
         body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon">📋</div><p>项目未初始化</p><p class="pc-empty-desc">请先执行 /init 初始化项目，将自动创建 AGENTS.md</p></div>';
@@ -498,7 +504,7 @@ function renderAgentsMdTab(tab) {
 // Tab 3/4: 文件列表
 // ============================
 
-function renderFileListTab(category, tab, emptyTitle, emptyDesc) {
+export function renderFileListTab(category, tab, emptyTitle, emptyDesc) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists || !tab.files || !tab.files.length) {
         body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon">📂</div><p>' + emptyTitle + '</p><p class="pc-empty-desc">' + emptyDesc + '</p>' +
@@ -524,7 +530,7 @@ function renderFileListTab(category, tab, emptyTitle, emptyDesc) {
 // 文件预览 / 编辑（默认预览模式）
 // ============================
 
-function openFileEditor(category, relPath) {
+export function openFileEditor(category, relPath) {
     var body = document.getElementById('projectConfigBody');
     body.innerHTML = '<div class="pc-loading"><div class="spinner"></div><p>加载文件...</p></div>';
 
@@ -546,7 +552,7 @@ function openFileEditor(category, relPath) {
 // 预览模式（与文件浏览器完全一致）
 // ============================
 
-function renderPreview(fileName, content, readOnly) {
+export function renderPreview(fileName, content, readOnly) {
     destroyProjectConfigEditor();
     var body = document.getElementById('projectConfigBody');
     var ext = '.' + (fileName || '').split('.').pop().toLowerCase();
@@ -566,15 +572,11 @@ function renderPreview(fileName, content, readOnly) {
     if (isMarkdown && typeof marked !== 'undefined') {
         // Markdown 渲染（与文件浏览器一致）
         var rawHtml = marked.parse(String(content || ''));
-        var safeHtml = typeof fileBrowserSanitizeMarkedHtml === 'function'
-            ? fileBrowserSanitizeMarkedHtml(rawHtml)
-            : rawHtml;
+        var safeHtml = fileBrowserSanitizeMarkedHtml(rawHtml);
         previewHtml = '<div class="oc-text file-browser-markdown">' + safeHtml + '</div>';
     } else {
         // 代码高亮 + 行号（与文件浏览器一致）
-        var highlighted = typeof fileBrowserHighlightCode === 'function'
-            ? fileBrowserHighlightCode(String(content || ''), ext)
-            : pcHighlightFallback(content, ext);
+        var highlighted = fileBrowserHighlightCode(String(content || ''), ext);
         previewHtml = '<pre class="file-browser-code"><code class="hljs">' + highlighted + '</code></pre>';
     }
 
@@ -605,7 +607,7 @@ function renderPreview(fileName, content, readOnly) {
     });
 }
 
-function editorGoBack() {
+export function editorGoBack() {
     destroyProjectConfigEditor();
     var state = window._projectConfig;
     if (state.browseStack.length > 0) {
@@ -617,7 +619,7 @@ function editorGoBack() {
 }
 
 /** 降级高亮：当 fileBrowserHighlightCode 不可用时 */
-function pcHighlightFallback(code, ext) {
+export function pcHighlightFallback(code, ext) {
     var lines = String(code || '').split('\n');
     var numbered = '';
     for (var i = 0; i < lines.length; i++) {
@@ -630,7 +632,7 @@ function pcHighlightFallback(code, ext) {
 // 编辑模式（纯 textarea，无行号）
 // ============================
 
-function switchToEditMode(fileName, content) {
+export function switchToEditMode(fileName, content) {
     var body = document.getElementById('projectConfigBody');
     window._projectConfig.editingFile.content = content;
     window._projectConfig.editorInitialContent = content;
@@ -667,7 +669,7 @@ function switchToEditMode(fileName, content) {
     setupEditMode();
 }
 
-function setupEditMode() {
+export function setupEditMode() {
     var textarea = document.getElementById('pcEditorTextarea');
     var state = window._projectConfig;
 
@@ -722,11 +724,11 @@ function setupEditMode() {
 // 只读预览（全局配置查看）
 // ============================
 
-function pcHighlightLines(code, lang) {
+export function pcHighlightLines(code, lang) {
     return escapeHtml(code);
 }
 
-async function saveCurrentFile() {
+export async function saveCurrentFile() {
     var state = window._projectConfig;
     var editing = state.editingFile;
     if (!editing) return;
@@ -759,7 +761,7 @@ async function saveCurrentFile() {
 // 新增 / 删除
 // ============================
 
-function bindDeleteButtons(category, basePath, onDone) {
+export function bindDeleteButtons(category, basePath, onDone) {
     document.querySelectorAll('.pc-file-del').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -777,7 +779,7 @@ function bindDeleteButtons(category, basePath, onDone) {
     });
 }
 
-function bindAddEntryButton(category, basePath, onDone) {
+export function bindAddEntryButton(category, basePath, onDone) {
     var btn = document.querySelector('.pc-btn-add-entry');
     if (!btn) return;
     // 避免重复绑定
@@ -800,7 +802,7 @@ function bindAddEntryButton(category, basePath, onDone) {
     });
 }
 
-function detectCodeLang(fileName) {
+export function detectCodeLang(fileName) {
     var ext = (fileName || '').split('.').pop().toLowerCase();
     var map = { 'md': 'markdown', 'json': 'json', 'jsonc': 'json', 'yaml': 'yaml', 'yml': 'yaml', 'toml': 'ini', 'xml': 'xml', 'js': 'javascript', 'ts': 'typescript', 'css': 'css', 'html': 'xml', 'sh': 'bash', 'py': 'python', 'go': 'go', 'rs': 'rust', 'java': 'java' };
     return map[ext] || '';

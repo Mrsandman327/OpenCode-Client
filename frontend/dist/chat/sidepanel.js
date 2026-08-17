@@ -1,16 +1,27 @@
-// ============================================================
+﻿// ============================================================
 // chat-sidepanel.js — 右侧面板（Diff + 子任务 + 代办）
-// 依赖：core/state.js、chat/service.js（api.OpenCodeCall, normalizeMessageItem, isInternalUserMessage）、
-//       core/utils.js（escapeHtml, showToast）、core/webcall.js（api）
+// 依赖：core/state.js、core/utils.js（escapeHtml, showToast, getActiveMessagesEl, getCachedMessages）、
+//       core/apicall.js（api）、chat/service.js（normalizeMessageItem, isInternalUserMessage, safeText）、
+//       chat/render.js（renderPart）
 // ============================================================
+
+import { api } from '../core/apicall.js';
+import { store } from '../core/state.js';
+import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages } from '../core/utils.js';
+import { normalizeMessageItem, isInternalUserMessage, safeText } from './service.js';
+import { renderPart, setRenderTodosHandler } from './render.js';
+
+// 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（打破 render↔sidepanel 循环依赖）。
+// renderTodos 定义于本文件下方（函数声明提升），顶层注册安全。
+setRenderTodosHandler(renderTodos);
 
 // ============================
 // 代办事项 — 从消息中提取并渲染
 // ============================
 
 /** 从当前会话的缓存消息中提取代办事项列表 */
-function extractTodos() {
-    const items = getCachedMessages(currentSessionId);
+export function extractTodos() {
+    const items = getCachedMessages(store.currentSessionId);
     if (!items.length) return [];
     for (let i = items.length - 1; i >= 0; i--) {
         const info = items[i].info || items[i];
@@ -29,7 +40,7 @@ function extractTodos() {
 }
 
 /** 渲染代办事项面板 */
-function renderTodos() {
+export function renderTodos() {
     const box = document.getElementById('ocTodos');
     if (!box) return;
     const todos = extractTodos();
@@ -79,14 +90,14 @@ function renderTodos() {
 // ============================
 
 /** 加载当前会话的文件变更列表 */
-async function loadDiff() {
+export async function loadDiff() {
     const box = document.getElementById('ocDiff');
-    if (!currentSessionId || !webRunning) {
+    if (!store.currentSessionId || !store.webRunning) {
         box.innerHTML = '<div class="oc-empty">选择会话后查看变更</div>';
         return;
     }
     try {
-        const diff = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(currentSessionId)}/diff`);
+        const diff = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(store.currentSessionId)}/diff`);
         renderDiff(diff || []);
     } catch (e) {
         box.innerHTML = `<div class="oc-empty error">${escapeHtml(e.message || e)}</div>`;
@@ -94,7 +105,7 @@ async function loadDiff() {
 }
 
 /** 渲染文件变更列表 */
-function renderDiff(diff) {
+export function renderDiff(diff) {
     const box = document.getElementById('ocDiff');
     const files = Array.isArray(diff) ? diff : Object.values(diff || {});
     if (!files.length) {
@@ -107,7 +118,7 @@ function renderDiff(diff) {
 }
 
 /** 将文件列表构建为目录树结构 */
-function buildFileTree(files) {
+export function buildFileTree(files) {
     const root = { name: '', isDir: true, children: {} };
     files.forEach(file => {
         const path = (file.file || file.path || file.name || 'unknown').replace(/^\.\//);
@@ -128,7 +139,7 @@ function buildFileTree(files) {
 }
 
 /** 递归渲染文件树节点 */
-function renderTreeNode(container, node, depth) {
+export function renderTreeNode(container, node, depth) {
     const dirs = [];
     const leafs = [];
     for (const child of Object.values(node.children || {})) {
@@ -187,10 +198,10 @@ function renderTreeNode(container, node, depth) {
 // ============================================================
 
 /** 从缓存消息中提取子任务摘要列表 */
-function extractSubtaskSummaries(sessionID) {
+export function extractSubtaskSummaries(sessionID) {
     const items = getCachedMessages(sessionID);
     if (!items || !items.length) {
-        subtaskSummaries = [];
+        store.subtaskSummaries = [];
         return;
     }
     const summaries = [];
@@ -228,25 +239,25 @@ function extractSubtaskSummaries(sessionID) {
             });
         }
     }
-    subtaskSummaries = summaries;
+    store.subtaskSummaries = summaries;
 }
 
 /** 调度子任务提取到下一帧 */
-function scheduleSubtaskExtraction(sessionID) {
-    if (!sessionID || sessionID !== currentSessionId) return;
-    if (subtaskExtractionPending) return;
-    subtaskExtractionPending = true;
-    subtaskExtractionFrame = requestAnimationFrame(() => {
-        const targetSid = currentSessionId;
-        subtaskExtractionFrame = 0;
-        subtaskExtractionPending = false;
+export function scheduleSubtaskExtraction(sessionID) {
+    if (!sessionID || sessionID !== store.currentSessionId) return;
+    if (store.subtaskExtractionPending) return;
+    store.subtaskExtractionPending = true;
+    store.subtaskExtractionFrame = requestAnimationFrame(() => {
+        const targetSid = store.currentSessionId;
+        store.subtaskExtractionFrame = 0;
+        store.subtaskExtractionPending = false;
         extractSubtaskSummaries(targetSid);
         renderSubtaskPanel();
     });
 }
 
 /** 格式化时长（毫秒 → 中国语文） */
-function formatDuration(ms) {
+export function formatDuration(ms) {
     if (ms == null) return '—';
     const seconds = Math.floor(ms / 1000);
     if (seconds < 60) return seconds + '秒';
@@ -259,7 +270,7 @@ function formatDuration(ms) {
 }
 
 /** 格式化时间戳 */
-function formatTime(ts) {
+export function formatTime(ts) {
     if (ts == null) return '—';
     const d = new Date(ts);
     const pad = (n) => String(n).padStart(2, '0');
@@ -267,19 +278,19 @@ function formatTime(ts) {
 }
 
 /** 渲染子任务面板 */
-function renderSubtaskPanel() {
+export function renderSubtaskPanel() {
     const box = document.getElementById('ocSubtasks');
     if (!box) return;
-    if (!webRunning || !currentSessionId) {
+    if (!store.webRunning || !store.currentSessionId) {
         box.innerHTML = '<div class="oc-empty">启动服务并选择会话后查看子任务</div>';
         return;
     }
-    if (!subtaskSummaries.length) {
+    if (!store.subtaskSummaries.length) {
         box.innerHTML = '<div class="oc-empty">当前会话暂无子任务<br><small>子任务会在主会话触发 task 工具后显示在这里</small></div>';
         return;
     }
     let html = '';
-    subtaskSummaries.forEach((s, idx) => {
+    store.subtaskSummaries.forEach((s, idx) => {
         html += renderSubtaskCard(s, idx);
     });
     box.innerHTML = html;
@@ -287,7 +298,7 @@ function renderSubtaskPanel() {
 }
 
 /** 渲染单张子任务卡片 */
-function renderSubtaskCard(s, idx) {
+export function renderSubtaskCard(s, idx) {
     const statusClass = 'status-' + (s.status || 'pending');
     const statusLabels = { completed: '已完成', running: '运行中', error: '失败', interrupt: '已中断', pending: '等待中' };
     const statusLabel = statusLabels[s.status] || s.status || '未知';
@@ -307,7 +318,7 @@ function renderSubtaskCard(s, idx) {
 }
 
 /** 绑定子任务卡片事件 */
-function attachSubtaskCardEvents() {
+export function attachSubtaskCardEvents() {
     const box = document.getElementById('ocSubtasks');
     if (!box) return;
     box.removeEventListener('click', onSubtaskCardClick);
@@ -315,13 +326,13 @@ function attachSubtaskCardEvents() {
 }
 
 /** 子任务卡片点击处理 */
-function onSubtaskCardClick(e) {
+export function onSubtaskCardClick(e) {
     const detailBtn = e.target.closest('.oc-subtask-detail-btn');
     if (detailBtn) {
         e.stopPropagation();
         const idx = parseInt(detailBtn.dataset.index);
-        if (isNaN(idx) || !subtaskSummaries[idx]) return;
-        const summary = subtaskSummaries[idx];
+        if (isNaN(idx) || !store.subtaskSummaries[idx]) return;
+        const summary = store.subtaskSummaries[idx];
         if (summary.childSessionId) {
             openSubtaskModal(summary.childSessionId, summary);
         }
@@ -336,7 +347,7 @@ function onSubtaskCardClick(e) {
 }
 
 /** 定位到父消息在消息列表中的位置 */
-function locateParentMessage(msgId) {
+export function locateParentMessage(msgId) {
     const box = getActiveMessagesEl();
     if (!box) return;
     const old = box.querySelectorAll('.oc-message.highlight');
@@ -347,7 +358,7 @@ function locateParentMessage(msgId) {
         for (let i = allMsgs.length - 1; i >= 0; i--) {
             const partIds = allMsgs[i].querySelectorAll('[data-part-id]');
             for (const p of partIds) {
-                if (subtaskSummaries.some(s => s.parentMessageId === msgId && s.taskPartId === p.dataset.partId)) {
+                if (store.subtaskSummaries.some(s => s.parentMessageId === msgId && s.taskPartId === p.dataset.partId)) {
                     target = allMsgs[i];
                     break;
                 }
@@ -363,7 +374,7 @@ function locateParentMessage(msgId) {
 }
 
 /** 打开子任务详情弹窗 */
-function openSubtaskModal(childSessionId, subtaskSummary) {
+export function openSubtaskModal(childSessionId, subtaskSummary) {
     const modal = document.getElementById('subtaskModal');
     if (!modal) return;
     if (subtaskSummary) fillModalSummary(subtaskSummary);
@@ -377,7 +388,7 @@ function openSubtaskModal(childSessionId, subtaskSummary) {
 }
 
 /** 关闭子任务详情弹窗 */
-function closeSubtaskModal() {
+export function closeSubtaskModal() {
     const modal = document.getElementById('subtaskModal');
     if (modal) modal.style.display = 'none';
     if (document.activeElement && document.activeElement.closest('#subtaskModal')) {
@@ -387,7 +398,7 @@ function closeSubtaskModal() {
 }
 
 /** 绑定子任务详情弹窗事件 */
-function bindSubtaskModalEvents() {
+export function bindSubtaskModalEvents() {
     const modal = document.getElementById('subtaskModal');
     if (!modal || modal.dataset.eventsBound === '1') return;
 
@@ -421,14 +432,14 @@ function bindSubtaskModalEvents() {
 }
 
 /** 子任务弹窗键盘事件（Esc 关闭） */
-function onSubtaskModalKey(e) {
+export function onSubtaskModalKey(e) {
     if (e.key !== 'Escape') return;
     const modal = document.getElementById('subtaskModal');
     if (modal && modal.style.display === 'flex') closeSubtaskModal();
 }
 
 /** 填充子任务弹窗摘要信息 */
-function fillModalSummary(s) {
+export function fillModalSummary(s) {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
     const setHtml = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val || '—'; };
 
@@ -466,16 +477,16 @@ function fillModalSummary(s) {
 }
 
 /** 加载子任务详情消息 */
-async function loadSubtaskDetailMessages(childSessionId) {
+export async function loadSubtaskDetailMessages(childSessionId) {
     if (!childSessionId) return;
-    if (detailLoading[childSessionId]) return;
-    detailLoading[childSessionId] = true;
+    if (store.detailLoading[childSessionId]) return;
+    store.detailLoading[childSessionId] = true;
     const msgBox = document.getElementById('subtaskMessages');
-    const thisSeq = ++detailMessageLoadSeq;
+    const thisSeq = ++store.detailMessageLoadSeq;
 
     try {
         const data = await api.OpenCodeCall('GET', '/session/' + encodeURIComponent(childSessionId) + '/message');
-        if (thisSeq !== detailMessageLoadSeq) return;
+        if (thisSeq !== store.detailMessageLoadSeq) return;
 
         if (!data || !Array.isArray(data) || !data.length) {
             if (msgBox) msgBox.innerHTML = '<div class="oc-empty">子会话暂无消息</div>';
@@ -483,18 +494,18 @@ async function loadSubtaskDetailMessages(childSessionId) {
         }
 
         const items = data.map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
-        if (thisSeq !== detailMessageLoadSeq) return;
+        if (thisSeq !== store.detailMessageLoadSeq) return;
         renderDetailMessages(items);
     } catch (err) {
-        if (thisSeq !== detailMessageLoadSeq) return;
+        if (thisSeq !== store.detailMessageLoadSeq) return;
         if (msgBox) msgBox.innerHTML = '<div class="oc-empty error">加载失败：' + escapeHtml(err.message || '网络错误') + '</div>';
     } finally {
-        detailLoading[childSessionId] = false;
+        store.detailLoading[childSessionId] = false;
     }
 }
 
 /** 渲染子任务详情消息列表 */
-function renderDetailMessages(items) {
+export function renderDetailMessages(items) {
     const box = document.getElementById('subtaskMessages');
     if (!box) return;
     box.innerHTML = '';
@@ -526,7 +537,7 @@ function renderDetailMessages(items) {
 }
 
 /** 渲染子任务详情中的单个 part */
-function renderDetailPart(part) {
+export function renderDetailPart(part) {
     const type = part?.type || '';
     if (type === 'tool' && (part.tool === 'question' || part.name === 'question')) {
         const saved = part.state ? { ...part.state } : null;

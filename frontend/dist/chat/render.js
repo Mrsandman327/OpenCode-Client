@@ -1,10 +1,32 @@
-// ============================================================
+﻿// ============================================================
 // chat-render.js — 消息渲染引擎
 // 负责消息列表渲染、12 种 part 类型渲染器、滚动管理和模型信息同步
+// 依赖：core/state.js、core/utils.js（escapeHtml, getActiveMessagesEl, getCachedMessages）、core/apicall.js（api）、
+//       chat/service.js（safeText, extractPartText, isInternalUserMessage, normalizeMessageItem）、
+//       chat/mobile.js（isMobileTreeMode）、chat/search.js（updateUserNav）
+// 解环说明：renderTodos 由 sidepanel.js 通过 setRenderTodosHandler 回调注入，
+//           避免 render↔sidepanel 循环依赖。
 // ============================================================
 
+import { store, MOBILE_MESSAGE_LOAD_MORE_STEP, PC_MESSAGE_LOAD_MORE_STEP } from '../core/state.js';
+import { escapeHtml, getActiveMessagesEl, getCachedMessages, showToast } from '../core/utils.js';
+import { api } from '../core/apicall.js';
+import { safeText, extractPartText, isInternalUserMessage, normalizeMessageItem } from './service.js';
+import { isMobileTreeMode } from './mobile.js';
+import { updateUserNav } from './search.js';
+
+// ============================
+// sidepanel 回调注册（打破 render↔sidepanel 循环依赖）
+// ============================
+let renderTodosHandler = null;
+
+/** 由 sidepanel.js 在加载时注册消息渲染后的待办刷新回调 */
+export function setRenderTodosHandler(fn) {
+    renderTodosHandler = typeof fn === 'function' ? fn : null;
+}
+
 /** 清洗 marked 渲染结果：移除会引发副作用的标签（脚本、meta 跳转、iframe 等）与事件属性 */
-function sanitizeMarkedHtml(html) {
+export function sanitizeMarkedHtml(html) {
     var template = document.createElement('template');
     template.innerHTML = html;
     var dangerousTags = ['SCRIPT', 'META', 'IFRAME', 'OBJECT', 'EMBED', 'STYLE', 'LINK', 'BASE', 'FORM', 'INPUT', 'BUTTON'];
@@ -23,16 +45,16 @@ function sanitizeMarkedHtml(html) {
 }
 
 /** 移动端消息截断：限制可见消息数量，返回末尾 N 条 */
-function trimMessagesForRender(items) {
+export function trimMessagesForRender(items) {
 	const list = Array.isArray(items) ? items : [];
-	if (list.length <= visibleMessageCount) {
+	if (list.length <= store.visibleMessageCount) {
 		return list;
 	}
-	return list.slice(-visibleMessageCount);
+	return list.slice(-store.visibleMessageCount);
 }
 
 /** 渲染移动端折叠提示按钮（点击加载更多历史消息） */
-function renderCollapsedHistoryNotice(totalCount, hiddenCount, box) {
+export function renderCollapsedHistoryNotice(totalCount, hiddenCount, box) {
 	const boxEl = box || getActiveMessagesEl();
 	if (!boxEl || hiddenCount <= 0) return;
 	const notice = document.createElement('button');
@@ -42,11 +64,11 @@ function renderCollapsedHistoryNotice(totalCount, hiddenCount, box) {
 	notice.addEventListener('click', () => {
 		const prevHeight = boxEl.scrollHeight;
         if (isMobileTreeMode()) { 
-            visibleMessageCount += MOBILE_MESSAGE_LOAD_MORE_STEP; 
+            store.visibleMessageCount += MOBILE_MESSAGE_LOAD_MORE_STEP; 
         }else{
-            visibleMessageCount += PC_MESSAGE_LOAD_MORE_STEP;
+            store.visibleMessageCount += PC_MESSAGE_LOAD_MORE_STEP;
         }
-		renderMessages(getCachedMessages(currentSessionId), boxEl);
+		renderMessages(getCachedMessages(store.currentSessionId), boxEl);
 		const nextHeight = boxEl.scrollHeight;
 		boxEl.scrollTop += nextHeight - prevHeight;
 	});
@@ -54,7 +76,7 @@ function renderCollapsedHistoryNotice(totalCount, hiddenCount, box) {
 }
 
 /** 保存元素焦点状态（用于 DOM 重建后恢复焦点） */
-function saveFocusState(el) {
+export function saveFocusState(el) {
     const tag = el.tagName.toLowerCase();
     const cls = el.className && typeof el.className === 'string'
         ? '.' + el.className.trim().split(/\s+/).join('.')
@@ -67,7 +89,7 @@ function saveFocusState(el) {
 }
 
 /** 恢复元素焦点状态 */
-function restoreFocusState(container, state) {
+export function restoreFocusState(container, state) {
     const el = container.querySelector(state.selector);
     if (!el) return;
     try { el.focus(); } catch (_) {}
@@ -78,7 +100,7 @@ function restoreFocusState(container, state) {
 }
 
 /** 构建单条消息节点（user/assistant 卡片），供 renderMessages 与分帧渲染复用 */
-function buildMessageNode(item) {
+export function buildMessageNode(item) {
     const info = item.info || item;
     const role = info.role || info.author || 'message';
     const displayRole = role === 'user' ? '你' : (role === 'assistant' ? '助手' : role);
@@ -102,15 +124,15 @@ function buildMessageNode(item) {
     } else if (role === 'assistant') {
         if (messageErrorText) {
             // 已在上方输出 message-level error
-        } else if (isSessionBusy(currentSessionId)) {
+        } else if (isSessionBusy(store.currentSessionId)) {
             const pending = document.createElement('div');
             pending.className = 'oc-part pending';
-            pending.textContent = getSessionPendingText(currentSessionId);
+            pending.textContent = getSessionPendingText(store.currentSessionId);
             body.appendChild(pending);
-        } else if (hasSessionError(currentSessionId)) {
+        } else if (hasSessionError(store.currentSessionId)) {
             const errEl = document.createElement('div');
             errEl.className = 'oc-part error-msg';
-            errEl.textContent = '模型调用失败：' + (sessionErrors[currentSessionId] || '未知错误，请检查 opencode 提供商配置');
+            errEl.textContent = '模型调用失败：' + (store.sessionErrors[store.currentSessionId] || '未知错误，请检查 opencode 提供商配置');
             body.appendChild(errEl);
         } else {
             const empty = document.createElement('div');
@@ -153,31 +175,31 @@ function buildMessageNode(item) {
  *  @param {Array} items 消息数组
  *  @param {HTMLElement} [targetBox] 目标容器；不传则用当前活动 tab 容器
  */
-function renderMessages(items, targetBox) {
+export function renderMessages(items, targetBox) {
     const box = targetBox || getActiveMessagesEl();
     const sourceList = (items || []).map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
     const list = trimMessagesForRender(sourceList);
 
-    if (userScrolling) {
-        lastMessageCount = list.length;
+    if (store.userScrolling) {
+        store.lastMessageCount = list.length;
         return;
     }
 
     const scrollState = captureScrollState(box);
     if (!list.length) {
         box.innerHTML = '<div class="oc-empty">该会话暂无消息</div>';
-        lastMessageCount = 0;
-        lastSourceMessageCount = 0;
+        store.lastMessageCount = 0;
+        store.lastSourceMessageCount = 0;
         updateModelInfo(null);
         updateScrollBottomButton();
         return;
     }
 
-    const sameCount = sourceList.length === lastSourceMessageCount;
-    lastMessageCount = list.length;
-    lastSourceMessageCount = sourceList.length;
+    const sameCount = sourceList.length === store.lastSourceMessageCount;
+    store.lastMessageCount = list.length;
+    store.lastSourceMessageCount = sourceList.length;
 
-    if (sameCount && list.length > 0 && webRunning && isSessionBusy(currentSessionId)) {
+    if (sameCount && list.length > 0 && store.webRunning && isSessionBusy(store.currentSessionId)) {
         const last = list[list.length - 1];
         const lastRole = (last.info || last).role;
         if (lastRole === 'assistant') {
@@ -218,7 +240,7 @@ function renderMessages(items, targetBox) {
     updateModelInfo(items);
     restoreScroll(box, scrollState, false);
     updateScrollBottomButton();
-    renderTodos();
+    if (renderTodosHandler) renderTodosHandler();
 	renderCollapsedHistoryNotice(sourceList.length, sourceList.length - list.length, box);
     updateUserNav();
 
@@ -226,7 +248,7 @@ function renderMessages(items, targetBox) {
 
 
 /** 从消息历史中同步最新 assistant 使用的 Agent/Model 到下拉框 */
-function updateModelInfo(items) {
+export function updateModelInfo(items) {
     const agentSel = document.getElementById('ocAgentSelect');
     const modelSel = document.getElementById('ocModelSelect');
     if (!agentSel || !modelSel) return;
@@ -256,13 +278,13 @@ function updateModelInfo(items) {
     if (variant && variantSel) variantSel.value = variant;
 
     // 首次加载时同步全局选中值
-    if (agent && !selectedAgent) selectedAgent = agent;
-    if (model && !selectedModel) selectedModel = model;
-    if (variant && !selectedVariant) selectedVariant = variant;
+    if (agent && !store.selectedAgent) store.selectedAgent = agent;
+    if (model && !store.selectedModel) store.selectedModel = model;
+    if (variant && !store.selectedVariant) store.selectedVariant = variant;
 }
 
 /** 确保指定 value 的选项存在于 <select> 中（API 加载失败降级） */
-function ensureSelectOption(sel, value, label) {
+export function ensureSelectOption(sel, value, label) {
     for (let i = 0; i < sel.options.length; i++) {
         if (sel.options[i].value === value) return;
     }
@@ -277,14 +299,14 @@ function ensureSelectOption(sel, value, label) {
 // ============================
 
 /** 智能滚动：根据用户是否在底部决定自动跟随还是保持位置 */
-function smartScroll(box, force) {
+export function smartScroll(box, force) {
     const scrollState = captureScrollState(box);
     restoreScroll(box, scrollState, force);
     updateScrollBottomButton();
 }
 
 /** 捕获滚动状态（顶部位置、高度、距底部距离） */
-function captureScrollState(box) {
+export function captureScrollState(box) {
     const distanceToBottom = box.scrollHeight - box.scrollTop - box.clientHeight;
     return {
         top: box.scrollTop,
@@ -294,7 +316,7 @@ function captureScrollState(box) {
 }
 
 /** 恢复滚动位置：底部模式滚到底，否则按高度差修正 */
-function restoreScroll(box, state, force) {
+export function restoreScroll(box, state, force) {
     if (force || state.nearBottom) {
         // 直接滚到容器绝对底部，不依赖 lastElementChild（流式回复期间子元素持续增高）
         box.scrollTop = box.scrollHeight;
@@ -307,7 +329,7 @@ function restoreScroll(box, state, force) {
 }
 
 /** 更新「滚到底」按钮可见性 */
-function updateScrollBottomButton() {
+export function updateScrollBottomButton() {
     const box = getActiveMessagesEl();
     const btn = document.getElementById('btnScrollBottom');
     if (!box || !btn) return;
@@ -317,7 +339,7 @@ function updateScrollBottomButton() {
 }
 
 /** 平滑动画滚动到消息列表底部（easeOutCubic） */
-function scrollMessagesToBottom() {
+export function scrollMessagesToBottom() {
     const box = getActiveMessagesEl();
     if (!box) return;
 
@@ -345,23 +367,45 @@ function scrollMessagesToBottom() {
 }
 
 /** 判断会话是否繁忙（busy/retry 状态） */
-function isSessionBusy(id) {
-    const status = sessionStatuses[id];
+export function isSessionBusy(id) {
+    const status = store.sessionStatuses[id];
     return status === 'busy' || status?.type === 'busy' || status?.type === 'retry' || status?.status === 'busy';
 }
 
 /** 判断会话是否有错误 */
-function hasSessionError(id) {
-    return !!sessionErrors[id];
+export function hasSessionError(id) {
+    return !!store.sessionErrors[id];
 }
 
 /** 获取会话等待提示文本（区分普通等待和重试） */
-function getSessionPendingText(id) {
-    const status = sessionStatuses[id];
+export function getSessionPendingText(id) {
+    const status = store.sessionStatuses[id];
     if (status?.type === 'retry') {
         return `模型连接失败，正在第 ${status.attempt || 1} 次重试：${status.message || '等待下一次重试'}`;
     }
     return '正在等待模型回复...';
+}
+
+/**
+ * 更新发送按钮状态
+ * 会话繁忙时显示「⏹ 停止」按钮，空闲时显示「发送」按钮
+ * 说明：原属 chat/session.js，为打破 session↔tabs 循环依赖移入本文件
+ */
+export function updateSendButton() {
+    const btn = document.getElementById('btnSendPrompt');
+    if (!store.webRunning || !store.currentSessionId) {
+        btn.textContent = '发送';
+        btn.className = 'btn btn-primary';
+        return;
+    }
+    const busy = isSessionBusy(store.currentSessionId);
+    if (busy) {
+        btn.textContent = '⏹ 停止';
+        btn.className = 'btn btn-danger-outline';
+    } else {
+        btn.textContent = '发送';
+        btn.className = 'btn btn-primary';
+    }
 }
 
 // ============================
@@ -369,7 +413,7 @@ function getSessionPendingText(id) {
 // ============================
 
 /** Part 渲染分发器：按 type 分发到对应的渲染函数 */
-function renderPart(part) {
+export function renderPart(part) {
     const type = part?.type || '';
     const id = part?.id || '';
     let el;
@@ -393,12 +437,12 @@ function renderPart(part) {
 }
 
 /** 生成 part 展开状态的唯一 key */
-function partExpandKey(part, fallback) {
+export function partExpandKey(part, fallback) {
     return part?.id || `${part?.type || 'part'}:${part?.messageID || ''}:${fallback || ''}`;
 }
 
 // 格式化数字：<1000 原样显示；≥1000 显示 xx.xxk；≥1000000 显示 xx.xxM
-function formatNumber(num) {
+export function formatNumber(num) {
   // 安全处理：不是数字就返回 0
   if (isNaN(num) || num === null || num === undefined) return '0';
 
@@ -415,7 +459,7 @@ function formatNumber(num) {
 }
 
 /** 格式化时间戳为「年月日时分秒」，非法值返回空串 */
-function formatStepTime(ts) {
+export function formatStepTime(ts) {
     if (!ts) return '';
     var d = new Date(Number(ts));
     if (isNaN(d.getTime())) return '';
@@ -426,7 +470,7 @@ function formatStepTime(ts) {
 
 
 /** 渲染步骤分割线（开始/结束 + token 统计 + 时间） */
-function renderStepDivider(part, phase) {
+export function renderStepDivider(part, phase) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-step-divider';
     const timeText = formatStepTime(part.time?.start || part.time?.created || part.time?.updated);
@@ -444,7 +488,7 @@ function renderStepDivider(part, phase) {
 }
 
 /** 渲染思考过程（可折叠，支持 Markdown） */
-function renderReasoning(part) {
+export function renderReasoning(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-reasoning';
     const key = partExpandKey(part, 'reasoning');
@@ -452,7 +496,7 @@ function renderReasoning(part) {
     head.className = 'oc-reasoning-head';
     head.innerHTML = '<span class="oc-reasoning-icon">🧠</span> 思考过程 <span class="oc-reasoning-toggle">展开</span>';
     const body = document.createElement('div');
-    const expanded = !!expandedParts[key];
+    const expanded = !!store.expandedParts[key];
     body.className = 'oc-reasoning-body' + (expanded ? '' : ' hidden');
     body.dataset.expandKey = key;
     body.innerHTML = typeof marked !== 'undefined'
@@ -460,9 +504,9 @@ function renderReasoning(part) {
         : `<pre>${escapeHtml(part.text || '')}</pre>`;
     head.querySelector('.oc-reasoning-toggle').textContent = expanded ? '收起' : '展开';
     head.addEventListener('click', () => {
-        expandedParts[key] = !expandedParts[key];
-        body.classList.toggle('hidden', !expandedParts[key]);
-        head.querySelector('.oc-reasoning-toggle').textContent = expandedParts[key] ? '收起' : '展开';
+        store.expandedParts[key] = !store.expandedParts[key];
+        body.classList.toggle('hidden', !store.expandedParts[key]);
+        head.querySelector('.oc-reasoning-toggle').textContent = store.expandedParts[key] ? '收起' : '展开';
     });
     el.appendChild(head);
     el.appendChild(body);
@@ -470,7 +514,7 @@ function renderReasoning(part) {
 }
 
 /** 渲染 Question 工具（选项按钮、自定义输入、跳过、底部总提交） */
-function renderQuestionTool(part) {
+export function renderQuestionTool(part) {
     const state = part.state || {};
     const status = state.status || '';
     const isRunning = status === 'running' || (!status);
@@ -735,10 +779,10 @@ function renderQuestionTool(part) {
     if (!isRunning) {
         const key = partExpandKey(part, 'question');
         body.dataset.expandKey = key;
-        if (!expandedParts[key]) body.classList.add('hidden');
+        if (!store.expandedParts[key]) body.classList.add('hidden');
         head.addEventListener('click', () => {
-            expandedParts[key] = !expandedParts[key];
-            body.classList.toggle('hidden', !expandedParts[key]);
+            store.expandedParts[key] = !store.expandedParts[key];
+            body.classList.toggle('hidden', !store.expandedParts[key]);
         });
     }
 
@@ -748,7 +792,7 @@ function renderQuestionTool(part) {
 }
 
 /** 渲染通用工具调用（Shell/文件操作，带输入/输出/错误展示） */
-function renderTool(part) {
+export function renderTool(part) {
     const tool = part.tool || part.name || '';
 
     // question 工具使用专用渲染
@@ -835,12 +879,12 @@ function renderTool(part) {
         body.innerHTML = `<div class="oc-tool-io"><pre><code>${escapeHtml(safeText(part))}</code></pre></div>`;
     }
 
-    const expanded = expandedParts[key] ?? isRunning;
+    const expanded = store.expandedParts[key] ?? isRunning;
     if (!expanded) body.classList.add('hidden');
 
     head.addEventListener('click', () => {
-        expandedParts[key] = !(expandedParts[key] ?? isRunning);
-        body.classList.toggle('hidden', !expandedParts[key]);
+        store.expandedParts[key] = !(store.expandedParts[key] ?? isRunning);
+        body.classList.toggle('hidden', !store.expandedParts[key]);
     });
 
     el.appendChild(head);
@@ -853,16 +897,16 @@ function renderTool(part) {
  * 提交 Question 工具的回答。
  * 多问题场景：answers 为按问题顺序的二维数组（每个问题一个 string[]）。
  */
-async function answerQuestion(answers) {
-    if (!currentSessionId) return;
-    questionCustomInput = '';
+export async function answerQuestion(answers) {
+    if (!store.currentSessionId) return;
+    store.questionCustomInput = '';
     const input = document.getElementById('ocPrompt');
     try {
         // 兼容单值：传字符串时转成单问题单答案
         const answersArr = Array.isArray(answers)
             ? answers
             : [[answers]];
-        const result = await api.AnswerQuestion(currentSessionId, answersArr);
+        const result = await api.AnswerQuestion(store.currentSessionId, answersArr);
         if (result && result.success) {
             showToast('已回答', 'success');
             if (input) input.value = '';
@@ -878,7 +922,7 @@ async function answerQuestion(answers) {
 }
 
 /** 渲染文本 Part（Markdown 渲染） */
-function renderTextPart(part) {
+export function renderTextPart(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-text';
     const text = (part && (part.text || part.content || part.message || part.value)) || '';
@@ -889,7 +933,7 @@ function renderTextPart(part) {
 }
 
 /** 渲染文件 Part（可折叠显示文件内容） */
-function renderFilePart(part) {
+export function renderFilePart(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-file';
     const key = partExpandKey(part, part.filename || part.path || 'file');
@@ -897,7 +941,7 @@ function renderFilePart(part) {
     const mime = part.mime || part.type || 'file';
     const raw = part.content || part.url || safeText(part);
     const size = raw.length > 1024 ? `${Math.round(raw.length / 1024)} KB` : `${raw.length} B`;
-    const expanded = !!expandedParts[key];
+    const expanded = !!store.expandedParts[key];
     const head = document.createElement('div');
     head.className = 'oc-file-path';
     head.innerHTML = `<span>📎 ${escapeHtml(filename)}</span><span class="oc-file-meta">${escapeHtml(mime)} · ${size} · ${expanded ? '收起' : '展开'}</span>`;
@@ -906,9 +950,9 @@ function renderFilePart(part) {
     body.dataset.expandKey = key;
     body.textContent = raw;
     head.addEventListener('click', () => {
-        expandedParts[key] = !expandedParts[key];
-        body.classList.toggle('hidden', !expandedParts[key]);
-        head.querySelector('.oc-file-meta').textContent = `${mime} · ${size} · ${expandedParts[key] ? '收起' : '展开'}`;
+        store.expandedParts[key] = !store.expandedParts[key];
+        body.classList.toggle('hidden', !store.expandedParts[key]);
+        head.querySelector('.oc-file-meta').textContent = `${mime} · ${size} · ${store.expandedParts[key] ? '收起' : '展开'}`;
     });
     el.appendChild(head);
     el.appendChild(body);
@@ -916,7 +960,7 @@ function renderFilePart(part) {
 }
 
 /** 渲染代码变更 Patch Part（文件路径 + diff 内容） */
-function renderPatchPart(part) {
+export function renderPatchPart(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-patch';
 
@@ -942,7 +986,7 @@ function renderPatchPart(part) {
 }
 
 /** 渲染代理/子任务 Part */
-function renderAgentPart(part, type) {
+export function renderAgentPart(part, type) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-agent';
     const label = type === 'agent' ? '🤖 代理' : '📋 子任务';
@@ -951,7 +995,7 @@ function renderAgentPart(part, type) {
 }
 
 /** 渲染上下文压缩标记 Part */
-function renderCompaction(part) {
+export function renderCompaction(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-compaction';
     const auto = part.auto;
@@ -962,7 +1006,7 @@ function renderCompaction(part) {
 }
 
 /** 渲染文件快照 Part */
-function renderSnapshot(part) {
+export function renderSnapshot(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-snapshot';
     const hash = (part.snapshot || '').slice(0, 7);
@@ -973,7 +1017,7 @@ function renderSnapshot(part) {
 }
 
 /** 渲染重试标记 Part（显示重试次数和错误信息） */
-function renderRetry(part) {
+export function renderRetry(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-retry';
     const attempt = part.attempt || 0;
@@ -985,7 +1029,7 @@ function renderRetry(part) {
 }
 
 /** 渲染未知类型 Part（降级方案，纯文本显示） */
-function renderFallback(part) {
+export function renderFallback(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-fallback';
     const pre = document.createElement('pre');

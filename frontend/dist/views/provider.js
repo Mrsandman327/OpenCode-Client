@@ -1,15 +1,21 @@
 // ============================================================
 // OpenCode 管理中心 - 供应商配置视图
 // ============================================================
-let providerCache = [];
+// 说明：ES Modules 化改造。core 层依赖静态导入；filebrowser 依赖
+// 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import。
+import { api } from '../core/apicall.js';
+import { escapeHtml, showToast } from '../core/utils.js';
+import { openFileBrowserModal } from '../filebrowser/browser.js';
 
-function getProviderConfigDir(cfgPath) {
+export let providerCache = [];
+
+export function getProviderConfigDir(cfgPath) {
     var fullPath = String(cfgPath || '').trim();
     if (!fullPath) return '';
     return fullPath.replace(/[\\/][^\\/]+$/, '');
 }
 
-async function openProviderConfigDirInBrowser() {
+export async function openProviderConfigDirInBrowser() {
     var pathEl = document.getElementById('providerConfigPath');
     var cfgPath = pathEl ? String(pathEl.textContent || '').trim() : '';
     var dir = getProviderConfigDir(cfgPath);
@@ -18,17 +24,13 @@ async function openProviderConfigDirInBrowser() {
         return;
     }
     try {
-        if (typeof openFileBrowserModal === 'function') {
-            openFileBrowserModal(dir);
-        } else {
-            showToast('文件浏览器模块未加载', 'error');
-        }
+        openFileBrowserModal(dir);
     } catch (err) {
         showToast('打开目录失败: ' + (err.message || err), 'error');
     }
 }
 
-const PROVIDER_NPM_OPTIONS = [
+export const PROVIDER_NPM_OPTIONS = [
     { label: 'OpenAI Responses', value: '@ai-sdk/openai' },
     { label: 'OpenAI Compatible', value: '@ai-sdk/openai-compatible' },
     { label: 'Anthropic', value: '@ai-sdk/anthropic' },
@@ -36,9 +38,9 @@ const PROVIDER_NPM_OPTIONS = [
     { label: 'Google (Gemini)', value: '@ai-sdk/google' },
 ];
 
-const PROVIDER_NPM_UNMATCHED = '__unmatched__';
+export const PROVIDER_NPM_UNMATCHED = '__unmatched__';
 
-async function loadProviders() {
+export async function loadProviders() {
     const list = document.getElementById('providersList');
     const openBtn = document.getElementById('btnOpenProviderConfigDir');
     list.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在加载供应商...</p></div>';
@@ -66,11 +68,11 @@ async function loadProviders() {
     });
 })();
 
-function emptyProvider() {
+export function emptyProvider() {
     return { key: '', name: '', baseURL: '', apiKey: '', npm: '@ai-sdk/openai-compatible', npmRaw: '@ai-sdk/openai-compatible', enabled: true, models: [], _new: true };
 }
 
-function renderProviders(providers) {
+export function renderProviders(providers) {
     const list = document.getElementById('providersList');
     const html = providers.map(p => providerCardHtml(p)).join('');
     list.innerHTML = html + `
@@ -81,7 +83,7 @@ function renderProviders(providers) {
     document.getElementById('btnAddCard').addEventListener('click', () => addNewCard());
 }
 
-function providerCardHtml(p) {
+export function providerCardHtml(p) {
     const isNew = p._new;
     const npmValue = p.npm || p.npmRaw || '@ai-sdk/openai-compatible';
     const matchedOption = PROVIDER_NPM_OPTIONS.find(item => item.value === (p.npm || ''));
@@ -145,7 +147,7 @@ function providerCardHtml(p) {
         </div>`;
 }
 
-function bindProviderEvents(providers) {
+export function bindProviderEvents(providers) {
     providerCache = providers;
 
     document.querySelectorAll('.btn-save-card').forEach(btn => {
@@ -216,14 +218,14 @@ function bindProviderEvents(providers) {
     });
 }
 
-function addNewCard() {
+export function addNewCard() {
     const isNew = providerCache.some(p => p._new);
     if (isNew) { showToast('请先保存当前新增的供应商', 'info'); return; }
     providerCache.push(emptyProvider());
     renderProviders(providerCache);
 }
 
-function saveProviderFromDom(key) {
+export function saveProviderFromDom(key) {
     const card = document.querySelector(`.provider-card[data-key="${CSS.escape(key)}"]`);
     if (!card) return;
 
@@ -265,7 +267,7 @@ function saveProviderFromDom(key) {
 
 // ========== 获取模型列表弹窗 ==========
 
-async function showModelListModal(key, name, baseURL, apiKey) {
+export async function showModelListModal(key, name, baseURL, apiKey) {
     var btn = document.querySelector('.btn-fetch-models[data-key="' + CSS.escape(key) + '"]');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 获取中...'; }
 
@@ -311,13 +313,14 @@ async function showModelListModal(key, name, baseURL, apiKey) {
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'modelListModal';
-    overlay.innerHTML = '<div class="modal proxy-modal" onclick="event.stopPropagation()" style="max-width:420px">' +
+    overlay.innerHTML = '<div class="modal proxy-modal" style="max-width:420px">' +
         '<h3>' + escapeHtml(name) + '-模型</h3>' +
         html +
         '<div class="modal-actions"><button class="btn btn-sm" id="btnCloseModelList">关闭</button></div>' +
     '</div>';
     document.body.appendChild(overlay);
     overlay.style.display = 'flex';
+    overlay.querySelector('.modal').addEventListener('click', function(e) { e.stopPropagation(); });
 
     // 事件绑定
     overlay.addEventListener('click', function(e) {
@@ -361,7 +364,7 @@ async function showModelListModal(key, name, baseURL, apiKey) {
     });
 }
 
-function closeModelListModal() {
+export function closeModelListModal() {
     var m = document.getElementById('modelListModal');
     if (m) m.remove();
 }

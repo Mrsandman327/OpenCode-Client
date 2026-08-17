@@ -1,22 +1,35 @@
-// ============================================================
+﻿// ============================================================
 // chat-service.js — 服务管理 & API 工具
-// 依赖：core/state.js、chat/config.js（getNetworkConfig）、core/utils.js（showToast, escapeHtml）、core/webcall.js（api）
+// 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl）、core/apicall.js（api）、
+//       chat/config.js（getNetworkConfig）、chat/events.js（startEventStream, loadSessionStatuses）、
+//       chat/tree.js（buildTree）、chat/session.js（loadAgentModelSelectors）、
+//       chat/search.js（initSearch, initUserNav）、chat/render.js（updateModelInfo）
 // ============================================================
+
+import { api } from '../core/apicall.js';
+import { store } from '../core/state.js';
+import { showToast, escapeHtml, getActiveMessagesEl } from '../core/utils.js';
+import { getNetworkConfig } from './config.js';
+import { startEventStream, loadSessionStatuses } from './events.js';
+import { buildTree } from './tree.js';
+import { loadAgentModelSelectors } from './session.js';
+import { initSearch, initUserNav } from './search.js';
+import { updateModelInfo } from './render.js';
 
 // ============================
 // Web 状态检测
 // ============================
 
 /** 检测 OpenCode 服务运行状态 */
-async function checkWebStatus() {
+export async function checkWebStatus() {
     try {
         const config = getNetworkConfig();
         const status = await api.GetWebStatus(config.serviceHost, parseInt(config.servicePort) || 4096);
-        webRunning = status.running;
-        webURL = status.url || '';
-        serverStatus = normalizeServerStatus(status);
+        store.webRunning = status.running;
+        store.webURL = status.url || '';
+        store.serverStatus = normalizeServerStatus(status);
         updateWebUI();
-        if (webRunning) {
+        if (store.webRunning) {
             startEventStream();
             buildTree();
             loadServiceStatus();
@@ -26,7 +39,7 @@ async function checkWebStatus() {
         }
     } catch (e) {
         console.warn('GetWebStatus failed:', e);
-        serverStatus = normalizeServerStatus(null);
+        store.serverStatus = normalizeServerStatus(null);
         renderServiceStatus();
     }
     setTimeout(function() { initSearch(); initUserNav(); }, 500);
@@ -37,27 +50,27 @@ async function checkWebStatus() {
 // ============================
 
 /** 安全转文本（处理 null/undefined/对象） */
-function safeText(value) {
+export function safeText(value) {
     if (value == null) return '';
     if (typeof value === 'string') return value;
     return JSON.stringify(value, null, 2);
 }
 
 /** 从 part 对象中提取文本内容 */
-function extractPartText(part) {
+export function extractPartText(part) {
     if (!part) return '';
     return part.text || part.content || part.message || part.value || safeText(part);
 }
 
 /** 从消息项中提取纯文本 */
-function messageText(item) {
+export function messageText(item) {
     const parts = item?.parts || item?.info?.parts || [];
     const list = Array.isArray(parts) ? parts : [parts];
     return list.map(part => extractPartText(part)).join('\n').trim();
 }
 
 /** 判断消息是否为内部 user 消息（应过滤） */
-function isInternalUserMessage(item) {
+export function isInternalUserMessage(item) {
     const info = item?.info || item || {};
     const role = info.role || info.author || '';
     if (role !== 'user') return false;
@@ -72,7 +85,7 @@ function isInternalUserMessage(item) {
 }
 
 /** 标准化消息项（确保 info 和 parts 结构一致） */
-function normalizeMessageItem(item) {
+export function normalizeMessageItem(item) {
     const info = item.info || item;
     const parts = item.parts || info.parts || [];
     return {
@@ -104,62 +117,62 @@ function normalizeMessageItem(item) {
 // ============================
 
 /** 加载服务健康状态（Server / MCP / LSP） */
-async function loadServiceStatus() {
+export async function loadServiceStatus() {
     const config = getNetworkConfig();
     try {
         const [web, mcp, lsp] = await Promise.all([
             api.GetWebStatus(config.serviceHost, parseInt(config.servicePort) || 4096).catch(() => null),
-            webRunning ? api.OpenCodeCall('GET', '/mcp').catch(() => null) : Promise.resolve(null),
-            webRunning ? api.OpenCodeCall('GET', '/lsp').catch(() => null) : Promise.resolve(null),
+            store.webRunning ? api.OpenCodeCall('GET', '/mcp').catch(() => null) : Promise.resolve(null),
+            store.webRunning ? api.OpenCodeCall('GET', '/lsp').catch(() => null) : Promise.resolve(null),
         ]);
         if (web) {
-            webRunning = !!web.running;
-            webURL = web.url || '';
+            store.webRunning = !!web.running;
+            store.webURL = web.url || '';
         }
-        serverStatus = normalizeServerStatus(web);
-        mcpStatus = mcp;
-        lspStatus = lsp;
+        store.serverStatus = normalizeServerStatus(web);
+        store.mcpStatus = mcp;
+        store.lspStatus = lsp;
         updateWebUI();
         renderServiceStatus();
     } catch (e) {
-        serverStatus = normalizeServerStatus(null);
-        mcpStatus = null;
-        lspStatus = null;
+        store.serverStatus = normalizeServerStatus(null);
+        store.mcpStatus = null;
+        store.lspStatus = null;
         renderServiceStatus();
     }
 }
 
 /** 将服务器状态对象标准化为统一格式 */
-function normalizeServerStatus(status) {
+export function normalizeServerStatus(status) {
     const config = getNetworkConfig();
     const fallbackURL = `http://${config.serviceHost || '127.0.0.1'}:${config.servicePort || '4096'}`;
     if (!status) {
-        return { url: webURL || fallbackURL, health: webRunning ? '未知' : '离线', version: '' };
+        return { url: store.webURL || fallbackURL, health: store.webRunning ? '未知' : '离线', version: '' };
     }
     const running = !!status.running;
     return {
-        url: status.url || webURL || fallbackURL,
+        url: status.url || store.webURL || fallbackURL,
         health: status.health || (running ? '未知' : '离线'),
         version: status.version || '',
     };
 }
 
 /** 返回服务健康状态对应的 CSS 类名 */
-function serviceHealthClass(health) {
+export function serviceHealthClass(health) {
     if (health === '在线') return 'on';
     if (health === '异常') return 'warn';
     return 'off';
 }
 
 /** 渲染服务状态面板（包含 Server / MCP / LSP 三栏） */
-function renderServiceStatus() {
+export function renderServiceStatus() {
     const box = document.getElementById('ocServices');
     box.innerHTML = '';
 
     // ── 服务器 — 始终展开 ──
-    const health = serverStatus.health || (webRunning ? '未知' : '离线');
-    const url = serverStatus.url || '--';
-    const version = serverStatus.version || '--';
+    const health = store.serverStatus.health || (store.webRunning ? '未知' : '离线');
+    const url = store.serverStatus.url || '--';
+    const version = store.serverStatus.version || '--';
     const serverSec = document.createElement('div');
     serverSec.className = 'oc-service-group';
     serverSec.innerHTML =
@@ -177,8 +190,8 @@ function renderServiceStatus() {
     renderVersionCheck(version);
 
     // ── MCP 服务 — 点击展开/折叠 ──
-    if (mcpStatus) {
-        const entries = typeof mcpStatus === 'object' ? Object.entries(mcpStatus) : [];
+    if (store.mcpStatus) {
+        const entries = typeof store.mcpStatus === 'object' ? Object.entries(store.mcpStatus) : [];
         const anyRunning = entries.some(([, info]) => info?.status === 'connected' || info?.connected || info?.running);
         const anyFailed = entries.some(([, info]) => info?.status === 'error');
         const dotClass = entries.length === 0 ? 'off' : (anyFailed ? 'off' : (anyRunning ? 'on' : 'off'));
@@ -207,8 +220,8 @@ function renderServiceStatus() {
     }
 
     // ── LSP 服务 — 点击展开/折叠 ──
-    if (lspStatus) {
-        const entries = Array.isArray(lspStatus) ? lspStatus : Object.values(lspStatus || {});
+    if (store.lspStatus) {
+        const entries = Array.isArray(store.lspStatus) ? store.lspStatus : Object.values(store.lspStatus || {});
         const anyRunning = entries.some(info => info?.status === 'connected' || info?.status === 'running' || info?.running || info?.connected);
         const anyFailed = entries.some(info => info?.status === 'error');
         const dotClass = entries.length === 0 ? 'off' : (anyFailed ? 'off' : (anyRunning ? 'on' : 'off'));
@@ -246,7 +259,7 @@ function renderServiceStatus() {
 // ============================
 
 /** 启动 OpenCode Web 服务 */
-async function startWeb() {
+export async function startWeb() {
     const config = getNetworkConfig();
     const port = parseInt(config.servicePort) || 4096;
     const hostname = config.serviceHost || '127.0.0.1';
@@ -256,9 +269,9 @@ async function startWeb() {
     try {
         const result = await api.StartOpenCodeWeb(port, hostname, getNetworkConfig());
         if (result.running) {
-            webRunning = true;
-            webURL = result.url || `http://${hostname}:${port}`;
-            serverStatus = normalizeServerStatus(result);
+            store.webRunning = true;
+            store.webURL = result.url || `http://${hostname}:${port}`;
+            store.serverStatus = normalizeServerStatus(result);
             updateWebUI();
             btn.textContent = '▶ 启动 opencode';
             startEventStream();
@@ -283,45 +296,45 @@ async function startWeb() {
 }
 
 /** 停止 OpenCode Web 服务 */
-async function stopWeb() {
+export async function stopWeb() {
     const btn = document.getElementById('btnStopWeb');
     btn.disabled = true;
     btn.textContent = '⏳ 停止中...';
     try {
         await api.StopOpenCodeWeb();
         await api.StopOpenCodeEvents();
-        webRunning = false;
-        webURL = '';
-        currentSessionId = '';
-        sessions = [];
-        sessionStatuses = {};
-        sessionErrors = {};
-        messageCache = {};
-        expandedParts = {};
-        markdownCache = {};
-        subtaskSummaries = [];
-        detailMessageCache = {};
-        detailLoading = {};
-        detailExpandedParts = {};
+        store.webRunning = false;
+        store.webURL = '';
+        store.currentSessionId = '';
+        store.sessions = [];
+        store.sessionStatuses = {};
+        store.sessionErrors = {};
+        store.messageCache = {};
+        store.expandedParts = {};
+        store.markdownCache = {};
+        store.subtaskSummaries = [];
+        store.detailMessageCache = {};
+        store.detailLoading = {};
+        store.detailExpandedParts = {};
         // 清理多会话 Tab
-        if (typeof openTabs !== 'undefined') {
-            openTabs = [];
-            activeTabId = '';
-            tabCacheVersion = {};
-            tabRenderedVersion = {};
-            tabScrollPositions = {};
-            tabExpandedParts = {};
+        if (store.openTabs) {
+            store.openTabs = [];
+            store.activeTabId = '';
+            store.tabCacheVersion = {};
+            store.tabRenderedVersion = {};
+            store.tabScrollPositions = {};
+            store.tabExpandedParts = {};
             var tabsBar = document.getElementById('ocTabsBar');
             if (tabsBar) tabsBar.innerHTML = '';
             // 显式移除池中所有 tab 容器与占位提示，避免 clearClientUI 写 pool 时误伤
             var poolEl = document.getElementById('ocMessagesPool');
             if (poolEl) poolEl.innerHTML = '';
         }
-        serverStatus = normalizeServerStatus(null);
-        mcpStatus = null;
-        lspStatus = null;
-        clearInterval(refreshTimer);
-        clearTimeout(sessionRefreshTimer);
+        store.serverStatus = normalizeServerStatus(null);
+        store.mcpStatus = null;
+        store.lspStatus = null;
+        clearInterval(store.refreshTimer);
+        clearTimeout(store.sessionRefreshTimer);
         updateWebUI();
         btn.textContent = '■ 停止';
         clearClientUI();
@@ -335,11 +348,11 @@ async function stopWeb() {
 }
 
 /** 在外部 Windows Terminal 中打开 opencode 终端 */
-async function launchTerminal() {
+export async function launchTerminal() {
     try {
         const dir = await api.OpenDirectoryDialog();
         if (!dir) return;
-        const result = await api.LaunchWindowsTerminal('attach', webURL, dir);
+        const result = await api.LaunchWindowsTerminal('attach', store.webURL, dir);
         if (!result.success && result.error) {
             showToast('启动失败: ' + result.error, 'error');
         }
@@ -349,7 +362,7 @@ async function launchTerminal() {
 }
 
 /** 清空客户端界面状态 */
-function clearClientUI() {
+export function clearClientUI() {
     document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
     document.getElementById('ocChatTitle').textContent = '未选择会话';
     // 直接清空消息池（stopWeb 已显式移除 tab 容器；此处兜底整体重置）
@@ -368,7 +381,7 @@ function clearClientUI() {
 }
 
 /** 更新 UI 按钮的禁用/启用状态 */
-function updateWebUI() {
+export function updateWebUI() {
     const btnStart = document.getElementById('btnStartWeb');
     const btnStop = document.getElementById('btnStopWeb');
     const btnProxy = document.getElementById('btnProxySettings');
@@ -383,7 +396,7 @@ function updateWebUI() {
     const btnFrontendWeb = document.getElementById('btnFrontendWebConfig');
     const btnFrontendWebDot = document.getElementById('frontendWebToolbarDot');
 
-    if (webRunning) {
+    if (store.webRunning) {
         btnStart.disabled = true;
         btnStop.disabled = false;
         btnWt.disabled = false;
@@ -407,15 +420,15 @@ function updateWebUI() {
         btnAttach.disabled = true;
     }
     if (btnFrontendWeb && btnFrontendWebDot) {
-        btnFrontendWebDot.classList.toggle('on', frontendWebRunning);
-        btnFrontendWebDot.classList.toggle('off', !frontendWebRunning);
+        btnFrontendWebDot.classList.toggle('on', store.frontendWebRunning);
+        btnFrontendWebDot.classList.toggle('off', !store.frontendWebRunning);
     }
 }
 
 // ===== OpenCode 版本检测 =====
 
 /** 渲染版本检测按钮（始终显示，点击后 toast 提示结果） */
-function renderVersionCheck(version) {
+export function renderVersionCheck(version) {
     var el = document.getElementById('ocVersionCheck');
     if (!el) return;
     el.innerHTML = ' <a href="javascript:void(0)" class="oc-version-check-btn" id="ocVersionCheckBtn">检测更新</a>';
@@ -428,7 +441,7 @@ function renderVersionCheck(version) {
 }
 
 /** 执行版本检测，结果通过 toast 展示 */
-async function checkOpenCodeVersion(version) {
+export async function checkOpenCodeVersion(version) {
     try {
         var result = await api.CheckOpenCodeVersion(version || '');
         if (result.isLatest) {

@@ -3,23 +3,23 @@
 // ============================================================
 
 /** 判断当前是否为移动端窄屏模式（宽度 ≤ 800px） */
-function isMobileTreeMode() {
+export function isMobileTreeMode() {
     return window.matchMedia('(max-width: 800px)').matches;
 }
 
 /** 打开移动端项目树（仅在移动端模式下生效） */
-function openMobileTree() {
+export function openMobileTree() {
     if (!isMobileTreeMode()) return;
     document.getElementById('webContainer').classList.add('mobile-tree-open');
 }
 
 /** 关闭移动端项目树 */
-function closeMobileTree() {
+export function closeMobileTree() {
     document.getElementById('webContainer').classList.remove('mobile-tree-open');
 }
 
 /** 切换移动端项目树的打开/关闭状态 */
-function toggleMobileTree() {
+export function toggleMobileTree() {
     if (!isMobileTreeMode()) return;
     const client = document.getElementById('webContainer');
     if (client.classList.contains('mobile-tree-open')) {
@@ -30,7 +30,7 @@ function toggleMobileTree() {
 }
 
 /** 切换左侧会话栏的显示/隐藏（桌面端折叠加按钮图标） */
-function toggleSessions() {
+export function toggleSessions() {
     if (isMobileTreeMode()) {
         toggleMobileTree();
         return;
@@ -43,7 +43,7 @@ function toggleSessions() {
 }
 
 /** 切换右侧信息栏的显示/隐藏（桌面端折叠加按钮图标） */
-function toggleSidepanel() {
+export function toggleSidepanel() {
     if (isMobileTreeMode()) return;
     const client = document.getElementById('webContainer');
     const btn = document.getElementById('btnToggleSidepanel');

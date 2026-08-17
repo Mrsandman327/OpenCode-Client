@@ -1,14 +1,20 @@
-// ============================================================
+﻿// ============================================================
 // chat-config.js — 网络配置 & Web 服务配置
-// 依赖：core/state.js（frontendWebRunning, frontendWebURL, webRunning）、core/theme.js（NETWORK_CONFIG_KEY）、core/utils.js（showToast）
+// 依赖：core/state.js（FRONTEND_WEB_CONFIG_KEY, frontendWebRunning, frontendWebURL, webRunning）、
+//       core/theme.js（NETWORK_CONFIG_KEY）、core/utils.js（showToast）、core/apicall.js（api）
 // ============================================================
+
+import { NETWORK_CONFIG_KEY } from '../core/theme.js';
+import { FRONTEND_WEB_CONFIG_KEY, store } from '../core/state.js';
+import { showToast } from '../core/utils.js';
+import { api } from '../core/apicall.js';
 
 // ============================
 // 网络配置 — localStorage 读写
 // ============================
 
 /** 从 localStorage 读取网络配置 */
-function getNetworkConfig() {
+export function getNetworkConfig() {
     try {
         const saved = JSON.parse(localStorage.getItem(NETWORK_CONFIG_KEY) || '{}');
         return {
@@ -24,7 +30,7 @@ function getNetworkConfig() {
 }
 
 /** 保存网络配置到 localStorage */
-function saveNetworkConfig(config) {
+export function saveNetworkConfig(config) {
     const next = {
         serviceHost: (config.serviceHost || '127.0.0.1').trim(),
         servicePort: (config.servicePort || '4096').toString().trim(),
@@ -38,7 +44,7 @@ function saveNetworkConfig(config) {
 }
 
 /** 从 localStorage 读取页面 Web 服务配置 */
-function getFrontendWebConfig() {
+export function getFrontendWebConfig() {
     try {
         const saved = JSON.parse(localStorage.getItem(FRONTEND_WEB_CONFIG_KEY) || '{}');
         return {
@@ -51,7 +57,7 @@ function getFrontendWebConfig() {
 }
 
 /** 保存页面 Web 服务配置到 localStorage */
-function saveFrontendWebConfig(config) {
+export function saveFrontendWebConfig(config) {
     const next = {
         host: (config.host || '127.0.0.1').trim(),
         port: (config.port || '8081').toString().trim(),
@@ -61,7 +67,7 @@ function saveFrontendWebConfig(config) {
 }
 
 /** 将 Web 服务配置加载到弹窗输入框 */
-function loadFrontendWebConfigToInputs() {
+export function loadFrontendWebConfigToInputs() {
     const hostEl = document.getElementById('frontendWebHost');
     const portEl = document.getElementById('frontendWebPort');
     const config = getFrontendWebConfig();
@@ -71,24 +77,24 @@ function loadFrontendWebConfigToInputs() {
 }
 
 /** 从弹窗输入框读取并持久化 Web 服务配置 */
-function persistFrontendWebConfigFromInputs() {
+export function persistFrontendWebConfigFromInputs() {
     const host = document.getElementById('frontendWebHost')?.value.trim() || '127.0.0.1';
     const port = document.getElementById('frontendWebPort')?.value.trim() || '8081';
     return saveFrontendWebConfig({ host, port });
 }
 
 /** 复制页面 Web 服务访问地址到剪贴板 */
-async function copyFrontendWebUrl() {
-    if (!frontendWebURL) {
+export async function copyFrontendWebUrl() {
+    if (!store.frontendWebURL) {
         showToast('当前没有可复制的访问地址', 'warning');
         return;
     }
     try {
         if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(frontendWebURL);
+            await navigator.clipboard.writeText(store.frontendWebURL);
         } else {
             const input = document.createElement('input');
-            input.value = frontendWebURL;
+            input.value = store.frontendWebURL;
             document.body.appendChild(input);
             input.select();
             document.execCommand('copy');
@@ -101,13 +107,13 @@ async function copyFrontendWebUrl() {
 }
 
 /** 构造代理 URL */
-function proxyUrl(config = getNetworkConfig()) {
+export function proxyUrl(config = getNetworkConfig()) {
     if (!config.proxyHost || !config.proxyPort) return '';
     return `http://${config.proxyHost}:${config.proxyPort}`;
 }
 
 /** 更新网络配置弹窗中的预览文本 */
-function updateProxyPreview() {
+export function updateProxyPreview() {
     const proxyEnabled = document.getElementById('proxyEnabled')?.checked;
     const proxyHost = document.getElementById('proxyHost')?.value.trim() || '127.0.0.1';
     const proxyPort = document.getElementById('proxyPort')?.value.trim() || '7897';
@@ -127,16 +133,16 @@ function updateProxyPreview() {
 }
 
 /** 更新代理按钮的样式和提示 */
-function updateProxyButton() {
+export function updateProxyButton() {
     const btn = document.getElementById('btnProxySettings');
     if (!btn) return;
     const config = getNetworkConfig();
     btn.classList.toggle('active', config.proxyEnabled);
-    btn.title = webRunning ? '配置（服务运行期间仅可查看）' : (config.proxyEnabled ? `代理已启用: ${proxyUrl(config)}` : '配置');
+    btn.title = store.webRunning ? '配置（服务运行期间仅可查看）' : (config.proxyEnabled ? `代理已启用: ${proxyUrl(config)}` : '配置');
 }
 
 /** 显示网络配置弹窗 */
-function showProxyModal() {
+export function showProxyModal() {
     const config = getNetworkConfig();
     const serviceHostEl = document.getElementById('serviceHost');
     const servicePortEl = document.getElementById('servicePort');
@@ -150,7 +156,7 @@ function showProxyModal() {
     proxyEnabledEl.checked = config.proxyEnabled;
     proxyHostEl.value = config.proxyHost;
     proxyPortEl.value = config.proxyPort;
-    const readonly = webRunning;
+    const readonly = store.webRunning;
     serviceHostEl.readOnly = readonly;
     servicePortEl.readOnly = readonly;
     proxyEnabledEl.disabled = readonly;
@@ -174,12 +180,12 @@ function showProxyModal() {
 }
 
 /** 隐藏网络配置弹窗 */
-function hideProxyModal() {
+export function hideProxyModal() {
     document.getElementById('proxyModal').style.display = 'none';
 }
 
 /** 应用网络配置 */
-function applyProxyConfig() {
+export function applyProxyConfig() {
     const serviceHost = document.getElementById('serviceHost').value.trim() || '127.0.0.1';
     const servicePort = document.getElementById('servicePort').value.trim() || '4096';
     const proxyEnabled = document.getElementById('proxyEnabled').checked;
@@ -202,23 +208,23 @@ function applyProxyConfig() {
 // ============================
 
 /** 检测页面 Web 服务是否正在运行 */
-async function checkFrontendWebStatus() {
+export async function checkFrontendWebStatus() {
     try {
         const config = persistFrontendWebConfigFromInputs();
         const host = config.host || '127.0.0.1';
         const port = parseInt(config.port, 10) || 8081;
         const result = await api.GetFrontendWebStatus(host, port);
-        frontendWebRunning = !!result.running;
-        frontendWebURL = result.url || '';
+        store.frontendWebRunning = !!result.running;
+        store.frontendWebURL = result.url || '';
     } catch (e) {
-        frontendWebRunning = false;
-        frontendWebURL = '';
+        store.frontendWebRunning = false;
+        store.frontendWebURL = '';
     }
     renderFrontendWebStatus();
 }
 
 /** 渲染页面 Web 服务状态 UI */
-function renderFrontendWebStatus() {
+export function renderFrontendWebStatus() {
     const statusEl = document.getElementById('frontendWebStatus');
     const urlEl = document.getElementById('frontendWebUrl');
     const btnStart = document.getElementById('btnSaveFrontendWeb');
@@ -227,22 +233,22 @@ function renderFrontendWebStatus() {
     const btnToolbar = document.getElementById('btnFrontendWebConfig');
     const toolbarDot = document.getElementById('frontendWebToolbarDot');
     if (!statusEl || !urlEl || !btnStart || !btnStop || !btnCopy || !btnToolbar || !toolbarDot) return;
-    statusEl.textContent = frontendWebRunning ? '运行中' : '未启动';
-    statusEl.classList.toggle('frontend-web-status-running', frontendWebRunning);
-    urlEl.textContent = frontendWebURL || '--';
-    urlEl.title = frontendWebURL || '';
-    urlEl.href = frontendWebURL || '#';
-    urlEl.classList.toggle('disabled', !frontendWebURL);
-    btnStart.disabled = frontendWebRunning;
-    btnStop.disabled = !frontendWebRunning;
-    btnCopy.disabled = !frontendWebURL;
-    toolbarDot.classList.toggle('on', frontendWebRunning);
-    toolbarDot.classList.toggle('off', !frontendWebRunning);
-    btnToolbar.title = frontendWebRunning && frontendWebURL ? `Web服务运行中: ${frontendWebURL}` : 'Web服务';
+    statusEl.textContent = store.frontendWebRunning ? '运行中' : '未启动';
+    statusEl.classList.toggle('frontend-web-status-running', store.frontendWebRunning);
+    urlEl.textContent = store.frontendWebURL || '--';
+    urlEl.title = store.frontendWebURL || '';
+    urlEl.href = store.frontendWebURL || '#';
+    urlEl.classList.toggle('disabled', !store.frontendWebURL);
+    btnStart.disabled = store.frontendWebRunning;
+    btnStop.disabled = !store.frontendWebRunning;
+    btnCopy.disabled = !store.frontendWebURL;
+    toolbarDot.classList.toggle('on', store.frontendWebRunning);
+    toolbarDot.classList.toggle('off', !store.frontendWebRunning);
+    btnToolbar.title = store.frontendWebRunning && store.frontendWebURL ? `Web服务运行中: ${store.frontendWebURL}` : 'Web服务';
 }
 
 /** 显示页面 Web 服务配置弹窗 */
-function showFrontendWebModal() {
+export function showFrontendWebModal() {
     const modal = document.getElementById('frontendWebModal');
     if (!modal) return;
     loadFrontendWebConfigToInputs();
@@ -251,13 +257,13 @@ function showFrontendWebModal() {
 }
 
 /** 关闭页面 Web 服务配置弹窗 */
-function closeFrontendWebModal() {
+export function closeFrontendWebModal() {
     const modal = document.getElementById('frontendWebModal');
     if (modal) modal.style.display = 'none';
 }
 
 /** 启动页面 Web 服务 */
-async function startFrontendWeb() {
+export async function startFrontendWeb() {
     const btn = document.getElementById('btnSaveFrontendWeb');
     if (!btn) return;
     const config = persistFrontendWebConfigFromInputs();
@@ -272,10 +278,10 @@ async function startFrontendWeb() {
     btn.textContent = '⏳ 启动中...';
     try {
         const result = await api.StartFrontendWeb(port, host);
-        frontendWebRunning = !!result.running;
-        frontendWebURL = result.url || '';
+        store.frontendWebRunning = !!result.running;
+        store.frontendWebURL = result.url || '';
         renderFrontendWebStatus();
-        if (frontendWebRunning) {
+        if (store.frontendWebRunning) {
             showToast('Web服务已启动', 'success');
         } else if (result.error) {
             showToast('Web服务启动失败: ' + result.error, 'error');
@@ -288,15 +294,15 @@ async function startFrontendWeb() {
 }
 
 /** 停止页面 Web 服务 */
-async function stopFrontendWeb() {
+export async function stopFrontendWeb() {
     const btn = document.getElementById('btnStopFrontendWeb');
     if (!btn) return;
     btn.disabled = true;
     btn.textContent = '⏳ 停止中...';
     try {
         await api.StopFrontendWeb();
-        frontendWebRunning = false;
-        frontendWebURL = '';
+        store.frontendWebRunning = false;
+        store.frontendWebURL = '';
         renderFrontendWebStatus();
         showToast('Web服务已停止', 'info');
     } catch (e) {

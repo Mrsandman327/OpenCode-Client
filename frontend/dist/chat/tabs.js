@@ -1,27 +1,51 @@
-// ============================================================
+﻿// ============================================================
 // chat-tabs.js — 多会话 Tab 页管理
-// 依赖：core/state.js（openTabs, activeTabId, tabCacheVersion 等）、
-//       chat/render.js（buildMessageNode, renderMessages）、
-//       chat/cache.js（getCachedMessages）、chat/session.js（selectSession）
+// 依赖：core/state.js（openTabs, activeTabId, tabCacheVersion 等）、core/utils.js（escapeHtml, getTabMessagesEl, ensureTabMessagesEl）、
+//       chat/mobile.js（isMobileTreeMode）、chat/render.js（updateScrollBottomButton, updateSendButton）、
+//       chat/events.js（loadSessionStatuses）、chat/sidepanel.js（extractSubtaskSummaries, renderSubtaskPanel, loadDiff）、
+//       chat/search.js（resetUserNav, updateUserNav）
+//       filebrowser/browser.js（openFileBrowserModal）——尚未改造，保留全局守卫调用
+// 解环说明：本文件不得 import chat/session.js。原 activateTabContainer 中 loadMessages() 调用
+//           改为回调注入 tabActivationHandler，由 session.js 在模块加载时通过 setTabActivationHandler 注入。
 // ============================================================
 
+import { store } from '../core/state.js';
+import { escapeHtml, getTabMessagesEl, ensureTabMessagesEl } from '../core/utils.js';
+import { isMobileTreeMode } from './mobile.js';
+import { updateScrollBottomButton, updateSendButton } from './render.js';
+import { loadSessionStatuses } from './events.js';
+import { extractSubtaskSummaries, renderSubtaskPanel, loadDiff } from './sidepanel.js';
+import { resetUserNav, updateUserNav } from './search.js';
+import { openFileBrowserModal } from '../filebrowser/browser.js';
+
+/**
+ * 会话激活时的加载回调（由 session.js 通过 setTabActivationHandler 注入）。
+ * ESM 下为避免 tabs↔session 循环依赖，用回调注入替代直接函数调用。
+ */
+export let tabActivationHandler = null;
+
+/** 注入会话激活加载回调 */
+export function setTabActivationHandler(fn) {
+    tabActivationHandler = fn;
+}
+
 /** 渲染 Tab 栏 DOM（移动端单会话模式不显示） */
-function renderTabsBar() {
+export function renderTabsBar() {
     var bar = document.getElementById('ocTabsBar');
     if (!bar) return;
     // 移动端不显示 Tab 栏
-    if (typeof isMobileTreeMode === 'function' && isMobileTreeMode()) {
+    if (isMobileTreeMode()) {
         bar.innerHTML = '';
         bar.style.display = 'none';
         return;
     }
     bar.style.display = 'flex';
-    if (!openTabs.length) {
+    if (!store.openTabs.length) {
         bar.innerHTML = '';
         return;
     }
-    bar.innerHTML = openTabs.map(function(tab) {
-        var active = tab.sessionID === activeTabId ? ' active' : '';
+    bar.innerHTML = store.openTabs.map(function(tab) {
+        var active = tab.sessionID === store.activeTabId ? ' active' : '';
         return '<div class="oc-tab' + active + '" data-session-id="' + escapeHtml(tab.sessionID) + '">' +
             '<span class="oc-tab-title">' + escapeHtml(tab.title || tab.sessionID) + '</span>' +
             '<span class="oc-tab-close" data-close-id="' + escapeHtml(tab.sessionID) + '">✕</span>' +
@@ -32,7 +56,7 @@ function renderTabsBar() {
         tab.addEventListener('click', function(e) {
             if (e.target.closest('.oc-tab-close')) return;
             var sid = tab.dataset.sessionId;
-            if (sid && sid !== activeTabId) {
+            if (sid && sid !== store.activeTabId) {
                 switchTab(sid);
             }
         });
@@ -47,30 +71,30 @@ function renderTabsBar() {
 
 /** 打开会话 Tab（已存在则切换并更新标题；首次打开只注册，加载交给 selectSession 原流程）
  *  移动端（isMobileTreeMode）单会话模式：打开新会话前关闭其他所有 Tab */
-function openSessionTab(sessionID, title) {
+export function openSessionTab(sessionID, title) {
     if (!sessionID) return;
     // 移动端单会话：先关闭其他 Tab，只保留当前这一个
-    if (typeof isMobileTreeMode === 'function' && isMobileTreeMode()) {
-        openTabs.slice().forEach(function(t) {
-            if (t.sessionID !== sessionID && typeof closeSessionTab === 'function') {
+    if (isMobileTreeMode()) {
+        store.openTabs.slice().forEach(function(t) {
+            if (t.sessionID !== sessionID) {
                 closeSessionTab(t.sessionID);
             }
         });
     }
-    var existing = openTabs.find(function(t) { return t.sessionID === sessionID; });
+    var existing = store.openTabs.find(function(t) { return t.sessionID === sessionID; });
     if (existing) {
         if (title) existing.title = title;
         switchTab(sessionID);
         return;
     }
-    openTabs.push({ sessionID: sessionID, title: title || sessionID });
-    tabCacheVersion[sessionID] = 0;
-    tabRenderedVersion[sessionID] = 0;
+    store.openTabs.push({ sessionID: sessionID, title: title || sessionID });
+    store.tabCacheVersion[sessionID] = 0;
+    store.tabRenderedVersion[sessionID] = 0;
     renderTabsBar();
 }
 
 /** 激活指定会话的消息容器：显示它、隐藏其他；容器不存在时创建并触发加载 */
-function activateTabContainer(sessionID) {
+export function activateTabContainer(sessionID) {
     var pool = document.getElementById('ocMessagesPool');
     if (!pool) return;
     // 清除新建会话占位提示（切回已打开 tab 时不应再残留）
@@ -89,21 +113,21 @@ function activateTabContainer(sessionID) {
             el.classList.add('active');
             el.style.display = 'flex';
             el.innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';
-            if (typeof loadMessages === 'function') loadMessages();
+            if (tabActivationHandler) tabActivationHandler();
         }
     }
 }
 
 /** 切换活动 Tab（多容器方案）：纯 display 显隐，各容器内容已实时渲染，切换零成本 */
-function switchTab(sessionID) {
+export function switchTab(sessionID) {
     if (!sessionID) return;
-    activeTabId = sessionID;
-    currentSessionId = sessionID;
+    store.activeTabId = sessionID;
+    store.currentSessionId = sessionID;
     activateTabContainer(sessionID);
 
     // 标题、目录路径更新
     var title = '';
-    var tabInfo = openTabs.find(function(t) { return t.sessionID === sessionID; });
+    var tabInfo = store.openTabs.find(function(t) { return t.sessionID === sessionID; });
     if (tabInfo) title = tabInfo.title;
     var info = window._sessionMap && window._sessionMap[sessionID];
     if (!title && info) title = info.title;
@@ -122,9 +146,9 @@ function switchTab(sessionID) {
     renderTabsBar();
 
     // 恢复该 tab 的展开状态，刷新侧栏与状态
-    expandedParts = tabExpandedParts[sessionID] || {};
+    store.expandedParts = store.tabExpandedParts[sessionID] || {};
     // 重置用户导航状态：userNavIndex 是全局单例，切 tab 后必须重新定位到新会话
-    if (typeof resetUserNav === 'function') resetUserNav();
+    resetUserNav();
     updateUserNav();
     if (!isMobileTreeMode()) {
         extractSubtaskSummaries(sessionID);
@@ -132,8 +156,8 @@ function switchTab(sessionID) {
         loadDiff();
     }
     loadSessionStatuses().then(function(statuses) {
-        if (sessionID === currentSessionId) {
-            sessionStatuses = statuses || sessionStatuses;
+        if (sessionID === store.currentSessionId) {
+            store.sessionStatuses = statuses || store.sessionStatuses;
             updateSendButton();
         }
     });
@@ -141,25 +165,25 @@ function switchTab(sessionID) {
 }
 
 /** 关闭会话 Tab：销毁容器（释放 DOM + 缓存） */
-function closeSessionTab(sessionID) {
+export function closeSessionTab(sessionID) {
     if (!sessionID) return;
-    openTabs = openTabs.filter(function(t) { return t.sessionID !== sessionID; });
+    store.openTabs = store.openTabs.filter(function(t) { return t.sessionID !== sessionID; });
 
     // 销毁容器，释放 DOM
     var el = getTabMessagesEl(sessionID);
     if (el && el.parentNode) el.parentNode.removeChild(el);
 
     // 释放缓存与快照
-    delete messageCache[sessionID];
-    delete tabCacheVersion[sessionID];
-    delete tabRenderedVersion[sessionID];
-    delete tabScrollPositions[sessionID];
-    delete tabExpandedParts[sessionID];
+    delete store.messageCache[sessionID];
+    delete store.tabCacheVersion[sessionID];
+    delete store.tabRenderedVersion[sessionID];
+    delete store.tabScrollPositions[sessionID];
+    delete store.tabExpandedParts[sessionID];
 
-    if (activeTabId === sessionID) {
-        var next = openTabs[openTabs.length - 1];
-        activeTabId = '';
-        currentSessionId = '';
+    if (store.activeTabId === sessionID) {
+        var next = store.openTabs[store.openTabs.length - 1];
+        store.activeTabId = '';
+        store.currentSessionId = '';
         if (next) {
             switchTab(next.sessionID);
         } else {
