@@ -313,6 +313,9 @@ async function stopWeb() {
             tabExpandedParts = {};
             var tabsBar = document.getElementById('ocTabsBar');
             if (tabsBar) tabsBar.innerHTML = '';
+            // 显式移除池中所有 tab 容器与占位提示，避免 clearClientUI 写 pool 时误伤
+            var poolEl = document.getElementById('ocMessagesPool');
+            if (poolEl) poolEl.innerHTML = '';
         }
         serverStatus = normalizeServerStatus(null);
         mcpStatus = null;
@@ -349,7 +352,13 @@ async function launchTerminal() {
 function clearClientUI() {
     document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
     document.getElementById('ocChatTitle').textContent = '未选择会话';
-    getActiveMessagesEl().innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+    // 直接清空消息池（stopWeb 已显式移除 tab 容器；此处兜底整体重置）
+    var poolEl = document.getElementById('ocMessagesPool');
+    if (poolEl) {
+        poolEl.innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+    } else {
+        getActiveMessagesEl().innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+    }
     document.getElementById('ocSubtasks').innerHTML = '<div class="oc-empty">当前会话暂无子任务</div>';
     document.getElementById('ocTodos').innerHTML = '<div class="oc-empty">当前会话暂无代办</div>';
     renderServiceStatus();

@@ -48,6 +48,36 @@ function getActiveMessagesEl() {
     return active || pool;
 }
 
+/** 安全设置消息区空态提示。
+ *  避免 getActiveMessagesEl() 在无活动 tab 时回退返回 pool 本身，
+ *  导致 innerHTML= 清空整个池（连带销毁所有隐藏的 tab 容器）。
+ *  规则：
+ *   - 池中有活动 tab 容器 → 只写入该容器
+ *   - 无活动但有隐藏 tab 容器（新建会话占位态）→ 更新/创建占位提示，保留 tab 容器
+ *   - 无任何 tab 容器 → 直接写 pool */
+function setMessagesEmpty(text) {
+    var pool = document.getElementById('ocMessagesPool');
+    if (!pool) return;
+    var active = pool.querySelector('.oc-messages-tab.active');
+    if (active) {
+        active.innerHTML = '<div class="oc-empty">' + text + '</div>';
+        return;
+    }
+    var hasTabs = pool.querySelector('.oc-messages-tab');
+    if (hasTabs) {
+        var ph = pool.querySelector('.oc-new-session-placeholder');
+        if (!ph) {
+            ph = document.createElement('div');
+            ph.className = 'oc-new-session-placeholder oc-empty';
+            pool.appendChild(ph);
+        }
+        ph.style.display = 'block';
+        ph.textContent = text;
+        return;
+    }
+    pool.innerHTML = '<div class="oc-empty">' + text + '</div>';
+}
+
 /** 创建指定会话的消息容器（若不存在），返回容器元素 */
 function ensureTabMessagesEl(sessionID) {
     var pool = document.getElementById('ocMessagesPool');

@@ -73,6 +73,9 @@ function openSessionTab(sessionID, title) {
 function activateTabContainer(sessionID) {
     var pool = document.getElementById('ocMessagesPool');
     if (!pool) return;
+    // 清除新建会话占位提示（切回已打开 tab 时不应再残留）
+    var ph = pool.querySelector('.oc-new-session-placeholder');
+    if (ph && ph.parentNode) ph.parentNode.removeChild(ph);
     var all = pool.querySelectorAll('.oc-messages-tab');
     for (var i = 0; i < all.length; i++) {
         var isActive = all[i].dataset.tab === sessionID;

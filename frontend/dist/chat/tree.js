@@ -388,7 +388,7 @@ async function addDirectoryToProject() {
         const ok = await buildTree();
         if (!ok || !treeHasSessionsForDir(window._lastProjectTree, dir)) {
             document.getElementById('ocChatTitle').textContent = '工作目录 @ ' + dir;
-            getActiveMessagesEl().innerHTML = '<div class="oc-empty">该目录下没有会话记录，请先在该目录下新建会话</div>';
+            setMessagesEmpty('该目录下没有会话记录，请先在该目录下新建会话');
             showToast('该目录下没有会话记录，请先在该目录下新建会话', 'warning');
             return;
         }
@@ -421,7 +421,7 @@ async function deleteSession(id) {
             currentSessionId = '';
             messageCache[currentSessionId] = null;
             expandedParts = {};
-            getActiveMessagesEl().innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+            setMessagesEmpty('选择会话后查看消息，或输入内容创建新会话');
             document.getElementById('ocChatTitle').textContent = '未选择会话';
             updateModelInfo(null);
         }
@@ -465,12 +465,33 @@ async function createNewSession(dir) {
             closeMobileTree();
         }
         currentSessionId = '';
+        activeTabId = '';   // 不再指向旧 tab
         sessionStatuses = {};
         sessionErrors = {};
         subtaskSummaries = [];
         detailMessageCache = {};
         document.getElementById('ocChatTitle').textContent = '新建会话 @ ' + dir;
-        getActiveMessagesEl().innerHTML = '<div class="oc-empty">输入内容后 Enter 发送，会话将在首次发送时创建</div>';
+        // 隐藏所有已打开 tab 容器（保留其内容，切回时还在），显示新建会话占位提示；
+        // 不再直接写 getActiveMessagesEl().innerHTML，否则会清空当前活动 tab 的会话内容
+        var poolEl = document.getElementById('ocMessagesPool');
+        if (poolEl) {
+            poolEl.querySelectorAll('.oc-messages-tab').forEach(function(c) {
+                c.classList.remove('active');
+                c.style.display = 'none';
+            });
+            var ph = poolEl.querySelector('.oc-new-session-placeholder');
+            if (!ph) {
+                ph = document.createElement('div');
+                ph.className = 'oc-new-session-placeholder oc-empty';
+                poolEl.appendChild(ph);
+            }
+            ph.style.display = 'block';
+            ph.textContent = '输入内容后 Enter 发送，会话将在首次发送时创建';
+        }
+        // 刷新 Tab 栏激活态（activeTabId 已置空，所有 tab 显示为非激活）
+        if (typeof renderTabsBar === 'function') renderTabsBar();
+        // 重置用户消息导航索引（旧会话的定位索引不再适用）
+        if (typeof resetUserNav === 'function') resetUserNav();
         document.getElementById('ocDiff').innerHTML = '<div class="oc-empty">选择会话后查看变更</div>';
         document.getElementById('ocPrompt').value = '';
         document.getElementById('ocPrompt').focus();

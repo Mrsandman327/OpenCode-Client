@@ -265,8 +265,12 @@ async function createSessionWithDir(dir) {
 async function loadMessages() {
     const seq = ++messageLoadSeq;
     if (!currentSessionId) {
-        var box0 = getActiveMessagesEl();
-        if (box0) box0.innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+        // 无当前会话：仅当池中没有 tab 容器时才写空态提示；
+        // 否则保留隐藏的 tab 容器与新建会话占位提示，避免误清空
+        var poolEl = document.getElementById('ocMessagesPool');
+        if (poolEl && !poolEl.querySelector('.oc-messages-tab')) {
+            poolEl.innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+        }
         return;
     }
     const box = ensureTabMessagesEl(currentSessionId);
@@ -787,6 +791,20 @@ async function sendPrompt() {
                     var newTitle = (window._sessionMap && window._sessionMap[currentSessionId] && window._sessionMap[currentSessionId].title) || currentSessionId;
                     openSessionTab(currentSessionId, newTitle);
                 }
+                // 首开的 Tab 只注册未建容器，这里手动创建并激活，否则消息会渲染进隐藏容器导致界面空白
+                var sessBox = ensureTabMessagesEl(currentSessionId);
+                if (sessBox) {
+                    sessBox.classList.add('active');
+                    sessBox.style.display = 'flex';
+                    var poolEl = document.getElementById('ocMessagesPool');
+                    if (poolEl) {
+                        poolEl.querySelectorAll('.oc-messages-tab').forEach(function(c) {
+                            if (c !== sessBox) { c.classList.remove('active'); c.style.display = 'none'; }
+                        });
+                    }
+                }
+                // 新建会话后重置用户消息导航索引（否则残留上一个会话的定位）
+                if (typeof resetUserNav === 'function') resetUserNav();
             } else {
                  showToast('请先新建会话，设置会话目录', 'error');
                  return;
