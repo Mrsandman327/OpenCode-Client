@@ -14,7 +14,8 @@ import {
     renderGitHistoryFilePreview,
     fileBrowserClearObjectURL,
     destroyFileBrowserEditor,
-    renderFilePreviewToolbar
+    renderFilePreviewToolbar,
+    fileBrowserResolveRawResource
 } from './preview.js';
 
 window.fileBrowserState = {
@@ -1379,47 +1380,17 @@ export function refreshFileBrowser() {
     }
 }
 
+// ============================================================
+// 文件浏览器事件绑定（IIFE，模块加载时执行）
+// 说明：btnCloseFileBrowser / btnRefreshFiles / btnFileBrowserDownload /
+//       btnFileBrowserModeFiles / btnFileBrowserModeGit / btnFileBrowserUpload /
+//       fileBrowserUploadInput / btnFileBrowserUploadOverwrite /
+//       btnFileBrowserUploadRenameMode / btnFileBrowserUploadRenameConfirm /
+//       btnFileBrowserUploadConflictCancel 的绑定已由 main.js（DOMContentLoaded）
+//       统一处理（带 try/catch 错误处理），此处不再重复绑定。
+//       本 IIFE 仅保留 main.js 未覆盖的「创建目录」系列绑定。
+// ============================================================
 (function initFileBrowserActions() {
-    var closeBtn = document.getElementById('btnCloseFileBrowser');
-    if (closeBtn && !closeBtn.dataset.bound) {
-        closeBtn.dataset.bound = 'true';
-        closeBtn.addEventListener('click', closeFileBrowserModal);
-    }
-
-    var refreshBtn = document.getElementById('btnRefreshFiles');
-    if (refreshBtn && !refreshBtn.dataset.bound) {
-        refreshBtn.dataset.bound = 'true';
-        refreshBtn.addEventListener('click', refreshFileBrowser);
-    }
-
-    var downloadBtn = document.getElementById('btnFileBrowserDownload');
-    if (downloadBtn && !downloadBtn.dataset.bound) {
-        downloadBtn.dataset.bound = 'true';
-        downloadBtn.addEventListener('click', downloadCurrentFilePreview);
-    }
-
-    var filesModeBtn = document.getElementById('btnFileBrowserModeFiles');
-    if (filesModeBtn && !filesModeBtn.dataset.bound) {
-        filesModeBtn.dataset.bound = 'true';
-        filesModeBtn.addEventListener('click', function() {
-            switchFileBrowserMode('files');
-        });
-    }
-
-    var gitModeBtn = document.getElementById('btnFileBrowserModeGit');
-    if (gitModeBtn && !gitModeBtn.dataset.bound) {
-        gitModeBtn.dataset.bound = 'true';
-        gitModeBtn.addEventListener('click', function() {
-            switchFileBrowserMode('git');
-        });
-    }
-
-    var uploadBtn = document.getElementById('btnFileBrowserUpload');
-    if (uploadBtn && !uploadBtn.dataset.bound) {
-        uploadBtn.dataset.bound = 'true';
-        uploadBtn.addEventListener('click', openFileBrowserUploadPicker);
-    }
-
     var createDirBtn = document.getElementById('btnFileBrowserCreateDir');
     if (createDirBtn && !createDirBtn.dataset.bound) {
         createDirBtn.dataset.bound = 'true';
@@ -1458,55 +1429,5 @@ export function refreshFileBrowser() {
                 closeFileBrowserCreateDirInline();
             }
         });
-    }
-
-    var uploadInput = document.getElementById('fileBrowserUploadInput');
-    if (uploadInput && !uploadInput.dataset.bound) {
-        uploadInput.dataset.bound = 'true';
-        uploadInput.addEventListener('change', function() {
-            var file = this.files && this.files[0] ? this.files[0] : null;
-            handleBrowserUploadSelected(file).finally(function() {
-                uploadInput.value = '';
-            });
-        });
-    }
-
-    var overwriteBtn = document.getElementById('btnFileBrowserUploadOverwrite');
-    if (overwriteBtn && !overwriteBtn.dataset.bound) {
-        overwriteBtn.dataset.bound = 'true';
-        overwriteBtn.addEventListener('click', function() {
-            submitBrowserUpload(window.fileBrowserState.pendingUploadFileName || '', true).catch(function(err) {
-                showToast(err.message || '上传失败', 'error');
-            });
-        });
-    }
-
-    var renameModeBtn = document.getElementById('btnFileBrowserUploadRenameMode');
-    if (renameModeBtn && !renameModeBtn.dataset.bound) {
-        renameModeBtn.dataset.bound = 'true';
-        renameModeBtn.addEventListener('click', showFileBrowserRenameMode);
-    }
-
-    var renameConfirmBtn = document.getElementById('btnFileBrowserUploadRenameConfirm');
-    if (renameConfirmBtn && !renameConfirmBtn.dataset.bound) {
-        renameConfirmBtn.dataset.bound = 'true';
-        renameConfirmBtn.addEventListener('click', function() {
-            var input = document.getElementById('fileBrowserUploadRenameInput');
-            var name = input ? String(input.value || '').trim() : '';
-            if (!name) {
-                var error = document.getElementById('fileBrowserUploadConflictError');
-                if (error) error.textContent = '请输入新的文件名';
-                return;
-            }
-            submitBrowserUpload(name, false).catch(function(err) {
-                showToast(err.message || '上传失败', 'error');
-            });
-        });
-    }
-
-    var uploadCancelBtn = document.getElementById('btnFileBrowserUploadConflictCancel');
-    if (uploadCancelBtn && !uploadCancelBtn.dataset.bound) {
-        uploadCancelBtn.dataset.bound = 'true';
-        uploadCancelBtn.addEventListener('click', closeFileBrowserUploadConflictModal);
     }
 })();

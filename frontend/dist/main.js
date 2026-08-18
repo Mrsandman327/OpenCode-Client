@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 发送/停止按钮
     document.getElementById('btnSendPrompt').addEventListener('click', () => {
-        if (isSessionBusy(currentSessionId)) {
+        if (isSessionBusy(store.currentSessionId)) {
             abortSession();
         } else {
             sendPrompt();
