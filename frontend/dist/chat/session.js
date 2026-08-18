@@ -120,9 +120,11 @@ export async function refreshSessionTitle() {
         });
         const treeNode = document.querySelector('.oc-tree-session[data-session-id="' + escapedId + '"]');
         if (treeNode) {
+            // 注意：标题图标已由 renderTree 渲染为独立的 .oc-tree-session-icon 元素，
+            // 这里只更新 label 文本（不再加 💬 前缀，否则与图标重复）
             const label = treeNode.querySelector('.oc-tree-label');
             if (label) {
-                label.textContent = '💬 ' + title;
+                label.textContent = title;
             }
             const tooltipTitle = treeNode.querySelector('.oc-tree-tooltip-title');
             if (tooltipTitle) tooltipTitle.textContent = title;
