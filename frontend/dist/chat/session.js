@@ -13,7 +13,7 @@
 
 import { api } from '../core/apicall.js';
 import { store, MOBILE_MESSAGE_RENDER_LIMIT, PC_MESSAGE_RENDER_LIMIT } from '../core/state.js';
-import { showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages } from '../core/utils.js';
+import { showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { extractSubtaskSummaries, renderSubtaskPanel, loadDiff } from './sidepanel.js';
@@ -216,6 +216,8 @@ export async function selectSession(id) {
     openSessionTab(id, info?.title);
     store.currentSessionId = id;
     store.activeTabId = id;
+    // 同步项目树高亮
+    updateTreeActiveSession();
     // 重新渲染 Tab 栏，确保新 tab 呈激活态（openSessionTab 内部已渲染一次，但此时 activeTabId 还未更新）
     renderTabsBar();
     if (isMobileTreeMode()) { 

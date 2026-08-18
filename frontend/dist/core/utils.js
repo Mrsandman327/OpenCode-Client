@@ -189,3 +189,21 @@ export function setUpdateModelInfoHandler(fn) {
 export function updateModelInfo(items) {
     if (updateModelInfoHandler) updateModelInfoHandler(items);
 }
+
+// ============================================================
+// 项目树当前会话高亮同步
+// 只依赖 store + DOM，不依赖 chat 层任何模块；
+// tabs.js / session.js / tree.js 均从 core 层 import，避免模块环。
+// ============================================================
+
+/** 同步项目树中当前会话的高亮（active 类）。
+ *  在 selectSession / switchTab / 树点击后调用，确保树节点与当前会话一致。 */
+export function updateTreeActiveSession() {
+    var container = document.getElementById('ocTree');
+    if (!container) return;
+    var activeId = store.activeTabId || store.currentSessionId || '';
+    container.querySelectorAll('.oc-tree-session').forEach(function(node) {
+        var isActive = !!activeId && node.dataset.sessionId === activeId;
+        node.classList.toggle('active', isActive);
+    });
+}

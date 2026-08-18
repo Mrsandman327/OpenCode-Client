@@ -10,7 +10,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo } from '../core/utils.js';
+import { escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo, updateTreeActiveSession } from '../core/utils.js';
 import { isMobileTreeMode, closeMobileTree } from './mobile.js';
 import { switchSession } from './events.js';
 import { closeSessionTab, renderTabsBar } from './tabs.js';
@@ -86,13 +86,36 @@ export function renderTree(tree) {
     window._sessionMap = {};
     let html = '';
     const toggleIcon = (expanded) => expanded ? '▼' : '⯈';
+
+    /** 把 "YYYY-MM-DD HH:MM" 转成相对时间（如 "3分钟前"/"昨天"），无法解析时原样返回 */
+    const formatRelativeTime = (t) => {
+        if (!t) return '';
+        const m = String(t).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+        if (!m) return '';
+        const then = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+        const diff = Date.now() - then.getTime();
+        if (diff < 0) return '';
+        const min = Math.floor(diff / 60000);
+        if (min < 1) return '刚刚';
+        if (min < 60) return min + ' 分钟前';
+        const hr = Math.floor(min / 60);
+        if (hr < 24) return hr + ' 小时前';
+        const day = Math.floor(hr / 24);
+        if (day === 1) return '昨天';
+        if (day < 7) return day + ' 天前';
+        return t.slice(0, 10);
+    };
+
     for (const proj of tree) {
         html += `<div class="oc-tree-node oc-tree-project" data-id="${escapeHtml(proj.id)}">`;
-        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label" title="${escapeHtml(proj.title)}">📁 ${escapeHtml(proj.title)}</span><button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button></div>`;
+        // 项目行：Apple 分组标题风格（弱化，仅作最外层分组标签）
+        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.title)}">${escapeHtml(proj.title)}</span><button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button></div>`;
         html += `<div class="oc-tree-children">`;
         for (const dir of (proj.children || [])) {
+            // 目录行：次级分组标题 + 会话计数徽章
+            const dirSesCount = (dir.children || []).length;
             html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
-            html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label" title="${escapeHtml(dir.title)}">📂 ${escapeHtml(dir.title)}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
+            html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
             html += `<div class="oc-tree-children">`;
             // 按更新时间稳定排序，保持会话位置固定
             var sesList = (dir.children || []).slice();
@@ -104,8 +127,10 @@ export function renderTree(tree) {
                 const updatedAt = ses.updatedAt || '';
                 const sesDir = ses.directory || dir.title;
                 window._sessionMap[ses.id] = { title: ses.title, directory: sesDir, updatedAt: updatedAt };
+                // 会话卡片：图标 + 标题 + 相对时间 + 删除按钮；active 由 updateTreeActiveSession 维护
                 html += `<div class="oc-tree-node oc-tree-session" data-session-id="${escapeHtml(ses.id)}">`;
-                html += `<div class="oc-tree-indent"></div><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n📂 '+sesDir+'\n⏰ '+updatedAt)}">💬 ${escapeHtml(ses.title)}</span>`;
+                html += `<div class="oc-tree-indent"></div><span class="oc-tree-session-icon">💬</span><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n📂 '+sesDir+'\n⏰ '+updatedAt)}">${escapeHtml(ses.title)}</span>`;
+                if (updatedAt) html += `<span class="oc-tree-session-time">${escapeHtml(formatRelativeTime(updatedAt))}</span>`;
                 html += `<div class="oc-tree-tooltip"><div class="oc-tree-tooltip-title">${escapeHtml(ses.title)}</div><div class="oc-tree-tooltip-row">📂 ${escapeHtml(sesDir)}</div><div class="oc-tree-tooltip-row">⏰ ${escapeHtml(updatedAt)}</div></div>`;
                 html += `<button class="oc-tree-del" data-del-id="${escapeHtml(ses.id)}" title="删除会话">✕</button>`;
                 html += `</div>`;
@@ -171,6 +196,8 @@ export function renderTree(tree) {
                 }
                 await switchSession(sid);
             }
+            // 同步树节点高亮（switchSession → selectSession 内部会调 updateTreeActiveSession，这里兜底）
+            updateTreeActiveSession();
             if (isMobileTreeMode()) {
                 closeMobileTree();
             }

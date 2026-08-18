@@ -1134,7 +1134,84 @@ input::placeholder, textarea::placeholder {
     min-width: 0;
 }
 .oc-tree-project { padding-left: 0; }
-.oc-tree-directory { padding-left: 16px; }
+.oc-tree-directory { padding-left: 4px; }
+
+/* ── 项目行：Apple 分组标题（弱化，仅作最外层分组标签） ── */
+.oc-tree-project-row {
+    padding: 6px 6px 3px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+.oc-tree-project-row:hover {
+    color: var(--text-secondary);
+    background: transparent;
+}
+.oc-tree-project-label {
+    color: inherit;
+    font-size: 11px;
+}
+.oc-tree-project-row .oc-tree-toggle {
+    font-size: 9px;
+    opacity: 0.7;
+}
+.oc-tree-project-row .oc-tree-add-dir {
+    width: 16px;
+    height: 16px;
+    font-size: 12px;
+    line-height: 1;
+    border: none;
+    background: transparent;
+    opacity: 0;
+}
+.oc-tree-project-row:hover .oc-tree-add-dir {
+    opacity: 1;
+}
+
+/* ── 目录行：次级分组标题 + 会话计数徽章 ── */
+.oc-tree-dir-row {
+    padding: 3px 6px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.oc-tree-dir-row:hover {
+    background: var(--bg-sidebar-hover);
+    color: var(--text-primary);
+}
+.oc-tree-dir-label {
+    flex: 1;
+    min-width: 0;
+    color: inherit;
+    font-size: 12px;
+}
+.oc-tree-dir-count {
+    flex-shrink: 0;
+    min-width: 18px;
+    height: 16px;
+    padding: 0 5px;
+    margin-right: 4px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+}
+.oc-tree-dir-row:hover .oc-tree-dir-count {
+    background: var(--bg-card-hover);
+    color: var(--text-secondary);
+}
+.oc-tree-dir-row .oc-tree-toggle {
+    font-size: 9px;
+}
 
 /* ── 层级引导线 ── */
 .oc-tree-children {
@@ -1147,51 +1224,71 @@ input::placeholder, textarea::placeholder {
     margin-left: 5px; 
 }
 
+/* ── 会话卡片：视觉主体（圆角、间距、hover 抬升、active 指示条） ── */
 .oc-tree-session {
     cursor: pointer;
     color: var(--text-primary);
-    border-radius: var(--radius-sm);
+    border-radius: 10px;
     background: var(--bg-card);
     border: 1px solid rgba(0,0,0,0.04);
-    padding: 2px 5px;
-    margin-left: 12px;
-    margin-right:25px;
+    padding: 5px 8px;
+    margin: 4px 18px 4px 12px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     display: flex;
     align-items: center;
     font-size: 13px;
+    position: relative;
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 .oc-tree-session .oc-tree-label { 
     flex: 1; 
     min-width: 0;
     color: var(--text-primary);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
-.oc-tree-add-dir {
-    display: none;
+.oc-tree-session-icon {
     flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    padding: 0;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: transparent;
+    margin-right: 6px;
+    font-size: 12px;
+    opacity: 0.8;
+}
+.oc-tree-session-time {
+    flex-shrink: 0;
+    margin-left: 6px;
+    font-size: 10px;
     color: var(--text-muted);
-    cursor: pointer;
-    font-size: 13px;
-    line-height: 16px;
 }
-.oc-tree-project-row:hover .oc-tree-add-dir {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+.oc-tree-session:hover {
+    background: var(--bg-card-hover);
+    transform: translateY(-1px);
+    box-shadow: rgba(0,0,0,0.08) 0 2px 6px;
 }
-.oc-tree-add-dir:hover {
-    color: var(--accent);
-    border-color: var(--accent);
+.oc-tree-session.active {
     background: var(--accent-ghost);
+    color: var(--accent);
+    border-color: transparent;
+    box-shadow: rgba(0,0,0,0.06) 0 1px 4px;
 }
+/* macOS 侧边栏风格的左侧指示条 */
+.oc-tree-session.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 20%;
+    bottom: 20%;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+.oc-tree-session.active .oc-tree-label {
+    color: var(--accent);
+    font-weight: 600;
+}
+/* 删除按钮：hover 时浮现 */
 .oc-tree-del {
     display: none;
     flex-shrink: 0;
@@ -1208,14 +1305,6 @@ input::placeholder, textarea::placeholder {
 .oc-tree-del:hover {
     color: var(--danger);
     background: var(--danger-bg);
-}
-.oc-tree-session:hover {
-    background: var(--bg-card-hover);
-    color: var(--text-primary);
-}
-.oc-tree-session.active {
-    background: var(--accent-ghost);
-    color: var(--accent);
 }
 .oc-tree-tooltip {
     position: absolute;

@@ -17,6 +17,7 @@ import { loadSessionStatuses } from './events.js';
 import { extractSubtaskSummaries, renderSubtaskPanel, loadDiff } from './sidepanel.js';
 import { resetUserNav, updateUserNav } from './search.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
+import { updateTreeActiveSession } from '../core/utils.js';
 
 /**
  * 会话激活时的加载回调（由 session.js 通过 setTabActivationHandler 注入）。
@@ -124,6 +125,8 @@ export function switchTab(sessionID) {
     store.activeTabId = sessionID;
     store.currentSessionId = sessionID;
     activateTabContainer(sessionID);
+    // 同步项目树高亮（树节点与当前 tab 一致）
+    updateTreeActiveSession();
 
     // 标题、目录路径更新
     var title = '';
