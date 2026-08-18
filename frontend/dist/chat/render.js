@@ -1,17 +1,17 @@
 ﻿// ============================================================
 // chat-render.js — 消息渲染引擎
 // 负责消息列表渲染、12 种 part 类型渲染器、滚动管理和模型信息同步
-// 依赖：core/state.js、core/utils.js（escapeHtml, getActiveMessagesEl, getCachedMessages）、core/apicall.js（api）、
-//       chat/service.js（safeText, extractPartText, isInternalUserMessage, normalizeMessageItem）、
+// 依赖：core/state.js、core/utils.js（escapeHtml, getActiveMessagesEl, getCachedMessages,
+//       safeText, extractPartText, isInternalUserMessage, normalizeMessageItem）、core/apicall.js（api）、
 //       chat/mobile.js（isMobileTreeMode）、chat/search.js（updateUserNav）
-// 解环说明：renderTodos 由 sidepanel.js 通过 setRenderTodosHandler 回调注入，
-//           避免 render↔sidepanel 循环依赖。
+// 解环说明：renderTodos 由 sidepanel.js 通过 setRenderTodosHandler 回调注入；
+//           updateModelInfo 由本文件实现、经 core/utils.js 注册中心暴露给 service/tree。
+//           本文件不依赖 service/session/sidepanel，处于依赖链下游。
 // ============================================================
 
 import { store, MOBILE_MESSAGE_LOAD_MORE_STEP, PC_MESSAGE_LOAD_MORE_STEP } from '../core/state.js';
-import { escapeHtml, getActiveMessagesEl, getCachedMessages, showToast } from '../core/utils.js';
+import { escapeHtml, getActiveMessagesEl, getCachedMessages, showToast, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler } from '../core/utils.js';
 import { api } from '../core/apicall.js';
-import { safeText, extractPartText, isInternalUserMessage, normalizeMessageItem } from './service.js';
 import { isMobileTreeMode } from './mobile.js';
 import { updateUserNav } from './search.js';
 
@@ -24,6 +24,12 @@ let renderTodosHandler = null;
 export function setRenderTodosHandler(fn) {
     renderTodosHandler = typeof fn === 'function' ? fn : null;
 }
+
+// ============================
+// updateModelInfo 注册（service/tree 经 core 层调用，不依赖本文件）
+// 注册中心在 core/utils.js（setUpdateModelInfoHandler / updateModelInfo），
+// service.js / tree.js 从 core 层调用，不再静态 import render.js。
+// ============================
 
 /** 清洗 marked 渲染结果：移除会引发副作用的标签（脚本、meta 跳转、iframe 等）与事件属性 */
 export function sanitizeMarkedHtml(html) {
@@ -190,7 +196,7 @@ export function renderMessages(items, targetBox) {
         box.innerHTML = '<div class="oc-empty">该会话暂无消息</div>';
         store.lastMessageCount = 0;
         store.lastSourceMessageCount = 0;
-        updateModelInfo(null);
+        doUpdateModelInfo(null);
         updateScrollBottomButton();
         return;
     }
@@ -223,7 +229,7 @@ export function renderMessages(items, targetBox) {
                         body.replaceChildren(...partList.map(part => renderPart(part)));
                         if (focusSelector) restoreFocusState(body, focusSelector);
                     }
-                    updateModelInfo(list);
+                    doUpdateModelInfo(list);
                     restoreScroll(box, scrollState, false);
                     updateScrollBottomButton();
                     return;
@@ -237,7 +243,7 @@ export function renderMessages(items, targetBox) {
         box.appendChild(buildMessageNode(item));
     });
 
-    updateModelInfo(items);
+    doUpdateModelInfo(items);
     restoreScroll(box, scrollState, false);
     updateScrollBottomButton();
     if (renderTodosHandler) renderTodosHandler();
@@ -247,8 +253,10 @@ export function renderMessages(items, targetBox) {
 }
 
 
-/** 从消息历史中同步最新 assistant 使用的 Agent/Model 到下拉框 */
-export function updateModelInfo(items) {
+/** 从消息历史中同步最新 assistant 使用的 Agent/Model 到下拉框。
+ *  原为 export，现改内部实现并由 core/utils.js 的 setUpdateModelInfoHandler 注册暴露，
+ *  service.js / tree.js 从 core 层调用（打破 service/tree ↔ render 循环依赖）。 */
+function doUpdateModelInfo(items) {
     const agentSel = document.getElementById('ocAgentSelect');
     const modelSel = document.getElementById('ocModelSelect');
     if (!agentSel || !modelSel) return;
@@ -282,6 +290,9 @@ export function updateModelInfo(items) {
     if (model && !store.selectedModel) store.selectedModel = model;
     if (variant && !store.selectedVariant) store.selectedVariant = variant;
 }
+
+// 模块加载时注册 updateModelInfo 实现到 core 注册中心（service/tree 从 core 调用）
+setUpdateModelInfoHandler(doUpdateModelInfo);
 
 /** 确保指定 value 的选项存在于 <select> 中（API 加载失败降级） */
 export function ensureSelectOption(sel, value, label) {
@@ -850,6 +861,14 @@ export function renderTool(part) {
     body.dataset.expandKey = key;
     body.dataset.defaultExpanded = isRunning ? 'true' : 'false';
 
+    // edit 类工具（edit/ast_grep_replace）：优先走左右对比渲染；input 无法解析时降级回 JSON 展示
+    if (fc && fc.cat === 'file-edit' && state.input) {
+        const editInput = parseEditInput(state.input);
+        if (editInput) {
+            return renderEditDiff(part, tool);
+        }
+    }
+
     if (state.input) {
         const inputDiv = document.createElement('div');
         inputDiv.className = 'oc-tool-io oc-tool-input';
@@ -881,6 +900,143 @@ export function renderTool(part) {
 
     const expanded = store.expandedParts[key] ?? isRunning;
     if (!expanded) body.classList.add('hidden');
+
+    head.addEventListener('click', () => {
+        store.expandedParts[key] = !(store.expandedParts[key] ?? isRunning);
+        body.classList.toggle('hidden', !store.expandedParts[key]);
+    });
+
+    el.appendChild(head);
+    el.appendChild(body);
+    return el;
+}
+
+// ── edit 工具左右对比渲染 ──
+
+/** 解析 edit 工具的输入（兼容对象与 JSON 字符串两种形态）。
+ *  返回 { filePath, oldString, newString }；解析失败返回 null（调用方降级回 JSON 展示）。 */
+export function parseEditInput(input) {
+    if (input == null) return null;
+    let obj = input;
+    if (typeof input === 'string') {
+        const t = input.trim();
+        if (!t.startsWith('{')) return null;
+        try { obj = JSON.parse(t); } catch (_) { return null; }
+    }
+    if (typeof obj !== 'object' || obj === null) return null;
+    const oldString = typeof obj.oldString === 'string' ? obj.oldString : '';
+    const newString = typeof obj.newString === 'string' ? obj.newString : '';
+    // 至少要有新文本；纯新增文件（old 为空）也支持对比展示
+    if (oldString === '' && newString === '') return null;
+    const filePath = (typeof obj.filePath === 'string' && obj.filePath) ? obj.filePath
+        : (typeof obj.path === 'string' && obj.path) ? obj.path
+        : (typeof obj.filename === 'string' && obj.filename) ? obj.filename
+        : '';
+    return { filePath, oldString, newString };
+}
+
+/** 行级 LCS diff：返回左右两侧各行的类型标记数组。
+ *  old 侧每项 { text, type: 'unchanged'|'removed' }，new 侧每项 { text, type: 'unchanged'|'added' }。 */
+export function lcsDiff(oldLines, newLines) {
+    const n = oldLines.length;
+    const m = newLines.length;
+    // dp[i][j] = old[0..i) 与 new[0..j) 的 LCS 长度
+    const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+    for (let i = 1; i <= n; i++) {
+        for (let j = 1; j <= m; j++) {
+            dp[i][j] = (oldLines[i - 1] === newLines[j - 1])
+                ? dp[i - 1][j - 1] + 1
+                : Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+    }
+    // 回溯标记
+    const oldMarked = oldLines.map(text => ({ text, type: 'removed' }));
+    const newMarked = newLines.map(text => ({ text, type: 'added' }));
+    let i = n, j = m;
+    while (i > 0 && j > 0) {
+        if (oldLines[i - 1] === newLines[j - 1]) {
+            oldMarked[i - 1].type = 'unchanged';
+            newMarked[j - 1].type = 'unchanged';
+            i--; j--;
+        } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+            i--;
+        } else {
+            j--;
+        }
+    }
+    return { old: oldMarked, new: newMarked };
+}
+
+/** 渲染 edit 工具左右对比视图（行级 diff 高亮 + 统计条）。
+ *  返回 DOM 元素（含头部/路径/统计/两栏正文），支持 store.expandedParts 折叠。 */
+export function renderEditDiff(part, tool) {
+    const input = parseEditInput(part.state && part.state.input);
+    const el = document.createElement('div');
+    el.className = 'oc-part oc-tool oc-tool-file-edit';
+
+    const isRunning = (part.state && part.state.status) === 'running';
+    const isCompleted = (part.state && part.state.status) === 'completed';
+    const isError = (part.state && part.state.status) === 'error';
+    if (isCompleted) el.classList.add('done');
+    if (isError) el.classList.add('error');
+    if (isRunning) el.classList.add('running');
+
+    const key = partExpandKey(part, tool || 'edit');
+    const expanded = !!(store.expandedParts[key] ?? isRunning);
+
+    // 头部：图标 + 标签 + 文件路径 + 状态 + 统计
+    const head = document.createElement('div');
+    head.className = 'oc-tool-head';
+    let statusText = '', statusClass = '';
+    if (isCompleted) { statusText = '✓ 完成'; statusClass = 'ok'; }
+    else if (isError) { statusText = '✗ 失败'; statusClass = 'err'; }
+    else if (isRunning) { statusText = '⏳ 运行中'; statusClass = 'running'; }
+    else { statusText = '等待'; statusClass = 'pending'; }
+
+    const oldLines = input.oldString.split('\n');
+    const newLines = input.newString.split('\n');
+    const diff = lcsDiff(oldLines, newLines);
+    const addedCount = diff.new.filter(l => l.type === 'added').length;
+    const removedCount = diff.old.filter(l => l.type === 'removed').length;
+
+    const pathText = input.filePath || '文件';
+    const statsHtml = addedCount || removedCount
+        ? ` <span class="oc-edit-stats"><span class="oc-edit-stats-add">+${addedCount}</span> <span class="oc-edit-stats-del">-${removedCount}</span></span>`
+        : '';
+    head.innerHTML = `<span class="oc-tool-icon">✏️</span> 编辑文件: <strong title="${escapeHtml(pathText)}">${escapeHtml(pathText)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>${statsHtml}`;
+
+    // 正文：左右两栏
+    const body = document.createElement('div');
+    body.className = 'oc-tool-body oc-edit-diff';
+    body.dataset.expandKey = key;
+    if (!expanded) body.classList.add('hidden');
+
+    const oldPane = document.createElement('div');
+    oldPane.className = 'oc-edit-pane oc-edit-pane-old';
+    const newPane = document.createElement('div');
+    newPane.className = 'oc-edit-pane oc-edit-pane-new';
+
+    const renderPane = (lines, pane) => {
+        const frag = document.createDocumentFragment();
+        lines.forEach((line, idx) => {
+            const row = document.createElement('div');
+            row.className = 'oc-diff-line diff-' + line.type;
+            const num = document.createElement('span');
+            num.className = 'oc-diff-lineno';
+            num.textContent = String(idx + 1);
+            const code = document.createElement('code');
+            code.textContent = line.text === '' ? ' ' : line.text;
+            row.appendChild(num);
+            row.appendChild(code);
+            frag.appendChild(row);
+        });
+        pane.appendChild(frag);
+    };
+    renderPane(diff.old, oldPane);
+    renderPane(diff.new, newPane);
+
+    body.appendChild(oldPane);
+    body.appendChild(newPane);
 
     head.addEventListener('click', () => {
         store.expandedParts[key] = !(store.expandedParts[key] ?? isRunning);

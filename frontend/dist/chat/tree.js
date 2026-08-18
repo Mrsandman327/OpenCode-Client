@@ -1,22 +1,20 @@
 ﻿// ============================================================
 // chat-tree.js — 项目树 & 目录浏览器
 // 依赖：core/state.js（webRunning, currentSessionId, pendingWorkDir 等）、core/apicall.js（api）、
-//       core/utils.js（escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain）、
+//       core/utils.js（escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo）、
 //       chat/mobile.js（isMobileTreeMode, closeMobileTree）、chat/events.js（switchSession）、
 //       chat/tabs.js（closeSessionTab, renderTabsBar）、chat/search.js（resetUserNav）、
-//       chat/render.js（updateModelInfo）
 //       views/project-config.js（openProjectConfig）、filebrowser/dir.js（openDirBrowserModal）
-//       —— views/filebrowser 尚未改造，保留全局守卫调用
+// 解环说明：updateModelInfo 经 core/utils.js 注册中心调用，不再静态 import render.js。
 // ============================================================
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain } from '../core/utils.js';
+import { escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo } from '../core/utils.js';
 import { isMobileTreeMode, closeMobileTree } from './mobile.js';
 import { switchSession } from './events.js';
 import { closeSessionTab, renderTabsBar } from './tabs.js';
 import { resetUserNav } from './search.js';
-import { updateModelInfo } from './render.js';
 import { openProjectConfig } from '../views/project-config.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
 

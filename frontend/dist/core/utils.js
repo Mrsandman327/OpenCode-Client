@@ -120,3 +120,72 @@ export function getCachedMessages(sessionID) {
     if (!store.messageCache[sessionID]) store.messageCache[sessionID] = [];
     return store.messageCache[sessionID];
 }
+
+// ============================================================
+// 消息文本/结构纯函数
+// 原属 chat/service.js，为打破 service.js ↔ render.js 循环依赖，
+// 统一移入 utils.js（均为纯函数，只操作入参，无 DOM/状态依赖）。
+// ============================================================
+
+/** 安全转文本（处理 null/undefined/对象） */
+export function safeText(value) {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+    return JSON.stringify(value, null, 2);
+}
+
+/** 从 part 对象中提取文本内容 */
+export function extractPartText(part) {
+    if (!part) return '';
+    return part.text || part.content || part.message || part.value || safeText(part);
+}
+
+/** 从消息项中提取纯文本 */
+export function messageText(item) {
+    const parts = item?.parts || item?.info?.parts || [];
+    const list = Array.isArray(parts) ? parts : [parts];
+    return list.map(part => extractPartText(part)).join('\n').trim();
+}
+
+/** 判断消息是否为内部 user 消息（应过滤） */
+export function isInternalUserMessage(item) {
+    const info = item?.info || item || {};
+    const role = info.role || info.author || '';
+    if (role !== 'user') return false;
+    const parts = item?.parts;
+    if (!parts || (Array.isArray(parts) && parts.length === 0)) return true;
+    const text = messageText(item);
+    return text.includes('OMO_INTERNAL_INITIATOR')
+        || text.includes('<system-reminder>')
+        || text.includes('</system-reminder>')
+        || /^\s*\[(?:BACKGROUND TASK COMPLETED|ALL BACKGROUND TASKS COMPLETE)\]/.test(text)
+        || (text.includes('background_output(') && text.includes('task_id='));
+}
+
+/** 标准化消息项（确保 info 和 parts 结构一致） */
+export function normalizeMessageItem(item) {
+    const info = item.info || item;
+    const parts = item.parts || info.parts || [];
+    return {
+        info,
+        parts: Array.isArray(parts) ? parts : [parts],
+    };
+}
+
+// ============================================================
+// updateModelInfo 注册中心
+// 打破 service.js / tree.js ↔ render.js 循环依赖：
+// 实现留在 render.js（doUpdateModelInfo），由它在此注册；
+// service/tree 只从 core 层 import updateModelInfo 调用。
+// ============================================================
+let updateModelInfoHandler = null;
+
+/** 由 render.js 模块加载时注册实现 */
+export function setUpdateModelInfoHandler(fn) {
+    updateModelInfoHandler = typeof fn === 'function' ? fn : null;
+}
+
+/** 同步最新 assistant 使用的 Agent/Model 到下拉框（core 层入口，供 service/tree 调用） */
+export function updateModelInfo(items) {
+    if (updateModelInfoHandler) updateModelInfoHandler(items);
+}

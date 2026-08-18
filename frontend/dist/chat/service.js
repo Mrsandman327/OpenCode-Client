@@ -1,20 +1,21 @@
 ﻿// ============================================================
 // chat-service.js — 服务管理 & API 工具
-// 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl）、core/apicall.js（api）、
+// 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl, updateModelInfo）、core/apicall.js（api）、
 //       chat/config.js（getNetworkConfig）、chat/events.js（startEventStream, loadSessionStatuses）、
 //       chat/tree.js（buildTree）、chat/session.js（loadAgentModelSelectors）、
-//       chat/search.js（initSearch, initUserNav）、chat/render.js（updateModelInfo）
+//       chat/search.js（initSearch, initUserNav）
+// 解环说明：updateModelInfo 经 core/utils.js 注册中心调用（render.js 注册实现），
+//           不再静态 import render.js。
 // ============================================================
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { showToast, escapeHtml, getActiveMessagesEl } from '../core/utils.js';
+import { showToast, escapeHtml, getActiveMessagesEl, updateModelInfo } from '../core/utils.js';
 import { getNetworkConfig } from './config.js';
 import { startEventStream, loadSessionStatuses } from './events.js';
 import { buildTree } from './tree.js';
 import { loadAgentModelSelectors } from './session.js';
 import { initSearch, initUserNav } from './search.js';
-import { updateModelInfo } from './render.js';
 
 // ============================
 // Web 状态检测
@@ -48,51 +49,8 @@ export async function checkWebStatus() {
 // ============================
 // API 工具
 // ============================
-
-/** 安全转文本（处理 null/undefined/对象） */
-export function safeText(value) {
-    if (value == null) return '';
-    if (typeof value === 'string') return value;
-    return JSON.stringify(value, null, 2);
-}
-
-/** 从 part 对象中提取文本内容 */
-export function extractPartText(part) {
-    if (!part) return '';
-    return part.text || part.content || part.message || part.value || safeText(part);
-}
-
-/** 从消息项中提取纯文本 */
-export function messageText(item) {
-    const parts = item?.parts || item?.info?.parts || [];
-    const list = Array.isArray(parts) ? parts : [parts];
-    return list.map(part => extractPartText(part)).join('\n').trim();
-}
-
-/** 判断消息是否为内部 user 消息（应过滤） */
-export function isInternalUserMessage(item) {
-    const info = item?.info || item || {};
-    const role = info.role || info.author || '';
-    if (role !== 'user') return false;
-    const parts = item?.parts;
-    if (!parts || (Array.isArray(parts) && parts.length === 0)) return true;
-    const text = messageText(item);
-    return text.includes('OMO_INTERNAL_INITIATOR')
-        || text.includes('<system-reminder>')
-        || text.includes('</system-reminder>')
-        || /^\s*\[(?:BACKGROUND TASK COMPLETED|ALL BACKGROUND TASKS COMPLETE)\]/.test(text)
-        || (text.includes('background_output(') && text.includes('task_id='));
-}
-
-/** 标准化消息项（确保 info 和 parts 结构一致） */
-export function normalizeMessageItem(item) {
-    const info = item.info || item;
-    const parts = item.parts || info.parts || [];
-    return {
-        info,
-        parts: Array.isArray(parts) ? parts : [parts],
-    };
-}
+// 注：safeText / extractPartText / messageText / isInternalUserMessage / normalizeMessageItem
+// 已移入 core/utils.js（纯函数下沉，打破 service ↔ render 循环依赖）。
 
 /** 响应权限请求（批准/拒绝/始终允许） */
 // async function respondPermission(permission, reply) {

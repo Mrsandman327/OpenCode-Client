@@ -1,19 +1,20 @@
 ﻿// ============================================================
 // chat-sidepanel.js — 右侧面板（Diff + 子任务 + 代办）
-// 依赖：core/state.js、core/utils.js（escapeHtml, showToast, getActiveMessagesEl, getCachedMessages）、
-//       core/apicall.js（api）、chat/service.js（normalizeMessageItem, isInternalUserMessage, safeText）、
-//       chat/render.js（renderPart）
+// 依赖：core/state.js、core/utils.js（escapeHtml, showToast, getActiveMessagesEl, getCachedMessages,
+//       normalizeMessageItem, isInternalUserMessage, safeText）、core/apicall.js（api）、
+//       chat/render.js（renderPart, setRenderTodosHandler）
 // ============================================================
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages } from '../core/utils.js';
-import { normalizeMessageItem, isInternalUserMessage, safeText } from './service.js';
+import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, normalizeMessageItem, isInternalUserMessage, safeText } from '../core/utils.js';
 import { renderPart, setRenderTodosHandler } from './render.js';
 
-// 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（打破 render↔sidepanel 循环依赖）。
-// renderTodos 定义于本文件下方（函数声明提升），顶层注册安全。
-setRenderTodosHandler(renderTodos);
+// 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（sidepanel→render 单向依赖，无环）。
+// renderTodos 定义于本文件下方（函数声明提升）。
+// 注意：session→tabs→events→session 仍存在跨模块环（顶层均无立即跨模块调用，运行时函数调用安全），
+// 且 sidepanel 被 session 依赖、又依赖 render——渲染期注入仍需延迟到微任务，避免模块初始化 TDZ。
+queueMicrotask(() => setRenderTodosHandler(renderTodos));
 
 // ============================
 // 代办事项 — 从消息中提取并渲染

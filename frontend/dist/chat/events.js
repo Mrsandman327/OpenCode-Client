@@ -1,16 +1,15 @@
 ﻿// ============================================================
 // chat-events.js — SSE 事件流处理
 // 负责 SSE 连接建立、事件分发解析、事件处理逻辑
-// 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getCachedMessages）、core/apicall.js（api）、
-//       chat/service.js（safeText）、chat/session.js（loadMessages, refreshSessionTitle, selectSession）、
+// 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getCachedMessages, safeText）、core/apicall.js（api）、
+//       chat/session.js（loadMessages, refreshSessionTitle, selectSession）、
 //       chat/render.js（updateSendButton）、chat/cache.js（scheduleRenderCachedMessages, upsertMessage 等）、
 //       chat/sidepanel.js（scheduleSubtaskExtraction, loadDiff）、chat/tree.js（buildTree）
 // ============================================================
 
 import { store } from '../core/state.js';
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml, getCachedMessages } from '../core/utils.js';
-import { safeText } from './service.js';
+import { showToast, escapeHtml, getCachedMessages, safeText } from '../core/utils.js';
 import { loadMessages, refreshSessionTitle, selectSession } from './session.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';

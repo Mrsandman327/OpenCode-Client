@@ -1,15 +1,15 @@
 ﻿// ============================================================
 // chat-cache.js — 消息缓存管理
 // 负责消息的内存缓存、增量合并、SSE delta 应用和渲染调度
-// 依赖：core/state.js（messageCache, currentSessionId）、core/utils.js（getTabMessagesEl, getCachedMessages）、
-//       chat/render.js（renderMessages）、chat/service.js（normalizeMessageItem, isInternalUserMessage）
-// 说明：getCachedMessages 已移入 core/utils.js 以打破 cache↔render 循环依赖
+// 依赖：core/state.js（messageCache, currentSessionId）、core/utils.js（getTabMessagesEl, getCachedMessages,
+//       normalizeMessageItem, isInternalUserMessage）、chat/render.js（renderMessages）
+// 说明：getCachedMessages 已移入 core/utils.js 以打破 cache↔render 循环依赖；
+//       normalizeMessageItem / isInternalUserMessage 已移入 core/utils.js 以打破 service↔render 循环依赖。
 // ============================================================
 
 import { store } from '../core/state.js';
-import { getTabMessagesEl, getCachedMessages } from '../core/utils.js';
+import { getTabMessagesEl, getCachedMessages, normalizeMessageItem, isInternalUserMessage } from '../core/utils.js';
 import { renderMessages, isSessionBusy } from './render.js';
-import { normalizeMessageItem, isInternalUserMessage } from './service.js';
 
 // ============================
 // 消息缓存与渲染

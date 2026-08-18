@@ -1678,6 +1678,60 @@ input::placeholder, textarea::placeholder {
 }
 .oc-tool-error .oc-tool-io-label { color: var(--danger); }
 
+/* ── edit 工具左右对比（diff 视图） ── */
+.oc-edit-diff {
+    display: flex;
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+}
+.oc-edit-pane {
+    flex: 1 1 50%;
+    min-width: 0;
+    max-height: 320px;
+    overflow: auto;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    padding: 4px 0;
+}
+.oc-edit-pane + .oc-edit-pane { border-left: 1px solid var(--border); }
+.oc-edit-pane-old { background: rgba(255, 59, 48, 0.04); }
+.oc-edit-pane-new { background: rgba(52, 199, 89, 0.04); }
+.oc-diff-line {
+    display: flex;
+    align-items: flex-start;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 0 6px;
+    min-height: 1.5em;
+}
+.oc-diff-lineno {
+    flex-shrink: 0;
+    width: 28px;
+    text-align: right;
+    padding-right: 8px;
+    color: var(--text-muted);
+    opacity: 0.6;
+    user-select: none;
+    font-size: 10px;
+    line-height: 1.5;
+}
+.oc-diff-line code { white-space: pre-wrap; word-break: break-word; }
+.oc-diff-line.diff-removed { background: rgba(255, 59, 48, 0.16); }
+.oc-diff-line.diff-removed code { color: var(--danger); }
+.oc-diff-line.diff-added { background: rgba(52, 199, 89, 0.16); }
+.oc-diff-line.diff-added code { color: var(--success); }
+.oc-diff-line.diff-unchanged { background: rgba(142, 142, 147, 0.08); }
+.oc-edit-stats {
+    margin-left: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.oc-edit-stats-add { color: var(--success); }
+.oc-edit-stats-del { color: var(--danger); }
+
 /* ── 模型回复 ── */
 .oc-text {
     line-height: 1.7;
