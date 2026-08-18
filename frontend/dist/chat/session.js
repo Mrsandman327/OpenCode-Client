@@ -174,7 +174,10 @@ export async function refreshCurrentSession() {
         try {
             const statuses = await loadSessionStatuses();
             if (refreshSessionId === store.currentSessionId && statuses) {
-                store.sessionStatuses = statuses || store.sessionStatuses;
+                // 只更新目标会话的状态（快照权威），其它会话 key 保留本地值
+                if (statuses[refreshSessionId] !== undefined) {
+                    store.sessionStatuses[refreshSessionId] = statuses[refreshSessionId];
+                }
             }
         } catch (_) {}
 
@@ -699,10 +702,11 @@ export function scheduleRefresh() {
         const wasBusy = isSessionBusy(refreshSessionId);
         loadSessionStatuses().then(statuses => {
             const nextStatuses = statuses || {};
-            if (isSessionBusy(refreshSessionId) && !nextStatuses[refreshSessionId]) {
-                nextStatuses[refreshSessionId] = store.sessionStatuses[refreshSessionId];
+            // 只更新目标会话的状态（快照权威，纠正 SSE 可能丢失的事件）；
+            // 其它会话的 key 保留本地值（SSE 增量权威），避免整体替换抹掉其它 tab 的 busy
+            if (nextStatuses[refreshSessionId] !== undefined) {
+                store.sessionStatuses[refreshSessionId] = nextStatuses[refreshSessionId];
             }
-            store.sessionStatuses = nextStatuses;
             updateSendButton();
             const busy = isSessionBusy(refreshSessionId);
             // if (busy || wasBusy) {
@@ -751,7 +755,10 @@ export async function abortSession() {
         updateSendButton();
         await loadMessages();
         loadSessionStatuses().then(statuses => {
-            store.sessionStatuses = statuses || store.sessionStatuses;
+            // 只更新目标会话的状态（快照权威），其它会话 key 保留本地值
+            if (statuses && typeof statuses === 'object' && statuses[sessionID] !== undefined) {
+                store.sessionStatuses[sessionID] = statuses[sessionID];
+            }
             updateSendButton();
         });
     } catch (e) {

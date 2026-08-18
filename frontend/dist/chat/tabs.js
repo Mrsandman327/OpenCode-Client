@@ -157,7 +157,11 @@ export function switchTab(sessionID) {
     }
     loadSessionStatuses().then(function(statuses) {
         if (sessionID === store.currentSessionId) {
-            store.sessionStatuses = statuses || store.sessionStatuses;
+            // 只更新目标会话的状态（快照权威），其它会话的 key 保留本地值
+            // （SSE 增量更新），避免整体替换抹掉其它 tab 刚写入的 busy 状态
+            if (statuses && typeof statuses === 'object' && statuses[sessionID] !== undefined) {
+                store.sessionStatuses[sessionID] = statuses[sessionID];
+            }
             updateSendButton();
         }
     });
