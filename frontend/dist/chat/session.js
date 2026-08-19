@@ -749,6 +749,10 @@ export async function abortSession() {
     const btn = document.getElementById('btnSendPrompt');
     btn.disabled = true;
     const sessionID = store.currentSessionId;
+    // 停止 4 秒状态轮询：否则 abort 后轮询会把服务端延迟返回的 busy 快照
+    // 写回 sessionStatuses，导致按钮变回「停止」，用户点击实际执行 abort 而非发送。
+    clearInterval(store.refreshTimer);
+    store.refreshTimer = null;
     try {
         const dirEl = document.getElementById('ocSideDirPath');
         const requestDir = (dirEl?.textContent || window._sessionMap?.[sessionID]?.directory || '').trim();
@@ -768,9 +772,11 @@ export async function abortSession() {
         updateSendButton();
         await loadMessages();
         loadSessionStatuses().then(statuses => {
-            // 只更新目标会话的状态（快照权威），其它会话 key 保留本地值
-            if (statuses && typeof statuses === 'object' && statuses[sessionID] !== undefined) {
-                store.sessionStatuses[sessionID] = statuses[sessionID];
+            // abort 后快照只认可 idle：服务端 abort 可能有延迟，若返回 busy
+            // 说明是未同步的旧状态，忽略（否则按钮变回「停止」，用户点发送实际执行 abort）。
+            // 服务端确认 idle 则保留权威状态。
+            if (statuses && typeof statuses === 'object' && statuses[sessionID] === 'idle') {
+                store.sessionStatuses[sessionID] = 'idle';
             }
             updateSendButton();
         });
