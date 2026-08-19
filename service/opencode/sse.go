@@ -62,7 +62,9 @@ func StartOpenCodeEvents(ctx context.Context) model.APIResult {
 
 		scanner := bufio.NewScanner(resp.Body)
 		buf := make([]byte, 0, 64*1024)
-		scanner.Buffer(buf, 5*1024*1024)
+		// 单行 SSE 数据可能携带大消息/大工具结果（如整文件内容、超长 JSON），
+		// 默认 64KB 会频繁触发 token too long；上限放宽到 100MB。
+		scanner.Buffer(buf, 100*1024*1024)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if strings.HasPrefix(line, "data:") {

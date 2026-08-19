@@ -36,6 +36,8 @@ func ListGitChanges(dir string) model.GitStatusResult {
 	}
 	files := make([]model.GitChangedFile, 0)
 	s := bufio.NewScanner(strings.NewReader(out))
+	// 大仓库单行可能超长（超长路径/文件名），默认 64KB 会触发 token too long，放宽到 10MB
+	s.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	for s.Scan() {
 		line := s.Text()
 		if strings.TrimSpace(line) == "" || len(line) < 3 {
@@ -88,6 +90,7 @@ func ListGitHistory(dir string, offset, limit int) (model.GitHistoryResult, erro
 	}
 	items := make([]model.GitHistoryItem, 0, fetchLimit)
 	s := bufio.NewScanner(strings.NewReader(out))
+	s.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 		if line == "" {
@@ -115,6 +118,7 @@ func ListGitHistory(dir string, offset, limit int) (model.GitHistoryResult, erro
 		revs, revErr := runGitCommand(dir, "rev-list", strings.TrimSpace(upstream)+"..HEAD")
 		if revErr == nil {
 			sc := bufio.NewScanner(strings.NewReader(revs))
+			sc.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 			for sc.Scan() {
 				if h := strings.TrimSpace(sc.Text()); h != "" {
 					unsynced[h] = true
@@ -154,6 +158,7 @@ func ListGitCommitFiles(dir, commitHash string) (model.GitCommitFilesResult, err
 		return result, err
 	}
 	s := bufio.NewScanner(strings.NewReader(out))
+	s.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 		if line == "" {
@@ -443,4 +448,3 @@ func DiscardFile(dir, filePath string) (model.GitActionResult, error) {
 	}
 	return model.GitActionResult{Success: true}, nil
 }
-
