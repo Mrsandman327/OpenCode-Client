@@ -221,9 +221,6 @@ export async function startWeb() {
     const config = getNetworkConfig();
     const port = parseInt(config.servicePort) || 4096;
     const hostname = config.serviceHost || '127.0.0.1';
-    const btn = document.getElementById('btnStartWeb');
-    btn.disabled = true;
-    btn.textContent = '⏳ 启动中...';
     try {
         const result = await api.StartOpenCodeWeb(port, hostname, getNetworkConfig());
         if (result.running) {
@@ -231,7 +228,6 @@ export async function startWeb() {
             store.webURL = result.url || `http://${hostname}:${port}`;
             store.serverStatus = normalizeServerStatus(result);
             updateWebUI();
-            btn.textContent = '▶ 启动 opencode';
             startEventStream();
             var treeLoaded = await buildTree();
             if (!treeLoaded) {
@@ -243,21 +239,16 @@ export async function startWeb() {
             showToast('OpenCode Web 已启动', 'success');
         } else if (result.error) {
             showToast('启动失败: ' + result.error, 'error');
-            btn.disabled = false;
-            btn.textContent = '▶ 启动 opencode';
         }
     } catch (e) {
         showToast('启动失败: ' + (e.message || e), 'error');
-        btn.disabled = false;
-        btn.textContent = '▶ 启动 opencode';
+    } finally {
+        updateWebUI();
     }
 }
 
 /** 停止 OpenCode Web 服务 */
 export async function stopWeb() {
-    const btn = document.getElementById('btnStopWeb');
-    btn.disabled = true;
-    btn.textContent = '⏳ 停止中...';
     try {
         await api.StopOpenCodeWeb();
         await api.StopOpenCodeEvents();
@@ -294,15 +285,28 @@ export async function stopWeb() {
         clearInterval(store.refreshTimer);
         clearTimeout(store.sessionRefreshTimer);
         updateWebUI();
-        btn.textContent = '■ 停止';
         clearClientUI();
         document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
         showToast('已停止', 'info');
     } catch (e) {
         showToast('停止失败: ' + (e.message || e), 'error');
-        btn.disabled = false;
-        btn.textContent = '■ 停止';
+    } finally {
+        updateWebUI();
     }
+}
+
+/** 启动/停止二合一开关：按当前运行状态决定调 startWeb 或 stopWeb */
+export function toggleWeb() {
+    const btn = document.getElementById('btnToggleWeb');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.dataset.mode = store.webRunning ? 'stop' : 'start';
+    btn.textContent = store.webRunning ? '⏳ 停止中...' : '⏳ 启动中...';
+    const task = store.webRunning ? stopWeb() : startWeb();
+    task.finally(() => {
+        // 按钮状态由 updateWebUI 统一恢复（含文案/样式切换）
+        updateWebUI();
+    });
 }
 
 /** 在外部 Windows Terminal 中打开 opencode 终端 */
@@ -338,11 +342,9 @@ export function clearClientUI() {
     updateModelInfo(null);
 }
 
-/** 更新 UI 按钮的禁用/启用状态 */
+/** 更新 UI 按钮的禁用/启用状态（含启动/停止二合一按钮的文案与样式切换） */
 export function updateWebUI() {
-    const btnStart = document.getElementById('btnStartWeb');
-    const btnStop = document.getElementById('btnStopWeb');
-    const btnProxy = document.getElementById('btnProxySettings');
+    const btnToggle = document.getElementById('btnToggleWeb');
     const btnWt = document.getElementById('btnWtOpen');
     const btnRefresh = document.getElementById('btnRefreshTree');
     const btnNewSession = document.getElementById('btnNewSession');
@@ -354,9 +356,24 @@ export function updateWebUI() {
     const btnFrontendWeb = document.getElementById('btnFrontendWebConfig');
     const btnFrontendWebDot = document.getElementById('frontendWebToolbarDot');
 
+    if (btnToggle) {
+        // 二合一按钮：运行态显示「停止」（danger 样式），停止态显示「启动」（主操作样式）
+        if (store.webRunning) {
+            btnToggle.disabled = false;
+            btnToggle.dataset.mode = 'stop';
+            btnToggle.textContent = '■ 停止 OpenCode';
+            btnToggle.classList.add('btn-danger-outline');
+            btnToggle.classList.remove('btn-primary');
+        } else {
+            btnToggle.disabled = false;
+            btnToggle.dataset.mode = 'start';
+            btnToggle.textContent = '▶ 启动 OpenCode';
+            btnToggle.classList.add('btn-primary');
+            btnToggle.classList.remove('btn-danger-outline');
+        }
+    }
+
     if (store.webRunning) {
-        btnStart.disabled = true;
-        btnStop.disabled = false;
         btnWt.disabled = false;
         btnRefresh.disabled = false;
         btnNewSession.disabled = false;
@@ -366,8 +383,6 @@ export function updateWebUI() {
         prompt.disabled = false;
         btnAttach.disabled = false;
     } else {
-        btnStart.disabled = false;
-        btnStop.disabled = true;
         btnWt.disabled = true;
         btnRefresh.disabled = true;
         btnNewSession.disabled = true;

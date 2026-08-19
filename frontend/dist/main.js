@@ -21,7 +21,7 @@ import {
     checkFrontendWebStatus,
 } from './chat/config.js';
 import {
-    startWeb, stopWeb, checkWebStatus, loadServiceStatus, launchTerminal,
+    toggleWeb, checkWebStatus, loadServiceStatus, launchTerminal,
 } from './chat/service.js';
 import { refreshTree, createNewSession } from './chat/tree.js';
 import { loadDiff } from './chat/sidepanel.js';
@@ -80,10 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 事件绑定: 服务启动/停止
-    document.getElementById('btnStartWeb').addEventListener('click', startWeb);
+    // 事件绑定: 服务启动/停止（二合一）
+    document.getElementById('btnToggleWeb').addEventListener('click', toggleWeb);
     document.getElementById('btnProxySettings').addEventListener('click', showProxyModal);
-    document.getElementById('btnStopWeb').addEventListener('click', stopWeb);
     document.getElementById('btnFrontendWebConfig').addEventListener('click', showFrontendWebModal);
     document.getElementById('btnSaveFrontendWeb').addEventListener('click', startFrontendWeb);
     document.getElementById('btnStopFrontendWeb').addEventListener('click', stopFrontendWeb);

@@ -560,6 +560,56 @@ input::placeholder, textarea::placeholder {
     display: flex;
     gap: 8px;
 }
+
+/* ── 工具栏按钮统一体系（Apple 风格，紧凑 30px 高） ── */
+.oc-toolbar .btn {
+    height: 30px;
+    padding: 0 14px;
+    font-size: 13px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all var(--transition);
+}
+/* 次级按钮（网络配置/Web服务/终端）：灰描边，hover 转 accent */
+.oc-toolbar .btn-config,
+.oc-toolbar .btn-proxy {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    font-weight: 500;
+}
+.oc-toolbar .btn-config:hover:not(:disabled),
+.oc-toolbar .btn-proxy:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+/* 主操作（启动）：实心 accent，运行态由 JS 切换为 .btn-danger-outline */
+.oc-toolbar .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.oc-toolbar .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+/* 危险操作（停止）：淡红底红字，hover 实心红 */
+.oc-toolbar .btn-danger-outline {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    font-weight: 600;
+}
+.oc-toolbar .btn-danger-outline:hover:not(:disabled) {
+    background: var(--danger);
+    color: #fff;
+}
+
 .oc-web-status {
     font-size: 12px;
     color: var(--text-muted);
