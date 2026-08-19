@@ -68,21 +68,30 @@ export async function loadAgentModelSelectors() {
     });
     modelSel.value = store.selectedModel;
 
-    // change 事件
-    agentSel.addEventListener('change', () => {
-        store.selectedAgent = agentSel.value;
-    });
-    modelSel.addEventListener('change', () => {
-        store.selectedModel = modelSel.value;
-    });
+    // change 事件（带绑定守卫：启停多次只绑一次，避免重复监听）
+    if (!agentSel.dataset.modelBound) {
+        agentSel.dataset.modelBound = '1';
+        agentSel.addEventListener('change', () => {
+            store.selectedAgent = agentSel.value;
+        });
+    }
+    if (!modelSel.dataset.modelBound) {
+        modelSel.dataset.modelBound = '1';
+        modelSel.addEventListener('change', () => {
+            store.selectedModel = modelSel.value;
+        });
+    }
 
     // Variant 选择器
     const variantSel = document.getElementById('ocVariantSelect');
     if (variantSel) {
         variantSel.value = store.selectedVariant;
-        variantSel.addEventListener('change', () => {
-            store.selectedVariant = variantSel.value;
-        });
+        if (!variantSel.dataset.modelBound) {
+            variantSel.dataset.modelBound = '1';
+            variantSel.addEventListener('change', () => {
+                store.selectedVariant = variantSel.value;
+            });
+        }
     }
 
     store.agentModelSelectorsLoaded = true;
