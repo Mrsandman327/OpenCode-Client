@@ -283,7 +283,9 @@ export async function stopWeb() {
         store.mcpStatus = null;
         store.lspStatus = null;
         // 清理 Agent/Model 选择器：清空列表与选中值，并重置加载守卫，
-        // 使下次启动时 loadAgentModelSelectors 重新获取列表
+        // 使下次启动时 loadAgentModelSelectors 重新获取列表。
+        // 注意：不清空下拉框的 <option>——ocVariantSelect 的选项是 index.html
+        // 静态定义的（Minimal/Low/...），清空后无法恢复；只重置选中值即可。
         store.agentList = [];
         store.modelList = [];
         store.selectedAgent = '';
@@ -292,7 +294,7 @@ export async function stopWeb() {
         store.agentModelSelectorsLoaded = false;
         ['ocAgentSelect', 'ocModelSelect', 'ocVariantSelect'].forEach(function(id) {
             var sel = document.getElementById(id);
-            if (sel) sel.innerHTML = '<option value="">默认</option>';
+            if (sel) sel.value = '';
         });
         clearInterval(store.refreshTimer);
         clearTimeout(store.sessionRefreshTimer);
