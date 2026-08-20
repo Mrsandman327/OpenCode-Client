@@ -593,6 +593,20 @@ export namespace model {
 	        this.globalExist = source["globalExist"];
 	    }
 	}
+	export class Modalities {
+	    input?: string[];
+	    output?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Modalities(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.input = source["input"];
+	        this.output = source["output"];
+	    }
+	}
 	export class ModelEntry {
 	    key: string;
 	    type: string;
@@ -616,6 +630,7 @@ export namespace model {
 	export class ModelInfo {
 	    id: string;
 	    name: string;
+	    modalities?: Modalities;
 	
 	    static createFrom(source: any = {}) {
 	        return new ModelInfo(source);
@@ -625,7 +640,26 @@ export namespace model {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
+	        this.modalities = this.convertValues(source["modalities"], Modalities);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class ProjectConfigFileEntry {
 	    name: string;

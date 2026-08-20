@@ -99,7 +99,7 @@ func GetProviders() []model.ProviderInfo {
 			}
 			sort.Strings(modelKeys)
 			for _, mid := range modelKeys {
-				models = append(models, model.ModelInfo{ID: mid, Name: entry.Models[mid].Name})
+				models = append(models, model.ModelInfo{ID: mid, Name: entry.Models[mid].Name, Modalities: entry.Models[mid].Modalities})
 			}
 		}
 
@@ -160,7 +160,7 @@ func SaveProvider(ps model.ProviderSave) error {
 	if ps.Models != nil {
 		entry.Models = make(map[string]*model.ModelDef)
 		for _, m := range ps.Models {
-			entry.Models[m.ID] = &model.ModelDef{Name: m.Name}
+			entry.Models[m.ID] = &model.ModelDef{Name: m.Name, Modalities: m.Modalities}
 		}
 	}
 

@@ -40,6 +40,52 @@ export const PROVIDER_NPM_OPTIONS = [
 
 export const PROVIDER_NPM_UNMATCHED = '__unmatched__';
 
+// 模态能力选项
+export const MODALITY_INPUT  = ['text', 'image', 'pdf', 'audio', 'video'];
+export const MODALITY_OUTPUT = ['text', 'image', 'audio', 'video'];
+
+// 渲染模型能力芯片（按 modalities 回填勾选状态）
+function modelAbilitiesHtml(modalities) {
+    const input  = modalities?.input  || [];
+    const output = modalities?.output || [];
+    const boxes = (list, cls, selected) => list.map(m =>
+        `<label class="mod-chip"><input type="checkbox" class="${cls}" value="${m}" ${selected.includes(m) ? 'checked' : ''}><span class="mod-chip-text">${m}</span></label>`
+    ).join('');
+    return `<div class="model-abilities">
+        <div class="mod-row"><span class="mod-label">输入</span><div class="mod-chip-list">${boxes(MODALITY_INPUT, 'mod-input', input)}</div></div>
+        <div class="mod-row"><span class="mod-label">输出</span><div class="mod-chip-list">${boxes(MODALITY_OUTPUT, 'mod-output', output)}</div></div>
+    </div>`;
+}
+
+// 渲染单个模型子卡片（三处复用）：
+// providerCardHtml 静态渲染、「手动添加」动态新增行、「获取模型列表」弹窗新增行，
+// 统一走此函数，保证结构与行为一致（能力区默认折叠，由 CSS 控制显隐）。
+// 注意：
+// 1. .btn-del-model 必须保持为 .model-subcard 的直接子元素——
+//    bindProviderEvents 里通过 btn.parentElement.remove() 删除整行；
+// 2. 能力区隐藏采用 display:none（CSS 折叠），不影响 saveProviderFromDom
+//    用 .mod-input:checked / .mod-output:checked 收集勾选值。
+function modelSubcardHtml(model, modalities) {
+    const m = model || {};
+    const readonlyAttr = m.readonlyId ? 'readonly' : '';
+    return `
+        <div class="model-subcard">
+            <div class="model-subcard-fields">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0">模型ID</span>
+                    <input class="model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr} style="font-size:12px;flex:1;width:50%" />
+                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0">名称</span>
+                    <input class="model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" style="font-size:12px;flex:1;width:50%" />
+                </div>
+                ${modelAbilitiesHtml(modalities)}
+            </div>
+            <button class="btn-toggle-abilities" type="button" aria-expanded="false" title="展开/收起模型能力设置">
+                <span class="btn-toggle-abilities-text">能力</span><span class="toggle-arrow">▾</span>
+            </button>
+            <button class="btn btn-del btn-del-model" title="删除">✕</button>
+        </div>`;
+}
+
 export async function loadProviders() {
     const list = document.getElementById('providersList');
     const openBtn = document.getElementById('btnOpenProviderConfigDir');
@@ -96,8 +142,8 @@ export function providerCardHtml(p) {
         <div class="provider-card" data-key="${escapeHtml(p.key)}">
             <div class="provider-card-header">
                 <div style="flex:1;display:flex;gap:8px;align-items:center">
-                    <sapn style="font-size:12px;">供应商标识&nbsp;&nbsp;</span><input class="prov-edit-key" value="${escapeHtml(p.key)}" placeholder="key (如 deepseek)" ${isNew?'':'readonly'} />
-                    <sapn style="font-size:12px;">供应商名称&nbsp;&nbsp;</span><input class="prov-edit-name" value="${escapeHtml(p.name||'')}" placeholder="名称"/>
+                    <span style="font-size:12px;">供应商标识&nbsp;&nbsp;</span><input class="prov-edit-key" value="${escapeHtml(p.key)}" placeholder="key (如 deepseek)" ${isNew?'':'readonly'} />
+                    <span style="font-size:12px;">供应商名称&nbsp;&nbsp;</span><input class="prov-edit-name" value="${escapeHtml(p.name||'')}" placeholder="名称"/>
                 </div>
                 <div class="provider-card-actions" style="display:flex;gap:6px;align-items:center">
                     <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;cursor:pointer">
@@ -130,17 +176,7 @@ export function providerCardHtml(p) {
                 <div class="provider-models">
                     <div class="provider-models-title">📦 模型 <button class="btn btn-sm btn-add btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-sm btn-add btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">📡 获取模型列表</button></div>
                     <div class="card-models-list" data-key="${escapeHtml(p.key)}">
-                        ${(p.models||[]).map((m,i) => `
-                            <div class="model-subcard">
-                                <div style="display:flex;align-items:center;gap:8px;flex:1">
-                                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0">模型ID</span>
-                                    <input class="model-edit-id" value="${escapeHtml(m.id)}" placeholder="deepseek-v4-pro" style="font-size:12px;flex:1;width:50%" />
-                                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0">名称</span>
-                                    <input class="model-edit-name" value="${escapeHtml(m.name||'')}" placeholder="DeepSeek-V4-Pro" style="font-size:12px;flex:1;width:50%" />
-                                </div>
-                                <button class="btn btn-del btn-del-model" title="删除">✕</button>
-                            </div>
-                        `).join('')}
+                        ${(p.models||[]).map(m => modelSubcardHtml({ id: m.id, name: m.name || '' }, m.modalities)).join('')}
                     </div>
                 </div>
             </div>
@@ -169,17 +205,14 @@ export function bindProviderEvents(providers) {
         btn.addEventListener('click', () => {
             const key = btn.dataset.key;
             const list = document.querySelector(`.card-models-list[data-key="${CSS.escape(key)}"]`);
-            const row = document.createElement('div');
-            row.className = 'model-subcard';
-            row.innerHTML = `
-                <div style="display:flex;align-items:center;gap:8px;flex:1">
-                    <span style="font-size:10px;color:var(--text-muted);width:45px;flex-shrink:0">模型ID</span>
-                    <input class="model-edit-id" placeholder="deepseek-v4-pro" style="flex:1;width:50%" />
-                    <span style="font-size:10px;color:var(--text-muted);width:45px;flex-shrink:0">名称</span>
-                    <input class="model-edit-name" placeholder="DeepSeek-V4-Pro" style="flex:1;width:50%" />
-                </div>
-                <button class="btn btn-del btn-del-model" title="删除">✕</button>
-            `;
+            // 用共享的 modelSubcardHtml 生成子卡片（结构/折叠行为与静态渲染一致），
+            // 默认勾选 text 输入/输出能力
+            const temp = document.createElement('div');
+            temp.innerHTML = modelSubcardHtml(
+                { id: '', name: '' },
+                { input: ['text'], output: ['text'] }
+            ).trim();
+            const row = temp.firstElementChild;
             row.querySelector('.btn-del-model').addEventListener('click', () => row.remove());
             list.appendChild(row);
         });
@@ -216,6 +249,24 @@ export function bindProviderEvents(providers) {
             }
         });
     });
+
+    // 「能力」展开/折叠按钮：事件委托挂在每个 .card-models-list 容器上，
+    // 静态渲染、手动新增行、弹窗新增行的子卡片点击都会冒泡到这里，无需逐行绑定。
+    // dataset.abilitiesBound 防止 renderProviders 重渲染时对同一容器重复绑定。
+    // 折叠仅切换 .abilities-open（CSS 用 display:none 显隐能力区），
+    // checkbox 仍在 DOM 中，:checked 收集不受影响。
+    document.querySelectorAll('.card-models-list').forEach(list => {
+        if (list.dataset.abilitiesBound) return;
+        list.dataset.abilitiesBound = 'true';
+        list.addEventListener('click', e => {
+            const toggle = e.target.closest('.btn-toggle-abilities');
+            if (!toggle) return;
+            const subcard = toggle.closest('.model-subcard');
+            if (!subcard) return;
+            const open = subcard.classList.toggle('abilities-open');
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+    });
 }
 
 export function addNewCard() {
@@ -248,7 +299,15 @@ export function saveProviderFromDom(key) {
     card.querySelectorAll('.model-subcard').forEach(row => {
         const id = row.querySelector('.model-edit-id')?.value?.trim();
         const name = row.querySelector('.model-edit-name')?.value?.trim();
-        if (id) data.models.push({ id, name: name || id });
+        if (!id) return;
+        const input  = [...row.querySelectorAll('.mod-input:checked')].map(c => c.value);
+        const output = [...row.querySelectorAll('.mod-output:checked')].map(c => c.value);
+        const model = { id, name: name || id };
+        // 仅当设置了任意能力时才写 modalities；全空则省略字段，交给 OpenCode 走 models.dev 兜底
+        if (input.length || output.length) {
+            model.modalities = { input, output };
+        }
+        data.models.push(model);
     });
 
     const btn = card.querySelector('.btn-save-card');
@@ -257,7 +316,21 @@ export function saveProviderFromDom(key) {
     api.SaveProvider(data).then(r => {
         if (r.success) {
             showToast(`供应商 ${data.key} 已保存`, 'success');
-            loadProviders();
+            // 保存成功不重新加载列表，保持当前界面状态
+            btn.disabled = false; btn.textContent = '💾 保存';
+            if (key !== data.key) {
+                // 新增供应商：key 已变更，同步卡片及内部按钮的 data-key，并清除新增标记
+                card.dataset.key = data.key;
+                card.querySelectorAll('[data-key]').forEach(el => {
+                    if (el.dataset.key === key) el.dataset.key = data.key;
+                });
+                const idx = providerCache.findIndex(p => p._new);
+                if (idx >= 0) {
+                    providerCache[idx].key = data.key;
+                    providerCache[idx].name = data.name;
+                    providerCache[idx]._new = false;
+                }
+            }
         } else {
             showToast('保存失败: ' + r.error, 'error');
             btn.disabled = false; btn.textContent = '💾 保存';
@@ -336,15 +409,14 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
             if (!list) return;
 
             if (action === 'add') {
-                var row = document.createElement('div');
-                row.className = 'model-subcard';
-                row.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex:1">' +
-                    '<span style="font-size:10px;color:var(--text-muted);width:45px;flex-shrink:0">模型ID</span>' +
-                    '<input class="model-edit-id" value="' + escapeHtml(modelId) + '" style="font-size:12px;font-family:monospace;flex:1;width:50%" readonly />' +
-                    '<span style="font-size:10px;color:var(--text-muted);width:45px;flex-shrink:0">名称</span>' +
-                    '<input class="model-edit-name" value="' + escapeHtml(modelId) + '" style="font-size:12px;flex:1;width:50%" />' +
-                '</div>' +
-                '<button class="btn btn-del btn-del-model" title="删除">✕</button>';
+                // 与「手动添加」走同一套 modelSubcardHtml 结构（能力区默认折叠）；
+                // 弹窗拉取的模型 ID 固定 readonly，默认勾选 text 输入/输出能力
+                var temp = document.createElement('div');
+                temp.innerHTML = modelSubcardHtml(
+                    { id: modelId, name: modelId, readonlyId: true },
+                    { input: ['text'], output: ['text'] }
+                ).trim();
+                var row = temp.firstElementChild;
                 row.querySelector('.btn-del-model').addEventListener('click', function() { row.remove(); });
                 list.appendChild(row);
                 this.textContent = '删除';

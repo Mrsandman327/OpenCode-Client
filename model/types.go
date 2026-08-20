@@ -101,9 +101,16 @@ type ProviderEntry struct {
 	Models  map[string]*ModelDef   `json:"models,omitempty"`
 }
 
+// Modalities 模型输入/输出能力（对应 opencode.jsonc 的 modalities 字段）
+type Modalities struct {
+	Input  []string `json:"input,omitempty"`
+	Output []string `json:"output,omitempty"`
+}
+
 // ModelDef 模型定义。
 type ModelDef struct {
-	Name string `json:"name"`
+	Name       string      `json:"name"`
+	Modalities *Modalities `json:"modalities,omitempty"`
 }
 
 // ProviderInfo 前端展示用供应商信息。
@@ -119,8 +126,9 @@ type ProviderInfo struct {
 
 // ModelInfo 前端展示用模型信息。
 type ModelInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID         string      `json:"id"`
+	Name       string      `json:"name"`
+	Modalities *Modalities `json:"modalities,omitempty"`
 }
 
 // ProviderSave 前端提交的供应商保存数据。
