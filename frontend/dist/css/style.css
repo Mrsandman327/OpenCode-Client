@@ -3938,6 +3938,12 @@ input::placeholder, textarea::placeholder {
 .model-subcard:hover {
     border-color: var(--border-light);
 }
+/* 能力/删除按钮固定在顶部，避免能力区展开撑高后按钮被 align-items:center 下沉 */
+.model-subcard .btn-toggle-abilities,
+.model-subcard .btn-del-model {
+    align-self: flex-start;
+    margin-top: 2px;
+}
 .model-subcard-id {
     font-family: "SF Mono", "Cascadia Code", monospace;
     color: var(--accent);
@@ -4067,14 +4073,7 @@ input::placeholder, textarea::placeholder {
 .btn-toggle-abilities:active {
     transform: scale(0.95);
 }
-.btn-toggle-abilities .toggle-arrow {
-    font-size: 10px;
-    line-height: 1;
-    transition: transform 0.2s ease;
-}
-.btn-toggle-abilities[aria-expanded="true"] .toggle-arrow {
-    transform: rotate(180deg);
-}
+
 .btn-del {
     background: transparent;
     color: var(--text-muted);

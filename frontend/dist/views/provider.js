@@ -80,7 +80,7 @@ function modelSubcardHtml(model, modalities) {
                 ${modelAbilitiesHtml(modalities)}
             </div>
             <button class="btn-toggle-abilities" type="button" aria-expanded="false" title="展开/收起模型能力设置">
-                <span class="btn-toggle-abilities-text">能力</span><span class="toggle-arrow">▾</span>
+                <span class="btn-toggle-abilities-text">模态</span>
             </button>
             <button class="btn btn-del btn-del-model" title="删除">✕</button>
         </div>`;
