@@ -273,7 +273,8 @@ export async function selectSession(id) {
     // 重置用户消息导航状态（必须在容器激活后、loadMessages 前调用，
     // 避免 getActiveMessagesEl 仍指向旧容器导致 userNavIndex 被污染）
     resetUserNav();
-    loadMessages().then(() => {
+    // 传 id 加载到该会话自己的容器：快速连点时各会话独立加载，互不丢弃
+    loadMessages(id).then(() => {
         if (id !== store.currentSessionId) return;
         if (!isMobileTreeMode()) {
             extractSubtaskSummaries(store.currentSessionId);
@@ -297,10 +298,14 @@ export async function createSessionWithDir(dir) {
     return session;
 }
 
-/** 加载当前会话消息列表（含竞态保护；渲染到当前会话自己的 tab 容器） */
-export async function loadMessages() {
-    const seq = ++store.messageLoadSeq;
-    if (!store.currentSessionId) {
+/** 加载会话消息列表（含竞态保护；渲染到该会话自己的 tab 容器）。
+ *  @param {string} [sessionID] 指定要加载的会话；缺省用当前会话。
+ *  竞态保护按「每个会话独立 seq」：快速连点多个 tab 时，各会话的加载请求
+ *  互不丢弃（原全局 seq 会因连点导致前序会话的加载被整体放弃 → 容器停在占位态）。 */
+export async function loadMessages(sessionID) {
+    const targetId = sessionID || store.currentSessionId;
+    const seq = (store.sessionLoadSeq[targetId] = (store.sessionLoadSeq[targetId] || 0) + 1);
+    if (!targetId) {
         // 无当前会话：仅当池中没有 tab 容器时才写空态提示；
         // 否则保留隐藏的 tab 容器与新建会话占位提示，避免误清空
         var poolEl = document.getElementById('ocMessagesPool');
@@ -309,19 +314,19 @@ export async function loadMessages() {
         }
         return;
     }
-    const box = ensureTabMessagesEl(store.currentSessionId);
+    const box = ensureTabMessagesEl(targetId);
     if (!box) return;
     try {
-        const messages = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(store.currentSessionId)}/message`);
-        if (seq !== store.messageLoadSeq) return;
-        cacheMessages(store.currentSessionId, messages || []);
-        renderMessages(getCachedMessages(store.currentSessionId), box);
+        const messages = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(targetId)}/message`);
+        if (seq !== store.sessionLoadSeq[targetId]) return;
+        cacheMessages(targetId, messages || []);
+        renderMessages(getCachedMessages(targetId), box);
         if (!isMobileTreeMode()) {
-            extractSubtaskSummaries(store.currentSessionId);
+            extractSubtaskSummaries(targetId);
             renderSubtaskPanel();
         }
     } catch (e) {
-        if (seq !== store.messageLoadSeq) return;
+        if (seq !== store.sessionLoadSeq[targetId]) return;
         box.innerHTML = `<div class="oc-empty error">${escapeHtml(e.message || e)}</div>`;
     }
 }

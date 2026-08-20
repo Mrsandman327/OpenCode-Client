@@ -94,7 +94,9 @@ export function openSessionTab(sessionID, title) {
     renderTabsBar();
 }
 
-/** 激活指定会话的消息容器：显示它、隐藏其他；容器不存在时创建并触发加载 */
+/** 激活指定会话的消息容器：显示它、隐藏其他；容器不存在时创建并触发加载。
+ *  容器已存在但从未成功加载过（无缓存消息且内容是占位/空态）时也重新加载——
+ *  修复快速连点多个 tab 时，前序会话的加载请求被竞态丢弃后容器停在「加载中」的问题。 */
 export function activateTabContainer(sessionID) {
     var pool = document.getElementById('ocMessagesPool');
     if (!pool) return;
@@ -107,13 +109,22 @@ export function activateTabContainer(sessionID) {
         all[i].classList.toggle('active', isActive);
         all[i].style.display = isActive ? 'flex' : 'none';
     }
-    // 目标容器不存在时创建并触发加载
-    if (!getTabMessagesEl(sessionID)) {
+    var existing = getTabMessagesEl(sessionID);
+    if (!existing) {
+        // 容器不存在：创建并触发加载
         var el = ensureTabMessagesEl(sessionID);
         if (el) {
             el.classList.add('active');
             el.style.display = 'flex';
             el.innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';
+            if (tabActivationHandler) tabActivationHandler();
+        }
+    } else {
+        // 容器存在：若无缓存消息且内容是占位/空态（可能是之前竞态丢弃导致的），重新加载
+        var hasCache = !!(store.messageCache && store.messageCache[sessionID] && store.messageCache[sessionID].length);
+        var hasRealContent = !!existing.querySelector('.oc-part');
+        if (!hasCache && !hasRealContent) {
+            existing.innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';
             if (tabActivationHandler) tabActivationHandler();
         }
     }

@@ -79,6 +79,9 @@ export const store = {
     lastSourceMessageCount: 0,
     /** 消息加载序列号，用于竞态检测（每次加载递增） */
     messageLoadSeq: 0,
+    /** 每个会话独立的消息加载序列号：key=会话ID，value=seq。
+     *  快速连点多个 tab 时，各会话的加载请求互不干扰（修复竞态导致的历史 tab 空白）。 */
+    sessionLoadSeq: {},
     /** 待渲染的会话 ID（调度到下一帧的消息渲染） */
     pendingMessageRenderSession: '',
     /** 待渲染的帧计数 */
