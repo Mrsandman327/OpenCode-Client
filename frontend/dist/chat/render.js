@@ -1088,27 +1088,41 @@ export function renderTextPart(part) {
     return el;
 }
 
-/** 渲染文件 Part（可折叠显示文件内容） */
+/** 渲染文件 Part：可折叠显示内容；image/* 展开后显示固定尺寸图像，其余展开显示文本 */
 export function renderFilePart(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-file';
     const key = partExpandKey(part, part.filename || part.path || 'file');
     const filename = part.filename || part.path || part.file || '附件';
-    const mime = part.mime || part.type || 'file';
-    const raw = part.content || part.url || safeText(part);
+    const mime = (part.mime || part.type || 'file').toLowerCase();
+    const url = part.url || part.content || '';
+    const isImage = mime.startsWith('image/') && url;
+    const raw = url || safeText(part);
     const size = raw.length > 1024 ? `${Math.round(raw.length / 1024)} KB` : `${raw.length} B`;
+    // 图像不显示 size，其余显示 size
+    const meta = `${escapeHtml(mime)} · ${size}`;
     const expanded = !!store.expandedParts[key];
     const head = document.createElement('div');
     head.className = 'oc-file-path';
-    head.innerHTML = `<span>📎 ${escapeHtml(filename)}</span><span class="oc-file-meta">${escapeHtml(mime)} · ${size} · ${expanded ? '收起' : '展开'}</span>`;
-    const body = document.createElement('pre');
-    body.className = expanded ? '' : 'hidden';
+    head.innerHTML = `<span>📎 ${escapeHtml(filename)}</span><span class="oc-file-meta">${meta} · ${expanded ? '收起' : '展开'}</span>`;
+    // body：图像用 <img> 固定尺寸，其余用 <pre> 文本
+    let body;
+    if (isImage) {
+        body = document.createElement('img');
+        body.src = url;
+        body.alt = filename;
+        body.loading = 'lazy';
+        body.className = 'oc-file-image' + (expanded ? '' : ' hidden');
+    } else {
+        body = document.createElement('pre');
+        body.className = expanded ? '' : 'hidden';
+        body.textContent = raw;
+    }
     body.dataset.expandKey = key;
-    body.textContent = raw;
     head.addEventListener('click', () => {
         store.expandedParts[key] = !store.expandedParts[key];
         body.classList.toggle('hidden', !store.expandedParts[key]);
-        head.querySelector('.oc-file-meta').textContent = `${mime} · ${size} · ${store.expandedParts[key] ? '收起' : '展开'}`;
+        head.querySelector('.oc-file-meta').textContent = `${meta} · ${store.expandedParts[key] ? '收起' : '展开'}`;
     });
     el.appendChild(head);
     el.appendChild(body);

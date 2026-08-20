@@ -1996,6 +1996,16 @@ input::placeholder, textarea::placeholder {
     font-size: 11px;
     color: var(--text-secondary);
 }
+/* 图像附件：展开后显示固定尺寸图像（不放大） */
+.oc-file-image {
+    display: block;
+    max-width: 480px;
+    max-height: 360px;
+    margin: 8px 10px;
+    border-radius: var(--radius-sm);
+    object-fit: contain;
+    background: var(--bg-secondary);
+}
 .oc-patch-hash {
     padding: 8px 10px;
     font-size: 12px;
