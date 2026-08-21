@@ -979,7 +979,7 @@ input::placeholder, textarea::placeholder {
 .oc-subtasks {
     flex: 1;
     overflow-y: auto;
-    max-height: 286px;
+    max-height: 400px;
     padding: 6px 8px;
 }
 .oc-subtask-card {
@@ -2110,11 +2110,6 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     border-bottom: 1px solid var(--border);
 }
-.oc-panel-section.grow {
-    flex: 1;
-    min-height: 0;
-    border-bottom: none;
-}
 .oc-services {
     flex: 1;
     min-height: 0;
@@ -2312,12 +2307,6 @@ input::placeholder, textarea::placeholder {
 }
 .oc-todo-item:hover .oc-todo-text {
     white-space: normal;
-}
-.oc-diff {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: 8px;
 }
 .oc-permission {
     border: 1px solid var(--border);

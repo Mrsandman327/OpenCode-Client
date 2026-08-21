@@ -351,7 +351,6 @@ export function clearClientUI() {
     document.getElementById('ocSubtasks').innerHTML = '<div class="oc-empty">当前会话暂无子任务</div>';
     document.getElementById('ocTodos').innerHTML = '<div class="oc-empty">当前会话暂无代办</div>';
     renderServiceStatus();
-    document.getElementById('ocDiff').innerHTML = '<div class="oc-empty">选择会话后查看变更</div>';
     document.getElementById('ocPrompt').value = '';
     updateModelInfo(null);
 }
@@ -363,7 +362,6 @@ export function updateWebUI() {
     const btnRefresh = document.getElementById('btnRefreshTree');
     const btnNewSession = document.getElementById('btnNewSession');
     const btnSend = document.getElementById('btnSendPrompt');
-    const btnDiff = document.getElementById('btnLoadDiff');
     const btnRefreshStatus = document.getElementById('btnRefreshStatus');
     const prompt = document.getElementById('ocPrompt');
     const btnAttach = document.getElementById('btnAttachFile');
@@ -392,7 +390,6 @@ export function updateWebUI() {
         btnRefresh.disabled = false;
         btnNewSession.disabled = false;
         btnSend.disabled = false;
-        btnDiff.disabled = false;
         btnRefreshStatus.disabled = false;
         prompt.disabled = false;
         btnAttach.disabled = false;
@@ -401,7 +398,6 @@ export function updateWebUI() {
         btnRefresh.disabled = true;
         btnNewSession.disabled = true;
         btnSend.disabled = true;
-        btnDiff.disabled = true;
         btnRefreshStatus.disabled = true;
         prompt.disabled = true;
         btnAttach.disabled = true;

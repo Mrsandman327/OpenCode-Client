@@ -4,7 +4,7 @@
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getCachedMessages, safeText）、core/apicall.js（api）、
 //       chat/session.js（loadMessages, refreshSessionTitle, selectSession）、
 //       chat/render.js（updateSendButton）、chat/cache.js（scheduleRenderCachedMessages, upsertMessage 等）、
-//       chat/sidepanel.js（scheduleSubtaskExtraction, loadDiff）、chat/tree.js（buildTree）
+//       chat/sidepanel.js（scheduleSubtaskExtraction）、chat/tree.js（buildTree）
 // ============================================================
 
 import { store } from '../core/state.js';
@@ -13,7 +13,7 @@ import { showToast, escapeHtml, getCachedMessages, safeText } from '../core/util
 import { loadMessages, refreshSessionTitle, selectSession } from './session.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
-import { scheduleSubtaskExtraction, loadDiff } from './sidepanel.js';
+import { scheduleSubtaskExtraction } from './sidepanel.js';
 import { buildTree } from './tree.js';
 
 // ============================
@@ -158,7 +158,6 @@ export function handleOcEvent(event) {
     const isCurrentSession = sid && sid === store.currentSessionId;
     if (type === 'session.created' && isCurrentSession) {
         buildTree();
-        loadDiff();
         return;
     }
     if (type === 'session.deleted') {
@@ -167,11 +166,10 @@ export function handleOcEvent(event) {
         } else {
             buildTree();
         }
-        loadDiff();
         return;
     }
     if (type === 'session.updated') {
-        loadDiff();
+        // 会话更新事件：无需处理
     }
 }
 

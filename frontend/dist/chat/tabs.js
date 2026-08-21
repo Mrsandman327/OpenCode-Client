@@ -2,7 +2,7 @@
 // chat-tabs.js — 多会话 Tab 页管理
 // 依赖：core/state.js（openTabs, activeTabId, tabCacheVersion 等）、core/utils.js（escapeHtml, getTabMessagesEl, ensureTabMessagesEl）、
 //       chat/mobile.js（isMobileTreeMode）、chat/render.js（updateScrollBottomButton, updateSendButton）、
-//       chat/events.js（loadSessionStatuses）、chat/sidepanel.js（extractSubtaskSummaries, renderSubtaskPanel, loadDiff）、
+//       chat/events.js（loadSessionStatuses）、chat/sidepanel.js（extractSubtaskSummaries, renderSubtaskPanel）、
 //       chat/search.js（resetUserNav, updateUserNav）
 //       filebrowser/browser.js（openFileBrowserModal）——尚未改造，保留全局守卫调用
 // 解环说明：本文件不得 import chat/session.js。原 activateTabContainer 中 loadMessages() 调用
@@ -14,7 +14,7 @@ import { escapeHtml, getTabMessagesEl, ensureTabMessagesEl } from '../core/utils
 import { isMobileTreeMode } from './mobile.js';
 import { updateScrollBottomButton, updateSendButton } from './render.js';
 import { loadSessionStatuses } from './events.js';
-import { extractSubtaskSummaries, renderSubtaskPanel, loadDiff } from './sidepanel.js';
+import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
 import { resetUserNav, updateUserNav } from './search.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { updateTreeActiveSession } from '../core/utils.js';
@@ -167,7 +167,6 @@ export function switchTab(sessionID) {
     if (!isMobileTreeMode()) {
         extractSubtaskSummaries(sessionID);
         renderSubtaskPanel();
-        loadDiff();
     }
     loadSessionStatuses().then(function(statuses) {
         if (sessionID === store.currentSessionId) {

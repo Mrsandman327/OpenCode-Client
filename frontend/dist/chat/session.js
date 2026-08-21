@@ -3,7 +3,7 @@
 // 负责会话选择/创建/加载、Agent/Model 选择器、附件管理、消息发送、轮询与中止
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages）、
 //       core/apicall.js（api）、chat/mobile.js（isMobileTreeMode）、chat/tabs.js（openSessionTab, renderTabsBar, setTabActivationHandler）、
-//       chat/sidepanel.js（extractSubtaskSummaries, renderSubtaskPanel, loadDiff）、chat/events.js（loadSessionStatuses）、
+//       chat/sidepanel.js（extractSubtaskSummaries, renderSubtaskPanel）、chat/events.js（loadSessionStatuses）、
 //       chat/render.js（isSessionBusy, smartScroll, updateSendButton, renderMessages）、chat/tree.js（rememberKnownDir）、
 //       chat/search.js（resetUserNav）、chat/cache.js（cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages）
 //       filebrowser/browser.js（openFileBrowserModal）——尚未改造，保留全局守卫调用
@@ -16,7 +16,7 @@ import { store, MOBILE_MESSAGE_RENDER_LIMIT, PC_MESSAGE_RENDER_LIMIT } from '../
 import { showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
-import { extractSubtaskSummaries, renderSubtaskPanel, loadDiff } from './sidepanel.js';
+import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
 import { loadSessionStatuses } from './events.js';
 import { isSessionBusy, smartScroll, updateSendButton, renderMessages } from './render.js';
 import { rememberKnownDir } from './tree.js';
@@ -179,7 +179,6 @@ export async function refreshCurrentSession() {
         if (!isMobileTreeMode()) {
             extractSubtaskSummaries(store.currentSessionId);
             renderSubtaskPanel();
-            await loadDiff();
         }
 
         try {
@@ -279,7 +278,6 @@ export async function selectSession(id) {
         if (!isMobileTreeMode()) {
             extractSubtaskSummaries(store.currentSessionId);
             renderSubtaskPanel();
-            loadDiff();
         }
         smartScroll(sessBox || getActiveMessagesEl(), true);
     }).catch(() => {});
@@ -739,7 +737,6 @@ export function scheduleRefresh() {
         }).catch(() => {
             // 状态刷新失败时不要影响 SSE 流式输出
         });
-        if (wasBusy) loadDiff();
         
     }, 4000);
 }

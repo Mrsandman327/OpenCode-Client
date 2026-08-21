@@ -24,7 +24,6 @@ import {
     toggleWeb, checkWebStatus, loadServiceStatus, launchTerminal,
 } from './chat/service.js';
 import { refreshTree, createNewSession } from './chat/tree.js';
-import { loadDiff } from './chat/sidepanel.js';
 import { isSessionBusy, scrollMessagesToBottom, updateScrollBottomButton } from './chat/render.js';
 import {
     sendPrompt, abortSession, addAttachment, refreshCurrentSession, scheduleRefresh,
@@ -151,7 +150,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePromptPlaceholder();
     window.addEventListener('resize', updatePromptPlaceholder);
 
-    document.getElementById('btnLoadDiff').addEventListener('click', loadDiff);
     document.getElementById('btnRefreshStatus').addEventListener('click', loadServiceStatus);
     document.getElementById('btnToggleSessions').addEventListener('click', toggleSessions);
     document.getElementById('btnToggleSidepanel').addEventListener('click', toggleSidepanel);

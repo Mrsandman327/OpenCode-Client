@@ -531,7 +531,6 @@ export async function createNewSession(dir) {
         renderTabsBar();
         // 重置用户消息导航索引（旧会话的定位索引不再适用）
         resetUserNav();
-        document.getElementById('ocDiff').innerHTML = '<div class="oc-empty">选择会话后查看变更</div>';
         document.getElementById('ocPrompt').value = '';
         document.getElementById('ocPrompt').focus();
     } catch (e) {
