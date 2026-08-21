@@ -221,7 +221,7 @@ input::placeholder, textarea::placeholder {
 .btn-primary {
     background: var(--accent);
     color: #fff;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-sm);
 }
 .btn-primary:hover:not(:disabled) {
     background: var(--accent-hover);
@@ -318,6 +318,7 @@ input::placeholder, textarea::placeholder {
     background: var(--danger-bg);
     color: var(--danger);
     border: 1px solid var(--danger);
+    border-radius: var(--radius-sm);
 }
 .btn-danger-outline:hover:not(:disabled) {
     background: var(--danger);
@@ -2889,7 +2890,7 @@ input::placeholder, textarea::placeholder {
     color: var(--text-secondary);
     border: 1px solid var(--border);
     padding: 8px 18px;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 14px;
 }
@@ -3282,6 +3283,7 @@ input::placeholder, textarea::placeholder {
     font-size: 12px;
     padding: 6px 14px;
     flex-shrink: 0;
+    border-radius: var(--radius-sm);
 }
 .omo-action-btn {
     background: var(--bg-input);
@@ -4335,10 +4337,9 @@ input::placeholder, textarea::placeholder {
     background: var(--accent) !important;
     color: #fff !important;
     border: none !important;
-    border-radius: var(--radius-pill) !important;
-    padding: 6px 18px !important;
-    font-size: 13px !important;
-    font-weight: 500;
+    border-radius: var(--radius-sm) !important;
+    font-size: 12px !important;
+    font-weight: 600;
     letter-spacing: -0.01em;
     cursor: pointer;
 }
@@ -4353,10 +4354,11 @@ input::placeholder, textarea::placeholder {
     background: transparent !important;
     color: var(--danger) !important;
     border: 1px solid var(--danger) !important;
-    border-radius: var(--radius-pill) !important;
+    border-radius: var(--radius-sm) !important;
     padding: 4px 12px !important;
     font-size: 12px;
     cursor: pointer;
+    font-weight: 600;
 }
 .btn-del-card:hover {
     background: var(--danger-bg) !important;
@@ -5757,22 +5759,22 @@ input::placeholder, textarea::placeholder {
 }
 
 /* 方案管理 + 来源目录按钮 Apple 风格 */
-#btnApplySkillScheme { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-pill); }
+#btnApplySkillScheme { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm);}
 #btnApplySkillScheme:hover { background: var(--accent-hover); }
 #btnApplySkillScheme:active { transform: scale(0.97); }
-#btnDeleteSkillScheme { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-pill); }
+#btnDeleteSkillScheme { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-sm); }
 #btnDeleteSkillScheme:hover { background: var(--danger-bg); }
 #btnDeleteSkillScheme:active { transform: scale(0.97); }
-#btnSaveSkillScheme { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-pill); }
+#btnSaveSkillScheme { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); }
 #btnSaveSkillScheme:hover { background: var(--accent-hover); }
 #btnSaveSkillScheme:active { transform: scale(0.97); }
-#btnAddSourceDir { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-pill); }
+#btnAddSourceDir { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); }
 #btnAddSourceDir:hover { background: var(--accent-hover); }
 #btnAddSourceDir:active { transform: scale(0.97); }
-#btnRemoveSourceDir { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-pill); }
+#btnRemoveSourceDir { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-sm); }
 #btnRemoveSourceDir:hover { background: var(--danger-bg); }
 #btnRemoveSourceDir:active { transform: scale(0.97); }
-#btnOpenSourceDir { background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border); border-radius: var(--radius-pill); }
+#btnOpenSourceDir { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); }
 #btnOpenSourceDir:hover { background: var(--accent-hover); }
 
 
