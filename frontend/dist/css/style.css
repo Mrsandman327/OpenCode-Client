@@ -426,11 +426,45 @@ input::placeholder, textarea::placeholder {
     font-weight: 600;
 }
 
+/* 侧边栏图标：CSS mask 渲染 assets SVG，颜色由变量控制，随主题/状态变化 */
 .nav-icon {
-    font-size: 17px;
-    width: 22px;
-    text-align: center;
+    width: 17px;
+    height: 17px;
     flex-shrink: 0;
+    background: var(--text-muted);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    transition: background-color 0.15s ease;
+}
+.nav-item:hover .nav-icon {
+    background: var(--text-secondary);
+}
+.nav-item.active .nav-icon {
+    background: var(--text-primary);
+}
+.nav-item[data-view="view-opencode"] .nav-icon {
+    -webkit-mask-image: url("../assets/工作区.svg");
+    mask-image: url("../assets/工作区.svg");
+}
+.nav-item[data-view="view-providers"] .nav-icon {
+    -webkit-mask-image: url("../assets/供应商.svg");
+    mask-image: url("../assets/供应商.svg");
+}
+.nav-item[data-view="view-omo"] .nav-icon {
+    -webkit-mask-image: url("../assets/OMO.svg");
+    mask-image: url("../assets/OMO.svg");
+}
+.nav-item[data-view="view-skills"] .nav-icon {
+    -webkit-mask-image: url("../assets/技能.svg");
+    mask-image: url("../assets/技能.svg");
+}
+.nav-item[data-view="view-commands"] .nav-icon {
+    -webkit-mask-image: url("../assets/控制命令.svg");
+    mask-image: url("../assets/控制命令.svg");
 }
 
 .nav-label {
