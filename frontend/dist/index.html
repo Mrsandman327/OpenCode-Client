@@ -88,7 +88,7 @@
                         <div class="oc-chat-head">
                             <button type="button" class="oc-chat-head-mobile-toggle" id="btnMobileTree" title="打开项目树">☰</button>
                             <span class="oc-chat-head-title" id="ocChatTitle">未选择会话</span>
-                            <button type="button" class="btn btn-sm btn-refresh oc-chat-head-refresh" style="border: none;" id="btnRefreshCurrentSession" title="刷新当前会话" aria-label="刷新当前会话">↻</button>
+                            <button type="button" class="btn btn-sm btn-refresh oc-chat-head-refresh" id="btnRefreshCurrentSession" title="刷新当前会话" aria-label="刷新当前会话">↻</button>
                         </div>
                         <div class="oc-search-bar" id="ocSearchBar" style="display:none">
                             <input type="text" id="ocSearchInput" placeholder="搜索当前会话消息..." />
@@ -254,10 +254,10 @@
                 <!-- L2: 来源目录 select 下拉框 -->
                 <section class="path-bar">
                     <span class="path-label">来源目录：</span>
-                    <select id="sourceDirSelect" style="flex:1;min-width:180px;max-width:500px;height: 30px;font-size: 12px;">
+                    <select id="sourceDirSelect" class="toolbar-select">
                         <option value="">（未添加来源目录）</option>
                     </select>
-                    <button type="button" class="btn btn-sm btn-open" id="btnAddSourceDir" style="margin-left:auto">添加目录</button>
+                    <button type="button" class="btn btn-sm btn-open toolbar-spacer" id="btnAddSourceDir">添加目录</button>
                     <button type="button" class="btn btn-sm btn-open" id="btnOpenSourceDir">打开目录</button>
                     <button type="button" class="btn btn-sm btn-open" id="btnRemoveSourceDir">删除目录</button>
                 </section>
@@ -265,10 +265,10 @@
                 <!-- L3: 技能方案管理 -->
                 <section class="path-bar">
                     <span class="path-label">技能方案：</span>
-                    <select id="skillSchemeSelect" style="flex:1;min-width:180px;max-width:500px;height: 30px;font-size: 12px;">
+                    <select id="skillSchemeSelect" class="toolbar-select">
                         <option value="">（无可用方案）</option>
                     </select>
-                    <button type="button" class="btn btn-sm btn-open" id="btnSaveSkillScheme" style="margin-left:auto">方案入库</button>
+                    <button type="button" class="btn btn-sm btn-open toolbar-spacer" id="btnSaveSkillScheme">方案入库</button>
                     <button type="button" class="btn btn-sm btn-open" id="btnApplySkillScheme">应用方案</button>
                     <button type="button" class="btn btn-sm btn-open" id="btnDeleteSkillScheme">删除方案</button>
                 </section>
@@ -276,7 +276,7 @@
                 <!-- L4: 搜索栏（保持不变） -->
                 <section class="path-bar">
                     <span class="path-label">搜索：</span>
-                    <input type="text" id="skillSearch" placeholder="输入技能名称过滤..." style="flex:1;padding:4px 8px;" />
+                    <input type="text" id="skillSearch" class="toolbar-input" placeholder="输入技能名称过滤..." />
                 </section>
 
                 <!-- L5: 技能列表 -->
@@ -294,7 +294,7 @@
                 </div>
                 <section class="path-bar" id="apiDocSearchBar" style="display:none">
                     <span class="path-label">搜索：</span>
-                    <input type="text" id="apiDocSearch" placeholder="输入关键字过滤 API 文档..." style="flex:1;padding:4px 8px;" />
+                    <input type="text" id="apiDocSearch" class="toolbar-input" placeholder="输入关键字过滤 API 文档..." />
                 </section>
                 <div id="apiDocEmptyState" style="display:none">未找到匹配的 API 接口</div>
                 <div class="cmd-content" id="cmdContent">
@@ -307,7 +307,7 @@
                 <section class="path-bar">
                     <span class="path-label">配置文件：</span>
                     <span class="path-value" id="providerConfigPath">加载中...</span>
-                    <button type="button" class="btn btn-sm btn-open" id="btnOpenProviderConfigDir" style="margin-left:auto">📂 打开</button>
+                    <button type="button" class="btn btn-sm btn-open toolbar-spacer" id="btnOpenProviderConfigDir">📂 打开</button>
                 </section>
                 <div class="providers-list" id="providersList">
                     <div class="loading"><div class="spinner"></div><p>正在加载供应商...</p></div>
@@ -324,7 +324,7 @@
     <div class="modal-overlay" id="proxyModal" style="display:none">
         <div class="modal proxy-modal">
             <h3>网络配置</h3>
-            <div class="oc-service-group-title" style="margin-bottom:10px">OpenCode 服务地址</div>
+            <div class="oc-service-group-title">OpenCode 服务地址</div>
             <div class="modal-field">
                 <label for="serviceHost">服务地址</label>
                 <input id="serviceHost" placeholder="127.0.0.1" />
@@ -334,7 +334,7 @@
                 <input id="servicePort" inputmode="numeric" placeholder="4096" />
             </div>
             <hr class="proxy-separator" />
-            <div class="oc-service-group-title" style="margin-bottom:10px">代理设置</div>
+            <div class="oc-service-group-title">代理设置</div>
             <label class="proxy-switch-row">
                 <span>
                     <strong>启用代理</strong>
@@ -369,11 +369,11 @@
                 <label for="frontendWebPort">监听端口</label>
                 <input id="frontendWebPort" inputmode="numeric" placeholder="8081" />
             </div>
-            <div class="path-bar" style="margin:12px 0 0 0;padding:0;border:none">
+            <div class="path-bar path-bar-inline">
                 <span class="path-label">服务状态：</span>
                 <span class="path-value" id="frontendWebStatus">未启动</span>
             </div>
-            <div class="path-bar" style="margin:8px 0 0 0;padding:0;border:none">
+            <div class="path-bar path-bar-inline-compact">
                 <span class="path-label">访问地址：</span>
                 <div class="frontend-web-url-wrap">
                     <a class="path-value frontend-web-url disabled" id="frontendWebUrl" href="#" target="_blank" rel="noopener noreferrer">--</a>
@@ -391,11 +391,11 @@
     <div class="modal-overlay" id="dirBrowserModal" style="display:none">
         <div class="modal proxy-modal">
             <h3>选择工作目录</h3>
-            <div class="path-bar" style="margin:12px 0 0 0;padding:0;border:none">
+            <div class="path-bar path-bar-inline">
                 <span class="path-label">当前路径：</span>
                 <span class="path-value" id="dirBrowserPath">--</span>
             </div>
-            <div class="providers-list" id="dirBrowserList" style="margin-top:12px;max-height:360px;overflow:auto"></div>
+            <div class="providers-list dir-browser-list" id="dirBrowserList"></div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-sm" id="btnDirBrowserBack">返回上一级</button>
                 <button type="button" class="btn btn-primary" id="btnDirBrowserSelect">选择当前目录</button>
@@ -407,9 +407,9 @@
     <!-- ===== 文件浏览弹窗 (Web 端) ===== -->
     <div class="modal-overlay" id="fileBrowserModal" style="display:none">
         <div class="modal file-browser-modal" onclick="event.stopPropagation()">
-            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center">
+            <div class="modal-header">
                 <h3 id="fileBrowserTitle">文件浏览</h3>
-                <div style="display:flex;gap:8px">
+                <div class="btn-group">
                     <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshFiles">🔄 刷新</button>
                     <button type="button" class="btn btn-sm" id="btnCloseFileBrowser">✕</button>
                 </div>
@@ -514,42 +514,42 @@
             <div class="subtask-modal-header">
                 <h3 id="subtaskModalTitle">子任务详情</h3>
                 <span class="subtask-status-badge" id="subtaskStatusBadge"></span>
-                <button type="button" class="btn btn-sm" id="subtaskModalCloseBtn" style="margin-left:auto">✕</button>
+                <button type="button" class="btn btn-sm toolbar-spacer" id="subtaskModalCloseBtn">✕</button>
             </div>
-            <div class="subtask-modal-summary" id="subtaskModalSummary" style="flex-shrink:0;padding:12px 20px;border-bottom:1px solid var(--border)">
-                <div class="subtask-summary-row" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                    <span id="subtaskTitle" style="font-weight:600;font-size:15px"></span>
+            <div class="subtask-modal-section" id="subtaskModalSummary">
+                <div class="subtask-title-row">
+                    <span id="subtaskTitle" class="subtask-title"></span>
                     <span class="subtask-status-badge" id="subtaskStatusBadge2"></span>
                 </div>
-                <div class="subtask-summary-row" style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">
+                <div class="meta-row">
                     <span id="subtaskAgent"></span>
-                    <span style="margin:0 4px">·</span>
+                    <span class="meta-sep">·</span>
                     <span id="subtaskModel"></span>
                 </div>
-                <div class="subtask-summary-row" style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">
+                <div class="meta-row">
                     <span>⏱</span>
                     <span id="subtaskDuration"></span>
-                    <span style="margin:0 6px">|</span>
+                    <span class="meta-sep-wide">|</span>
                     <span>开始</span><span id="subtaskStarted"></span>
-                    <span style="margin:0 6px">|</span>
+                    <span class="meta-sep-wide">|</span>
                     <span>完成</span><span id="subtaskEnded"></span>
                 </div>
-                <div class="subtask-summary-row" id="subtaskDescRow" style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;display:none">
+                <div class="meta-row" id="subtaskDescRow" style="display:none">
                     <span>📝 </span><span id="subtaskDesc"></span>
                 </div>
-                <div class="subtask-prompt-collapse" style="margin-top:6px">
-                    <button type="button" class="btn btn-sm" id="subtaskPromptToggle" style="font-size:11px">展开原始任务</button>
-                    <pre id="subtaskPromptText" style="display:none;max-height:120px;overflow-y:auto;font-size:11px;margin-top:4px;padding:6px 8px;background:var(--bg-input);border-radius:4px;white-space:pre-wrap"></pre>
+                <div class="subtask-prompt-collapse">
+                    <button type="button" class="btn btn-sm subtask-prompt-toggle" id="subtaskPromptToggle">展开原始任务</button>
+                    <pre id="subtaskPromptText" class="subtask-prompt-text" style="display:none"></pre>
                 </div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
-                    <code id="subtaskSid" style="font-size:10px"></code>
-                    <button type="button" class="btn btn-sm" id="subtaskCopySid" style="font-size:10px;padding:0 4px;margin-left:4px" title="复制 SessionId">📋</button>
+                <div class="meta-row-muted">
+                    <code id="subtaskSid" class="subtask-sid"></code>
+                    <button type="button" class="btn btn-sm subtask-copy-sid" id="subtaskCopySid" title="复制 SessionId">📋</button>
                 </div>
             </div>
-            <div class="subtask-modal-body" id="subtaskMessages" style="flex:1;overflow-y:auto;min-height:0;padding:12px 20px">
+            <div class="subtask-modal-body" id="subtaskMessages">
                 <div class="oc-empty">正在加载子任务详情...</div>
             </div>
-            <div class="subtask-modal-footer" style="flex-shrink:0;padding:10px 20px;border-top:1px solid var(--border);text-align:right">
+            <div class="subtask-modal-footer">
                 <button type="button" class="btn btn-sm" id="subtaskModalCancelBtn">关闭</button>
             </div>
         </div>
@@ -558,7 +558,7 @@
     <!-- ===== 项目配置弹窗 ===== -->
     <div class="modal-overlay" id="projectConfigModal" style="display:none">
         <div class="modal project-config-modal" onclick="event.stopPropagation()">
-            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center">
+            <div class="modal-header">
                 <h3 id="projectConfigTitle">项目配置</h3>
                 <button type="button" class="btn btn-sm" id="btnCloseProjectConfig">✕ 关闭</button>
             </div>

@@ -86,9 +86,9 @@ function modelSubcardHtml(model, modalities) {
             <div class="model-subcard-fields">
                 <div style="display:flex;align-items:center;gap:8px">
                     <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0;">模型ID</span>
-                    <input class="model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr} style="font-size:12px;flex:1;width:50%" />
+                    <input class="model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr} style="flex:1;width:50%" />
                     <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0;padding-left:20px;">名称</span>
-                    <input class="model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" style="font-size:12px;flex:1;width:50%" />
+                    <input class="model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" style="flex:1;width:50%" />
                 </div>
                 ${modelAbilitiesHtml(modalities)}
             </div>

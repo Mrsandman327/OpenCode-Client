@@ -432,8 +432,8 @@ export function showAddEntryModal(entryType) {
         <div class="modal">
             <h3>添加 ${modelTypeTitle(entryType).replace(/^[^\w\u4e00-\u9fa5]+\s*/, '')}</h3>
             <div class="modal-field"><label>Key（唯一标识）</label><input id="modalEntryKey" placeholder="如 my-agent" /></div>
-            <div class="modal-field"><label>模型</label><select id="modalEntryModel" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)">${store.availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
-            <div class="modal-field"><label>Variant</label><select id="modalEntryVariant" style="width:100%;padding:6px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)">${VARIANT_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('')}</select></div>
+            <div class="modal-field"><label>模型</label><select id="modalEntryModel" class="modal-select">${store.availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
+            <div class="modal-field"><label>Variant</label><select id="modalEntryVariant" class="modal-select">${VARIANT_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('')}</select></div>
             <div class="modal-field"><label>描述（作为注释）</label><input id="modalEntryComment" placeholder="简要描述用途" /></div>
             <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAdd">取消</button><button class="btn btn-primary" id="btnConfirmAdd">💾 添加</button></div>
         </div>`;
