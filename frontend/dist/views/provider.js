@@ -57,6 +57,18 @@ function modelAbilitiesHtml(modalities) {
     </div>`;
 }
 
+// 计算能力摘要：取输入/输出中非 text 的能力，去重，最多显示 2 个 + 超出计数
+function abilitiesSummary(modalities) {
+    const set = new Set([
+        ...(modalities?.input || []),
+        ...(modalities?.output || []),
+    ].filter(m => m && m !== 'text'));
+    const list = [...set];
+    if (!list.length) return '';
+    const shown = list.slice(0, 2).join('+');
+    return list.length > 2 ? `${shown}+${list.length - 2}` : shown;
+}
+
 // 渲染单个模型子卡片（三处复用）：
 // providerCardHtml 静态渲染、「手动添加」动态新增行、「获取模型列表」弹窗新增行，
 // 统一走此函数，保证结构与行为一致（能力区默认折叠，由 CSS 控制显隐）。
@@ -68,19 +80,22 @@ function modelAbilitiesHtml(modalities) {
 function modelSubcardHtml(model, modalities) {
     const m = model || {};
     const readonlyAttr = m.readonlyId ? 'readonly' : '';
+    const summary = abilitiesSummary(modalities);
     return `
         <div class="model-subcard">
             <div class="model-subcard-fields">
                 <div style="display:flex;align-items:center;gap:8px">
-                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0">模型ID</span>
+                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0;">模型ID</span>
                     <input class="model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr} style="font-size:12px;flex:1;width:50%" />
-                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0">名称</span>
+                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0;padding-left:20px;">名称</span>
                     <input class="model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" style="font-size:12px;flex:1;width:50%" />
                 </div>
                 ${modelAbilitiesHtml(modalities)}
             </div>
-            <button class="btn-toggle-abilities" type="button" aria-expanded="false" title="展开/收起模型能力设置">
-                <span class="btn-toggle-abilities-text">模态</span>
+            <button class="btn-toggle-abilities" type="button" aria-expanded="false" title="展开/收起模型模态设置">
+                <span class="btn-toggle-abilities-text">多模态</span>
+                ${summary ? `<span class="abilities-summary">${escapeHtml(summary)}</span>` : ''}
+                <span class="toggle-arrow">▾</span>
             </button>
             <button class="btn btn-del btn-del-model" title="删除">✕</button>
         </div>`;
@@ -120,8 +135,11 @@ export function emptyProvider() {
 
 export function renderProviders(providers) {
     const list = document.getElementById('providersList');
-    const html = providers.map(p => providerCardHtml(p)).join('');
-    list.innerHTML = html + `
+    const empty = (!providers || !providers.length)
+        ? '<div class="prov-empty">暂无供应商，点击下方「➕ 添加供应商」</div>'
+        : '';
+    const html = (providers || []).map(p => providerCardHtml(p)).join('');
+    list.innerHTML = empty + html + `
         <div class="provider-card provider-card-add" id="btnAddCard">
             <span>➕ 添加供应商</span>
         </div>`;
@@ -138,45 +156,50 @@ export function providerCardHtml(p) {
         ...PROVIDER_NPM_OPTIONS.map(item => `<option value="${escapeHtml(item.value)}" ${selectedNpmValue === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`),
         !matchedOption && npmValue ? `<option value="${PROVIDER_NPM_UNMATCHED}" selected>未匹配保留</option>` : ''
     ].join('');
+    const modelsHtml = (p.models || []).length
+        ? (p.models || []).map(m => modelSubcardHtml({ id: m.id, name: m.name || '' }, m.modalities)).join('')
+        : '<div class="prov-empty">暂无模型，点击「手动添加」或「 获取模型列表」</div>';
     return `
         <div class="provider-card" data-key="${escapeHtml(p.key)}">
             <div class="provider-card-header">
-                <div style="flex:1;display:flex;gap:8px;align-items:center">
-                    <span style="font-size:12px;">供应商标识&nbsp;&nbsp;</span><input class="prov-edit-key" value="${escapeHtml(p.key)}" placeholder="key (如 deepseek)" ${isNew?'':'readonly'} />
-                    <span style="font-size:12px;">供应商名称&nbsp;&nbsp;</span><input class="prov-edit-name" value="${escapeHtml(p.name||'')}" placeholder="名称"/>
+                <div class="provider-identity">
+                    <span class="prov-inline-label">供应商标识</span><input class="prov-edit-key" value="${escapeHtml(p.key)}" placeholder="key (如 deepseek)" ${isNew?'':'readonly'} />
+                    <span class="prov-inline-label">供应商名称</span><input class="prov-edit-name" value="${escapeHtml(p.name||'')}" placeholder="名称"/>
                 </div>
-                <div class="provider-card-actions" style="display:flex;gap:6px;align-items:center">
-                    <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;cursor:pointer">
-                        <input type="checkbox" class="prov-edit-enabled" ${p.enabled!==false?'checked':''} /> 启用
+                <div class="provider-card-actions">
+                    <label class="prov-toggle" title="启用该供应商">
+                        <input type="checkbox" class="prov-edit-enabled" ${p.enabled!==false?'checked':''} />
+                        <span class="prov-toggle-track"><span class="prov-toggle-thumb"></span></span>
+                        <span class="prov-toggle-label">启用</span>
                     </label>
-                    <button class="btn btn-sm btn-save-card" data-key="${escapeHtml(p.key)}">💾 保存</button>
+                    <button class="btn btn-sm btn-save-card" data-key="${escapeHtml(p.key)}">保存</button>
                     <button class="btn btn-del btn-del-card" data-key="${escapeHtml(p.key)}" title="删除">✕</button>
                 </div>
             </div>
             <div class="provider-card-body">
-                <div style="display:flex;gap:10px">
-                    <label style="flex:2">
-                        <span style="font-size:11px;font-weight:600;color:var(--text-muted)">请求地址 (baseURL)</span>
-                        <input class="prov-edit-url" value="${escapeHtml(p.baseURL||'')}" placeholder="https://api.xxx.com/v1" style="width:100%;margin-top:2px" />
+                <div class="provider-conn-row">
+                    <label class="provider-conn-col">
+                        <span class="prov-field-label">请求地址 (baseURL)</span>
+                        <input class="prov-edit-url" value="${escapeHtml(p.baseURL||'')}" placeholder="https://api.xxx.com/v1" />
                     </label>
-                    <label style="flex:2">
-                        <span style="font-size:10px;font-weight:600;color:var(--text-muted)">API Key</span>
-                        <div style="display:flex;gap:0;margin-top:2px">
-                            <input class="prov-edit-apikey" value="${escapeHtml(p.apiKey||'')}" type="password" placeholder="sk-..." style="width:100%;border-right:none;border-radius:4px 0 0 4px" />
+                    <label class="provider-conn-col">
+                        <span class="prov-field-label">API Key</span>
+                        <div class="prov-apikey-row">
+                            <input class="prov-edit-apikey" value="${escapeHtml(p.apiKey||'')}" type="password" placeholder="sk-..." />
                             <button class="btn-eye" type="button" title="切换明文">👁</button>
                         </div>
                     </label>
-                    <label style="flex:1">
-                        <span style="font-size:11px;font-weight:600;color:var(--text-muted)">接口格式</span>
-                        <select class="prov-edit-npm" data-raw-npm="${escapeHtml(p.npm || '')}" aria-label="interface format" style="width:100%;margin-top:2px">
+                    <label class="provider-conn-col">
+                        <span class="prov-field-label">接口格式</span>
+                        <select class="prov-edit-npm" data-raw-npm="${escapeHtml(p.npm || '')}" aria-label="interface format">
                             ${npmOptionsHtml}
                         </select>
                     </label>
                 </div>
                 <div class="provider-models">
-                    <div class="provider-models-title">📦 模型 <button class="btn btn-sm btn-add btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-sm btn-add btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">📡 获取模型列表</button></div>
+                    <div class="provider-models-title">模型 <button class="btn btn-sm btn-add btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-sm btn-add btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">📡 获取模型列表</button></div>
                     <div class="card-models-list" data-key="${escapeHtml(p.key)}">
-                        ${(p.models||[]).map(m => modelSubcardHtml({ id: m.id, name: m.name || '' }, m.modalities)).join('')}
+                        ${modelsHtml}
                     </div>
                 </div>
             </div>
@@ -205,6 +228,9 @@ export function bindProviderEvents(providers) {
         btn.addEventListener('click', () => {
             const key = btn.dataset.key;
             const list = document.querySelector(`.card-models-list[data-key="${CSS.escape(key)}"]`);
+            // 移除空态占位（若有）
+            const emptyEl = list.querySelector('.prov-empty');
+            if (emptyEl) emptyEl.remove();
             // 用共享的 modelSubcardHtml 生成子卡片（结构/折叠行为与静态渲染一致），
             // 默认勾选 text 输入/输出能力
             const temp = document.createElement('div');
@@ -409,6 +435,9 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
             if (!list) return;
 
             if (action === 'add') {
+                // 移除空态占位（若有）
+                var emptyEl = list.querySelector('.prov-empty');
+                if (emptyEl) emptyEl.remove();
                 // 与「手动添加」走同一套 modelSubcardHtml 结构（能力区默认折叠）；
                 // 弹窗拉取的模型 ID 固定 readonly，默认勾选 text 输入/输出能力
                 var temp = document.createElement('div');

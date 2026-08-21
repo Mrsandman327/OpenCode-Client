@@ -3847,18 +3847,23 @@ input::placeholder, textarea::placeholder {
     padding: 12px 24px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 20px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 .provider-card {
+    flex-shrink: 0;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     transition: box-shadow 0.15s ease;
 }
-/* .provider-card:hover {
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-} */
+.provider-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
 .provider-card-header {
     display: flex;
     align-items: center;
@@ -3886,6 +3891,133 @@ input::placeholder, textarea::placeholder {
     gap: 8px;
     flex-shrink: 0;
     align-items: center;
+}
+/* 供应商标识/名称：横向并排，输入框弹性占满 */
+.provider-identity {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.provider-identity .prov-inline-label {
+    flex-shrink: 0;
+}
+.provider-identity input {
+    flex: 1;
+    min-width: 0;
+}
+.prov-inline-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+/* 启用开关：iOS 风格 toggle */
+.prov-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 2px;
+    cursor: pointer;
+    user-select: none;
+}
+.prov-toggle input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    opacity: 0;
+    overflow: hidden;
+}
+.prov-toggle-track {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    background: var(--border);
+    border-radius: 9999px;
+    flex-shrink: 0;
+    transition: background-color 0.2s ease;
+}
+.prov-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    transition: transform 0.2s ease;
+}
+.prov-toggle input:checked + .prov-toggle-track {
+    background: var(--accent);
+}
+.prov-toggle input:checked + .prov-toggle-track .prov-toggle-thumb {
+    transform: translateX(14px);
+}
+.prov-toggle-label {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+/* 连接配置三栏 */
+.provider-conn-row {
+    display: flex;
+    gap: 10px;
+}
+.provider-conn-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.provider-conn-col:nth-child(1),
+.provider-conn-col:nth-child(2) {
+    flex: 2;
+}
+.provider-conn-col:nth-child(3) {
+    flex: 1;
+}
+.provider-conn-col input,
+.provider-conn-col select {
+    width: 100%;
+}
+.prov-field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+/* API Key 与明文切换按钮贴合 */
+.prov-apikey-row {
+    display: flex;
+    gap: 0;
+}
+.prov-apikey-row .prov-edit-apikey {
+    flex: 1;
+    border-right: none;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+/* 空状态占位 */
+.prov-empty {
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+}
+/* 折叠态能力摘要 */
+.abilities-summary {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-ghost);
+    border-radius: var(--radius-pill);
+    padding: 1px 8px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .provider-card-body {
     padding: 20px 24px;
@@ -3928,15 +4060,15 @@ input::placeholder, textarea::placeholder {
     align-items: center;
     gap: 10px;
     padding: 8px 14px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    border: none;
     border-radius: var(--radius-sm);
     margin-bottom: 4px;
     font-size: 13px;
-    transition: border-color 0.15s ease;
+    transition: background-color 0.15s ease;
 }
 .model-subcard:hover {
-    border-color: var(--border-light);
+    background: var(--bg-card-hover);
 }
 /* 能力/删除按钮固定在顶部，避免能力区展开撑高后按钮被 align-items:center 下沉 */
 .model-subcard .btn-toggle-abilities,
@@ -3983,9 +4115,9 @@ input::placeholder, textarea::placeholder {
 .mod-label {
     width: 30px;
     flex-shrink: 0;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: -0.2px;
     line-height: 1.43;
@@ -4000,15 +4132,15 @@ input::placeholder, textarea::placeholder {
 .mod-chip {
     display: inline-flex;
     align-items: center;
-    min-height: 30px;
-    padding: 5px 11px;
+    min-height: 22px;
+    padding: 2px 8px;
     border: 1px solid var(--border);
     border-radius: 9999px;
     background: var(--bg-card);
     color: var(--text-muted);
     cursor: pointer;
     font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 400;
     letter-spacing: -0.2px;
     line-height: 1.43;
@@ -4036,8 +4168,8 @@ input::placeholder, textarea::placeholder {
 }
 .mod-chip:has(.mod-input:checked),
 .mod-chip:has(.mod-output:checked) {
-    border: 2px solid var(--accent);
-    padding: 4px 10px;
+    border: 1px solid var(--accent);
+    padding: 2px 8px;
     color: var(--accent);
     background: var(--bg-secondary);
 }
@@ -4056,9 +4188,9 @@ input::placeholder, textarea::placeholder {
     gap: 4px;
     padding: 5px 12px;
     background: transparent;
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-pill);
-    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
     font-size: 13px;
     font-weight: 500;
     letter-spacing: -0.224px;
@@ -4072,6 +4204,14 @@ input::placeholder, textarea::placeholder {
 }
 .btn-toggle-abilities:active {
     transform: scale(0.95);
+}
+.btn-toggle-abilities .toggle-arrow {
+    font-size: 20px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+.btn-toggle-abilities[aria-expanded="true"] .toggle-arrow {
+    transform: rotate(180deg);
 }
 
 .btn-del {
@@ -4108,6 +4248,21 @@ input::placeholder, textarea::placeholder {
 .btn-add:active {
     transform: scale(0.97);
 }
+/* 供应商卡片内的「手动添加/获取模型列表」：弱化次级样式，小圆角 */
+.provider-card .btn-add-model-card,
+.provider-card .btn-fetch-models {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px 12px;
+}
+.provider-card .btn-add-model-card:hover,
+.provider-card .btn-fetch-models:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-light);
+}
 
 /* 供应商卡片内输入框统一样式 */
 .provider-card input {
@@ -4119,6 +4274,7 @@ input::placeholder, textarea::placeholder {
     outline: none;
     font-size: 13px;
     letter-spacing: -0.01em;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     transition: border-color 0.15s ease;
 }
 .provider-card input:focus {
