@@ -232,12 +232,9 @@ export function bindProviderEvents(providers) {
             const emptyEl = list.querySelector('.prov-empty');
             if (emptyEl) emptyEl.remove();
             // 用共享的 modelSubcardHtml 生成子卡片（结构/折叠行为与静态渲染一致），
-            // 默认勾选 text 输入/输出能力
+            // 默认不勾选任何能力（保存时全空则不写 modalities 字段）
             const temp = document.createElement('div');
-            temp.innerHTML = modelSubcardHtml(
-                { id: '', name: '' },
-                { input: ['text'], output: ['text'] }
-            ).trim();
+            temp.innerHTML = modelSubcardHtml({ id: '', name: '' }).trim();
             const row = temp.firstElementChild;
             row.querySelector('.btn-del-model').addEventListener('click', () => row.remove());
             list.appendChild(row);
@@ -343,7 +340,7 @@ export function saveProviderFromDom(key) {
         if (r.success) {
             showToast(`供应商 ${data.key} 已保存`, 'success');
             // 保存成功不重新加载列表，保持当前界面状态
-            btn.disabled = false; btn.textContent = '💾 保存';
+            btn.disabled = false; btn.textContent = '保存';
             if (key !== data.key) {
                 // 新增供应商：key 已变更，同步卡片及内部按钮的 data-key，并清除新增标记
                 card.dataset.key = data.key;
@@ -359,7 +356,7 @@ export function saveProviderFromDom(key) {
             }
         } else {
             showToast('保存失败: ' + r.error, 'error');
-            btn.disabled = false; btn.textContent = '💾 保存';
+            btn.disabled = false; btn.textContent = '保存';
         }
     });
 }
@@ -439,11 +436,10 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
                 var emptyEl = list.querySelector('.prov-empty');
                 if (emptyEl) emptyEl.remove();
                 // 与「手动添加」走同一套 modelSubcardHtml 结构（能力区默认折叠）；
-                // 弹窗拉取的模型 ID 固定 readonly，默认勾选 text 输入/输出能力
+                // 弹窗拉取的模型 ID 固定 readonly，默认不勾选任何能力（全空则不写 modalities）
                 var temp = document.createElement('div');
                 temp.innerHTML = modelSubcardHtml(
-                    { id: modelId, name: modelId, readonlyId: true },
-                    { input: ['text'], output: ['text'] }
+                    { id: modelId, name: modelId, readonlyId: true }
                 ).trim();
                 var row = temp.firstElementChild;
                 row.querySelector('.btn-del-model').addEventListener('click', function() { row.remove(); });

@@ -3915,6 +3915,7 @@ input::placeholder, textarea::placeholder {
 }
 /* 启用开关：iOS 风格 toggle */
 .prov-toggle {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -4130,6 +4131,7 @@ input::placeholder, textarea::placeholder {
 }
 /* 模型能力芯片：紧凑的 Apple configurator-option-chip 语法（pill + caption） */
 .mod-chip {
+    position: relative;
     display: inline-flex;
     align-items: center;
     min-height: 22px;
