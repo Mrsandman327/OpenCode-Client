@@ -15,8 +15,25 @@ var searchIndex = -1;
 let searchTemporaryExpansion = null;
 
 /**
+ * 判断当前是否处于可响应 Ctrl+F 的会话上下文：
+ * 会话视图（ocSearchBar 所在 view-panel）处于激活状态，且没有模态/覆盖层打开
+ * （如文件浏览器弹窗、子任务弹窗等），避免在其他界面按 Ctrl+F 误打开会话搜索栏。
+ */
+function isSessionSearchContext() {
+    var searchBar = document.getElementById('ocSearchBar');
+    if (!searchBar) return false;
+    var viewPanel = searchBar.closest('.view-panel');
+    if (viewPanel && !viewPanel.classList.contains('active')) return false;
+    var overlays = document.querySelectorAll('.modal-overlay');
+    for (var i = 0; i < overlays.length; i++) {
+        if (getComputedStyle(overlays[i]).display !== 'none') return false;
+    }
+    return true;
+}
+
+/**
  * 初始化搜索功能
- * - 绑定 Ctrl+F 打开搜索栏
+ * - 绑定 Ctrl+F 打开搜索栏（仅会话视图激活且无模态时响应）
  * - 绑定 Escape 关闭搜索
  * - 绑定输入框的输入事件（200ms 防抖执行搜索）
  * - 绑定关闭、上一条、下一条按钮
@@ -24,6 +41,8 @@ let searchTemporaryExpansion = null;
 export function initSearch() {
     document.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.key === 'f') {
+            // 非会话上下文（其他视图激活或模态打开）不响应，保持默认行为
+            if (!isSessionSearchContext()) return;
             e.preventDefault();
             var bar = document.getElementById('ocSearchBar');
             if (bar) {
