@@ -637,9 +637,14 @@ export async function renameSession(sid) {
     try {
         await api.OpenCodeCall('PATCH', '/session/' + encodeURIComponent(sid), { title: newTitle });
         showToast('已重命名', 'success');
+        // 同步更新当前会话标题
         if (sid === store.currentSessionId) {
             document.getElementById('ocChatTitle').textContent = newTitle;
         }
+        // 同步更新已打开 Tab 的标题（tab 标题取自 store.openTabs）
+        var tab = store.openTabs.find(function(t) { return t.sessionID === sid; });
+        if (tab) tab.title = newTitle;
+        renderTabsBar();
         await buildTree();
     } catch (e) {
         showToast('重命名失败: ' + (e.message || e), 'error');
