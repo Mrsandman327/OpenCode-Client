@@ -19,12 +19,24 @@ func (m *Manager) IsLinked(skillName string) bool {
 	return false
 }
 
+// ensureGlobalDir 确保全局技能目录存在，不存在时自动创建。
+func (m *Manager) ensureGlobalDir() error {
+	if err := os.MkdirAll(m.globalDir, 0755); err != nil {
+		return fmt.Errorf("创建全局技能目录失败: %w", err)
+	}
+	return nil
+}
+
 // ToggleSkill 切换技能链接状态。
 func (m *Manager) ToggleSkill(skillPath, skillName string, enable bool) (bool, error) {
 	topName, topSource := resolveTopLevelLink(skillPath, skillName)
 	linkPath := filepath.Join(m.globalDir, topName)
 
 	if enable {
+		// 确保全局技能目录存在，避免创建链接时因目录缺失而失败
+		if err := m.ensureGlobalDir(); err != nil {
+			return false, err
+		}
 		// 先移除旧链接，再创建新链接
 		if err := symlink.Remove(linkPath); err != nil {
 			return false, fmt.Errorf("移除旧链接失败: %w", err)
@@ -60,6 +72,11 @@ func resolveTopLevelLink(skillPath, skillName string) (topName, topSource string
 func (m *Manager) LinkSkill(skillPath, skillName string) error {
 	topName, topSource := resolveTopLevelLink(skillPath, skillName)
 	linkPath := filepath.Join(m.globalDir, topName)
+
+	// 确保全局技能目录存在，避免创建链接时因目录缺失而失败
+	if err := m.ensureGlobalDir(); err != nil {
+		return err
+	}
 
 	// 先移除旧链接
 	if err := symlink.Remove(linkPath); err != nil {
