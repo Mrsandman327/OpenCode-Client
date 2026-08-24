@@ -99,13 +99,31 @@ export async function loadAgentModelSelectors() {
 
 let currentSessionRefreshPending = false;
 
+let sessionTitleRetryCount = 0;
+let sessionTitleRetryTimer = null;
+const SESSION_TITLE_RETRY_MAX = 8;
+const SESSION_TITLE_RETRY_DELAY = 1500;
+
 /** 从 OpenCode API 获取当前会话的最新标题，更新标题栏、_sessionMap 和项目树节点 */
 export async function refreshSessionTitle() {
     if (!store.currentSessionId) return;
     try {
         const data = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(store.currentSessionId)}`);
         const title = data?.title || data?.Title;
-        if (!title) return;
+        if (!title) {
+            // 标题尚未生成（OpenCode 异步生成，晚于 idle 事件）：延迟重试，
+            // 避免 tab 页 / 项目树停留在占位名
+            if (sessionTitleRetryTimer) return; // 已有重试排队，避免重复
+            sessionTitleRetryCount++;
+            if (sessionTitleRetryCount <= SESSION_TITLE_RETRY_MAX) {
+                sessionTitleRetryTimer = setTimeout(function() {
+                    sessionTitleRetryTimer = null;
+                    if (store.currentSessionId) refreshSessionTitle();
+                }, SESSION_TITLE_RETRY_DELAY);
+            }
+            return;
+        }
+        sessionTitleRetryCount = 0;
         // 从 _sessionMap 读取旧标题（可能因时序问题尚未存在）
         const oldTitle = window._sessionMap?.[store.currentSessionId]?.title;
         if (oldTitle === title) return;
