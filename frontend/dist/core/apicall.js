@@ -312,6 +312,17 @@ const mockApi = (() => {
             return JSON.stringify(mockData, null, 2);
         },
         SaveScheme: async (name, content) => {},
+        SaveSchemeEntries: async (name, entries) => ({ success: true }),
+        ReadSchemeEntries: async (name) => [
+            { key: 'sisyphus', type: 'agents', model: 'deepseek/deepseek-v4-pro', variant: '', reasoning: 'max', comment: '' },
+            { key: 'oracle', type: 'agents', model: 'deepseek/deepseek-v4-flash', variant: '', reasoning: 'high', comment: '' },
+            { key: 'quick', type: 'categories', model: 'deepseek/deepseek-v4-flash', variant: '', reasoning: 'low', comment: '' },
+        ],
+        ParseConfigContent: async (content) => [
+            { key: 'sisyphus', type: 'agents', model: 'deepseek/deepseek-v4-pro', variant: '', reasoning: 'max', comment: '' },
+            { key: 'oracle', type: 'agents', model: 'deepseek/deepseek-v4-flash', variant: '', reasoning: 'high', comment: '' },
+        ],
+        ExportConfigEntries: async (dir, filename, entries) => dir + '\\' + filename,
         OpenSchemeDir: async () => { showToast('模拟打开方案目录', 'info'); },
         // ========== 技能源目录管理 mock ==========
         AddSkillSourceDir: async (dir) => ({ success: true }),

@@ -209,8 +209,12 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.DeleteProvider(key), nil
-	case "GetFullConfig":
-		return a.GetFullConfig(), nil
+	case "ParseConfigContent":
+		var content string
+		if err := decodeArgs(args, &content); err != nil {
+			return nil, err
+		}
+		return a.ParseConfigContent(content)
 	case "GetConfigPath":
 		return a.GetConfigPath(), nil
 	case "GetAgentDescriptions":
@@ -231,24 +235,19 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		return a.GetSchemeDir(), nil
 	case "ListSchemes":
 		return a.ListSchemes(), nil
-	case "ReadScheme":
+	case "SaveSchemeEntries":
+		var name string
+		var entries []model.ModelEntry
+		if err := decodeArgs(args, &name, &entries); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"success": a.SaveSchemeEntries(name, entries) == nil}, nil
+	case "ReadSchemeEntries":
 		var name string
 		if err := decodeArgs(args, &name); err != nil {
 			return nil, err
 		}
-		return a.ReadScheme(name)
-	case "SaveScheme":
-		var name, content string
-		if err := decodeArgs(args, &name, &content); err != nil {
-			return nil, err
-		}
-		return map[string]bool{"success": a.SaveScheme(name, content) == nil}, nil
-	case "SaveFullConfig":
-		var jsonStr string
-		if err := decodeArgs(args, &jsonStr); err != nil {
-			return nil, err
-		}
-		return a.SaveFullConfig(jsonStr), nil
+		return a.ReadSchemeEntries(name)
 	case "Refresh":
 		return map[string]bool{"success": a.Refresh() == nil}, nil
 	case "AddSkillSourceDir":
@@ -300,12 +299,13 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		return map[string]bool{"success": a.OpenDir(path) == nil}, nil
 	case "OpenSchemeDir":
 		return map[string]bool{"success": a.OpenSchemeDir() == nil}, nil
-	case "ExportConfig":
-		var dir, filename, content string
-		if err := decodeArgs(args, &dir, &filename, &content); err != nil {
+	case "ExportConfigEntries":
+		var dir, filename string
+		var entries []model.ModelEntry
+		if err := decodeArgs(args, &dir, &filename, &entries); err != nil {
 			return nil, err
 		}
-		return a.ExportConfig(dir, filename, content)
+		return a.ExportConfigEntries(dir, filename, entries)
 	case "SaveSkillScheme":
 		var name string
 		if err := decodeArgs(args, &name); err != nil {
@@ -365,24 +365,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.UpdateModels(entries), nil
-	case "AddModelEntry":
-		var key, modelName, entryType string
-		if err := decodeArgs(args, &key, &modelName, &entryType); err != nil {
-			return nil, err
-		}
-		return a.AddModelEntry(key, modelName, entryType), nil
-	case "DeleteModelEntry":
-		var key, entryType string
-		if err := decodeArgs(args, &key, &entryType); err != nil {
-			return nil, err
-		}
-		return a.DeleteModelEntry(key, entryType), nil
-	case "DeleteScheme":
-		var name string
-		if err := decodeArgs(args, &name); err != nil {
-			return nil, err
-		}
-		return a.DeleteScheme(name), nil
 	case "GetProjectConfigSummary":
 		var rootDir string
 		if err := decodeArgs(args, &rootDir); err != nil {

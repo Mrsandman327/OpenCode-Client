@@ -61,19 +61,44 @@ func ValidateJSONC(data []byte) error {
 	return nil
 }
 
-// StripComments 移除 JSONC 中的单行注释（// ...），正确处理引号内的 //。
+// StripComments 移除 JSONC 中的单行注释（// ...），正确处理引号内的 // 与转义。
+// 逐字符扫描：字符串字面量（含转义）内的 // 保留，其余视为注释。
 func StripComments(text string) string {
-	lines := strings.Split(text, "\n")
-	result := make([]string, 0, len(lines))
-	for _, line := range lines {
-		idx := strings.Index(line, "//")
-		if idx >= 0 {
-			before := line[:idx]
-			if strings.Count(before, "\"")%2 == 0 {
-				line = before
+	var sb strings.Builder
+	inString := false
+	escaped := false
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		if inString {
+			sb.WriteByte(c)
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				inString = false
 			}
+			continue
 		}
-		result = append(result, line)
+		switch c {
+		case '"':
+			inString = true
+			sb.WriteByte(c)
+		case '/':
+			if i+1 < len(text) && text[i+1] == '/' {
+				// 跳过注释直到行尾
+				for i < len(text) && text[i] != '\n' {
+					i++
+				}
+				if i < len(text) {
+					sb.WriteByte('\n')
+				}
+			} else {
+				sb.WriteByte(c)
+			}
+		default:
+			sb.WriteByte(c)
+		}
 	}
-	return strings.Join(result, "\n")
+	return sb.String()
 }

@@ -3,8 +3,6 @@
 import {model} from '../models';
 import {json} from '../models';
 
-export function AddModelEntry(arg1:string,arg2:string,arg3:string):Promise<model.SaveResult>;
-
 export function AddModelType(arg1:string):Promise<model.SaveResult>;
 
 export function AddSkillSourceDir(arg1:string):Promise<model.SaveResult>;
@@ -23,21 +21,17 @@ export function CreateProjectEntry(arg1:string,arg2:string,arg3:string):Promise<
 
 export function DeleteBrowserEntry(arg1:string,arg2:string):Promise<model.SaveResult>;
 
-export function DeleteModelEntry(arg1:string,arg2:string):Promise<model.SaveResult>;
-
 export function DeleteModelType(arg1:string):Promise<model.SaveResult>;
 
 export function DeleteProjectEntry(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DeleteProvider(arg1:string):Promise<model.SaveResult>;
 
-export function DeleteScheme(arg1:string):Promise<void>;
-
 export function DeleteSkillScheme(arg1:string):Promise<model.SaveResult>;
 
 export function DiscardFile(arg1:string,arg2:string):Promise<model.GitActionResult>;
 
-export function ExportConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
+export function ExportConfigEntries(arg1:string,arg2:string,arg3:Array<model.ModelEntry>):Promise<string>;
 
 export function GetAgentDescriptions():Promise<Record<string, string>>;
 
@@ -50,8 +44,6 @@ export function GetConfigPath():Promise<string>;
 export function GetDirEnabledSkills(arg1:string):Promise<Array<string>>;
 
 export function GetFrontendWebStatus(arg1:string,arg2:number):Promise<model.WebResult>;
-
-export function GetFullConfig():Promise<string>;
 
 export function GetGitHistory(arg1:string,arg2:number,arg3:number):Promise<model.GitHistoryResult>;
 
@@ -121,13 +113,15 @@ export function OpenDirectoryDialog():Promise<string>;
 
 export function OpenSchemeDir():Promise<void>;
 
+export function ParseConfigContent(arg1:string):Promise<Array<model.ModelEntry>>;
+
 export function ReadBrowserFile(arg1:string,arg2:string):Promise<model.FileBrowserReadResult>;
 
 export function ReadBrowserRawBase64(arg1:string,arg2:string):Promise<model.FileBrowserRawResult>;
 
 export function ReadProjectConfigFile(arg1:string,arg2:string,arg3:string):Promise<model.ProjectConfigFileResult>;
 
-export function ReadScheme(arg1:string):Promise<string>;
+export function ReadSchemeEntries(arg1:string):Promise<Array<model.ModelEntry>>;
 
 export function Refresh():Promise<void>;
 
@@ -137,13 +131,11 @@ export function RemoveSkillSourceDir(arg1:string):Promise<model.SaveResult>;
 
 export function SaveBrowserFile(arg1:string,arg2:string,arg3:string):Promise<model.SaveResult>;
 
-export function SaveFullConfig(arg1:string):Promise<model.SaveResult>;
-
 export function SaveProjectConfigFile(arg1:string,arg2:string,arg3:string,arg4:string):Promise<model.ProjectConfigFileResult>;
 
 export function SaveProvider(arg1:model.ProviderSave):Promise<model.SaveResult>;
 
-export function SaveScheme(arg1:string,arg2:string):Promise<void>;
+export function SaveSchemeEntries(arg1:string,arg2:Array<model.ModelEntry>):Promise<void>;
 
 export function SaveSkillScheme(arg1:string):Promise<model.SaveResult>;
 

@@ -68,18 +68,22 @@ type DirectoryEntry struct {
 type OpenAgentConfig map[string]map[string]ModelConfig
 
 // ModelConfig 单个 agent/category 的模型配置。
+// OMO 格式（omo.jsonc）使用 reasoning 字段；Variant 仅为兼容读取旧配置保留，
+// 写入时一律落盘 reasoning。
 type ModelConfig struct {
-	Model   string `json:"model"`
-	Variant string `json:"variant"`
+	Model     string `json:"model"`
+	Variant   string `json:"variant,omitempty"`
+	Reasoning string `json:"reasoning,omitempty"`
 }
 
 // ModelEntry 前端展示用的模型条目。
 type ModelEntry struct {
-	Key     string `json:"key"`
-	Type    string `json:"type"`
-	Model   string `json:"model"`
-	Variant string `json:"variant"`
-	Comment string `json:"comment"`
+	Key       string `json:"key"`
+	Type      string `json:"type"`
+	Model     string `json:"model"`
+	Variant   string `json:"variant"`
+	Reasoning string `json:"reasoning"`
+	Comment   string `json:"comment"`
 }
 
 // ========== 供应商配置相关 ==========

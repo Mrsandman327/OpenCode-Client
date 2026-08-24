@@ -18,27 +18,41 @@ var configWriteMu sync.Mutex
 
 // ========== 配置路径 & 加载 ==========
 
-// resolvePath 优先返回 .jsonc 路径，若不存在则回退到 .json。
-func resolvePath(jsoncPath string) string {
-	if _, err := os.Stat(jsoncPath); err == nil {
-		return jsoncPath
-	}
-	jsonPath := strings.TrimSuffix(jsoncPath, ".jsonc") + ".json"
-	if _, err := os.Stat(jsonPath); err == nil {
-		return jsonPath
-	}
-	return jsoncPath
-}
+// configPathOverride 仅供测试注入配置文件路径；生产环境保持 nil。
+var configPathOverride string
 
-// ConfigPath 返回 oh-my-openagent.jsonc 的完整路径。
+// ConfigPath 返回 OMO 配置文件的完整路径。
+// 新位置优先：~/.omo/omo.jsonc（兼容同名 .json）；
+// 回退兼容旧位置：$XDG_CONFIG_HOME/opencode/oh-my-openagent.jsonc 或
+// ~/.config/opencode/oh-my-openagent.jsonc，便于已有配置平滑迁移。
 func ConfigPath() string {
-	dir := os.Getenv("XDG_CONFIG_HOME")
-	if dir != "" {
-		return resolvePath(filepath.Join(dir, "opencode", "oh-my-openagent.jsonc"))
+	if configPathOverride != "" {
+		return configPathOverride
 	}
-
 	home, _ := os.UserHomeDir()
-	return resolvePath(filepath.Join(home, ".config", "opencode", "oh-my-openagent.jsonc"))
+
+	candidates := []string{
+		filepath.Join(home, ".omo", "omo.jsonc"),
+		filepath.Join(home, ".omo", "omo.json"),
+	}
+	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
+		candidates = append(candidates,
+			filepath.Join(dir, "opencode", "oh-my-openagent.jsonc"),
+			filepath.Join(dir, "opencode", "oh-my-openagent.json"),
+		)
+	}
+	candidates = append(candidates,
+		filepath.Join(home, ".config", "opencode", "oh-my-openagent.jsonc"),
+		filepath.Join(home, ".config", "opencode", "oh-my-openagent.json"),
+	)
+
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	// 默认新位置（保存时自动创建）
+	return filepath.Join(home, ".omo", "omo.jsonc")
 }
 
 // LoadConfig 读取并解析 JSONC 配置，同时返回原始文本用于后续写回。
@@ -68,6 +82,31 @@ func parseModelConfigSections(cleaned string) (model.OpenAgentConfig, error) {
 		return nil, err
 	}
 
+	// 新格式（~/.omo/omo.jsonc）：模型映射位于 "[opencode]" 命名空间下；
+	// 旧格式（oh-my-openagent.jsonc）：agents/categories 位于顶层。
+	// 优先解析 "[opencode]"（新格式），失败或为空则回退顶层（旧格式）。
+	if ns, ok := raw["[opencode]"]; ok {
+		cfg, err := parseModelSectionsFrom(ns)
+		if err == nil && len(cfg) > 0 {
+			return cfg, nil
+		}
+	}
+	return parseModelSectionsFromMap(raw)
+}
+
+// parseModelSectionsFrom 从指定的 JSON 对象（如 "[opencode]" 命名空间）解析模型映射 section。
+func parseModelSectionsFrom(ns json.RawMessage) (model.OpenAgentConfig, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(ns, &raw); err != nil {
+		return nil, err
+	}
+	return parseModelSectionsFromMap(raw)
+}
+
+// parseModelSectionsFromMap 遍历对象的所有键，收集"子项均为模型条目"的分组
+// （agents / categories / 其他自定义分组）。$schema、_migrations 等非对象或
+// 非模型分组会自动跳过。
+func parseModelSectionsFromMap(raw map[string]json.RawMessage) (model.OpenAgentConfig, error) {
 	config := make(model.OpenAgentConfig)
 	for section, sectionData := range raw {
 		var rawEntries map[string]json.RawMessage
@@ -89,6 +128,10 @@ func parseModelConfigSections(cleaned string) (model.OpenAgentConfig, error) {
 				isModelSection = false
 				break
 			}
+			// 兼容旧配置：文件里是 variant 字段时映射到 reasoning（variant 已废弃）
+			if entry.Reasoning == "" && entry.Variant != "" {
+				entry.Reasoning = entry.Variant
+			}
 			entries[key] = entry
 		}
 		if isModelSection {
@@ -109,29 +152,9 @@ func isEmptyModelSectionName(section string) bool {
 	return len(section) > 3 && strings.HasSuffix(section, "s")
 }
 
-// GetFullConfig 返回完整 JSONC 字符串（前端解析后只显示 agents/categories）
-func GetFullConfig() string {
-	path := ConfigPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "{}"
-	}
-	return string(data)
-}
-
-// SaveFullConfig 将前端修改后的完整 JSON 字符串直接写入文件
-func SaveFullConfig(jsonStr string) model.SaveResult {
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-
-	path := ConfigPath()
-	if err := fileutil.AtomicWrite(path, []byte(jsonStr), 0644); err != nil {
-		return model.SaveResult{Success: false, Error: err.Error()}
-	}
-	return model.SaveResult{Success: true}
-}
-
-// SaveConfig 保存模型配置，只替换已存在条目的 model 值，避免重建整段配置导致注释或未知字段丢失。
+// SaveConfig 保存模型配置，只替换已存在条目的 model/variant/reasoning 值，
+// 避免重建整段配置导致注释或未知字段丢失。agents/categories 位于
+// "[opencode]" 命名空间内时自动在该容器内定位。
 func SaveConfig(entries []model.ModelEntry) error {
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
@@ -145,7 +168,7 @@ func SaveConfig(entries []model.ModelEntry) error {
 
 	lines := strings.Split(string(data), "\n")
 	modelRe := regexp.MustCompile(`("model"\s*:\s*)"[^"]*"`)
-	variantRe := regexp.MustCompile(`("variant"\s*:\s*)"[^"]*"`)
+	reasoningRe := regexp.MustCompile(`("reasoning"\s*:\s*)"[^"]*"`)
 	cfg, err := parseModelConfigSections(fileutil.StripComments(string(data)))
 	if err != nil {
 		return fmt.Errorf("解析配置失败: %w", err)
@@ -197,30 +220,8 @@ func SaveConfig(entries []model.ModelEntry) error {
 			}
 
 			if updated {
-				variantVal := entry.Variant
-				if variantVal == "" {
-					variantVal = "none"
-				}
-				foundVariant := false
-				for k := modelLineIndex + 1; k < len(lines) && k < modelLineIndex+8; k++ {
-					if strings.Contains(lines[k], "}") {
-						break
-					}
-					if strings.Contains(lines[k], `"variant"`) {
-						lines[k] = replaceModelValue(lines[k], variantRe, variantVal)
-						foundVariant = true
-						break
-					}
-				}
-				if !foundVariant {
-					indent := leadingWhitespace(lines[modelLineIndex])
-					variantLine := fmt.Sprintf(`%s"variant": %q`, indent, variantVal)
-					updatedLines := make([]string, 0, len(lines)+1)
-					updatedLines = append(updatedLines, lines[:modelLineIndex+1]...)
-					updatedLines = append(updatedLines, variantLine)
-					updatedLines = append(updatedLines, lines[modelLineIndex+1:]...)
-					lines = updatedLines
-				}
+				// reasoning 写入（OMO 官方字段，variant 已废弃）：已有字段就地替换，否则在 model 行后补写
+				lines = writeFieldValue(lines, i, modelLineIndex, "reasoning", entry.Reasoning, reasoningRe)
 			}
 			break
 		}
@@ -236,6 +237,83 @@ func SaveConfig(entries []model.ModelEntry) error {
 	}
 
 	return fileutil.AtomicWrite(path, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+// writeFieldValue 在模型条目块内写入/替换单字段值，返回更新后的行列表。
+// blockStart 为条目键所在行；modelLineIndex 为 model 字段行（可能等于 blockStart）。
+// 已有字段就地替换；不存在则插入到 model 行之后（保持键序稳定）。
+func writeFieldValue(lines []string, blockStart, modelLineIndex int, key, value string, re *regexp.Regexp) []string {
+	if value == "" {
+		// 值为空视为删除该字段：行内已有则移除，行内没有则不动
+		return removeFieldLine(lines, blockStart, key)
+	}
+	// 已有字段：就地替换
+	for k := modelLineIndex; k < len(lines) && k < modelLineIndex+8; k++ {
+		if strings.Contains(lines[k], "}") {
+			break
+		}
+		if re.MatchString(lines[k]) {
+			lines[k] = replaceModelValue(lines[k], re, value)
+			return lines
+		}
+	}
+	// 未找到：在 model 行之后插入
+	return insertFieldLine(lines, modelLineIndex, key, value)
+}
+
+// insertFieldLine 在 model 行后插入新字段行（如 variant / reasoning），返回新行列表。
+// 逗号规则：若插入位置后还有非空字段行（不是 }），新行带尾逗号；否则不带。
+// 前一行若需要分隔（无逗号且非 {）自动补逗号。
+func insertFieldLine(lines []string, afterLine int, key, value string) []string {
+	indent := leadingWhitespace(lines[afterLine])
+	if indent == "" {
+		indent = "  "
+	}
+	// 判断插入后是否还有后续字段（下一非空行不是闭合括号）
+	hasNext := false
+	for k := afterLine + 1; k < len(lines); k++ {
+		trimmed := strings.TrimSpace(lines[k])
+		if trimmed == "" {
+			continue
+		}
+		if trimmed != "}" && trimmed != "}," {
+			hasNext = true
+		}
+		break
+	}
+	// 前一行补逗号（model 行通常无尾逗号）
+	if prev := lines[afterLine]; strings.TrimSpace(prev) != "" &&
+		!strings.HasSuffix(strings.TrimSpace(prev), ",") &&
+		!strings.HasSuffix(strings.TrimSpace(prev), "{") {
+		lines[afterLine] = prev + ","
+	}
+	fieldLine := fmt.Sprintf(`%s"%s": %q`, indent, key, value)
+	if hasNext {
+		fieldLine += ","
+	}
+	updated := make([]string, 0, len(lines)+1)
+	updated = append(updated, lines[:afterLine+1]...)
+	updated = append(updated, fieldLine)
+	updated = append(updated, lines[afterLine+1:]...)
+	return updated
+}
+
+// removeFieldLine 移除条目块内的指定字段行（key: "..."），返回新行列表。
+func removeFieldLine(lines []string, blockStart int, key string) []string {
+	re := regexp.MustCompile(fmt.Sprintf(`^(\s*)"%s"\s*:`, regexp.QuoteMeta(key)))
+	for k := blockStart + 1; k < len(lines) && k < blockStart+8; k++ {
+		trimmed := strings.TrimSpace(lines[k])
+		if trimmed == "}" || trimmed == "}," {
+			break
+		}
+		if re.MatchString(lines[k]) {
+			updated := make([]string, 0, len(lines)-1)
+			updated = append(updated, lines[:k]...)
+			updated = append(updated, lines[k+1:]...)
+			return updated
+		}
+	}
+	return lines
 }
 
 func normalizeModelEntries(entries []model.ModelEntry) []model.ModelEntry {
@@ -291,11 +369,14 @@ func replaceModelValue(line string, modelRe *regexp.Regexp, model string) string
 	return line[:match[3]] + fmt.Sprintf("%q", model) + line[match[1]:]
 }
 
+// insertModelEntry 在配置容器（[opencode] 或根对象）内的目标 section 中插入条目。
 func insertModelEntry(lines []string, entry model.ModelEntry) ([]string, error) {
 	entry.Type = normalizeModelEntryType(entry.Type)
 
-	for i, line := range lines {
-		if !isObjectKeyLine(strings.TrimSpace(line), entry.Type) {
+	containerStart, containerEnd, _ := findModelContainer(lines)
+
+	for i := containerStart; i <= containerEnd; i++ {
+		if !isObjectKeyLine(strings.TrimSpace(lines[i]), entry.Type) {
 			continue
 		}
 
@@ -319,6 +400,7 @@ func insertModelEntry(lines []string, entry model.ModelEntry) ([]string, error) 
 	return nil, fmt.Errorf("未找到 %s section", entry.Type)
 }
 
+// insertBeforeSectionClose 在 section 闭合括号前插入新条目，自动处理尾逗号。
 func insertBeforeSectionClose(lines []string, closeIndex int, entry model.ModelEntry) []string {
 	prevIndex := previousContentLine(lines, closeIndex)
 	if prevIndex >= 0 {
@@ -329,30 +411,28 @@ func insertBeforeSectionClose(lines []string, closeIndex int, entry model.ModelE
 	}
 
 	indent := leadingWhitespace(lines[closeIndex]) + "  "
-	variantVal := entry.Variant
-	if variantVal == "" {
-		variantVal = "none"
+	// 只写入 reasoning（OMO 官方字段，variant 已废弃）
+	var fields []string
+	fields = append(fields, fmt.Sprintf(`%s  "model": %q`, indent, entry.Model))
+	if entry.Reasoning != "" {
+		fields = append(fields, fmt.Sprintf(`%s  "reasoning": %q`, indent, entry.Reasoning))
+	} else {
+		fields = append(fields, fmt.Sprintf(`%s  "reasoning": "none"`, indent))
 	}
-	newEntry := []string{
-		fmt.Sprintf(`%s%q: {`, indent, entry.Key),
-		fmt.Sprintf(`%s  "model": %q`, indent, entry.Model),
-		fmt.Sprintf(`%s  "variant": %q`, indent, variantVal),
-		fmt.Sprintf(`%s}`, indent),
+	// 除最后一个字段外都带尾逗号
+	for i := 0; i < len(fields); i++ {
+		if i < len(fields)-1 {
+			fields[i] += ","
+		}
 	}
+	newEntry := append([]string{fmt.Sprintf(`%s%q: {`, indent, entry.Key)}, fields...)
+	newEntry = append(newEntry, fmt.Sprintf(`%s}`, indent))
 
 	updated := make([]string, 0, len(lines)+len(newEntry))
 	updated = append(updated, lines[:closeIndex]...)
 	updated = append(updated, newEntry...)
 	updated = append(updated, lines[closeIndex:]...)
 	return updated
-}
-
-func formatInlineComment(comment string) string {
-	comment = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(comment, "\r", " "), "\n", " "))
-	if comment == "" {
-		return ""
-	}
-	return " // " + comment
 }
 
 func removeModelEntry(lines []string, key, entryType string) ([]string, bool, error) {
@@ -393,17 +473,21 @@ func removeModelType(lines []string, entryType string) ([]string, bool, error) {
 
 	updated := append([]string{}, lines[:sectionStart]...)
 	updated = append(updated, lines[sectionEnd+1:]...)
-	rootEnd, err := findObjectBlockEnd(updated, 0)
-	if err != nil {
-		return nil, false, err
+
+	// 确定移除后所在的容器（[opencode] 或根对象）闭合行，清理尾逗号
+	_, containerEnd, inOpenCodeNS := findModelContainer(updated)
+	_ = inOpenCodeNS
+	if containerEnd >= 0 && containerEnd < len(updated) {
+		trimTrailingCommaBeforeSectionClose(updated, containerEnd)
 	}
-	trimTrailingCommaBeforeSectionClose(updated, rootEnd)
 	return updated, true, nil
 }
 
+// findSectionRange 在配置容器（[opencode] 或根对象）内查找指定 section 的行范围。
 func findSectionRange(lines []string, entryType string) (int, int) {
-	for i, line := range lines {
-		if !isObjectKeyLine(strings.TrimSpace(line), entryType) {
+	containerStart, containerEnd, _ := findModelContainer(lines)
+	for i := containerStart; i <= containerEnd; i++ {
+		if !isObjectKeyLine(strings.TrimSpace(lines[i]), entryType) {
 			continue
 		}
 		depth := 0
@@ -480,10 +564,14 @@ func insertModelType(lines []string, entryType string) ([]string, error) {
 		return nil, fmt.Errorf("类型 %q 已存在", entryType)
 	}
 
-	rootEnd, err := findObjectBlockEnd(lines, 0)
-	if err != nil {
-		return nil, err
+	// 定位容器：优先 [opencode] 块，否则根对象
+	containerStart, containerEnd, _ := findModelContainer(lines)
+	_ = containerStart
+	rootEnd := containerEnd
+	if rootEnd < 0 || rootEnd >= len(lines) {
+		return nil, fmt.Errorf("未找到配置容器闭合括号")
 	}
+
 	prevIndex := previousContentLine(lines, rootEnd)
 	if prevIndex >= 0 {
 		trimmed := strings.TrimSpace(lines[prevIndex])
@@ -503,6 +591,41 @@ func insertModelType(lines []string, entryType string) ([]string, error) {
 	updated = append(updated, newSection...)
 	updated = append(updated, lines[rootEnd:]...)
 	return updated, nil
+}
+
+// ========== 容器定位（[opencode] 命名空间支持） ==========
+
+// findModelContainer 定位模型配置的容器块。
+// 新格式（~/.omo/omo.jsonc）：agents/categories 位于 "[opencode]" 块内，
+// 返回该块的行范围 [start, end]（end 为闭合 '}' 所在行）。
+// 旧格式（oh-my-openagent.jsonc）：返回根对象范围 [0, rootEnd]。
+// 返回的 bool 表示是否命中 "[opencode]" 命名空间。
+func findModelContainer(lines []string) (start, end int, inOpenCodeNS bool) {
+	for i, line := range lines {
+		if !isObjectKeyLine(strings.TrimSpace(line), "[opencode]") {
+			continue
+		}
+		depth := 0
+		for j := i; j < len(lines); j++ {
+			for _, ch := range lines[j] {
+				switch ch {
+				case '{':
+					depth++
+				case '}':
+					depth--
+				}
+			}
+			if depth == 0 && j > i {
+				return i, j, true
+			}
+		}
+		break
+	}
+	rootEnd, err := findObjectBlockEnd(lines, 0)
+	if err != nil {
+		return 0, len(lines) - 1, false
+	}
+	return 0, rootEnd, false
 }
 
 // ========== 增删模型类型与条目 ==========
@@ -550,82 +673,20 @@ func DeleteModelType(entryType string) error {
 	return fileutil.AtomicWrite(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
-// AddConfigEntry 添加 agent 或 category 条目。
-func AddConfigEntry(key, m, entryType string) error {
-	entryType = normalizeModelEntryType(entryType)
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-
-	path := ConfigPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	lines := strings.Split(string(data), "\n")
-	lines, err = insertModelEntry(lines, model.ModelEntry{Key: key, Model: m, Type: entryType})
-	if err != nil {
-		return err
-	}
-
-	return fileutil.AtomicWrite(path, []byte(strings.Join(lines, "\n")), 0644)
-}
-
-// DeleteConfigEntry 删除 agent 或 category 条目。
-func DeleteConfigEntry(key, entryType string) error {
-	entryType = normalizeModelEntryType(entryType)
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-
-	path := ConfigPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	lines := strings.Split(string(data), "\n")
-
-	lines, removed, err := removeModelEntry(lines, key, entryType)
-	if err != nil {
-		return err
-	}
-	if !removed {
-		return fmt.Errorf("未找到 %s 配置项 %q", entryType, key)
-	}
-
-	return fileutil.AtomicWrite(path, []byte(strings.Join(lines, "\n")), 0644)
-}
-
-// loadConfigRaw 读取配置（不解析注释）
-func loadConfigRaw() (*model.OpenAgentConfig, error) {
-	path := ConfigPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	cleaned := fileutil.StripComments(string(data))
-	cfg, err := parseModelConfigSections(cleaned)
-	if err != nil {
-		return nil, err
-	}
-	return &cfg, nil
-}
-
-// saveConfigRaw 写回配置
-func saveConfigRaw(cfg *model.OpenAgentConfig) error {
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-
-	path := ConfigPath()
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-	return fileutil.AtomicWrite(path, data, 0644)
-}
-
 // ========== 配置转前端结构 ==========
 
+// ParseConfigContent 解析任意 JSONC 文本（如导入的外部方案文件），返回结构化条目。
+// 兼容新格式（[opencode] 命名空间）与旧格式（顶层 agents/categories）。
+func ParseConfigContent(content string) ([]model.ModelEntry, error) {
+	cleaned := fileutil.StripComments(content)
+	cfg, err := parseModelConfigSections(cleaned)
+	if err != nil {
+		return nil, fmt.Errorf("解析配置失败: %w", err)
+	}
+	return ConfigToEntries(&cfg, nil), nil
+}
+
 // ConfigToEntries 将 OpenAgentConfig 转为前端展示用的 ModelEntry 列表。
-// descriptions: key -> 描述文本（从 agents-comments.json 加载）。
 func ConfigToEntries(config *model.OpenAgentConfig, descriptions map[string]string) []model.ModelEntry {
 	entries := make([]model.ModelEntry, 0)
 	sectionNames := make([]string, 0, len(*config))
@@ -647,11 +708,12 @@ func ConfigToEntries(config *model.OpenAgentConfig, descriptions map[string]stri
 				desc = descriptions[key]
 			}
 			entries = append(entries, model.ModelEntry{
-				Key:     key,
-				Type:    section,
-				Model:   mc.Model,
-				Variant: mc.Variant,
-				Comment: desc,
+				Key:       key,
+				Type:      section,
+				Model:     mc.Model,
+				Variant:   mc.Variant,
+				Reasoning: mc.Reasoning,
+				Comment:   desc,
 			})
 		}
 	}

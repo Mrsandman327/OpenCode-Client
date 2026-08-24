@@ -395,14 +395,6 @@ func (a *App) UpdateModels(entries []model.ModelEntry) model.SaveResult {
 	return model.SaveResult{Success: true}
 }
 
-// AddModelEntry 添加 agent 或 category 条目。
-func (a *App) AddModelEntry(key, modelName, entryType string) model.SaveResult {
-	if err := omo.AddConfigEntry(key, modelName, entryType); err != nil {
-		return model.SaveResult{Success: false, Error: err.Error()}
-	}
-	return model.SaveResult{Success: true}
-}
-
 // AddModelType 添加模型配置类型分组。
 func (a *App) AddModelType(entryType string) model.SaveResult {
 	if err := omo.AddModelType(entryType); err != nil {
@@ -419,32 +411,19 @@ func (a *App) DeleteModelType(entryType string) model.SaveResult {
 	return model.SaveResult{Success: true}
 }
 
-// DeleteModelEntry 删除 agent 或 category 条目。
-func (a *App) DeleteModelEntry(key, entryType string) model.SaveResult {
-	if err := omo.DeleteConfigEntry(key, entryType); err != nil {
-		return model.SaveResult{Success: false, Error: err.Error()}
-	}
-	return model.SaveResult{Success: true}
-}
-
 // GetConfigPath 返回模型配置文件路径。
 func (a *App) GetConfigPath() string {
 	return omo.ConfigPath()
 }
 
+// ParseConfigContent 解析任意 JSONC 文本（导入场景），返回结构化模型条目。
+func (a *App) ParseConfigContent(content string) ([]model.ModelEntry, error) {
+	return omo.ParseConfigContent(content)
+}
+
 // GetProviderConfigPath 返回供应商配置文件路径。
 func (a *App) GetProviderConfigPath() string {
 	return provider.OpenCodeConfigPath()
-}
-
-// GetFullConfig 返回完整 JSONC 字符串。
-func (a *App) GetFullConfig() string {
-	return omo.GetFullConfig()
-}
-
-// SaveFullConfig 将前端修改后的完整 JSON 字符串直接写入文件。
-func (a *App) SaveFullConfig(jsonStr string) model.SaveResult {
-	return omo.SaveFullConfig(jsonStr)
 }
 
 // ========== 供应商配置 ==========
@@ -495,19 +474,15 @@ func (a *App) ListSchemes() []model.SchemeInfo {
 	return schemes
 }
 
-// ReadScheme 读取指定方案文件的原始内容。
-func (a *App) ReadScheme(name string) (string, error) {
-	return omo.ReadScheme(name)
+// SaveSchemeEntries 将结构化模型条目保存为方案文件（后端生成 omo.jsonc 兼容结构）。
+func (a *App) SaveSchemeEntries(name string, entries []model.ModelEntry) error {
+	return omo.SaveSchemeEntries(name, entries)
 }
 
-// SaveScheme 将内容保存到方案文件（原子写入，JSONC 验证）。
-func (a *App) SaveScheme(name string, content string) error {
-	return omo.SaveScheme(name, content)
-}
-
-// DeleteScheme 删除指定方案文件。
-func (a *App) DeleteScheme(name string) error {
-	return omo.DeleteScheme(name)
+// ReadSchemeEntries 读取方案文件并解析为结构化模型条目列表。
+func (a *App) ReadSchemeEntries(name string) ([]model.ModelEntry, error) {
+	entries, _, err := omo.ReadSchemeEntries(name)
+	return entries, err
 }
 
 // OpenSchemeDir 在文件资源管理器中打开方案目录。
@@ -519,9 +494,9 @@ func (a *App) OpenSchemeDir() error {
 	return a.OpenDir(dir)
 }
 
-// ExportConfig 将配置内容导出到指定目录。
-func (a *App) ExportConfig(dir, filename, content string) (string, error) {
-	return omo.ExportConfig(dir, filename, content)
+// ExportConfigEntries 将结构化模型条目导出为 omo.jsonc 兼容文件。
+func (a *App) ExportConfigEntries(dir, filename string, entries []model.ModelEntry) (string, error) {
+	return omo.ExportConfigEntries(dir, filename, entries)
 }
 
 // ========== Web 服务（委托到 service 包）==========

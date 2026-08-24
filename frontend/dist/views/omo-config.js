@@ -13,11 +13,7 @@ export let modelTypes = [];
 export let originalEntries = [];
 export let modelSectionsLoaded = false;
 
-export const VARIANT_OPTIONS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
-
-export let fullConfigJson = {};
-export let workingConfigJson = {};
-export let saveBaseConfigJson = {};
+export const REASONING_OPTIONS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 
 // ========== 方案管理状态 ==========
 export let schemeDir = '';
@@ -27,37 +23,35 @@ export let currentSourceName = '';   // display name
 export let hasUnsavedChanges = false;
 export let originalState = '';       // JSON serialized comparison baseline
 
+// ========== 加载 ==========
+// 前端只接触结构化 ModelEntry 数据，JSON 结构完全由后端负责。
 export async function loadModelConfig() {
     const container = document.getElementById('modelConfig');
 
     container.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在加载OMO 配置...</p></div>';
 
     try {
-        const [fullConfig, confPath] = await Promise.all([
-            api.GetFullConfig(),
+        // 后端返回结构化 entries + 路径 + 描述表
+        const [entries, confPath, descMap] = await Promise.all([
+            api.GetModelConfig().catch(() => []),
             api.GetConfigPath(),
+            (typeof api.GetAgentDescriptions === 'function'
+                ? api.GetAgentDescriptions().catch(() => ({}))
+                : Promise.resolve({})),
         ]);
 
-        fullConfigJson = JSON.parse(stripJsonComments(fullConfig) || '{}');
-        workingConfigJson = JSON.parse(JSON.stringify(fullConfigJson || {}));
-        saveBaseConfigJson = JSON.parse(JSON.stringify(fullConfigJson || {}));
-
-        // 从后端加载 agent/category 描述表
-        let descMap = {};
-        if (typeof api.GetAgentDescriptions === 'function') {
-            try { descMap = await api.GetAgentDescriptions() || {}; } catch (_) {}
-        }
-
-        modelEntries = [];
-        modelTypes = [];
-        for (const [type, section] of Object.entries(workingConfigJson)) {
-            if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
-            modelTypes.push(type);
-            for (const [key, val] of Object.entries(section)) {
-                modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', variant: val.variant || '', comment: descMap[key] || '' });
-            }
-        }
+        modelEntries = (entries || []).map(e => ({
+            id: modelEntryId(e.type, e.key),
+            key: e.key,
+            type: e.type,
+            model: e.model || '',
+            variant: e.variant || '',
+            reasoning: e.reasoning || '',
+            comment: descMap[e.key] || e.comment || '',
+        }));
+        modelTypes = [...new Set(modelEntries.map(e => e.type))];
         originalEntries = modelEntries.map(e => ({ ...e }));
+        modelSectionsLoaded = true;
 
         document.getElementById('configPath').textContent = confPath || '未知';
         const configPathInfo = document.getElementById('omoConfigPath');
@@ -170,11 +164,6 @@ export function renderModelConfig() {
             const entry = modelEntries.find(e => e.id === cb.dataset.id);
             if (entry) {
                 entry.model = model;
-                // 同步写回 workingConfigJson
-                if (!workingConfigJson[entry.type]) workingConfigJson[entry.type] = {};
-                if (!workingConfigJson[entry.type][entry.key]) workingConfigJson[entry.type][entry.key] = {};
-                workingConfigJson[entry.type][entry.key].model = model;
-                workingConfigJson[entry.type][entry.key].variant = entry.variant;
             }
         });
         renderModelConfig();
@@ -192,25 +181,16 @@ export function renderModelConfig() {
             const entry = modelEntries.find(en => en.id === e.target.dataset.id);
             if (entry) {
                 entry.model = e.target.value;
-                // 同步写回 workingConfigJson
-                if (!workingConfigJson[entry.type]) workingConfigJson[entry.type] = {};
-                if (!workingConfigJson[entry.type][entry.key]) workingConfigJson[entry.type][entry.key] = {};
-                workingConfigJson[entry.type][entry.key].model = entry.model;
-                workingConfigJson[entry.type][entry.key].variant = entry.variant;
                 updateSaveStatus(); checkUnsavedChanges();
             }
         });
     });
 
-    container.querySelectorAll('.model-variant-select').forEach(select => {
+    container.querySelectorAll('.model-reasoning-select').forEach(select => {
         select.addEventListener('change', e => {
             const entry = modelEntries.find(en => en.id === e.target.dataset.id);
             if (entry) {
-                entry.variant = e.target.value;
-                // 同步写回 workingConfigJson
-                if (!workingConfigJson[entry.type]) workingConfigJson[entry.type] = {};
-                if (!workingConfigJson[entry.type][entry.key]) workingConfigJson[entry.type][entry.key] = {};
-                workingConfigJson[entry.type][entry.key].variant = entry.variant;
+                entry.reasoning = e.target.value;
                 updateSaveStatus(); checkUnsavedChanges();
             }
         });
@@ -315,15 +295,15 @@ export function createModelGroup(title, entries, entryType) {
             select.appendChild(opt);
         });
 
-        const variantSelect = document.createElement('select');
-        variantSelect.className = 'model-variant-select';
-        variantSelect.dataset.key = entry.key;
-        variantSelect.dataset.id = entry.id;
-        VARIANT_OPTIONS.forEach(v => {
+        const reasoningSelect = document.createElement('select');
+        reasoningSelect.className = 'model-reasoning-select';
+        reasoningSelect.dataset.key = entry.key;
+        reasoningSelect.dataset.id = entry.id;
+        REASONING_OPTIONS.forEach(v => {
             const opt = document.createElement('option');
             opt.value = v; opt.textContent = v;
-            if (v === entry.variant) opt.selected = true;
-            variantSelect.appendChild(opt);
+            if (v === entry.reasoning) opt.selected = true;
+            reasoningSelect.appendChild(opt);
         });
 
         const badge = document.createElement('span');
@@ -336,9 +316,6 @@ export function createModelGroup(title, entries, entryType) {
         delBtn.addEventListener('click', () => {
             if (!confirm(`确定删除 ${entry.key}?`)) return;
             modelEntries = modelEntries.filter(e => !sameModelEntry(e, entry));
-            if (workingConfigJson[entry.type]) {
-                delete workingConfigJson[entry.type][entry.key];
-            }
             renderModelConfig();
             updateSaveStatus();
             checkUnsavedChanges();
@@ -348,7 +325,7 @@ export function createModelGroup(title, entries, entryType) {
         topRow.appendChild(cb);
         topRow.appendChild(nameSpan);
         topRow.appendChild(select);
-        topRow.appendChild(variantSelect);
+        topRow.appendChild(reasoningSelect);
         topRow.appendChild(badge);
         topRow.appendChild(delBtn);
         row.appendChild(topRow);
@@ -386,8 +363,6 @@ export async function deleteModelType(entryType, entryCount) {
     modelTypes = modelTypes.filter(type => type !== entryType);
     modelEntries = modelEntries.filter(entry => entry.type !== entryType);
     originalEntries = originalEntries.filter(entry => entry.type !== entryType);
-    delete fullConfigJson[entryType];
-    delete workingConfigJson[entryType];
     renderModelConfig();
     checkUnsavedChanges();
     showToast(`已删除类型 ${entryType}`, 'success');
@@ -401,7 +376,7 @@ export function showAddTypeModal() {
     overlay.innerHTML = `
         <div class="modal">
             <h3>添加OMO 配置类型</h3>
-            <div class="modal-field"><label>类型名称（顶层 section）</label><input id="modalTypeKey" placeholder="如 agents / categories / reviewers" /></div>
+            <div class="modal-field"><label>类型名称（section）</label><input id="modalTypeKey" placeholder="如 agents / categories / reviewers" /></div>
             <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAddType">取消</button><button class="btn btn-primary" id="btnConfirmAddType">➕ 添加类型</button></div>
         </div>`;
     document.body.appendChild(overlay);
@@ -415,7 +390,6 @@ export function showAddTypeModal() {
         const result = await api.AddModelType(type);
         if (!result.success) { showToast('添加类型失败: ' + (result.error || '未知错误'), 'error'); return; }
         modelTypes.push(type);
-        fullConfigJson[type] = {};
         overlay.remove();
         renderModelConfig();
         checkUnsavedChanges();
@@ -433,7 +407,7 @@ export function showAddEntryModal(entryType) {
             <h3>添加 ${modelTypeTitle(entryType).replace(/^[^\w\u4e00-\u9fa5]+\s*/, '')}</h3>
             <div class="modal-field"><label>Key（唯一标识）</label><input id="modalEntryKey" placeholder="如 my-agent" /></div>
             <div class="modal-field"><label>模型</label><select id="modalEntryModel" class="modal-select">${store.availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
-            <div class="modal-field"><label>Variant</label><select id="modalEntryVariant" class="modal-select">${VARIANT_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('')}</select></div>
+            <div class="modal-field"><label>Reasoning</label><select id="modalEntryReasoning" class="modal-select">${REASONING_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('')}</select></div>
             <div class="modal-field"><label>描述（作为注释）</label><input id="modalEntryComment" placeholder="简要描述用途" /></div>
             <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAdd">取消</button><button class="btn btn-primary" id="btnConfirmAdd">💾 添加</button></div>
         </div>`;
@@ -444,13 +418,11 @@ export function showAddEntryModal(entryType) {
     overlay.querySelector('#btnConfirmAdd').addEventListener('click', () => {
         const key = overlay.querySelector('#modalEntryKey').value.trim();
         const model = overlay.querySelector('#modalEntryModel').value;
-        const variant = overlay.querySelector('#modalEntryVariant').value;
+        const reasoning = overlay.querySelector('#modalEntryReasoning').value;
         const comment = overlay.querySelector('#modalEntryComment').value.trim();
         if (!key) { showToast('Key 不能为空', 'error'); return; }
         if (modelEntries.find(e => e.type === entryType && e.key === key)) { showToast('当前类型下 Key 已存在', 'error'); return; }
-        modelEntries.push({ id: modelEntryId(entryType, key), key, type: entryType, model: model || 'deepseek-v4-flash', variant, comment });
-        if (!workingConfigJson[entryType]) workingConfigJson[entryType] = {};
-        workingConfigJson[entryType][key] = { model: model || 'deepseek-v4-flash', variant };
+        modelEntries.push({ id: modelEntryId(entryType, key), key, type: entryType, model: model || 'deepseek-v4-flash', variant: '', reasoning, comment });
         overlay.remove();
         renderModelConfig();
         updateSaveStatus();
@@ -462,7 +434,7 @@ export function showAddEntryModal(entryType) {
 export function updateSaveStatus() {
     const changed = modelEntries.filter(e => {
         const orig = originalEntries.find(o => sameModelEntry(o, e));
-        return !orig || orig.model !== e.model || orig.variant !== e.variant;
+        return !orig || orig.model !== e.model || orig.variant !== e.variant || orig.reasoning !== e.reasoning;
     }).length;
     const deleted = originalEntries.filter(o => !modelEntries.find(e => sameModelEntry(e, o))).length;
     const total = changed + deleted;
@@ -495,11 +467,9 @@ export async function initSchemes() {
 // ========== 方案数据加载 ==========
 export async function loadSchemeIntoEditor(name) {
     try {
-        const content = await api.ReadScheme(name);
-        const data = JSON.parse(stripJsonComments(content));
-        workingConfigJson = JSON.parse(JSON.stringify(data || {}));
-        saveBaseConfigJson = JSON.parse(JSON.stringify(data || {}));
-        rebuildModelEntriesFromFull(workingConfigJson);
+        // 方案文件由后端解析为结构化条目
+        const entries = await api.ReadSchemeEntries(name);
+        applyEntries(entries);
         await applyDescriptions();
         currentSourceType = 'scheme';
         currentSourceName = name;
@@ -524,34 +494,56 @@ export function buildModelConfig() {
     const map = {};
     modelEntries.forEach(e => {
         if (!map[e.type]) map[e.type] = {};
-        map[e.type][e.key] = { model: e.model, variant: e.variant };
+        map[e.type][e.key] = { model: e.model, variant: e.variant, reasoning: e.reasoning };
     });
     return map;
 }
 
-export function buildMergedConfigForSave() {
-    const merged = JSON.parse(JSON.stringify(saveBaseConfigJson || {}));
-    const visibleConfig = buildModelConfig();
-    for (const type of modelTypes) {
-        delete merged[type];
-    }
-    for (const [type, section] of Object.entries(visibleConfig)) {
-        merged[type] = section;
-    }
-    return merged;
+// 保存时直接提交结构化 entries，由后端负责 JSON 结构写入。
+export function buildSaveEntries() {
+    return modelEntries.map(e => ({
+        key: e.key,
+        type: e.type,
+        model: e.model || '',
+        variant: e.variant || '',
+        reasoning: e.reasoning || '',
+        comment: e.comment || '',
+    }));
 }
 
-// 从 workingConfigJson 重建编辑条目（不调用 renderModelConfig）
-export function rebuildModelEntriesFromFull(data) {
+// 从结构化数据重建编辑条目（方案加载/导入共用）
+export function rebuildModelEntriesFromData(data) {
     modelEntries = [];
     modelTypes = [];
     for (const [type, section] of Object.entries(data || {})) {
         if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
         modelTypes.push(type);
         for (const [key, val] of Object.entries(section)) {
-            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', variant: val.variant || '', comment: '' });
+            modelEntries.push({
+                id: modelEntryId(type, key),
+                key,
+                type,
+                model: val.model || '',
+                variant: val.variant || '',
+                reasoning: val.reasoning || '',
+                comment: '',
+            });
         }
     }
+}
+
+// 从后端结构化 entries 重建（方案切换）
+export function applyEntries(entries) {
+    modelEntries = (entries || []).map(e => ({
+        id: modelEntryId(e.type, e.key),
+        key: e.key,
+        type: e.type,
+        model: e.model || '',
+        variant: e.variant || '',
+        reasoning: e.reasoning || '',
+        comment: e.comment || '',
+    }));
+    modelTypes = [...new Set(modelEntries.map(e => e.type))];
 }
 
 // 从后端加载描述表并应用到当前 modelEntries
@@ -568,16 +560,7 @@ export async function applyDescriptions() {
 
 // 从外部数据渲染（用于方案导入/加载，不改变原始配置引用）
 export function renderModelConfigFromData(data) {
-    modelEntries = [];
-    modelTypes = [];
-    const commentMap = {}; // 方案文件无注释映射
-    for (const [type, section] of Object.entries(data)) {
-        if (!isModelSection(section) && !(section && Object.keys(section).length === 0 && isEmptyModelSectionName(type))) continue;
-        modelTypes.push(type);
-        for (const [key, val] of Object.entries(section)) {
-            modelEntries.push({ id: modelEntryId(type, key), key, type, model: val.model || '', variant: val.variant || '', comment: '' });
-        }
-    }
+    rebuildModelEntriesFromData(data);
     originalEntries = modelEntries.map(e => ({ ...e }));
     renderModelConfig();
 }
@@ -595,10 +578,9 @@ export async function handleSchemeImport() {
         if (!file) return;
         try {
             const text = await file.text();
-            const data = JSON.parse(stripJsonComments(text));
-            workingConfigJson = JSON.parse(JSON.stringify(data || {}));
-            saveBaseConfigJson = JSON.parse(JSON.stringify(data || {}));
-            rebuildModelEntriesFromFull(workingConfigJson);
+            // JSON 结构解析完全交由后端，前端只收结构化条目
+            const entries = await api.ParseConfigContent(text);
+            applyEntries(entries);
             await applyDescriptions();
             currentSourceType = 'imported';
             currentSourceName = '外部: ' + file.name.replace(/\.(jsonc|json)$/i, '');
@@ -606,7 +588,7 @@ export async function handleSchemeImport() {
             checkUnsavedChanges();
             updateSchemeStatus();
         } catch (err) {
-            showToast('导入失败: 文件格式不正确或内容不可解析', 'error');
+            showToast('导入失败: ' + (err.message || '文件格式不正确或内容不可解析'), 'error');
         }
     };
     input.click();
@@ -618,10 +600,10 @@ export async function handleSchemeExport() {
     // 弹出目录选择对话框
     const dir = await api.OpenDirectoryDialog();
     if (!dir) return;
-    // 使用 workingConfigJson 输出完整结构
-    const content = JSON.stringify(buildMergedConfigForSave(), null, 2);
     try {
-        const savedPath = await api.ExportConfig(dir, name, content);
+        // 结构化数据交给后端生成 JSONC
+        const entries = buildSaveEntries();
+        const savedPath = await api.ExportConfigEntries(dir, name, entries);
         showToast('已导出: ' + savedPath, 'success');
     } catch (e) {
         showToast('导出失败: ' + (e.message || e), 'error');
@@ -636,8 +618,8 @@ export async function handleSchemeSave() {
         return;
     }
     try {
-        const content = JSON.stringify(buildMergedConfigForSave(), null, 2);
-        await api.SaveScheme(name, content);
+        const entries = buildSaveEntries();
+        await api.SaveSchemeEntries(name, entries);
         await initSchemes();
         showToast('已保存到方案目录: ' + name, 'success');
         updateSchemeDropdown();
@@ -659,10 +641,10 @@ export async function handleSchemeSwitch(name) {
 }
 
 export async function handleSchemeApply() {
-    // 保存当前编辑内容到实际配置文件
+    // 保存当前编辑内容到实际配置文件（提交结构化 entries，后端负责 JSON 写入）
     const totalChanges = modelEntries.filter(e => {
         const orig = originalEntries.find(o => sameModelEntry(o, e));
-        return !orig || orig.model !== e.model || orig.variant !== e.variant;
+        return !orig || orig.model !== e.model || orig.variant !== e.variant || orig.reasoning !== e.reasoning;
     }).length + originalEntries.filter(o => !modelEntries.find(e => sameModelEntry(e, o))).length;
 
     if (totalChanges === 0) {
@@ -678,11 +660,8 @@ export async function handleSchemeApply() {
     showToast('保存中...', 'info');
 
     try {
-        const result = await api.SaveFullConfig(JSON.stringify(buildMergedConfigForSave(), null, 2));
+        const result = await api.UpdateModels(buildSaveEntries());
         if (result.success) {
-            fullConfigJson = buildMergedConfigForSave();
-            saveBaseConfigJson = JSON.parse(JSON.stringify(fullConfigJson || {}));
-            workingConfigJson = JSON.parse(JSON.stringify(fullConfigJson || {}));
             originalEntries = modelEntries.map(e => ({ ...e }));
             originalState = JSON.stringify(buildModelConfig());
             currentSourceType = 'system';

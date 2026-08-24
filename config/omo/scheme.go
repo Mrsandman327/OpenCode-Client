@@ -15,10 +15,16 @@ import (
 // schemeWriteMu 保护方案文件操作的并发安全。
 var schemeWriteMu sync.Mutex
 
+// schemeDirOverride 仅供测试注入方案目录；生产环境保持 nil。
+var schemeDirOverride string
+
 // ========== 方案目录管理 ==========
 
 // SchemeDir 返回方案目录的绝对路径。
 func SchemeDir() (string, error) {
+	if schemeDirOverride != "" {
+		return schemeDirOverride, nil
+	}
 	exePath, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("获取可执行文件路径失败: %w", err)
@@ -26,14 +32,16 @@ func SchemeDir() (string, error) {
 	return filepath.Join(filepath.Dir(exePath), "configs", "omo-schemes"), nil
 }
 
-// ExportConfig 将配置文件内容导出到指定目录。
-func ExportConfig(dir, filename, content string) (string, error) {
+// ExportConfigEntries 将结构化模型条目导出为 omo.jsonc 兼容文件。
+// 由后端生成 JSON 结构，前端只提供结构化数据。
+func ExportConfigEntries(dir, filename string, entries []model.ModelEntry) (string, error) {
 	if !strings.HasSuffix(filename, ".jsonc") && !strings.HasSuffix(filename, ".json") {
 		filename += ".jsonc"
 	}
 	filename = filepath.Base(filename)
 	path := filepath.Join(dir, filename)
-	return path, fileutil.AtomicWrite(path, []byte(content), 0644)
+	doc := buildOmoDocFromEntries(entries)
+	return path, fileutil.AtomicWrite(path, []byte(doc), 0644)
 }
 
 // EnsureSchemeDir 确保方案目录存在，返回其绝对路径。
@@ -100,6 +108,36 @@ func ListSchemes() ([]model.SchemeInfo, error) {
 	return schemes, nil
 }
 
+// ========== 结构化方案存取 ==========
+
+// SaveSchemeEntries 将方案保存到方案目录（JSONC）。
+// 优先直接复制当前主配置文件（~/.omo/omo.jsonc / omo.json）作为完整快照，
+// 保留 $schema、[opencode] 下非模型配置、_migrations 等全部内容；
+// 主配置不存在时回退为用结构化 entries 重建基础方案文档。
+func SaveSchemeEntries(name string, entries []model.ModelEntry) error {
+	schemeWriteMu.Lock()
+	defer schemeWriteMu.Unlock()
+
+	dir, err := ensureSchemeDir()
+	if err != nil {
+		return err
+	}
+
+	fileName := name
+	if !strings.HasSuffix(fileName, ".jsonc") {
+		fileName += ".jsonc"
+	}
+	path := filepath.Join(dir, fileName)
+
+	// 优先复制主配置完整快照
+	if data, err := os.ReadFile(ConfigPath()); err == nil {
+		return fileutil.AtomicWrite(path, data, 0644)
+	}
+	// 主配置不存在：回退为结构化重建
+	doc := buildOmoDocFromEntries(entries)
+	return fileutil.AtomicWrite(path, []byte(doc), 0644)
+}
+
 // ReadScheme 读取指定方案文件的原始内容（字符串形式）。
 // name 参数可带或不带 .jsonc 后缀。
 func ReadScheme(name string) (string, error) {
@@ -121,45 +159,79 @@ func ReadScheme(name string) (string, error) {
 	return string(data), nil
 }
 
-// SaveScheme 将内容保存到方案文件。写入采用原子方式（临时文件 + 重命名），
-// 并验证内容的 JSON/JSONC 有效性。name 参数可带或不带 .jsonc 后缀。
-func SaveScheme(name string, content string) error {
-	schemeWriteMu.Lock()
-	defer schemeWriteMu.Unlock()
-
-	dir, err := ensureSchemeDir()
+// ReadSchemeEntries 读取方案文件并解析为结构化模型条目列表。
+// 兼容新格式（[opencode] 命名空间）与旧格式（顶层 agents/categories）。
+func ReadSchemeEntries(name string) ([]model.ModelEntry, map[string]string, error) {
+	content, err := ReadScheme(name)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-
-	fileName := name
-	if !strings.HasSuffix(fileName, ".jsonc") {
-		fileName += ".jsonc"
+	cleaned := fileutil.StripComments(content)
+	cfg, err := parseModelConfigSections(cleaned)
+	if err != nil {
+		return nil, nil, fmt.Errorf("解析方案配置失败: %w", err)
 	}
-	path := filepath.Join(dir, fileName)
-
-	// 复用 model_config.go 中的原子写入与验证逻辑
-	return fileutil.AtomicWrite(path, []byte(content), 0644)
+	return ConfigToEntries(&cfg, nil), nil, nil
 }
 
-// DeleteScheme 删除指定的方案文件。name 参数可带或不带 .jsonc 后缀。
-func DeleteScheme(name string) error {
-	schemeWriteMu.Lock()
-	defer schemeWriteMu.Unlock()
-
-	dir, err := SchemeDir()
-	if err != nil {
-		return err
+// buildOmoDocFromEntries 将结构化条目序列化为 omo.jsonc 兼容的完整文档。
+// 生成 [opencode] 命名空间结构，每个条目含 model / reasoning / variant 字段。
+func buildOmoDocFromEntries(entries []model.ModelEntry) string {
+	grouped := make(map[string]map[string]model.ModelConfig)
+	for _, e := range entries {
+		t := normalizeModelEntryType(e.Type)
+		if grouped[t] == nil {
+			grouped[t] = make(map[string]model.ModelConfig)
+		}
+		grouped[t][e.Key] = model.ModelConfig{
+			Model:     e.Model,
+			Reasoning: e.Reasoning,
+		}
 	}
 
-	fileName := name
-	if !strings.HasSuffix(fileName, ".jsonc") {
-		fileName += ".jsonc"
+	// 按类型名排序，保证输出稳定
+	typeNames := make([]string, 0, len(grouped))
+	for t := range grouped {
+		typeNames = append(typeNames, t)
 	}
-	path := filepath.Join(dir, fileName)
+	sort.Strings(typeNames)
 
-	if err := os.Remove(path); err != nil {
-		return fmt.Errorf("删除方案文件失败: %w", err)
+	var sb strings.Builder
+	sb.WriteString("// OMO configuration (managed by OC Manager)\n")
+	sb.WriteString("{\n")
+	sb.WriteString("  \"$schema\": \"https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json\",\n")
+	sb.WriteString("  \"[opencode]\": {\n")
+
+	firstSection := true
+	for _, t := range typeNames {
+		if !firstSection {
+			sb.WriteString(",\n")
+		}
+		firstSection = false
+		sb.WriteString(fmt.Sprintf("    %q: {\n", t))
+
+		keys := make([]string, 0, len(grouped[t]))
+		for k := range grouped[t] {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		firstEntry := true
+		for _, k := range keys {
+			mc := grouped[t][k]
+			if !firstEntry {
+				sb.WriteString(",\n")
+			}
+			firstEntry = false
+			sb.WriteString(fmt.Sprintf("      %q: {\n", k))
+			sb.WriteString(fmt.Sprintf("        \"model\": %q", mc.Model))
+			if mc.Reasoning != "" {
+				sb.WriteString(fmt.Sprintf(",\n        \"reasoning\": %q", mc.Reasoning))
+			}
+			sb.WriteString("\n      }")
+		}
+		sb.WriteString("\n    }")
 	}
-	return nil
+	sb.WriteString("\n  }\n}\n")
+	return sb.String()
 }

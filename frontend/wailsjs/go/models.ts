@@ -612,6 +612,7 @@ export namespace model {
 	    type: string;
 	    model: string;
 	    variant: string;
+	    reasoning: string;
 	    comment: string;
 	
 	    static createFrom(source: any = {}) {
@@ -624,6 +625,7 @@ export namespace model {
 	        this.type = source["type"];
 	        this.model = source["model"];
 	        this.variant = source["variant"];
+	        this.reasoning = source["reasoning"];
 	        this.comment = source["comment"];
 	    }
 	}
