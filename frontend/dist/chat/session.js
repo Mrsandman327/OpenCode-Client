@@ -21,7 +21,7 @@ import { loadSessionStatuses } from './events.js';
 import { isSessionBusy, smartScroll, updateSendButton, renderMessages } from './render.js';
 import { rememberKnownDir } from './tree.js';
 import { resetUserNav } from './search.js';
-import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages } from './cache.js';
+import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage } from './cache.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 
 // ============================
@@ -856,6 +856,8 @@ export async function sendPrompt() {
             delete store.sessionErrors[store.currentSessionId];
             store.sessionStatuses[store.currentSessionId] = 'busy';
             ensurePendingAssistant(store.currentSessionId);
+            // 乐观添加用户消息到缓存，立即显示用户输入（不等 API/事件推送）
+            cacheLocalUserMessage(store.currentSessionId, text);
             if (isMobileTreeMode()) {
                 renderPendingAssistantPlaceholder(store.currentSessionId);
             } else {
@@ -894,6 +896,8 @@ export async function sendPrompt() {
         scheduleRefresh();
         updateSendButton();
     } catch (e) {
+        // 发送失败：移除乐观用户消息，避免残留"已发送"假象
+        if (store.currentSessionId) removeLocalUserMessage(store.currentSessionId);
         showToast('发送失败: ' + (e.message || e), 'error');
     }
     btn.disabled = false;

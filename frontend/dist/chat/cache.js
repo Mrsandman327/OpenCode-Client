@@ -25,6 +25,10 @@ export function cacheMessages(sessionID, items) {
         store.messageCache[sessionID] = incoming;
         return;
     }
+    // 真实用户消息已由 API 返回：移除本地乐观占位，避免 SSE 丢消息时重复
+    if (incoming.some(item => item.info?.role === 'user' || item.role === 'user')) {
+        store.messageCache[sessionID] = getCachedMessages(sessionID).filter(item => !(item.info?.id || item.id || '').startsWith('user_local_'));
+    }
     const existing = getCachedMessages(sessionID);
     for (const item of incoming) {
         const key = item.info?.id || item.id;
@@ -101,12 +105,50 @@ export function scheduleRenderCachedMessages(sessionID) {
     });
 }
 
+/** 移除本地乐观用户消息（发送失败时清理，避免残留"已发送"假象） */
+export function removeLocalUserMessage(sessionID) {
+    if (!sessionID) return;
+    store.messageCache[sessionID] = getCachedMessages(sessionID).filter(item => !(item.info?.id || item.id || '').startsWith('user_local_'));
+}
+
+/**
+ * 乐观添加用户消息到缓存（本地占位 id），发送后立即显示用户输入，
+ * 不必等 API/SSE 推送。真实用户消息到达时由 upsertMessage 移除本地占位，避免重复。
+ */
+export function cacheLocalUserMessage(sessionID, text) {
+    if (!sessionID || !text) return;
+    const list = getCachedMessages(sessionID);
+    const id = 'user_local_' + Date.now();
+    const msg = {
+        info: { id, sessionID, role: 'user', time: { created: Date.now() } },
+        parts: [{ id: id + '_p', sessionID, messageID: id, type: 'text', text }],
+    };
+    // 插到 pending assistant 占位之前；无占位则追加末尾
+    const pendingIdx = list.findIndex(item => (item.info?.id || item.id || '').startsWith('pending_'));
+    if (pendingIdx >= 0) {
+        list.splice(pendingIdx, 0, msg);
+    } else {
+        list.push(msg);
+    }
+    store.messageCache[sessionID] = list;
+}
+
 /** 按 info 插入或更新消息 */
 export function upsertMessage(info) {
     if (!info?.sessionID || !info.id) return;
     const list = getCachedMessages(info.sessionID);
     if (info.role === 'assistant') {
         store.messageCache[info.sessionID] = list.filter(item => !(item.info?.id || item.id || '').startsWith('pending_'));
+    } else if (info.role === 'user') {
+        // 真实用户消息到达：把本地乐观消息"升级"为真实消息（id 换成服务端 id、文本保留），
+        // 避免重渲染时用户输入短暂消失（真实消息的 text part 由 message.part.updated 单独推送，
+        // 会在 upsertPart 中清理本地占位 part 后替换）
+        const localIdx = list.findIndex(item => (item.info?.id || item.id || '').startsWith('user_local_'));
+        if (localIdx >= 0) {
+            list[localIdx].info = { ...list[localIdx].info, ...info, id: info.id };
+            store.messageCache[info.sessionID] = list;
+            return;
+        }
     }
     const nextList = getCachedMessages(info.sessionID);
     const index = nextList.findIndex(item => (item.info?.id || item.id) === info.id);
@@ -127,13 +169,16 @@ export function upsertPart(part) {
         list.push(message);
     }
     const parts = Array.isArray(message.parts) ? message.parts : [];
-    const index = parts.findIndex(item => item.id === part.id);
+    // 用户消息的真实 part 到达：清理本地乐观占位 part（避免同一文本重复显示）
+    const isUserMsg = (message.info?.role || message.role) === 'user';
+    const filtered = isUserMsg ? parts.filter(p => !(p.id || '').startsWith('user_local_')) : parts;
+    const index = filtered.findIndex(item => item.id === part.id);
     if (index >= 0) {
-        parts[index] = mergePart(parts[index], part);
+        filtered[index] = mergePart(filtered[index], part);
     } else {
-        parts.push(part);
+        filtered.push(part);
     }
-    message.parts = parts;
+    message.parts = filtered;
 }
 
 /** 应用流式文本增量到消息 part */
