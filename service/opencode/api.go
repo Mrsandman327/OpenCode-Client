@@ -177,10 +177,11 @@ func RejectQuestion(sessionID string) model.APIResult {
 
 // ProjectInfo 项目树中的项目信息。
 type ProjectInfo struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Worktree string `json:"worktree"`
-	VCS      string `json:"vcs"`
+	ID       string      `json:"id"`
+	Name     string      `json:"name"`
+	Worktree string      `json:"worktree"`
+	VCS      string      `json:"vcs"`
+	Time     sessionTime `json:"time"`
 }
 
 type sessionTime struct {
@@ -300,7 +301,14 @@ func buildTreeJSON(projects []ProjectInfo, sessions []treeSession) string {
 		if name == "global" {
 			name = "全局项目"
 		}
-		node := &model.TreeNode{ID: p.ID, Title: name, Type: "project"}
+		// 项目时间：updated 优先，其次 created
+		var projectTime string
+		if p.Time.Updated > 0 {
+			projectTime = time.UnixMilli(p.Time.Updated).Format("2006-01-02 15:04")
+		} else if p.Time.Created > 0 {
+			projectTime = time.UnixMilli(p.Time.Created).Format("2006-01-02 15:04")
+		}
+		node := &model.TreeNode{ID: p.ID, Title: name, Type: "project", UpdatedAt: projectTime}
 		projectMap[p.ID] = node
 	}
 

@@ -109,7 +109,7 @@ export function renderTree(tree) {
     for (const proj of tree) {
         html += `<div class="oc-tree-node oc-tree-project" data-id="${escapeHtml(proj.id)}">`;
         // 项目行：Apple 分组标题风格（弱化，仅作最外层分组标签）
-        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.title)}">${escapeHtml(proj.title)}</span><button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button></div>`;
+        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.id + (proj.updatedAt ? '\n⏰ ' + proj.updatedAt : ''))}">${escapeHtml(proj.title)}</span><button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button></div>`;
         html += `<div class="oc-tree-children">`;
         for (const dir of (proj.children || [])) {
             // 目录行：次级分组标题 + 会话计数徽章
@@ -556,6 +556,8 @@ export function showTreeContextMenu(e, type, data) {
             item.style.display = (action === 'new-session' || action === 'project-config') ? '' : 'none';
         } else if (type === 'session') {
             item.style.display = (action === 'rename' || action === 'delete') ? '' : 'none';
+        } else if (type === 'project') {
+            item.style.display = (action === 'project-rename') ? '' : 'none';
         } else {
             item.style.display = 'none';
         }
@@ -596,6 +598,14 @@ export function initTreeContextMenu() {
             showTreeContextMenu(e, 'session', { sid: sid });
             return;
         }
+        var projRow = e.target.closest('.oc-tree-project-row');
+        if (projRow) {
+            var projNode = projRow.closest('.oc-tree-node.oc-tree-project');
+            var pid = projNode ? projNode.dataset.id : '';
+            if (!pid) return;
+            showTreeContextMenu(e, 'project', { projectId: pid });
+            return;
+        }
     });
 
     var menu = document.getElementById('ocTreeContextMenu');
@@ -615,6 +625,8 @@ export function initTreeContextMenu() {
                 renameSession(data.sid);
             } else if (type === 'session' && action === 'delete') {
                 deleteSession(data.sid);
+            } else if (type === 'project' && action === 'project-rename') {
+                renameProject(data.projectId);
             }
         });
     });
@@ -646,6 +658,21 @@ export async function renameSession(sid) {
         if (tab) tab.title = newTitle;
         renderTabsBar();
         await buildTree();
+    } catch (e) {
+        showToast('重命名失败: ' + (e.message || e), 'error');
+    }
+}
+
+/** 重命名项目（PATCH /project/{id} 设置 name；name 为空时项目显示回退为 id） */
+export async function renameProject(projectId) {
+    if (!projectId) return;
+    const input = prompt('请输入新项目名称：');
+    if (input === null) return;
+    const name = input.trim();
+    try {
+        await api.OpenCodeCall('PATCH', '/project/' + encodeURIComponent(projectId), { name });
+        showToast(name ? '项目已重命名' : '项目名已清空（显示为 id）', 'success');
+        buildTree();
     } catch (e) {
         showToast('重命名失败: ' + (e.message || e), 'error');
     }
