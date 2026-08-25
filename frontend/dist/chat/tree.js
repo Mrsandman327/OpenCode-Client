@@ -75,9 +75,13 @@ export function renderTree(tree) {
     });
     var savedScrollTop = container.scrollTop;
 
-    // 稳定排序：项目按标题、目录按标题、会话按更新时间
-    // 解决后端 goroutine 并发导致每次刷新顺序随机的问题
-    tree.sort(function(a, b) { return (a.title || '').localeCompare(b.title || ''); });
+    // 稳定排序：global 项目永远置顶，其余项目按标题排序；目录按标题、会话按更新时间
+    tree.sort(function(a, b) {
+        var aGlobal = a.id === 'global' ? 0 : 1;
+        var bGlobal = b.id === 'global' ? 0 : 1;
+        if (aGlobal !== bGlobal) return aGlobal - bGlobal;
+        return (a.title || '').localeCompare(b.title || '');
+    });
     tree.forEach(function(proj) {
         var dirs = proj.children || [];
         dirs.sort(function(a, b) { return (a.title || '').localeCompare(b.title || ''); });
@@ -109,7 +113,11 @@ export function renderTree(tree) {
     for (const proj of tree) {
         html += `<div class="oc-tree-node oc-tree-project" data-id="${escapeHtml(proj.id)}">`;
         // 项目行：Apple 分组标题风格（弱化，仅作最外层分组标签）
-        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.id + (proj.updatedAt ? '\n⏰ ' + proj.updatedAt : ''))}">${escapeHtml(proj.title)}</span><button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button></div>`;
+        // 仅 global 项目显示"添加工作目录"按钮
+        var addDirBtn = proj.id === 'global'
+            ? `<button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button>`
+            : '';
+        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.id + (proj.updatedAt ? '\n⏰ ' + proj.updatedAt : ''))}">${escapeHtml(proj.title)}</span>${addDirBtn}</div>`;
         html += `<div class="oc-tree-children">`;
         for (const dir of (proj.children || [])) {
             // 目录行：次级分组标题 + 会话计数徽章
@@ -414,23 +422,21 @@ export function treeHasSessionsForDir(tree, dir) {
     return false;
 }
 
-/** 向项目中添加工作目录 */
+/** 向全局项目中添加工作目录：无会话记录时仅 toast 提示，不引导新建会话 */
 export async function addDirectoryToProject() {
     if (!store.webRunning) return;
     try {
         let dir = ''
         if (isBrowserRuntimeForMain()) {
             dir = await openDirBrowserModal();
-        }else{
+        } else {
             dir = await api.OpenDirectoryDialog();
         }
         if (!dir) return;
-        rememberKnownDir(dir)
+        rememberKnownDir(dir);
         const ok = await buildTree();
         if (!ok || !treeHasSessionsForDir(window._lastProjectTree, dir)) {
-            document.getElementById('ocChatTitle').textContent = '工作目录 @ ' + dir;
-            setMessagesEmpty('该目录下没有会话记录，请先在该目录下新建会话');
-            showToast('该目录下没有会话记录，请先在该目录下新建会话', 'warning');
+            showToast('该目录下没有会话记录', 'warning');
             return;
         }
         showToast('已加载目录会话: ' + dir, 'success');
