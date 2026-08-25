@@ -15,6 +15,7 @@ import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
 import { buildTree } from './tree.js';
+import { showPermissionRequest, closePermissionModal } from './permission.js';
 
 // ============================
 // SSE 事件处理
@@ -81,9 +82,15 @@ export function handleOcEvent(event) {
     if (type === 'server.connected' || type === 'server.heartbeat') return;
 
     if (type.includes('permission')) {
-        const permission = props.permission ? { ...props.permission, ...props } : props;
-        const kind = permission.permission || permission.type || 'tool';
-        showToast('权限请求: ' + escapeHtml(kind), 'warning');
+        if (type.includes('asked')) {
+            // 权限请求（permission.asked / permission.v2.asked）：弹窗提供 允许一次 / 始终允许 / 拒绝
+            showPermissionRequest(props);
+        } else if (type.includes('replied')) {
+            // 权限已响应（本机或网页端等其他客户端）：关闭对应弹窗
+            closePermissionModal(props.requestID || props.id);
+        } else {
+            showToast('权限请求: ' + (props.action || props.permission || 'tool'), 'warning');
+        }
     }
 
     if (type === 'session.error' && sid && props.error) {

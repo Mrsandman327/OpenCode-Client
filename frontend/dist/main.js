@@ -25,6 +25,7 @@ import {
 } from './chat/service.js';
 import { refreshTree, createNewSession } from './chat/tree.js';
 import { isSessionBusy, scrollMessagesToBottom, updateScrollBottomButton } from './chat/render.js';
+import { respondPermission } from './chat/permission.js';
 import {
     sendPrompt, abortSession, addAttachment, refreshCurrentSession, scheduleRefresh,
     initTreePanelResize, loadTreePanelWidth, applyTreePanelWidth,
@@ -151,6 +152,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', updatePromptPlaceholder);
 
     document.getElementById('btnRefreshStatus').addEventListener('click', loadServiceStatus);
+    // 权限请求弹窗按钮
+    document.getElementById('btnPermReject').addEventListener('click', () => respondPermission('reject'));
+    document.getElementById('btnPermOnce').addEventListener('click', () => respondPermission('once'));
+    document.getElementById('btnPermAlways').addEventListener('click', () => respondPermission('always'));
     document.getElementById('btnToggleSessions').addEventListener('click', toggleSessions);
     document.getElementById('btnToggleSidepanel').addEventListener('click', toggleSidepanel);
     document.getElementById('btnScrollBottom').addEventListener('click', scrollMessagesToBottom);

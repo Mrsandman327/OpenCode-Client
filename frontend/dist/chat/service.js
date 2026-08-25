@@ -52,24 +52,6 @@ export async function checkWebStatus() {
 // 注：safeText / extractPartText / messageText / isInternalUserMessage / normalizeMessageItem
 // 已移入 core/utils.js（纯函数下沉，打破 service ↔ render 循环依赖）。
 
-/** 响应权限请求（批准/拒绝/始终允许） */
-// async function respondPermission(permission, reply) {
-//     const id = permission.id || permission.permissionID || permission.permissionId;
-//     const sessionID = permission.sessionID || permission.sessionId || currentSessionId;
-//     if (!id) return;
-//     try {
-//         try {
-//             await api.OpenCodeCall('POST', `/permission/${encodeURIComponent(id)}/reply`, { reply });
-//         } catch {
-//             if (!sessionID) throw new Error('缺少会话编号，无法兼容旧权限接口');
-//             await api.OpenCodeCall('POST', `/session/${encodeURIComponent(sessionID)}/permissions/${encodeURIComponent(id)}`, { response: reply, remember: reply === 'always' });
-//         }
-//         showToast('权限已响应', 'success');
-//     } catch (e) {
-//         showToast('权限响应失败: ' + (e.message || e), 'error');
-//     }
-// }
-
 // ============================
 // 服务状态
 // ============================
