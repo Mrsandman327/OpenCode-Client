@@ -1291,12 +1291,11 @@ input::placeholder, textarea::placeholder {
 /* ── 层级引导线 ── */
 .oc-tree-children {
     border-left: 1px solid rgba(0,0,0,0.06);
-    margin-left: 8px;
+    margin-left: 10px;
 }
 
 .oc-tree-node .oc-tree-directory .oc-tree-children{
-    border-left: 1px solid rgba(0,0,0,0.06);
-    margin-left: 5px; 
+    border-left: 1px solid rgba(0,0,0,0.06); 
 }
 
 /* ── 会话卡片：视觉主体（圆角、间距、hover 抬升、active 指示条） ── */
