@@ -1,7 +1,10 @@
 // Package model 定义所有跨包共享的数据类型。
 package model
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // ========== 技能管理相关 ==========
 
@@ -95,6 +98,93 @@ type OpenCodeConfig struct {
 	Provider         map[string]*ProviderEntry `json:"provider,omitempty"`
 	EnabledProviders []string                  `json:"enabled_providers,omitempty"`
 	Server           map[string]interface{}    `json:"server,omitempty"`
+	// Extra 保留未建模的顶层键（如 permission、agent、models 等用户手动添加的配置），
+	// 避免结构化重建时丢失；json 序列化由自定义 MarshalJSON/UnmarshalJSON 处理。
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON 自定义反序列化：分离已知字段，未知顶层键原样保留到 Extra。
+func (c *OpenCodeConfig) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if v, ok := raw["$schema"]; ok {
+		if err := json.Unmarshal(v, &c.Schema); err != nil {
+			return err
+		}
+		delete(raw, "$schema")
+	}
+	if v, ok := raw["plugin"]; ok {
+		if err := json.Unmarshal(v, &c.Plugin); err != nil {
+			return err
+		}
+		delete(raw, "plugin")
+	}
+	if v, ok := raw["provider"]; ok {
+		if err := json.Unmarshal(v, &c.Provider); err != nil {
+			return err
+		}
+		delete(raw, "provider")
+	}
+	if v, ok := raw["enabled_providers"]; ok {
+		if err := json.Unmarshal(v, &c.EnabledProviders); err != nil {
+			return err
+		}
+		delete(raw, "enabled_providers")
+	}
+	if v, ok := raw["server"]; ok {
+		if err := json.Unmarshal(v, &c.Server); err != nil {
+			return err
+		}
+		delete(raw, "server")
+	}
+	c.Extra = raw
+	return nil
+}
+
+// MarshalJSON 自定义序列化：已知字段与保留的未知顶层键（Extra）合并输出。
+func (c OpenCodeConfig) MarshalJSON() ([]byte, error) {
+	out := make(map[string]json.RawMessage, len(c.Extra)+6)
+	for k, v := range c.Extra {
+		out[k] = v
+	}
+	if c.Schema != "" {
+		b, err := json.Marshal(c.Schema)
+		if err != nil {
+			return nil, err
+		}
+		out["$schema"] = b
+	}
+	if c.Plugin != nil {
+		b, err := json.Marshal(c.Plugin)
+		if err != nil {
+			return nil, err
+		}
+		out["plugin"] = b
+	}
+	if c.Provider != nil {
+		b, err := json.Marshal(c.Provider)
+		if err != nil {
+			return nil, err
+		}
+		out["provider"] = b
+	}
+	if c.EnabledProviders != nil {
+		b, err := json.Marshal(c.EnabledProviders)
+		if err != nil {
+			return nil, err
+		}
+		out["enabled_providers"] = b
+	}
+	if c.Server != nil {
+		b, err := json.Marshal(c.Server)
+		if err != nil {
+			return nil, err
+		}
+		out["server"] = b
+	}
+	return json.Marshal(out)
 }
 
 // ProviderEntry 单个供应商配置。
