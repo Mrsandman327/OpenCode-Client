@@ -99,31 +99,15 @@ export async function loadAgentModelSelectors() {
 
 let currentSessionRefreshPending = false;
 
-let sessionTitleRetryCount = 0;
-let sessionTitleRetryTimer = null;
-const SESSION_TITLE_RETRY_MAX = 8;
-const SESSION_TITLE_RETRY_DELAY = 1500;
-
 /** 从 OpenCode API 获取当前会话的最新标题，更新标题栏、_sessionMap 和项目树节点 */
 export async function refreshSessionTitle() {
     if (!store.currentSessionId) return;
     try {
         const data = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(store.currentSessionId)}`);
         const title = data?.title || data?.Title;
-        if (!title) {
-            // 标题尚未生成（OpenCode 异步生成，晚于 idle 事件）：延迟重试，
-            // 避免 tab 页 / 项目树停留在占位名
-            if (sessionTitleRetryTimer) return; // 已有重试排队，避免重复
-            sessionTitleRetryCount++;
-            if (sessionTitleRetryCount <= SESSION_TITLE_RETRY_MAX) {
-                sessionTitleRetryTimer = setTimeout(function() {
-                    sessionTitleRetryTimer = null;
-                    if (store.currentSessionId) refreshSessionTitle();
-                }, SESSION_TITLE_RETRY_DELAY);
-            }
-            return;
-        }
-        sessionTitleRetryCount = 0;
+        // 标题尚未生成（OpenCode 异步生成，晚于 idle 事件）：直接返回，
+        // 由 scheduleSessionTitleRefresh 的轮询持续驱动，避免 tab 页 / 项目树停留在占位名
+        if (!title) return;
         // 从 _sessionMap 读取旧标题（可能因时序问题尚未存在）
         const oldTitle = window._sessionMap?.[store.currentSessionId]?.title;
         if (oldTitle === title) return;
@@ -157,6 +141,42 @@ export async function refreshSessionTitle() {
             if (tooltipTitle) tooltipTitle.textContent = title;
         }
     } catch (_) {}
+}
+
+/**
+ * 新会话标题由 OpenCode 异步生成：主动轮询更新（兜底 idle 事件/现有轮询未触发的情况）。
+ * 标题刷新轮询的唯一驱动——refreshSessionTitle 内部不再自带重试。
+ */
+let titlePollTimer = null;
+let titlePollCount = 0;
+const TITLE_POLL_MAX = 20;
+const TITLE_POLL_INTERVAL = 1000;
+function scheduleSessionTitleRefresh(sessionID) {
+    if (!sessionID) return;
+    titlePollCount = 0;
+    if (titlePollTimer) clearInterval(titlePollTimer);
+    titlePollTimer = setInterval(function() {
+        // 已切换会话：旧轮询立即停止
+        if (sessionID !== store.currentSessionId) {
+            clearInterval(titlePollTimer);
+            titlePollTimer = null;
+            return;
+        }
+        // 标题已从占位值更新为真实标题：停止轮询，避免空转浪费请求
+        const mappedTitle = window._sessionMap?.[sessionID]?.title;
+        if (mappedTitle && mappedTitle !== sessionID) {
+            clearInterval(titlePollTimer);
+            titlePollTimer = null;
+            return;
+        }
+        titlePollCount++;
+        if (titlePollCount > TITLE_POLL_MAX) {
+            clearInterval(titlePollTimer);
+            titlePollTimer = null;
+            return;
+        }
+        refreshSessionTitle();
+    }, TITLE_POLL_INTERVAL);
 }
 
 /**
@@ -833,6 +853,8 @@ export async function sendPrompt() {
                 // 新建会话自动打开 Tab
                 var newTitle = (window._sessionMap && window._sessionMap[store.currentSessionId] && window._sessionMap[store.currentSessionId].title) || store.currentSessionId;
                 openSessionTab(store.currentSessionId, newTitle);
+                // 标题由 OpenCode 异步生成：主动轮询更新 tab/树/标题栏
+                scheduleSessionTitleRefresh(store.currentSessionId);
                 // 首开的 Tab 只注册未建容器，这里手动创建并激活，否则消息会渲染进隐藏容器导致界面空白
                 var sessBox = ensureTabMessagesEl(store.currentSessionId);
                 if (sessBox) {

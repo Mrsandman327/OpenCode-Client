@@ -23,9 +23,9 @@ let currentPermission = null;
  */
 // 权限类型 → 中文描述（参考图「访问项目目录之外的文件」风格）
 const ACTION_LABEL = {
-    read: '读取项目目录之外的文件',
-    edit: '编辑项目目录之外的文件',
-    write: '写入项目目录之外的文件',
+    read: '读取文件',
+    edit: '编辑文件',
+    write: '写入文件',
     bash: '执行命令',
     webfetch: '发起网络请求',
     websearch: '发起网络搜索',
