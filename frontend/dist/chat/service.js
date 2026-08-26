@@ -21,11 +21,17 @@ import { initSearch, initUserNav } from './search.js';
 // Web 状态检测
 // ============================
 
+/** 解析服务端口配置：'0' 表示随机端口（--port 0），应传 0 让后端主动发现实际端口 */
+function resolveServicePort() {
+    const cfg = getNetworkConfig();
+    return cfg.servicePort === '0' ? 0 : (parseInt(cfg.servicePort, 10) || 4096);
+}
+
 /** 检测 OpenCode 服务运行状态 */
 export async function checkWebStatus() {
     try {
         const config = getNetworkConfig();
-        const status = await api.GetWebStatus(config.serviceHost, parseInt(config.servicePort) || 4096);
+        const status = await api.GetWebStatus(config.serviceHost, resolveServicePort());
         store.webRunning = status.running;
         store.webURL = status.url || '';
         store.serverStatus = normalizeServerStatus(status);
@@ -61,7 +67,7 @@ export async function loadServiceStatus() {
     const config = getNetworkConfig();
     try {
         const [web, mcp, lsp] = await Promise.all([
-            api.GetWebStatus(config.serviceHost, parseInt(config.servicePort) || 4096).catch(() => null),
+            api.GetWebStatus(config.serviceHost, resolveServicePort()).catch(() => null),
             store.webRunning ? api.OpenCodeCall('GET', '/mcp').catch(() => null) : Promise.resolve(null),
             store.webRunning ? api.OpenCodeCall('GET', '/lsp').catch(() => null) : Promise.resolve(null),
         ]);

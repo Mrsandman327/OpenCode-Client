@@ -30,6 +30,9 @@ type webSession struct {
 	cmd      *exec.Cmd
 	port     int
 	hostname string
+	// external=true 表示服务不是本进程启动的（外部命令行启动 / 主动发现），
+	// OC Manager 只负责连接使用，停止时不杀进程（用户自行管理其生命周期）。
+	external bool
 }
 
 const (
@@ -201,6 +204,11 @@ func StopOpenCodeWeb() model.WebResult {
 		return model.WebResult{}
 	}
 
+	if sess != nil && sess.external {
+		// 外部启动/自动发现的服务：不管理其生命周期（用户命令行启动，不应被 OC Manager 杀掉）
+		return model.WebResult{}
+	}
+
 	if sess != nil && sess.port > 0 {
 		killByPort(sess.port)
 	}
@@ -226,16 +234,122 @@ func killByPort(port int) {
 	killProcTree(pid)
 }
 
+// discoverOpenCodeServer 主动发现本机运行中的 opencode 服务：
+// 枚举 opencode.exe 进程 → 查其监听端口 → 并行探测 /global/health 确认。
+// 适用于随机端口（--port 0）及外部命令行启动、端口未知的场景。
+// 返回 (hostname, port, ok)。
+func discoverOpenCodeServer() (string, int, bool) {
+	pids := listOpenCodePids()
+	if len(pids) == 0 {
+		return "", 0, false
+	}
+	pidSet := make(map[int]bool, len(pids))
+	for _, p := range pids {
+		pidSet[p] = true
+	}
+	ports := netstatListeningPorts(pidSet)
+	if len(ports) == 0 {
+		return "", 0, false
+	}
+	// 并行探测候选端口（严格 2xx：健康端点只响应真正的主服务端口，
+	// 内部端口/其他 HTTP 服务返回 404 会被排除）
+	type probeResult struct {
+		port int
+		ok   bool
+	}
+	ch := make(chan probeResult, len(ports))
+	for _, p := range ports {
+		go func(port int) {
+			ch <- probeResult{port, probeOpenCodeHealth(defaultHostname, port)}
+		}(p)
+	}
+	for range ports {
+		r := <-ch
+		if r.ok {
+			return defaultHostname, r.port, true
+		}
+	}
+	return "", 0, false
+}
+
+// probeOpenCodeHealth 严格探测 opencode 健康端点：仅 2xx 视为存活。
+// 与 getOpenCodeHealth 不同——后者把 <500（含 404）也当作"在线"，
+// 用于 discover 会误把内部端口/其他 HTTP 服务判为主服务。
+func probeOpenCodeHealth(hostname string, port int) bool {
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(fmt.Sprintf("http://%s:%d/global/health", hostname, port))
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
+}
+
+// listOpenCodePids 枚举本机 opencode.exe 进程 PID（tasklist CSV 输出）。
+func listOpenCodePids() []int {
+	cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq opencode.exe", "/FO", "CSV", "/NH")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var pids []int
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.Contains(line, "opencode.exe") {
+			continue
+		}
+		fields := strings.Split(line, ",")
+		if len(fields) < 2 {
+			continue
+		}
+		pidStr := strings.Trim(fields[1], "\"")
+		if pid, e := strconv.Atoi(pidStr); e == nil && pid > 0 {
+			pids = append(pids, pid)
+		}
+	}
+	return pids
+}
+
+// netstatListeningPorts 解析 netstat -ano 的 LISTENING 行，返回目标 PID 的监听端口列表。
+func netstatListeningPorts(pidSet map[int]bool) []int {
+	cmd := exec.Command("netstat", "-ano")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	re := regexp.MustCompile(`^\s*TCP\s+(\S+):(\d+)\s+\S+\s+LISTENING\s+(\d+)\s*$`)
+	var ports []int
+	for _, line := range strings.Split(string(out), "\n") {
+		m := re.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		pid, e1 := strconv.Atoi(m[3])
+		port, e2 := strconv.Atoi(m[2])
+		if e1 != nil || e2 != nil || !pidSet[pid] || port <= 0 {
+			continue
+		}
+		ports = append(ports, port)
+	}
+	return ports
+}
+
 // GetWebStatus 返回当前 web 服务状态。hostname/port 为前端配置的服务地址。
+// port==0 表示随机端口模式：不探测默认端口，改为主动发现本机 opencode 进程的监听端口。
 func GetWebStatus(hostname string, port int) model.WebResult {
 	if hostname == "" {
 		hostname = defaultHostname
 	}
-	if port <= 0 {
+	if port < 0 {
 		port = defaultPort
 	}
+	randomMode := port == 0
 	LastCfgHost = hostname
-	LastCfgPort = port
+	if port > 0 {
+		LastCfgPort = port
+	}
 	WebSessMu.Lock()
 	if WebSess != nil {
 		p := WebSess.port
@@ -246,19 +360,31 @@ func GetWebStatus(hostname string, port int) model.WebResult {
 	}
 	WebSessMu.Unlock()
 
-	if isOpenCodeServerRunning(hostname, port) {
+	// 固定端口模式：先探测配置端口（随机模式跳过，避免误探默认端口）
+	if !randomMode && isOpenCodeServerRunning(hostname, port) {
 		log.Printf("[STATUS] GetWebStatus(%s:%d) detected running", hostname, port)
 		WebSessMu.Lock()
-		WebSess = &webSession{port: port, hostname: hostname}
+		WebSess = &webSession{port: port, hostname: hostname, external: true}
 		WebSessMu.Unlock()
 		health, version, _ := getOpenCodeHealth(hostname, port)
 		return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", hostname, port), Health: health, Version: version}
 	}
 
+	// 配置端口未命中（含随机模式 / 外部命令行随机端口启动）：主动发现本机 opencode 进程端口
+	if h, p, ok := discoverOpenCodeServer(); ok {
+		log.Printf("[STATUS] GetWebStatus discovered opencode at %s:%d", h, p)
+		WebSessMu.Lock()
+		WebSess = &webSession{port: p, hostname: h, external: true}
+		WebSessMu.Unlock()
+		health, version, _ := getOpenCodeHealth(h, p)
+		return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", h, p), Health: health, Version: version}
+	}
+
 	return model.WebResult{URL: fmt.Sprintf("http://%s:%d", hostname, port), Health: "离线"}
 }
 
-// getWebSession 返回当前 webSession，未启动则尝试用最后已知配置自动检测。
+// getWebSession 返回当前 webSession，未启动则尝试用最后已知配置自动检测，
+// 检测不到再主动发现本机 opencode 进程的监听端口（随机端口 / 外部启动场景）。
 func getWebSession() *webSession {
 	WebSessMu.Lock()
 	sess := WebSess
@@ -268,7 +394,15 @@ func getWebSession() *webSession {
 	}
 	if isOpenCodeServerRunning(LastCfgHost, LastCfgPort) {
 		log.Printf("[STATUS] auto-detected serve at %s:%d", LastCfgHost, LastCfgPort)
-		sess = &webSession{port: LastCfgPort, hostname: LastCfgHost}
+		sess = &webSession{port: LastCfgPort, hostname: LastCfgHost, external: true}
+		WebSessMu.Lock()
+		WebSess = sess
+		WebSessMu.Unlock()
+		return sess
+	}
+	if h, p, ok := discoverOpenCodeServer(); ok {
+		log.Printf("[STATUS] auto-discovered opencode at %s:%d", h, p)
+		sess = &webSession{port: p, hostname: h, external: true}
 		WebSessMu.Lock()
 		WebSess = sess
 		WebSessMu.Unlock()
