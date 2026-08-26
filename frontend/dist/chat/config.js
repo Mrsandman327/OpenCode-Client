@@ -118,11 +118,13 @@ export function updateProxyPreview() {
     const proxyHost = document.getElementById('proxyHost')?.value.trim() || '127.0.0.1';
     const proxyPort = document.getElementById('proxyPort')?.value.trim() || '7897';
     const serviceHost = document.getElementById('serviceHost')?.value.trim() || '127.0.0.1';
-    const servicePort = document.getElementById('servicePort')?.value.trim() || '4096';
+    const randomEl = document.getElementById('servicePortRandom');
+    const randomPort = randomEl ? randomEl.checked : false;
+    const servicePort = randomPort ? '0' : (document.getElementById('servicePort')?.value.trim() || '4096');
     const preview = document.getElementById('proxyPreview');
     if (!preview) return;
     const parts = [];
-    parts.push(`服务地址: ${serviceHost}:${servicePort}`);
+    parts.push(randomPort ? `服务地址: ${serviceHost}:随机端口` : `服务地址: ${serviceHost}:${servicePort}`);
     if (proxyEnabled) {
         const url = `http://${proxyHost}:${proxyPort}`;
         parts.push(`代理: HTTP_PROXY、HTTPS_PROXY、ALL_PROXY = ${url}；NO_PROXY = localhost,127.0.0.1`);
@@ -152,13 +154,29 @@ export function showProxyModal() {
     const saveBtn = document.getElementById('btnSaveProxy');
     const cancelBtn = document.getElementById('btnCancelProxy');
     serviceHostEl.value = config.serviceHost;
-    servicePortEl.value = config.servicePort;
+    const randomEl = document.getElementById('servicePortRandom');
+    const isRandom = config.servicePort === '0';
+    servicePortEl.value = isRandom ? '' : config.servicePort;
+    if (randomEl) randomEl.checked = isRandom;
     proxyEnabledEl.checked = config.proxyEnabled;
     proxyHostEl.value = config.proxyHost;
     proxyPortEl.value = config.proxyPort;
     const readonly = store.webRunning;
     serviceHostEl.readOnly = readonly;
-    servicePortEl.readOnly = readonly;
+    if (randomEl) {
+        randomEl.disabled = readonly;
+        servicePortEl.disabled = isRandom || readonly;
+        if (!randomEl.dataset.bound) {
+            randomEl.dataset.bound = '1';
+            randomEl.addEventListener('change', function() {
+                const portInput = document.getElementById('servicePort');
+                if (portInput) portInput.disabled = randomEl.checked || !!store.webRunning;
+                updateProxyPreview();
+            });
+        }
+    } else {
+        servicePortEl.readOnly = readonly;
+    }
     proxyEnabledEl.disabled = readonly;
     proxyHostEl.readOnly = readonly;
     proxyPortEl.readOnly = readonly;
@@ -187,11 +205,14 @@ export function hideProxyModal() {
 /** 应用网络配置 */
 export function applyProxyConfig() {
     const serviceHost = document.getElementById('serviceHost').value.trim() || '127.0.0.1';
-    const servicePort = document.getElementById('servicePort').value.trim() || '4096';
+    const randomEl = document.getElementById('servicePortRandom');
+    const randomPort = randomEl ? randomEl.checked : false;
+    // 随机端口（--port 0）：servicePort 存 '0'，由 OpenCode 分配
+    const servicePort = randomPort ? '0' : (document.getElementById('servicePort').value.trim() || '4096');
     const proxyEnabled = document.getElementById('proxyEnabled').checked;
     const proxyHost = document.getElementById('proxyHost').value.trim() || '127.0.0.1';
     const proxyPort = document.getElementById('proxyPort').value.trim() || '7897';
-    if (!/^\d{1,5}$/.test(servicePort)) {
+    if (!randomPort && !/^\d{1,5}$/.test(servicePort)) {
         showToast('服务端口必须是数字', 'error');
         return;
     }

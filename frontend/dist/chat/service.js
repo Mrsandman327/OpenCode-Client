@@ -201,7 +201,9 @@ export function renderServiceStatus() {
 /** 启动 OpenCode Web 服务 */
 export async function startWeb() {
     const config = getNetworkConfig();
-    const port = parseInt(config.servicePort) || 4096;
+    const portText = (config.servicePort || '').trim();
+    // '0' 表示随机端口（--port 0），由 OpenCode 分配
+    const port = portText === '0' ? 0 : (parseInt(portText) || 4096);
     const hostname = config.serviceHost || '127.0.0.1';
     try {
         const result = await api.StartOpenCodeWeb(port, hostname, getNetworkConfig());

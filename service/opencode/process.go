@@ -2,6 +2,7 @@
 package opencode
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,9 +49,11 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 	if hostname == "" {
 		hostname = defaultHostname
 	}
-	if port <= 0 {
+
+	if port < 0 {
 		port = defaultPort
 	}
+	randomPort := port == 0 // --port 0：OpenCode 随机分配端口
 	LastCfgHost = hostname
 	LastCfgPort = port
 
@@ -66,13 +70,14 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 	}
 	WebSessMu.Unlock()
 
-	if isOpenCodeServerRunning(hostname, port) {
-		return model.WebResult{Error: fmt.Sprintf("%s:%d 已有 OpenCode 服务运行，请先停止该服务", hostname, port)}
-	}
-
-	// 检查端口是否被其他进程占用
-	if isPortInUse(hostname, port) {
-		return model.WebResult{Error: fmt.Sprintf("端口 %s:%d 已被其他程序占用，请更换端口或关闭占用程序", hostname, port)}
+	if !randomPort {
+		if isOpenCodeServerRunning(hostname, port) {
+			return model.WebResult{Error: fmt.Sprintf("%s:%d 已有 OpenCode 服务运行，请先停止该服务", hostname, port)}
+		}
+		// 检查端口是否被其他进程占用
+		if isPortInUse(hostname, port) {
+			return model.WebResult{Error: fmt.Sprintf("端口 %s:%d 已被其他程序占用，请更换端口或关闭占用程序", hostname, port)}
+		}
 	}
 
 	cmd := exec.Command("opencode", "serve",
@@ -98,44 +103,35 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
-	stderr, _ := cmd.StderrPipe()
+	// opencode 将监听地址打印到 stdout（如 "opencode server listening on http://127.0.0.1:4869"），
+	// 用 bytes.Buffer 收集输出：免去 pipe/goroutine/channel，且不阻塞 cmd.Wait
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 
 	if err := cmd.Start(); err != nil {
 		return model.WebResult{Error: fmt.Sprintf("启动 opencode web 失败: %v", err)}
 	}
 
-	addr := net.JoinHostPort(hostname, strconv.Itoa(port))
-	ready := make(chan error, 1)
-	go func() {
-		for i := 0; i < 40; i++ {
-			time.Sleep(250 * time.Millisecond)
-			conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
-			if err == nil {
-				conn.Close()
-				ready <- nil
-				return
-			}
-		}
-		ready <- fmt.Errorf("端口 %d 在 10 秒内未就绪", port)
-	}()
-
-	select {
-	case err := <-ready:
-		if err != nil {
+	if randomPort {
+		// 随机端口（--port 0）：从启动输出解析实际监听端口
+		p := waitForPortFromOutput(&outBuf, 10*time.Second)
+		if p == 0 {
 			killProcTree(cmd.Process.Pid)
-			detail := ""
-			if stderr != nil {
-				buf := make([]byte, 2048)
-				n, _ := stderr.Read(buf)
-				if n > 0 {
-					detail = ": " + strings.TrimSpace(string(buf[:n]))
-				}
-			}
-			return model.WebResult{Error: fmt.Sprintf("启动超时%s", detail)}
+			return model.WebResult{Error: "随机端口启动超时（10 秒内未检测到监听端口）"}
 		}
-	case <-time.After(12 * time.Second):
+		port = p
+		LastCfgPort = port
+	}
+
+	// 就绪等待：固定端口探测指定端口；随机端口探测解析出的实际端口
+	if err := waitPortReady(hostname, port, 12*time.Second); err != nil {
 		killProcTree(cmd.Process.Pid)
-		return model.WebResult{Error: "启动超时（超过 12 秒）"}
+		detail := ""
+		if s := strings.TrimSpace(errBuf.String()); s != "" {
+			detail = ": " + s
+		}
+		return model.WebResult{Error: fmt.Sprintf("%s%s", err.Error(), detail)}
 	}
 
 	sess := &webSession{cmd: cmd, port: port, hostname: hostname}
@@ -155,6 +151,37 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 
 	health, version, _ := getOpenCodeHealth(hostname, port)
 	return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", hostname, port), Health: health, Version: version}
+}
+
+// waitForPortFromOutput 轮询命令输出，解析 opencode 打印的实际监听端口（--port 0 场景）。
+// 返回 0 表示超时未解析到端口。
+func waitForPortFromOutput(out *bytes.Buffer, timeout time.Duration) int {
+	portRe := regexp.MustCompile(`http://[^\s:]*:(\d+)`)
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if m := portRe.FindStringSubmatch(out.String()); m != nil {
+			if p, e := strconv.Atoi(m[1]); e == nil && p > 0 && p < 65536 {
+				return p
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return 0
+}
+
+// waitPortReady 轮询探测端口可连接，直到超时。
+func waitPortReady(hostname string, port int, timeout time.Duration) error {
+	addr := net.JoinHostPort(hostname, strconv.Itoa(port))
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return nil
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return fmt.Errorf("端口 %d 在 %v 内未就绪", port, timeout)
 }
 
 // StopOpenCodeWeb 停止 opencode web 服务（含子进程 bun）。

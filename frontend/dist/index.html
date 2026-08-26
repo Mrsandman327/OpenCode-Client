@@ -344,8 +344,13 @@
                 <input id="serviceHost" placeholder="127.0.0.1" />
             </div>
             <div class="modal-field">
-                <label for="servicePort">服务端口</label>
-                <input id="servicePort" inputmode="numeric" placeholder="4096" />
+                    <label for="servicePort">服务端口</label>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input id="servicePort" inputmode="numeric" placeholder="4096" style="flex:1" />
+                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;white-space:nowrap;color:var(--text-secondary)">
+                            <input type="checkbox" id="servicePortRandom" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer" /> 随机
+                        </label>
+                    </div>
             </div>
             <hr class="proxy-separator" />
             <div class="oc-service-group-title">代理设置</div>
