@@ -20,8 +20,8 @@ import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
 import { loadSessionStatuses } from './events.js';
 import { isSessionBusy, smartScroll, updateSendButton, renderMessages } from './render.js';
 import { rememberKnownDir } from './tree.js';
-import { resetUserNav } from './search.js';
-import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage } from './cache.js';
+import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
+import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 
 // ============================
@@ -338,6 +338,64 @@ export async function createSessionWithDir(dir) {
  *  @param {string} [sessionID] 指定要加载的会话；缺省用当前会话。
  *  竞态保护按「每个会话独立 seq」：快速连点多个 tab 时，各会话的加载请求
  *  互不丢弃（原全局 seq 会因连点导致前序会话的加载被整体放弃 → 容器停在占位态）。 */
+/** 每会话分页状态：{ loadedAll: 是否已全部加载, loading: 是否加载中 } */
+const sessionPaging = {};
+
+/** 构造 before 游标：base64url(JSON{id, time})（time 为毫秒，取自消息 info.time.created） */
+function buildBeforeCursor(msg) {
+    const info = msg.info || msg;
+    const id = info.id;
+    const time = info.time?.created || info.time || 0;
+    if (!id || !time) return '';
+    return btoa(JSON.stringify({ id, time }))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * 加载更早的消息（分页历史，向上滚动 / 用户定位到边界时调用）。
+ * 每次拉取 200 条（before=缓存最旧消息游标），前置合并后保持滚动位置。
+ */
+export async function loadOlderMessages(sessionID) {
+    const targetId = sessionID || store.currentSessionId;
+    if (!targetId) return;
+    if (!sessionPaging[targetId]) sessionPaging[targetId] = {};
+    const paging = sessionPaging[targetId];
+    if (paging.loadedAll || paging.loading) return;
+    const list = getCachedMessages(targetId);
+    const oldest = list[0];
+    if (!oldest) return;
+    const before = buildBeforeCursor(oldest);
+    if (!before) return;
+    paging.loading = true;
+    try {
+        const messages = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(targetId)}/message?limit=200&before=${encodeURIComponent(before)}`);
+        // 渲染到目标会话自己的容器；仅当前激活会话保持滚动位置与同步用户定位
+        const isCurrent = targetId === store.currentSessionId;
+        const box = isCurrent ? ensureTabMessagesEl(targetId) : null;
+        const prevHeight = box ? box.scrollHeight : 0;
+        if (!messages || !messages.length) {
+            paging.loadedAll = true; // 没有更早消息，全部加载完成
+        } else {
+            prependMessages(targetId, messages);
+            if (messages.length < 200) paging.loadedAll = true;
+            // 新加载的用户消息插入缓存头部，用户定位索引整体偏移（保持"看到的那条"位置）
+            const addedUserCount = messages.filter(m => (m.info?.role || m.role) === 'user').length;
+            shiftUserNavIndex(addedUserCount);
+            if (box && isCurrent) {
+                renderMessages(getCachedMessages(targetId), box);
+                const nextHeight = box.scrollHeight;
+                box.scrollTop += nextHeight - prevHeight; // 保持加载前滚动位置
+                updateUserNav(); // 同步用户定位（新加载的用户消息可定位、计数更新）
+            } else if (box) {
+                renderCachedMessages(targetId); // 非当前会话：仅合并缓存，激活时渲染
+            }
+        }
+    } catch (_) {
+    } finally {
+        paging.loading = false;
+    }
+}
+
 export async function loadMessages(sessionID) {
     const targetId = sessionID || store.currentSessionId;
     const seq = (store.sessionLoadSeq[targetId] = (store.sessionLoadSeq[targetId] || 0) + 1);
@@ -352,10 +410,26 @@ export async function loadMessages(sessionID) {
     }
     const box = ensureTabMessagesEl(targetId);
     if (!box) return;
+    // 已加载过（分页进行中）：不重新拉取覆盖，直接渲染缓存，避免破坏分页状态
+    const existing = getCachedMessages(targetId);
+    if (existing.length) {
+        renderMessages(existing, box);
+        if (!isMobileTreeMode()) {
+            extractSubtaskSummaries(targetId);
+            renderSubtaskPanel();
+        }
+        return;
+    }
     try {
-        const messages = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(targetId)}/message`);
+        // 首次加载：分页拉最新 20 条
+        const messages = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(targetId)}/message?limit=20`);
         if (seq !== store.sessionLoadSeq[targetId]) return;
         cacheMessages(targetId, messages || []);
+        // 返回条数 < 20 说明没有更多历史（已全部加载）
+        if (!messages || messages.length < 20) {
+            if (!sessionPaging[targetId]) sessionPaging[targetId] = {};
+            sessionPaging[targetId].loadedAll = true;
+        }
         renderMessages(getCachedMessages(targetId), box);
         if (!isMobileTreeMode()) {
             extractSubtaskSummaries(targetId);
@@ -933,3 +1007,26 @@ export async function sendPrompt() {
 setTabActivationHandler(function() {
     if (store.currentSessionId) loadMessages();
 });
+
+// ============================================================
+// 分页事件绑定：消息容器滚动到顶加载更早；用户定位到边界触发
+// ============================================================
+(function bindMessagePagingEvents() {
+    const pool = document.getElementById('ocMessagesPool');
+    if (pool) {
+        let scrollTimer = null;
+        pool.addEventListener('scroll', function() {
+            if (scrollTimer) clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(function() {
+                const box = getActiveMessagesEl();
+                if (box && box.scrollTop <= 5) {
+                    loadOlderMessages(store.currentSessionId);
+                }
+            }, 250);
+        }, true);
+    }
+    // 用户定位（▲ 到最早一条）触发加载更早消息
+    document.addEventListener('oc-load-older', function() {
+        loadOlderMessages(store.currentSessionId);
+    });
+})();

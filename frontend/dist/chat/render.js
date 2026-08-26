@@ -184,7 +184,7 @@ export function buildMessageNode(item) {
 export function renderMessages(items, targetBox) {
     const box = targetBox || getActiveMessagesEl();
     const sourceList = (items || []).map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
-    const list = trimMessagesForRender(sourceList);
+    const list = sourceList; // 分页加载：已加载消息全量渲染（不再本地截断）
 
     if (store.userScrolling) {
         store.lastMessageCount = list.length;
@@ -247,7 +247,6 @@ export function renderMessages(items, targetBox) {
     restoreScroll(box, scrollState, false);
     updateScrollBottomButton();
     if (renderTodosHandler) renderTodosHandler();
-	renderCollapsedHistoryNotice(sourceList.length, sourceList.length - list.length, box);
     updateUserNav();
 
 }

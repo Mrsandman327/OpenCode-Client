@@ -345,6 +345,10 @@ export function navigateUserMessage(dir) {
     if (userNavIndex < 0) {
         // 当前无高亮，从第一条开始
         userNavIndex = dir > 0 ? 0 : msgs.length - 1;
+    } else if (dir < 0 && userNavIndex === 0) {
+        // 已到最早一条：触发加载更早消息（加载后由 updateUserNav 重新定位到原位置）
+        document.dispatchEvent(new CustomEvent('oc-load-older'));
+        return;
     } else {
         userNavIndex = Math.max(0, Math.min(msgs.length - 1, userNavIndex + dir));
     }
@@ -426,6 +430,12 @@ export function updateUserNav() {
     // 边界禁用按钮
     prevBtn.disabled = (userNavIndex <= 0);
     nextBtn.disabled = (userNavIndex >= total - 1);
+}
+
+/** 分页加载更早消息后，用户定位索引整体偏移（新加载的用户消息插入缓存头部） */
+export function shiftUserNavIndex(offset) {
+    if (!offset || userNavIndex < 0) return;
+    userNavIndex += offset;
 }
 
 /**

@@ -42,6 +42,27 @@ export function cacheMessages(sessionID, items) {
     store.messageCache[sessionID] = existing;
 }
 
+/**
+ * 前置合并更早的消息（分页加载历史用）。
+ * 新消息（更早）按 id 去重后插入缓存数组头部，保持 旧→新 顺序。
+ */
+export function prependMessages(sessionID, items) {
+    if (!sessionID) return;
+    const incoming = (items || []).map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
+    if (!incoming.length) return;
+    const existing = getCachedMessages(sessionID);
+    const existingIds = new Set(existing.map(item => item.info?.id || item.id));
+    const merged = [];
+    for (const item of incoming) {
+        const key = item.info?.id || item.id;
+        if (!key || existingIds.has(key)) continue; // 去重（before 为排他游标，正常不重复，兜底）
+        merged.push(item);
+    }
+    if (merged.length) {
+        store.messageCache[sessionID] = merged.concat(existing);
+    }
+}
+
 /** 合并两条消息（info 浅合并，parts 逐个按 id 合并） */
 export function mergeMessage(existing, incoming) {
     if (!existing) return incoming;
