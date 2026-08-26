@@ -36435,6 +36435,9 @@
           case "htm":
           case "xml":
             return html();
+          case "vue":
+          case "svelte":
+            return html();
           case "java":
             return java();
           case "rs":

@@ -7,7 +7,7 @@
 
 import { api } from '../core/apicall.js';
 import { showToast } from '../core/utils.js';
-import { setFileBrowserDownloadTarget } from './browser.js';
+import { setFileBrowserDownloadTarget, clearFileBrowserPreview } from './browser.js';
 
 export async function fileBrowserApiStat(rootDir, relPath) {
     return await api.StatBrowserFile(rootDir, relPath);
@@ -446,11 +446,12 @@ export async function resolveHtmlResources(rawHtml, rootDir, htmlFilePath) {
     return template.innerHTML;
 }
 
-export async function renderHtmlPreview(item, readData) {
+export async function renderHtmlPreview(item, readData, isCurrentRequest) {
     var state = window.fileBrowserState;
     var bodyEl = document.getElementById('filePreviewBody');
     if (!bodyEl || !state) return;
     var resolvedHtml = await resolveHtmlResources(readData.content || '', state.rootDir, item.path);
+    if (isCurrentRequest && !isCurrentRequest()) return;
 
     // 注入导航拦截脚本：在页面内最前面运行，拦截所有相对路径跳转
     // （window.location.href / replace / assign 以及 <a href> 点击）
@@ -553,7 +554,7 @@ export async function renderHtmlPreview(item, readData) {
     iframe.src = blobURL;
 }
 
-export async function renderTextualFilePreview(item, meta, readData, ext) {
+export async function renderTextualFilePreview(item, meta, readData, ext, isCurrentRequest) {
     var state = window.fileBrowserState;
     var bodyEl = document.getElementById('filePreviewBody');
     if (!bodyEl) return;
@@ -564,11 +565,12 @@ export async function renderTextualFilePreview(item, meta, readData, ext) {
     if (meta.previewKind === 'markdown') {
         var rawHtml = marked.parse(readData.content || '');
         var resolvedHtml = await resolveMarkdownImages(rawHtml, state.rootDir, item.path);
+        if (isCurrentRequest && !isCurrentRequest()) return;
         bodyEl.innerHTML = '<div class="oc-text file-browser-markdown">' + fileBrowserSanitizeMarkedHtml(resolvedHtml) + '</div>';
         return;
     }
     if (isHtmlExtension(ext)) {
-        await renderHtmlPreview(item, readData);
+        await renderHtmlPreview(item, readData, isCurrentRequest);
         return;
     }
     if (meta.previewKind === 'csv') {
@@ -626,10 +628,140 @@ export async function saveCurrentFilePreview() {
     }
 }
 
+// ============================================================
+// 多文件 tab：点文件以 tab 打开，可同时开多个、切换、关闭。
+// 每个打开过的文件在 state.fileTabCache[path] 保留编辑状态
+// （editorValue/originalContent/renderMode），切换与关闭都不丢失，
+// 重新打开同一文件时恢复。
+// ============================================================
+
+/** 把当前预览文件的编辑状态存入缓存（切 tab / 关闭 tab 前调用） */
+export function saveFileTabState() {
+    var state = window.fileBrowserState;
+    var path = state.activeFileTabPath || (state.selectedItem && state.selectedItem.path);
+    if (!path) return;
+    state.fileTabCache[path] = {
+        editorValue: state.previewEditorValue || '',
+        originalContent: state.previewOriginalContent || '',
+        renderMode: state.previewRenderMode || 'preview',
+    };
+}
+
+/** 渲染文件 tab 栏（含切换 / 关闭事件） */
+export function renderFileBrowserTabs() {
+    var tabsEl = document.getElementById('fileBrowserPreviewTabs');
+    if (!tabsEl) return;
+    var state = window.fileBrowserState;
+    if (!state.fileTabs || !state.fileTabs.length) {
+        tabsEl.innerHTML = '';
+        tabsEl.style.display = 'none';
+        return;
+    }
+    tabsEl.innerHTML = state.fileTabs.map(function(t) {
+        var active = t.path === state.activeFileTabPath ? ' active' : '';
+        return '<div class="file-browser-tab' + active + '" data-path="' + fileBrowserEscapeHTML(t.path) + '" title="' + fileBrowserEscapeHTML(t.path) + '">' +
+            '<span class="file-browser-tab-name">' + fileBrowserEscapeHTML(t.name) + '</span>' +
+            '<span class="file-browser-tab-close" data-close="' + fileBrowserEscapeHTML(t.path) + '">✕</span>' +
+        '</div>';
+    }).join('');
+    tabsEl.style.display = 'flex';
+
+    tabsEl.querySelectorAll('.file-browser-tab').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            if (e.target.closest('.file-browser-tab-close')) return;
+            fileBrowserSwitchTab(el.dataset.path);
+        });
+    });
+    tabsEl.querySelectorAll('.file-browser-tab-close').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            fileBrowserCloseTab(el.dataset.close);
+        });
+    });
+}
+
+/**
+ * 以 tab 打开文件（点击文件 / 切换 tab / 刷新时调用）：
+ * 保存当前 tab 状态 → 销毁旧编辑器 → 更新 tab 列表并激活目标 →
+ * 从缓存恢复目标文件的编辑状态 → 渲染预览。
+ */
+export function fileBrowserOpenFileTab(item) {
+    var state = window.fileBrowserState;
+    if (!state || !item || item.type !== 'file') return;
+    var path = item.path;
+    // 1. 保存当前活动 tab 的编辑状态
+    saveFileTabState();
+    // 2. 切换文件必须销毁旧编辑器（单编辑器实例）
+    destroyFileBrowserEditor();
+    // 3. 更新 tab 列表（同路径去重：已打开则激活，否则新增）
+    if (!state.fileTabs.some(function(t) { return t.path === path; })) {
+        state.fileTabs.push({ path: path, name: item.name, item: item });
+    }
+    state.activeFileTabPath = path;
+    state.selectedItem = item;
+    renderFileBrowserTabs();
+    // 4. 从缓存恢复目标文件编辑状态（打开过则保留编辑内容/渲染模式）
+    var cache = state.fileTabCache[path];
+    if (cache) {
+        state.previewEditorValue = cache.editorValue || '';
+        state.previewOriginalContent = cache.originalContent || '';
+        state.previewRenderMode = cache.renderMode || 'preview';
+        // 渲染：keepMode 保留恢复的编辑值，避免被文件内容覆盖
+        renderFilePreview(item, { keepMode: true, skipMetaReload: false });
+    } else {
+        // 新文件：重置单例状态，renderFilePreview 不带 keepMode，
+        // 让它按文件类型重新计算渲染模式（代码文件默认可编辑）并读取文件内容
+        state.previewEditorValue = '';
+        state.previewOriginalContent = '';
+        state.previewRenderMode = 'preview';
+        renderFilePreview(item, { skipMetaReload: false });
+    }
+}
+
+/** 切换到指定路径的 tab（复用打开逻辑：已存在则仅激活） */
+export function fileBrowserSwitchTab(path) {
+    var state = window.fileBrowserState;
+    if (!state || path === state.activeFileTabPath) return;
+    var tab = state.fileTabs.find(function(t) { return t.path === path; });
+    if (!tab) return;
+    fileBrowserOpenFileTab(tab.item);
+}
+
+/** 关闭指定路径的 tab：从列表移除（编辑缓存保留，重新打开恢复），激活相邻 tab */
+export function fileBrowserCloseTab(path) {
+    var state = window.fileBrowserState;
+    if (!state || !state.fileTabs) return;
+    // 先保存当前活动 tab 状态（可能是被关闭的 tab）
+    saveFileTabState();
+    var idx = state.fileTabs.findIndex(function(t) { return t.path === path; });
+    if (idx < 0) return;
+    state.fileTabs.splice(idx, 1);
+    if (state.activeFileTabPath === path) {
+        // 关闭的是活动 tab：激活相邻 tab
+        var next = state.fileTabs[idx] || state.fileTabs[idx - 1];
+        if (next) {
+            fileBrowserOpenFileTab(next.item);
+        } else {
+            // 无剩余 tab：清空预览区
+            state.activeFileTabPath = '';
+            state.selectedItem = null;
+            destroyFileBrowserEditor();
+            clearFileBrowserPreview();
+            renderFileBrowserTabs();
+        }
+    } else {
+        renderFileBrowserTabs();
+    }
+}
+
 export async function renderFilePreview(item, options) {
     var state = window.fileBrowserState;
     options = options || {};
     if (!state || !item || item.type !== 'file') return;
+    var requestSeq = ++state.previewRequestSeq;
+    var isCurrentRequest = function() {
+        return requestSeq === state.previewRequestSeq && state.activeFileTabPath === item.path;
+    };
     if (!(options.keepMode && state.previewRenderMode === 'edit')) {
         destroyFileBrowserEditor();
     }
@@ -647,9 +779,17 @@ export async function renderFilePreview(item, options) {
 
     try {
         var meta = options.skipMetaReload && state.previewMeta ? state.previewMeta : await fileBrowserApiStat(state.rootDir, item.path);
+        if (!isCurrentRequest()) return;
         state.previewMeta = meta;
         if (!options.keepMode) {
             state.previewRenderMode = fileBrowserGetPreferredRenderMode(meta);
+        }
+        // 普通代码/文本文件没有“预览/编辑”切换按钮；可编辑时必须保持编辑模式，
+        // 避免从其他 tab 恢复的 preview 状态导致同类文件变成只读。
+        var canSwitchRenderMode = meta.previewKind === 'markdown' ||
+            (meta.previewKind === 'code' && isHtmlExtension(meta.ext || ''));
+        if (meta.editable && !canSwitchRenderMode) {
+            state.previewRenderMode = 'edit';
         }
         if (metaEl) {
             metaEl.textContent = [meta.ext || '', fileBrowserFormatBytes(meta.size || 0), meta.modifiedAt || ''].filter(Boolean).join(' · ');
@@ -660,11 +800,13 @@ export async function renderFilePreview(item, options) {
 
         if (previewKind === 'image') {
             var previewImageRes = await fileBrowserResolveRawResource(state.rootDir, item.path);
+            if (!isCurrentRequest()) return;
             bodyEl.innerHTML = '<div class="file-browser-image-wrap"><img class="file-browser-image" src="' + previewImageRes.url + '" alt="' + fileBrowserEscapeHTML(item.name) + '"></div>';
             return;
         }
         if (previewKind === 'pdf') {
             var previewPdfRes = await fileBrowserResolveRawResource(state.rootDir, item.path);
+            if (!isCurrentRequest()) return;
             bodyEl.innerHTML = '<iframe class="file-browser-pdf" title="PDF预览" src="' + previewPdfRes.url + '"></iframe>';
             return;
         }
@@ -677,13 +819,15 @@ export async function renderFilePreview(item, options) {
         }
         if (previewKind === 'markdown' || previewKind === 'csv' || previewKind === 'text' || previewKind === 'code') {
             var previewReadData = await fileBrowserApiRead(state.rootDir, item.path);
+            if (!isCurrentRequest()) return;
             state.previewReadResult = previewReadData;
             state.previewContent = previewReadData.content || '';
             if (!options.keepMode || state.previewEditorValue === '' || !fileBrowserIsDirty()) {
                 state.previewEditorValue = previewReadData.content || '';
                 state.previewOriginalContent = previewReadData.content || '';
             }
-            await renderTextualFilePreview(item, meta, previewReadData, ext);
+            await renderTextualFilePreview(item, meta, previewReadData, ext, isCurrentRequest);
+            if (!isCurrentRequest()) return;
             renderFilePreviewToolbar();
             return;
         }
@@ -691,6 +835,7 @@ export async function renderFilePreview(item, options) {
         if (!ext) {
             if (state.previewRenderMode === 'edit' || state.forcedTextPreview[item.path]) {
                 var noExtReadData = await fileBrowserApiRead(state.rootDir, item.path);
+                if (!isCurrentRequest()) return;
                 var noExtContent = noExtReadData.content || '';
                 state.previewReadResult = noExtReadData;
                 state.previewContent = noExtContent;
@@ -701,7 +846,8 @@ export async function renderFilePreview(item, options) {
                 if (metaEl) {
                     metaEl.textContent = ['无扩展名 · 按普通文本方式打开', fileBrowserFormatBytes(meta.size || 0), meta.modifiedAt || ''].filter(Boolean).join(' · ');
                 }
-                await renderTextualFilePreview(item, meta, noExtReadData, '');
+                await renderTextualFilePreview(item, meta, noExtReadData, '', isCurrentRequest);
+                if (!isCurrentRequest()) return;
                 renderFilePreviewToolbar();
                 return;
             }
@@ -717,6 +863,7 @@ export async function renderFilePreview(item, options) {
             '</div>';
         renderFilePreviewToolbar();
     } catch (err) {
+        if (!isCurrentRequest()) return;
         if (metaEl) metaEl.textContent = '';
         if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty error">' + fileBrowserEscapeHTML(err.message || err) + '</div>';
         renderFilePreviewToolbar();

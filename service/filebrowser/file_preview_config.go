@@ -76,7 +76,7 @@ func defaultFilePreviewTypeMap() map[string]FilePreviewTypeConfig {
 	items := []FilePreviewTypeConfig{
 		{Name: "markdown", PreviewKind: "markdown", Previewable: true, DefaultMode: "edit", Extensions: []string{".md", ".markdown"}},
 		{Name: "text", PreviewKind: "text", Previewable: true, DefaultMode: "edit", Extensions: []string{".txt", ".log", ".ini", ".env", ".yaml", ".yml", ".xml", ".toml", ".conf"}},
-		{Name: "code", PreviewKind: "code", Previewable: true, DefaultMode: "edit", Extensions: []string{".js", ".jsx", ".ts", ".tsx", ".go", ".sum", ".mod", ".py", ".java", ".c", ".cpp", ".cc", ".rs", ".sh", ".bash", ".bat", ".vbs", ".css", ".scss", ".less", ".html", ".htm", ".sql"}},
+		{Name: "code", PreviewKind: "code", Previewable: true, DefaultMode: "edit", Extensions: []string{".js", ".jsx", ".ts", ".tsx", ".go", ".sum", ".mod", ".py", ".java", ".c", ".cpp", ".cc", ".rs", ".sh", ".bash", ".bat", ".vbs", ".css", ".scss", ".less", ".html", ".htm", ".sql", ".vue", ".svelte", ".d.ts"}},
 		{Name: "json", PreviewKind: "code", Previewable: true, DefaultMode: "edit", Extensions: []string{".json", ".jsonc"}},
 		{Name: "csv", PreviewKind: "csv", Previewable: true, DefaultMode: "edit", Extensions: []string{".csv"}},
 		{Name: "spreadsheet", PreviewKind: "spreadsheet", Previewable: true, DefaultMode: "preview", Extensions: []string{".xlsx", ".xls"}},

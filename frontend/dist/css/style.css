@@ -5562,6 +5562,59 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     background: var(--bg-card);
 }
+/* 多文件 tab 栏：已打开文件列表（对齐项目树/会话卡片视觉） */
+.file-browser-preview-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+.file-browser-tab {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding: 4px 8px 4px 10px;
+    border-radius: 3px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: "SF Mono", "Cascadia Code", monospace;;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    max-width: 220px;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.file-browser-tab .file-browser-tab-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.file-browser-tab:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+    box-shadow: rgba(0,0,0,0.08) 0 2px 6px;
+}
+.file-browser-tab.active {
+    background: var(--accent-ghost);
+    color: var(--accent);
+    border-color: var(--accent-hover);
+}
+.file-browser-tab-close {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 0 3px;
+    border-radius: 4px;
+    line-height: 1;
+}
+.file-browser-tab-close:hover {
+    color: var(--danger);
+    background: var(--danger-bg);
+}
 .file-browser-preview-header {
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);

@@ -15,13 +15,19 @@ import {
     fileBrowserClearObjectURL,
     destroyFileBrowserEditor,
     renderFilePreviewToolbar,
-    fileBrowserResolveRawResource
+    fileBrowserResolveRawResource,
+    fileBrowserOpenFileTab,
+    renderFileBrowserTabs
 } from './preview.js';
 
 window.fileBrowserState = {
     rootDir: '',
     mode: 'files',
     selectedItem: null,
+    // 多文件 tab：已打开的文件列表（去重 by path）、各文件编辑缓存、活动 tab
+    fileTabs: [],
+    fileTabCache: {},
+    activeFileTabPath: '',
     // 文件树相关状态
     rootNode: null,
     selectedPath: '',
@@ -29,6 +35,8 @@ window.fileBrowserState = {
     previewContent: null,
     previewReadResult: null,
     previewRenderMode: 'preview',
+    // 异步预览请求序号：只允许最后一次文件预览更新界面，避免快速切换时串写。
+    previewRequestSeq: 0,
     previewEditorValue: '',
     previewOriginalContent: '',
     previewEditorInstance: null,
@@ -303,7 +311,7 @@ export async function handleTreeDirClick(path) {
     markTreeSelection(state.rootNode, state.selectedPath);
 }
 
-/** 处理树文件点击：选中 + 预览 */
+/** 处理树文件点击：以 tab 打开并预览 */
 export function handleTreeFileClick(path) {
     var state = window.fileBrowserState;
     state.selectedPath = path;
@@ -312,7 +320,7 @@ export function handleTreeFileClick(path) {
     renderFileTree(state.rootNode);
     markTreeSelection(state.rootNode, path);
     if (state.selectedItem) {
-        renderFilePreview(state.selectedItem);
+        fileBrowserOpenFileTab(state.selectedItem);
     }
 }
 
@@ -826,6 +834,11 @@ export function openFileBrowserModal(rootDir, options) {
     window.fileBrowserState.rootDir = rootDir || '';
     window.fileBrowserState.features = features;
     window.fileBrowserState.selectedItem = null;
+    // 新目录新会话：重置多文件 tab（tab 编辑缓存随弹窗关闭而清空）
+    window.fileBrowserState.fileTabs = [];
+    window.fileBrowserState.fileTabCache = {};
+    window.fileBrowserState.activeFileTabPath = '';
+    renderFileBrowserTabs();
     window.fileBrowserState.rootNode = null;
     window.fileBrowserState.selectedPath = '';
     window.fileBrowserState.previewMode = 'file';
@@ -1372,7 +1385,7 @@ export function refreshFileBrowser() {
     var state = window.fileBrowserState;
     loadFileBrowserList('/').then(function() {
         if (state.selectedItem) {
-            renderFilePreview(state.selectedItem);
+            fileBrowserOpenFileTab(state.selectedItem);
         }
     });
     if (state.mode === 'git') {
