@@ -19,7 +19,7 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:     "OpenCode管理中心",
+		Title:     "OC Manager",
 		Width:     1280,
 		Height:    820,
 		MinWidth:  960,
