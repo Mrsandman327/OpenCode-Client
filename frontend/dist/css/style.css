@@ -5582,7 +5582,7 @@ input::placeholder, textarea::placeholder {
     border: 1px solid var(--border);
     cursor: pointer;
     font-size: 13px;
-    font-family: "SF Mono", "Cascadia Code", monospace;;
+    font-family: "SF Mono", "Cascadia Code", monospace;
     color: var(--text-secondary);
     white-space: nowrap;
     max-width: 220px;

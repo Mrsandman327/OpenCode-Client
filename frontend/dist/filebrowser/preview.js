@@ -6,8 +6,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { showToast } from '../core/utils.js';
-import { setFileBrowserDownloadTarget, clearFileBrowserPreview } from './browser.js';
+import { showToast, escapeHtml } from '../core/utils.js';
 
 export async function fileBrowserApiStat(rootDir, relPath) {
     return await api.StatBrowserFile(rootDir, relPath);
@@ -61,8 +60,7 @@ export function base64ToBlob(base64, mime) {
 export async function fileBrowserResolveRawResource(rootDir, relPath) {
     var raw = await api.ReadBrowserRawBase64(rootDir, relPath);
     var blob = base64ToBlob(raw.base64 || '', raw.mime || 'application/octet-stream');
-    var url = URL.createObjectURL(blob);
-    window.fileBrowserState.previewObjectURL = url;
+    var url = fileBrowserTrackObjectURL(URL.createObjectURL(blob));
     return { url: url, name: raw.name || '', mime: raw.mime || 'application/octet-stream' };
 }
 
@@ -77,24 +75,14 @@ export function fileBrowserTrackObjectURL(url) {
 }
 
 export async function fileBrowserResolveRawResourceMulti(rootDir, relPath) {
-    var raw = await api.ReadBrowserRawBase64(rootDir, relPath);
-    var blob = base64ToBlob(raw.base64 || '', raw.mime || 'application/octet-stream');
-    var url = fileBrowserTrackObjectURL(URL.createObjectURL(blob));
-    return { url: url, name: raw.name || '', mime: raw.mime || 'application/octet-stream' };
-}
-
-export function fileBrowserEscapeHTML(text) {
-    if (text == null) return '';
-    var div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
+    return fileBrowserResolveRawResource(rootDir, relPath);
 }
 
 export function fileBrowserHighlightCode(code, ext) {
     var lines = String(code || '').split('\n');
     var numbered = '';
     for (var i = 0; i < lines.length; i++) {
-        numbered += '<div class="hljs-line"><span class="hljs-line-no">' + (i + 1) + '</span><span class="hljs-line-content">' + (fileBrowserEscapeHTML(lines[i]) || ' ') + '</span></div>';
+        numbered += '<div class="hljs-line"><span class="hljs-line-no">' + (i + 1) + '</span><span class="hljs-line-content">' + (escapeHtml(lines[i]) || ' ') + '</span></div>';
     }
     return numbered;
 }
@@ -181,6 +169,45 @@ export function destroyFileBrowserEditor() {
     if (state) {
         state.previewEditorInstance = null;
     }
+}
+
+export function setFileBrowserDownloadTarget(path, name) {
+    var btn = document.getElementById('btnFileBrowserDownload');
+    var state = window.fileBrowserState;
+    if (!state) return;
+    state.previewDownloadPath = path || '';
+    state.previewDownloadName = name || '';
+    if (!btn) return;
+    btn.style.display = path ? 'inline-flex' : 'none';
+    btn.disabled = !path;
+}
+
+export function clearFileBrowserPreview() {
+    var titleEl = document.getElementById('filePreviewTitle');
+    var metaEl = document.getElementById('filePreviewMeta');
+    var bodyEl = document.getElementById('filePreviewBody');
+    var downloadBtn = document.getElementById('btnFileBrowserDownload');
+    if (titleEl) titleEl.textContent = '请选择文件';
+    if (metaEl) metaEl.textContent = '';
+    if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">请选择左侧文件进行预览</div>';
+    destroyFileBrowserEditor();
+    var state = window.fileBrowserState;
+    if (!state) return;
+    state.previewMeta = null;
+    state.previewReadResult = null;
+    state.previewRenderMode = 'preview';
+    state.previewEditorValue = '';
+    state.previewOriginalContent = '';
+    state.previewEditorInstance = null;
+    state.previewSearchSyncTimer = null;
+    state.savingPreview = false;
+    state.previewDownloadPath = '';
+    state.previewDownloadName = '';
+    if (downloadBtn) {
+        downloadBtn.style.display = 'none';
+        downloadBtn.disabled = true;
+    }
+    renderFilePreviewToolbar();
 }
 
 export function syncFileBrowserEditorTheme(theme) {
@@ -614,7 +641,6 @@ export async function saveCurrentFilePreview() {
             return;
         }
         state.previewOriginalContent = state.previewEditorValue || '';
-        state.previewContent = state.previewEditorValue || '';
         if (state.previewEditorInstance && window.ProjectConfigCodeEditor) {
             window.ProjectConfigCodeEditor.markClean(state.previewEditorInstance);
         }
@@ -638,6 +664,7 @@ export async function saveCurrentFilePreview() {
 /** 把当前预览文件的编辑状态存入缓存（切 tab / 关闭 tab 前调用） */
 export function saveFileTabState() {
     var state = window.fileBrowserState;
+    if (!state || state.previewMode !== 'file') return;
     var path = state.activeFileTabPath || (state.selectedItem && state.selectedItem.path);
     if (!path) return;
     state.fileTabCache[path] = {
@@ -659,9 +686,9 @@ export function renderFileBrowserTabs() {
     }
     tabsEl.innerHTML = state.fileTabs.map(function(t) {
         var active = t.path === state.activeFileTabPath ? ' active' : '';
-        return '<div class="file-browser-tab' + active + '" data-path="' + fileBrowserEscapeHTML(t.path) + '" title="' + fileBrowserEscapeHTML(t.path) + '">' +
-            '<span class="file-browser-tab-name">' + fileBrowserEscapeHTML(t.name) + '</span>' +
-            '<span class="file-browser-tab-close" data-close="' + fileBrowserEscapeHTML(t.path) + '">✕</span>' +
+        return '<div class="file-browser-tab' + active + '" data-path="' + escapeHtml(t.path) + '" title="' + escapeHtml(t.path) + '">' +
+            '<span class="file-browser-tab-name">' + escapeHtml(t.name) + '</span>' +
+            '<span class="file-browser-tab-close" data-close="' + escapeHtml(t.path) + '">✕</span>' +
         '</div>';
     }).join('');
     tabsEl.style.display = 'flex';
@@ -695,7 +722,7 @@ export function fileBrowserOpenFileTab(item) {
     destroyFileBrowserEditor();
     // 3. 更新 tab 列表（同路径去重：已打开则激活，否则新增）
     if (!state.fileTabs.some(function(t) { return t.path === path; })) {
-        state.fileTabs.push({ path: path, name: item.name, item: item });
+        state.fileTabs.push(item);
     }
     state.activeFileTabPath = path;
     state.selectedItem = item;
@@ -724,7 +751,7 @@ export function fileBrowserSwitchTab(path) {
     if (!state || path === state.activeFileTabPath) return;
     var tab = state.fileTabs.find(function(t) { return t.path === path; });
     if (!tab) return;
-    fileBrowserOpenFileTab(tab.item);
+    fileBrowserOpenFileTab(tab);
 }
 
 /** 关闭指定路径的 tab：从列表移除（编辑缓存保留，重新打开恢复），激活相邻 tab */
@@ -740,7 +767,7 @@ export function fileBrowserCloseTab(path) {
         // 关闭的是活动 tab：激活相邻 tab
         var next = state.fileTabs[idx] || state.fileTabs[idx - 1];
         if (next) {
-            fileBrowserOpenFileTab(next.item);
+            fileBrowserOpenFileTab(next);
         } else {
             // 无剩余 tab：清空预览区
             state.activeFileTabPath = '';
@@ -801,7 +828,7 @@ export async function renderFilePreview(item, options) {
         if (previewKind === 'image') {
             var previewImageRes = await fileBrowserResolveRawResource(state.rootDir, item.path);
             if (!isCurrentRequest()) return;
-            bodyEl.innerHTML = '<div class="file-browser-image-wrap"><img class="file-browser-image" src="' + previewImageRes.url + '" alt="' + fileBrowserEscapeHTML(item.name) + '"></div>';
+            bodyEl.innerHTML = '<div class="file-browser-image-wrap"><img class="file-browser-image" src="' + previewImageRes.url + '" alt="' + escapeHtml(item.name) + '"></div>';
             return;
         }
         if (previewKind === 'pdf') {
@@ -813,7 +840,7 @@ export async function renderFilePreview(item, options) {
         if (previewKind === 'spreadsheet') {
             bodyEl.innerHTML = '<div class="file-browser-unsupported">' +
                 '<p>当前版本未启用 Excel 在线预览。</p>' +
-                '<p>文件：' + fileBrowserEscapeHTML(item.name) + '</p>' +
+                '<p>文件：' + escapeHtml(item.name) + '</p>' +
                 '</div>';
             return;
         }
@@ -821,7 +848,6 @@ export async function renderFilePreview(item, options) {
             var previewReadData = await fileBrowserApiRead(state.rootDir, item.path);
             if (!isCurrentRequest()) return;
             state.previewReadResult = previewReadData;
-            state.previewContent = previewReadData.content || '';
             if (!options.keepMode || state.previewEditorValue === '' || !fileBrowserIsDirty()) {
                 state.previewEditorValue = previewReadData.content || '';
                 state.previewOriginalContent = previewReadData.content || '';
@@ -838,7 +864,6 @@ export async function renderFilePreview(item, options) {
                 if (!isCurrentRequest()) return;
                 var noExtContent = noExtReadData.content || '';
                 state.previewReadResult = noExtReadData;
-                state.previewContent = noExtContent;
                 if (!options.keepMode || state.previewEditorValue === '' || !fileBrowserIsDirty()) {
                     state.previewEditorValue = noExtContent;
                     state.previewOriginalContent = noExtContent;
@@ -859,13 +884,13 @@ export async function renderFilePreview(item, options) {
 
         bodyEl.innerHTML = '<div class="file-browser-unsupported">' +
             '<p>该文件类型暂不支持在线预览。</p>' +
-            '<p>文件：' + fileBrowserEscapeHTML(item.name) + '</p>' +
+                '<p>文件：' + escapeHtml(item.name) + '</p>' +
             '</div>';
         renderFilePreviewToolbar();
     } catch (err) {
         if (!isCurrentRequest()) return;
         if (metaEl) metaEl.textContent = '';
-        if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty error">' + fileBrowserEscapeHTML(err.message || err) + '</div>';
+        if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
         renderFilePreviewToolbar();
     }
 }
@@ -874,7 +899,7 @@ export function renderNoExtPreview(item, meta) {
     return '<div class="file-browser-noext">' +
         '<div class="file-browser-noext-title">无扩展名文件</div>' +
         '<div class="file-browser-noext-hint">系统暂时无法自动判断该文件类型。你可以按普通文本方式尝试预览。</div>' +
-        '<div class="file-browser-noext-name">文件：' + fileBrowserEscapeHTML(item.name || meta.name || item.path || '') + '</div>' +
+        '<div class="file-browser-noext-name">文件：' + escapeHtml(item.name || meta.name || item.path || '') + '</div>' +
         '<div class="file-browser-noext-actions">' +
             '<button type="button" class="btn btn-sm btn-refresh" id="btnOpenNoExtAsText">按普通文本打开</button>' +
         '</div>' +
@@ -901,9 +926,9 @@ export function renderCSVPreview(content) {
         html += '<tr>';
         cols.forEach(function(col) {
             if (rowIndex === 0) {
-                html += '<th>' + fileBrowserEscapeHTML(col) + '</th>';
+            html += '<th>' + escapeHtml(col) + '</th>';
             } else {
-                html += '<td>' + fileBrowserEscapeHTML(col) + '</td>';
+            html += '<td>' + escapeHtml(col) + '</td>';
             }
         });
         html += '</tr>';
@@ -940,7 +965,7 @@ export async function renderGitFilePreview(path) {
             renderGitSection('已暂存修改', data.stagedBlocks || [], data.hasStaged) +
             renderGitSection('未暂存修改', data.unstagedBlocks || [], data.hasUnstaged);
     } catch (err) {
-        bodyEl.innerHTML = '<div class="file-browser-empty error">' + fileBrowserEscapeHTML(err.message || err) + '</div>';
+        bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
     }
 }
 
@@ -963,19 +988,19 @@ export async function renderGitHistoryFilePreview(commitHash, path) {
         var blocks = data.blocks || [];
         bodyEl.innerHTML = renderGitSection('提交修改', blocks, true);
     } catch (err) {
-        bodyEl.innerHTML = '<div class="file-browser-empty error">' + fileBrowserEscapeHTML(err.message || err) + '</div>';
+        bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
     }
 }
 
 export function renderGitSection(title, blocks, enabled) {
     if (!enabled || !blocks || !blocks.length) {
         return '<div class="git-preview-section">' +
-            '<div class="git-preview-section-title">' + fileBrowserEscapeHTML(title) + '</div>' +
-            '<div class="file-browser-empty">当前没有' + fileBrowserEscapeHTML(title) + '</div>' +
+            '<div class="git-preview-section-title">' + escapeHtml(title) + '</div>' +
+            '<div class="file-browser-empty">当前没有' + escapeHtml(title) + '</div>' +
         '</div>';
     }
     var html = '<div class="git-preview-section">' +
-        '<div class="git-preview-section-title">' + fileBrowserEscapeHTML(title) + '</div>';
+            '<div class="git-preview-section-title">' + escapeHtml(title) + '</div>';
     blocks.forEach(function(block) {
         html += renderGitDiffBlock(block);
     });
@@ -1001,8 +1026,8 @@ export function renderGitDiffBlock(block) {
 export function renderGitDiffLine(line, side) {
     var no = side === 'left' ? line.oldNo : line.newNo;
     var noText = no ? String(no) : '';
-    return '<div class="git-diff-line ' + fileBrowserEscapeHTML(line.kind || 'context') + '">' +
-        '<span class="git-diff-line-no">' + fileBrowserEscapeHTML(noText) + '</span>' +
-        '<span class="git-diff-line-text">' + fileBrowserEscapeHTML(line.text || '') + '</span>' +
+        return '<div class="git-diff-line ' + escapeHtml(line.kind || 'context') + '">' +
+            '<span class="git-diff-line-no">' + escapeHtml(noText) + '</span>' +
+            '<span class="git-diff-line-text">' + escapeHtml(line.text || '') + '</span>' +
     '</div>';
 }

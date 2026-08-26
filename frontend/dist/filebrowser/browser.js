@@ -9,15 +9,14 @@
 import { api } from '../core/apicall.js';
 import { showToast, escapeHtml } from '../core/utils.js';
 import {
-    renderFilePreview,
     renderGitFilePreview,
     renderGitHistoryFilePreview,
     fileBrowserClearObjectURL,
     destroyFileBrowserEditor,
-    renderFilePreviewToolbar,
     fileBrowserResolveRawResource,
     fileBrowserOpenFileTab,
-    renderFileBrowserTabs
+    renderFileBrowserTabs,
+    clearFileBrowserPreview
 } from './preview.js';
 
 window.fileBrowserState = {
@@ -32,7 +31,6 @@ window.fileBrowserState = {
     rootNode: null,
     selectedPath: '',
     previewMeta: null,
-    previewContent: null,
     previewReadResult: null,
     previewRenderMode: 'preview',
     // 异步预览请求序号：只允许最后一次文件预览更新界面，避免快速切换时串写。
@@ -296,8 +294,9 @@ export async function handleTreeDirClick(path) {
     var node = findNodeByPath(state.rootNode, path);
     if (!node || node.type !== 'dir') return;
     state.selectedPath = path;
-    state.selectedItem = null;
-    clearFileBrowserPreview();
+    // 多文件 tab：点击目录只用于展开/收起树，不清空已打开文件的预览。
+    // 原逻辑置 selectedItem=null + clearFileBrowserPreview()，
+    // 会让已打开的 tab 栏保留但预览区显示"请选择左侧文件进行预览"。
 
     if (!node.loaded) {
         // 懒加载
@@ -405,15 +404,6 @@ export async function fileBrowserApiDelete(rootDir, path) {
 
 // 注：fileBrowserApiSave 已由 preview.js 定义并导出（调用 api.SaveBrowserFile），
 // 这里不再重复定义，保存入口统一走 preview.js 的 saveCurrentFilePreview。
-
-export function setFileBrowserDownloadTarget(path, name) {
-    var btn = document.getElementById('btnFileBrowserDownload');
-    window.fileBrowserState.previewDownloadPath = path || '';
-    window.fileBrowserState.previewDownloadName = name || '';
-    if (!btn) return;
-    btn.style.display = path ? 'inline-flex' : 'none';
-    btn.disabled = !path;
-}
 
 export function fileToBase64(file) {
     return new Promise(function(resolve, reject) {
@@ -587,32 +577,6 @@ export async function fileBrowserConfirmDelete(item) {
         return await api.ShowConfirmDialog('删除确认', message);
     }
     return confirm(message);
-}
-
-export async function deleteBrowserItem(item) {
-    var state = window.fileBrowserState;
-    var targetDirPath = getCurrentDirPath();
-    if (!item || !state.rootDir) return;
-    var confirmed = await fileBrowserConfirmDelete(item);
-    if (!confirmed) return;
-    try {
-        var result = await fileBrowserApiDelete(state.rootDir, item.path);
-        if (!result.success) {
-            showToast(result.error || '删除失败', 'error');
-            return;
-        }
-        if (state.selectedItem && state.selectedItem.path === item.path) {
-            state.selectedItem = null;
-            state.selectedPath = '';
-            clearFileBrowserPreview();
-        }
-        showToast('已删除' + (item.type === 'dir' ? '文件夹' : '文件') + '：' + item.name, 'success');
-        await reloadDirChildren(targetDirPath);
-        renderFileTree(state.rootNode);
-        markTreeSelection(state.rootNode, state.selectedPath);
-    } catch (err) {
-        showToast(err.message || '删除失败', 'error');
-    }
 }
 
 (function initFileBrowserResize() {
@@ -895,33 +859,6 @@ export function closeFileBrowserModal() {
     clearFileBrowserPreview();
 }
 
-export function clearFileBrowserPreview() {
-    var titleEl = document.getElementById('filePreviewTitle');
-    var metaEl = document.getElementById('filePreviewMeta');
-    var bodyEl = document.getElementById('filePreviewBody');
-    var downloadBtn = document.getElementById('btnFileBrowserDownload');
-    if (titleEl) titleEl.textContent = '请选择文件';
-    if (metaEl) metaEl.textContent = '';
-    if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">请选择左侧文件进行预览</div>';
-    destroyFileBrowserEditor();
-    window.fileBrowserState.previewMeta = null;
-    window.fileBrowserState.previewContent = null;
-    window.fileBrowserState.previewReadResult = null;
-    window.fileBrowserState.previewRenderMode = 'preview';
-    window.fileBrowserState.previewEditorValue = '';
-    window.fileBrowserState.previewOriginalContent = '';
-    window.fileBrowserState.previewEditorInstance = null;
-    window.fileBrowserState.previewSearchSyncTimer = null;
-    window.fileBrowserState.savingPreview = false;
-    window.fileBrowserState.previewDownloadPath = '';
-    window.fileBrowserState.previewDownloadName = '';
-    if (downloadBtn) {
-        downloadBtn.style.display = 'none';
-        downloadBtn.disabled = true;
-    }
-    renderFilePreviewToolbar();
-}
-
 export async function downloadCurrentFilePreview() {
     var state = window.fileBrowserState;
     if (!state.rootDir || !state.previewDownloadPath) return;
@@ -998,7 +935,6 @@ export async function loadFileBrowserList(path) {
     var targetPath = path || '/';
     if (listEl) listEl.innerHTML = '<div class="file-browser-empty">正在读取目录...</div>';
     if (emptyEl) emptyEl.style.display = 'none';
-    clearFileBrowserPreview();
     try {
         var data = await fileBrowserApiList(state.rootDir, targetPath);
         // 构建根节点
@@ -1384,8 +1320,12 @@ export function renderFileBrowserMode() {
 export function refreshFileBrowser() {
     var state = window.fileBrowserState;
     loadFileBrowserList('/').then(function() {
-        if (state.selectedItem) {
-            fileBrowserOpenFileTab(state.selectedItem);
+        var activeTab = state.fileTabs.find(function(tab) {
+            return tab.path === state.activeFileTabPath;
+        });
+        var activeItem = activeTab || state.selectedItem;
+        if (activeItem) {
+            fileBrowserOpenFileTab(activeItem);
         }
     });
     if (state.mode === 'git') {

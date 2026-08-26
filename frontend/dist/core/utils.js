@@ -23,9 +23,9 @@ export function showToast(message, type = 'info') {
 
 // HTML 转义
 export function escapeHtml(text) {
-    if (!text) return '';
+    if (text == null) return '';
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = String(text);
     return div.innerHTML;
 }
 
