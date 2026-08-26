@@ -334,6 +334,21 @@
     <!-- Toast 通知 -->
     <div class="toast" id="toast"></div>
 
+    <!-- 从消息创建新会话（fork 弹窗） -->
+    <div class="modal-overlay" id="forkModal" style="display:none">
+        <div class="modal fork-modal">
+            <div class="fork-header">
+                <span class="fork-title">从消息创建新会话</span>
+                <button type="button" class="fork-close" id="btnForkClose" title="关闭">✕</button>
+            </div>
+            <div class="fork-search">
+                <input id="forkSearchInput" placeholder="搜索" autocomplete="off" />
+            </div>
+            <div class="fork-msg-list" id="forkMsgList"></div>
+            <div class="fork-more" id="forkMoreBtn" style="display:none">加载更早消息</div>
+        </div>
+    </div>
+
     <!-- 配置弹窗 -->
     <div class="modal-overlay" id="proxyModal" style="display:none">
         <div class="modal proxy-modal">

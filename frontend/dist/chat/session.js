@@ -341,6 +341,11 @@ export async function createSessionWithDir(dir) {
 /** 每会话分页状态：{ loadedAll: 是否已全部加载, loading: 是否加载中 } */
 const sessionPaging = {};
 
+/** 是否已全部加载该会话的消息（分页） */
+export function isSessionLoadedAll(sessionID) {
+    return !!(sessionPaging[sessionID] && sessionPaging[sessionID].loadedAll);
+}
+
 /** 构造 before 游标：base64url(JSON{id, time})（time 为毫秒，取自消息 info.time.created） */
 function buildBeforeCursor(msg) {
     const info = msg.info || msg;
@@ -420,6 +425,10 @@ export async function loadMessages(sessionID) {
         }
         return;
     }
+    // 无缓存 = 全新加载（会话可能被关闭后重开、或刚 fork 出的新会话）：
+    // 重置分页状态，防止 closeSessionTab 未清理的 loadedAll 残留（来自关闭前的滚动加载）
+    // 把向上滚动加载永久拦截，导致只能看到最近 20 条。
+    sessionPaging[targetId] = { loadedAll: false, loading: false };
     try {
         // 首次加载：分页拉最新 20 条
         const messages = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(targetId)}/message?limit=20`);
