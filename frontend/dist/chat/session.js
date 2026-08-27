@@ -914,11 +914,21 @@ export async function abortSession() {
 // ============================
 
 /** 发送消息主函数：新会话创建 → 构建 body → 同步发送 → 刷新消息 */
+/** 发送中标志：防止同一次操作重复触发 sendPrompt（按钮双击 / Enter 连按 / 事件重复绑定）。
+ *  提交 prompt_async 请求返回后即释放，模型回复期间仍可继续发送下一条。 */
+let promptSending = false;
+
 export async function sendPrompt() {
     if (!store.webRunning) return;
-    const input = document.getElementById('ocPrompt');
-    const text = input.value.trim();
-    if (!text.trim() && !store.attachedFiles.length) return;
+    if (promptSending) return;
+    promptSending = true;
+    try {
+        const input = document.getElementById('ocPrompt');
+        const text = input.value.trim();
+        if (!text.trim() && !store.attachedFiles.length) return;
+        // 立即清空输入框（不等请求返回）：即使发送中锁已复位，
+        // 重复触发（键盘抖动/双击）也因无文本而被拦截，不会发两条一样的。
+        input.value = '';
     const btn = document.getElementById('btnSendPrompt');
     btn.disabled = true;
     const isNew = !store.currentSessionId;
@@ -992,7 +1002,6 @@ export async function sendPrompt() {
                 openFileBrowserModal(requestDir, { features: ['git'] });
             };
         }
-        input.value = '';
         clearAttachments();
         if (!isMobileTreeMode()) {
             await loadMessages();
@@ -1005,7 +1014,10 @@ export async function sendPrompt() {
         if (store.currentSessionId) removeLocalUserMessage(store.currentSessionId);
         showToast('发送失败: ' + (e.message || e), 'error');
     }
-    btn.disabled = false;
+        btn.disabled = false;
+    } finally {
+        promptSending = false;
+    }
 }
 
 // ============================================================

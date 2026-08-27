@@ -109,7 +109,7 @@ export function restoreFocusState(container, state) {
 export function buildMessageNode(item) {
     const info = item.info || item;
     const role = info.role || info.author || 'message';
-    const displayRole = role === 'user' ? '你' : (role === 'assistant' ? '助手' : role);
+    const displayRole = role === 'user' ? '用户' : (role === 'assistant' ? '助手' : role);
     const parts = item.parts || [];
     const node = document.createElement('div');
     node.className = `oc-message ${role}`;
