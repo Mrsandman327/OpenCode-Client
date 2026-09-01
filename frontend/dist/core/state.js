@@ -67,6 +67,8 @@ export const store = {
     mcpStatus: null,
     /** LSP 服务状态 */
     lspStatus: null,
+    /** 插件列表（来自 /config 的 plugin 数组，服务实际加载的插件；空=未配置） */
+    pluginStatus: [],
 
     // ============================
     // 消息缓存

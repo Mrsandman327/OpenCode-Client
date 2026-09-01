@@ -62,14 +62,15 @@ export async function checkWebStatus() {
 // 服务状态
 // ============================
 
-/** 加载服务健康状态（Server / MCP / LSP） */
+/** 加载服务健康状态（Server / MCP / LSP / 插件） */
 export async function loadServiceStatus() {
     const config = getNetworkConfig();
     try {
-        const [web, mcp, lsp] = await Promise.all([
+        const [web, mcp, lsp, cfg] = await Promise.all([
             api.GetWebStatus(config.serviceHost, resolveServicePort()).catch(() => null),
             store.webRunning ? api.OpenCodeCall('GET', '/mcp').catch(() => null) : Promise.resolve(null),
             store.webRunning ? api.OpenCodeCall('GET', '/lsp').catch(() => null) : Promise.resolve(null),
+            store.webRunning ? api.OpenCodeCall('GET', '/config').catch(() => null) : Promise.resolve(null),
         ]);
         if (web) {
             store.webRunning = !!web.running;
@@ -78,14 +79,24 @@ export async function loadServiceStatus() {
         store.serverStatus = normalizeServerStatus(web);
         store.mcpStatus = mcp;
         store.lspStatus = lsp;
+        // 插件信息：只取 /config 的 plugin 数组（服务按此加载的插件），
+        // 其余字段（含 provider API Key）不进入内存，避免敏感配置暴露
+        store.pluginStatus = extractPluginList(cfg);
         updateWebUI();
         renderServiceStatus();
     } catch (e) {
         store.serverStatus = normalizeServerStatus(null);
         store.mcpStatus = null;
         store.lspStatus = null;
+        store.pluginStatus = [];
         renderServiceStatus();
     }
+}
+
+/** 从 /config 响应提取 plugin 数组（cfg 为 OpenCodeCall 已解析的对象；解析失败返回空） */
+function extractPluginList(cfg) {
+    if (!cfg || typeof cfg !== 'object') return [];
+    return Array.isArray(cfg.plugin) ? cfg.plugin.slice() : [];
 }
 
 /** 将服务器状态对象标准化为统一格式 */
@@ -197,6 +208,31 @@ export function renderServiceStatus() {
             sec.classList.toggle('collapsed');
         });
         box.appendChild(sec);
+    }
+
+    // ── 插件 — 服务实际加载的插件（来自 /config 的 plugin 数组）──
+    if (store.pluginStatus.length) {
+        const pluginSec = document.createElement('div');
+        pluginSec.className = 'oc-service-group collapsed';
+        const plugins = store.pluginStatus || [];
+        const pluginDot = plugins.length ? 'on' : 'off';
+        pluginSec.innerHTML = '<div class="oc-service-group-title clickable">' +
+            '<span class="oc-service-dot ' + pluginDot + '"></span>插件' +
+        '</div>';
+        if (!plugins.length) {
+            pluginSec.innerHTML += '<div class="oc-service-body"><div class="oc-service-item"><span class="oc-service-dot off"></span>未配置插件</div></div>';
+        } else {
+            let body = '<div class="oc-service-body">';
+            plugins.forEach(name => {
+                body += '<div class="oc-service-item"><span class="oc-service-dot on"></span>' + escapeHtml(name) + '</div>';
+            });
+            body += '</div>';
+            pluginSec.innerHTML += body;
+        }
+        pluginSec.querySelector('.oc-service-group-title.clickable').addEventListener('click', function() {
+            pluginSec.classList.toggle('collapsed');
+        });
+        box.appendChild(pluginSec);
     }
 }
 
