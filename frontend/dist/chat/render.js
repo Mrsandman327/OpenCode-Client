@@ -1,18 +1,17 @@
 ﻿// ============================================================
 // chat-render.js — 消息渲染引擎
 // 负责消息列表渲染、12 种 part 类型渲染器、滚动管理和模型信息同步
-// 依赖：core/state.js、core/utils.js（escapeHtml, getActiveMessagesEl, getCachedMessages,
+// 依赖：core/state.js、core/utils.js（escapeHtml, getActiveMessagesEl,
 //       safeText, extractPartText, isInternalUserMessage, normalizeMessageItem）、core/apicall.js（api）、
-//       chat/mobile.js（isMobileTreeMode）、chat/search.js（updateUserNav）
+//       chat/search.js（updateUserNav）
 // 解环说明：renderTodos 由 sidepanel.js 通过 setRenderTodosHandler 回调注入；
 //           updateModelInfo 由本文件实现、经 core/utils.js 注册中心暴露给 service/tree。
 //           本文件不依赖 service/session/sidepanel，处于依赖链下游。
 // ============================================================
 
-import { store, MOBILE_MESSAGE_LOAD_MORE_STEP, PC_MESSAGE_LOAD_MORE_STEP } from '../core/state.js';
-import { escapeHtml, getActiveMessagesEl, getCachedMessages, showToast, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler } from '../core/utils.js';
+import { store } from '../core/state.js';
+import { escapeHtml, getActiveMessagesEl, showToast, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler } from '../core/utils.js';
 import { api } from '../core/apicall.js';
-import { isMobileTreeMode } from './mobile.js';
 import { updateUserNav } from './search.js';
 
 // ============================
@@ -50,37 +49,6 @@ export function sanitizeMarkedHtml(html) {
     return template.innerHTML;
 }
 
-/** 移动端消息截断：限制可见消息数量，返回末尾 N 条 */
-export function trimMessagesForRender(items) {
-	const list = Array.isArray(items) ? items : [];
-	if (list.length <= store.visibleMessageCount) {
-		return list;
-	}
-	return list.slice(-store.visibleMessageCount);
-}
-
-/** 渲染移动端折叠提示按钮（点击加载更多历史消息） */
-export function renderCollapsedHistoryNotice(totalCount, hiddenCount, box) {
-	const boxEl = box || getActiveMessagesEl();
-	if (!boxEl || hiddenCount <= 0) return;
-	const notice = document.createElement('button');
-	notice.type = 'button';
-	notice.className = 'btn btn-sm oc-history-more';
-	notice.textContent = `已折叠较早消息，点击加载更多（前面还有 ${hiddenCount} 条）`;
-	notice.addEventListener('click', () => {
-		const prevHeight = boxEl.scrollHeight;
-        if (isMobileTreeMode()) { 
-            store.visibleMessageCount += MOBILE_MESSAGE_LOAD_MORE_STEP; 
-        }else{
-            store.visibleMessageCount += PC_MESSAGE_LOAD_MORE_STEP;
-        }
-		renderMessages(getCachedMessages(store.currentSessionId), boxEl);
-		const nextHeight = boxEl.scrollHeight;
-		boxEl.scrollTop += nextHeight - prevHeight;
-	});
-	boxEl.prepend(notice);
-}
-
 /** 保存元素焦点状态（用于 DOM 重建后恢复焦点） */
 export function saveFocusState(el) {
     const tag = el.tagName.toLowerCase();
@@ -104,6 +72,57 @@ export function restoreFocusState(container, state) {
         if (typeof state.end === 'number') el.selectionEnd = state.end;
     } catch (_) {}
 }
+
+// ============================
+// 工具调用用时显示
+// 数据来自 part.state.time：{ start, end }（毫秒时间戳）。
+// completed/error 渲染静态「用时 X」；running 渲染带 data-live-start 的秒表，
+// 由下方全局定时器每秒刷新文本（全量重渲染后按 data 属性自动找回）。
+// ============================
+
+/** 毫秒 → 友好用时文本：850ms / 3.2s / 1m 23s（工具调用头部紧凑格式） */
+function formatDuration(ms) {
+    if (!ms || ms < 0 || !isFinite(ms)) return '';
+    ms = Math.round(ms);
+    if (ms < 1000) return ms + 'ms';
+    const s = ms / 1000;
+    if (s < 60) return (s >= 10 ? Math.round(s) : Math.round(s * 10) / 10) + 's';
+    const m = Math.floor(s / 60);
+    const rs = Math.round(s % 60);
+    return m + 'm ' + rs + 's';
+}
+
+/**
+ * 生成工具调用用时 HTML 片段。
+ * @param {object} part 工具 part（含 state.time）
+ * @param {boolean} live 运行中是否显示动态秒表（提问工具等待回答期间传 false）
+ * @returns {string} HTML 片段（无有效时间时返回空串）
+ */
+function buildDurationHtml(part, live) {
+    const t = (part && part.state && part.state.time) || {};
+    if (!t.start) return '';
+    if (t.end) {
+        // 已完成/失败：静态总用时
+        return ' <span class="oc-tool-duration">用时 ' + formatDuration(t.end - t.start) + '</span>';
+    }
+    if (!live) return ''; // 不允许走秒（如提问等待回答）且未完成 → 不显示
+    // 运行中：秒表，由全局定时器刷新
+    return ' <span class="oc-tool-duration" data-live-start="' + t.start + '">已运行 ' + formatDuration(Date.now() - t.start) + '</span>';
+}
+
+/** 刷新所有运行中工具秒表文本（每秒执行） */
+function refreshLiveToolDurations() {
+    const els = document.querySelectorAll('.oc-tool-duration[data-live-start]');
+    if (!els.length) return;
+    const now = Date.now();
+    els.forEach((el) => {
+        const start = parseInt(el.getAttribute('data-live-start'), 10);
+        if (!start) return;
+        el.textContent = '已运行 ' + formatDuration(now - start);
+    });
+}
+// 秒表全局定时器：仅当页面存在运行中工具时才做实际更新，开销可忽略
+setInterval(refreshLiveToolDurations, 200);
 
 /** 构建单条消息节点（user/assistant 卡片），供 renderMessages 与分帧渲染复用 */
 export function buildMessageNode(item) {
@@ -556,7 +575,7 @@ export function renderQuestionTool(part) {
             : '⏳ 等待回答';
         statusClass = 'running';
     }
-    head.innerHTML = `<span class="oc-tool-icon">❓</span> 提问 <span class="oc-tool-status ${statusClass}">${statusText}</span>`;
+    head.innerHTML = `<span class="oc-tool-icon">❓</span> 提问 <span class="oc-tool-status ${statusClass}">${statusText}</span>` + (isCompleted ? buildDurationHtml(part, false) : '');
 
     // 组装所有答案并提交（含自定义输入；跳过的题传空数组）
     const submitAllAnswers = function() {
@@ -853,7 +872,7 @@ export function renderTool(part) {
     else { statusText = status || '等待'; statusClass = 'pending'; }
 
     const title = state.title || tool;
-    head.innerHTML = `<span class="oc-tool-icon">${icon}</span> ${label}: <strong>${escapeHtml(title)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>`;
+    head.innerHTML = `<span class="oc-tool-icon">${icon}</span> ${label}: <strong>${escapeHtml(title)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>` + buildDurationHtml(part, true);
 
     const body = document.createElement('div');
     body.className = 'oc-tool-body';
@@ -1002,7 +1021,7 @@ export function renderEditDiff(part, tool) {
     const statsHtml = addedCount || removedCount
         ? ` <span class="oc-edit-stats"><span class="oc-edit-stats-add">+${addedCount}</span> <span class="oc-edit-stats-del">-${removedCount}</span></span>`
         : '';
-    head.innerHTML = `<span class="oc-tool-icon">✏️</span> 编辑文件: <strong title="${escapeHtml(pathText)}">${escapeHtml(pathText)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>${statsHtml}`;
+    head.innerHTML = `<span class="oc-tool-icon">✏️</span> 编辑文件: <strong title="${escapeHtml(pathText)}">${escapeHtml(pathText)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>${statsHtml}` + buildDurationHtml(part, true);
 
     // 正文：左右两栏
     const body = document.createElement('div');

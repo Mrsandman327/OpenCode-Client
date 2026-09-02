@@ -118,12 +118,6 @@ export const store = {
     dirBrowserRejecter: null,
 
     // ============================
-    // 移动端消息截断
-    // ============================
-    /** 当前可见消息数量（移动端），初始等于渲染上限 */
-    visibleMessageCount: 500,
-
-    // ============================
     // Agent / Model 选择器
     // ============================
     /** 可用代理列表 */
@@ -177,13 +171,5 @@ export const store = {
 // ============================
 // 常量（与状态分开导出，只读语义明确）
 // ============================
-/** 移动端最多渲染的消息条数 */
-export const MOBILE_MESSAGE_RENDER_LIMIT = 30;
-/** 移动端点击「加载更多」时每次增加的消息条数 */
-export const MOBILE_MESSAGE_LOAD_MORE_STEP = 20;
-/** PC端最多渲染的消息条数 */
-export const PC_MESSAGE_RENDER_LIMIT = 500;
-/** PC端点击「加载更多」时每次增加的消息条数 */
-export const PC_MESSAGE_LOAD_MORE_STEP = 50;
 /** 页面 Web 服务配置的 localStorage 键名 */
 export const FRONTEND_WEB_CONFIG_KEY = 'oc-frontend-web-config';

@@ -12,7 +12,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { store, MOBILE_MESSAGE_RENDER_LIMIT, PC_MESSAGE_RENDER_LIMIT } from '../core/state.js';
+import { store } from '../core/state.js';
 import { showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
@@ -268,12 +268,6 @@ export async function selectSession(id) {
     updateTreeActiveSession();
     // 重新渲染 Tab 栏，确保新 tab 呈激活态（openSessionTab 内部已渲染一次，但此时 activeTabId 还未更新）
     renderTabsBar();
-    if (isMobileTreeMode()) { 
-        store.visibleMessageCount = MOBILE_MESSAGE_RENDER_LIMIT; 
-    }
-    else{
-        store.visibleMessageCount = PC_MESSAGE_RENDER_LIMIT;
-    }
     store.expandedParts = {};
     store.markdownCache = {};
     store.lastMessageCount = 0;
@@ -323,12 +317,6 @@ export async function selectSession(id) {
 
 /** 用指定目录创建会话 */
 export async function createSessionWithDir(dir) {
-    if (isMobileTreeMode()) {
-        store.visibleMessageCount = MOBILE_MESSAGE_RENDER_LIMIT;
-    }
-    else{
-        store.visibleMessageCount = PC_MESSAGE_RENDER_LIMIT;
-    }
     const session = await api.OpenCodeCall('POST', '/session?directory=' + encodeURIComponent(dir));
     rememberKnownDir(dir);
     return session;

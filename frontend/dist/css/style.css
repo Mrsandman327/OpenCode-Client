@@ -1814,6 +1814,7 @@ input::placeholder, textarea::placeholder {
 .oc-tool-status.err { color: var(--danger); }
 .oc-tool-status.running { color: var(--warning); }
 .oc-tool-status.pending { color: var(--text-muted); }
+.oc-tool-duration { font-size: 11px; font-weight: 400; color: var(--text-muted); flex-shrink: 0; margin-left: 6px; font-variant-numeric: tabular-nums; }
 .oc-tool-body { border-top: 1px solid var(--border); overflow: hidden; }
 .oc-tool-io { padding: 6px 10px; overflow: hidden; }
 .oc-tool-io + .oc-tool-io { border-top: 1px solid var(--border); }
