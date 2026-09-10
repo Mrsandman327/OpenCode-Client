@@ -29,6 +29,19 @@ export function escapeHtml(text) {
     return div.innerHTML;
 }
 
+/** 模型 ID（providerID/modelID）→ 显示名（providerID/name）；查不到时原样返回。
+ *  数据源优先 modelList（聊天模块），其次 availableModels（OMO 配置模块）。 */
+export function modelDisplayLabel(modelId) {
+    if (!modelId) return modelId;
+    const list = (store.modelList && store.modelList.length) ? store.modelList : store.availableModels;
+    if (!list || !list.length) return modelId;
+    for (let i = 0; i < list.length; i++) {
+        const item = list[i];
+        if (item && item.value === modelId) return item.label || modelId;
+    }
+    return modelId;
+}
+
 // ============================================================
 // 运行环境判定
 // ============================================================

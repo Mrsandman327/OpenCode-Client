@@ -238,6 +238,11 @@ func (a *App) OpenDir(path string) error {
 	}
 }
 
+// OpenURL 用系统默认浏览器打开指定 URL（外部链接统一走这里，避免 WebView 导航离开工作台）。
+func (a *App) OpenURL(url string) {
+	wruntime.BrowserOpenURL(a.ctx, url)
+}
+
 // GetStats 返回统计信息。
 func (a *App) GetStats() model.Stats {
 	return model.Stats{
@@ -581,7 +586,7 @@ func (a *App) GetFrontendWebStatus(hostname string, port int) model.WebResult {
 }
 
 // GetCommands 返回所有常用命令分组数据。
-func (a *App) GetCommands() []CmdGroup {
+func (a *App) GetCommands() []model.CmdGroup {
 	return commands.GetCommands()
 }
 

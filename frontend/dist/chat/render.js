@@ -10,7 +10,7 @@
 // ============================================================
 
 import { store } from '../core/state.js';
-import { escapeHtml, getActiveMessagesEl, showToast, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler } from '../core/utils.js';
+import { escapeHtml, getActiveMessagesEl, showToast, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler, modelDisplayLabel } from '../core/utils.js';
 import { api } from '../core/apicall.js';
 import { updateUserNav } from './search.js';
 
@@ -177,7 +177,7 @@ export function buildMessageNode(item) {
         if (info.agent) metaParts.push('🤖 ' + info.agent);
         var metaModel = info.modelID || (info.model && info.model.modelID) || '';
         if (info.providerID && metaModel) metaModel = info.providerID + '/' + metaModel;
-        if (metaModel) metaParts.push('🧠 ' + metaModel);
+        if (metaModel) metaParts.push('🧠 ' + modelDisplayLabel(metaModel));
         if (metaParts.length) {
             const metaEl = document.createElement('div');
             metaEl.className = 'oc-message-meta';

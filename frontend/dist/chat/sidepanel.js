@@ -7,7 +7,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, normalizeMessageItem, isInternalUserMessage, safeText } from '../core/utils.js';
+import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, normalizeMessageItem, isInternalUserMessage, safeText, modelDisplayLabel } from '../core/utils.js';
 import { renderPart, setRenderTodosHandler } from './render.js';
 
 // 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（sidepanel→render 单向依赖，无环）。
@@ -119,7 +119,7 @@ export function extractSubtaskSummaries(sessionID) {
                 description: meta.description || st.title || '',
                 agent: meta.agent || 'unknown',
                 model: modelMeta.providerID && modelMeta.modelID
-                    ? modelMeta.providerID + '/' + modelMeta.modelID
+                    ? modelDisplayLabel(modelMeta.providerID + '/' + modelMeta.modelID)
                     : 'unknown',
                 status: status,
                 durationMs: (hasEnd && hasStart) ? (st.time.end - st.time.start) : null,
