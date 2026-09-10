@@ -113,6 +113,8 @@ export function OpenDirectoryDialog():Promise<string>;
 
 export function OpenSchemeDir():Promise<void>;
 
+export function OpenURL(arg1:string):Promise<void>;
+
 export function ParseConfigContent(arg1:string):Promise<Array<model.ModelEntry>>;
 
 export function ReadBrowserFile(arg1:string,arg2:string):Promise<model.FileBrowserReadResult>;

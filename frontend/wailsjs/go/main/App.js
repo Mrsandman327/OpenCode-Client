@@ -222,6 +222,10 @@ export function OpenSchemeDir() {
   return window['go']['main']['App']['OpenSchemeDir']();
 }
 
+export function OpenURL(arg1) {
+  return window['go']['main']['App']['OpenURL'](arg1);
+}
+
 export function ParseConfigContent(arg1) {
   return window['go']['main']['App']['ParseConfigContent'](arg1);
 }

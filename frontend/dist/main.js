@@ -61,6 +61,25 @@ import './chat/navigation.js';
 // ============================
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 全局拦截外部链接点击：防止 WebView/页面导航离开工作台（聊天消息里的 markdown 链接也走这里）
+    document.addEventListener('click', function(e) {
+        var target = e.target;
+        var a = (target && target.closest) ? target.closest('a[href]') : null;
+        if (!a) return;
+        var href = a.getAttribute('href') || '';
+        // 只拦截外部协议链接；锚点(#)和内部相对路径不拦
+        if (/^(https?:|mailto:|tel:|file:)/i.test(href)) {
+            e.preventDefault();
+            if (window.go && window.go.main && window.go.main.App && window.go.main.App.OpenURL) {
+                // 桌面端：交给 Go 用系统默认浏览器打开
+                window.go.main.App.OpenURL(href);
+            } else {
+                // Web/手机端：新标签页打开，不离开当前工作台
+                window.open(href, '_blank');
+            }
+        }
+    }, true);
+
     if (isBrowserRuntimeForMain()) {
         var openSchemeBtn = document.getElementById('btnOpenSchemeDir');
         if (openSchemeBtn) {
