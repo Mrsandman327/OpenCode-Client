@@ -90,8 +90,9 @@ export function modelEntryId(type, key) {
 
 export function modelSelectOptions(models, currentModel) {
     const options = models && models.length ? [...models] : [];
-    if (currentModel && !options.includes(currentModel)) {
-        options.unshift(currentModel);
+    // currentModel 是配置中存的 providerID/modelID（与选项的 value 同格式）
+    if (currentModel && !options.some(o => o.value === currentModel)) {
+        options.unshift({ value: currentModel, label: currentModel });
     }
     return options;
 }
@@ -144,7 +145,7 @@ export function renderModelConfig() {
         <label class="batch-check"><input type="checkbox" id="selectAllModels" /> <span>全选</span></label>
         <select class="batch-model-select" id="batchModelSelect">
             <option value="">-- 批量设置模型 --</option>
-            ${store.availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}
+            ${store.availableModels.map(m => `<option value="${m.value}">${m.label}</option>`).join('')}
         </select>
         <button class="btn btn-sm btn-open" id="btnApplyBatch">应用</button>
     `;
@@ -290,8 +291,8 @@ export function createModelGroup(title, entries, entryType) {
         select.dataset.id = entry.id;
         modelSelectOptions(store.availableModels, entry.model).forEach(m => {
             const opt = document.createElement('option');
-            opt.value = m; opt.textContent = m;
-            if (m === entry.model) opt.selected = true;
+            opt.value = m.value; opt.textContent = m.label;
+            if (m.value === entry.model) opt.selected = true;
             select.appendChild(opt);
         });
 
@@ -406,7 +407,7 @@ export function showAddEntryModal(entryType) {
         <div class="modal">
             <h3>添加 ${modelTypeTitle(entryType).replace(/^[^\w\u4e00-\u9fa5]+\s*/, '')}</h3>
             <div class="modal-field"><label>Key（唯一标识）</label><input id="modalEntryKey" placeholder="如 my-agent" /></div>
-            <div class="modal-field"><label>模型</label><select id="modalEntryModel" class="modal-select">${store.availableModels.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
+            <div class="modal-field"><label>模型</label><select id="modalEntryModel" class="modal-select">${store.availableModels.map(m => `<option value="${m.value}">${m.label}</option>`).join('')}</select></div>
             <div class="modal-field"><label>Reasoning</label><select id="modalEntryReasoning" class="modal-select">${REASONING_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('')}</select></div>
             <div class="modal-field"><label>描述（作为注释）</label><input id="modalEntryComment" placeholder="简要描述用途" /></div>
             <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAdd">取消</button><button class="btn btn-primary" id="btnConfirmAdd">💾 添加</button></div>

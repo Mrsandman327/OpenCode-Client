@@ -21,7 +21,9 @@ export const api = new Proxy({}, {
                     var models = [];
                     (data.all || []).forEach(function(provider) {
                         Object.values(provider.models || {}).forEach(function(m) {
-                            models.push(provider.id + '/' + m.id);
+                            // value 保持 providerID/modelID（对话请求按 '/' 切分，必须是真实模型 ID）
+                            // label 用模型 name 展示（name 缺失时兜底用 id）
+                            models.push({ value: provider.id + '/' + m.id, label: provider.id + '/' + (m.name || m.id) });
                         });
                     });
                     return models;

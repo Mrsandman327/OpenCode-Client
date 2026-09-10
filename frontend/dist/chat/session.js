@@ -58,12 +58,12 @@ export async function loadAgentModelSelectors() {
     });
     agentSel.value = store.selectedAgent;
 
-    // 填充 model 下拉框
+    // 填充 model 下拉框（value 用真实模型 ID 供对话请求切分；文字显示 name）
     modelSel.innerHTML = '<option value="">默认</option>';
     store.modelList.forEach(m => {
         const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = m;
+        opt.value = m.value;
+        opt.textContent = m.label;
         modelSel.appendChild(opt);
     });
     modelSel.value = store.selectedModel;
