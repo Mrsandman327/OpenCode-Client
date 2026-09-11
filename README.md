@@ -131,13 +131,13 @@ agent / category 粒度的模型映射，方案**导出·导入·入库·应用*
 
 ```bash
 wails dev          # 开发模式，热重载
-wails build        # 生产构建 → build/bin/oc-manager.exe
+wails build        # 生产构建 → build/bin/oc-manager.exe（Linux 为 build/bin/oc-manager）
 go build ./...     # 仅编译 Go 后端
 go test ./...      # 运行测试
 go vet ./...       # 静态检查
 ```
 
-> **前置条件**：Go 1.21+ · Wails CLI · Windows WebView2
+> **前置条件**：Go 1.21+ · Wails CLI · Windows WebView2 / Linux WebKitGTK（`sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config gcc`）
 
 ---
 
