@@ -10,13 +10,19 @@ import { showToast } from './utils.js';
 export const api = new Proxy({}, {
     get(_, prop) {
         if (prop === 'OpenCodeCall') {
-            return async (method, path, data) => {
-                const result = await api.OpenCodeAPI(method, path, data ? JSON.stringify(data) : '');
+            // return async (method, path, data) => {
+            //     const result = await api.OpenCodeAPI(method, path, data ? JSON.stringify(data) : '');
+            return async (...args) => {
+                const requestMethod = args[0];
+                const requestPath = args[1];
+                const requestData = args[2];
+                const requestBody = requestData  ? JSON.stringify(requestData) : '';
+                const result = await api.OpenCodeAPI(requestMethod,requestPath,requestBody);
                 if (!result.success) {
                     throw new Error(result.error || result.body || `HTTP ${result.status}`);
                 }
                 if (!result.body) return null;
-                if(path === '/provider'){
+                if(requestPath === '/provider'){
                     var data = JSON.parse(result.body);
                     var models = [];
                     (data.all || []).forEach(function(provider) {
