@@ -7,7 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"syscall"
+
+	"oc-manager/internal/executil"
 )
 
 // Create 在 linkPath 处创建指向 sourcePath 的符号链接或目录联接。
@@ -42,7 +43,7 @@ func createWindows(sourcePath, linkPath string) error {
 
 	// 回退到 mklink /J（目录联接，不需要管理员权限）
 	cmd := exec.Command("cmd", "/c", "mklink", "/J", linkPath, sourcePath)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	executil.SetHideWindow(cmd, true)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("创建联接失败: %w\n输出: %s", err, string(out))
@@ -62,7 +63,7 @@ func removeWindows(linkPath string) error {
 	// 联接/Junction 用 rmdir 删除，避免跟随到目标目录删掉原始文件
 	if fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
 		cmd := exec.Command("cmd", "/c", "rmdir", linkPath)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		executil.SetHideWindow(cmd, true)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("删除联接失败: %w\n输出: %s", err, string(out))

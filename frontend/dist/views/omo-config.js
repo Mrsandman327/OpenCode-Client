@@ -114,11 +114,6 @@ export function isEmptyModelSectionName(type) {
     return type.length > 3 && type.endsWith('s');
 }
 
-export function stripJsonComments(jsonStr) {
-    if (jsonStr == null) return '';
-    return String(jsonStr).replace(/(?<!:)\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-}
-
 // ============================
 // 渲染OMO 配置
 // ============================

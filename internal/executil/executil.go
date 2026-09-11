@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"syscall"
 )
 
 // Command 创建 exec.Cmd，在 Windows 上设置 HideWindow 防止控制台窗口闪烁。
 func Command(name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	SetHideWindow(cmd, true)
 	return cmd
 }
 

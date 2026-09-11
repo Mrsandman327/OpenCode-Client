@@ -150,7 +150,7 @@ const mockApi = (() => {
         ToggleSkill: async (path, name, enable) => ({ success: true }),
         Refresh: async () => {},
         OpenDir: async (path) => { console.log('mock open:', path); showToast(`模拟打开目录: ${path}`, 'info'); },
-        OpenDirectoryDialog: async () => 'E:\\data\\ai_test\\feishu\\skill-manager',
+        OpenDirectoryDialog: async () => '/home/user/ai_test/skill-manager',
         StartTerminal: async () => { console.log('mock terminal start'); },
         TerminalWrite: async (data) => { console.log('mock term write:', data); },
         unOpenCode: async (sid, cont) => { console.log('mock launch:', sid, cont); },
@@ -229,7 +229,7 @@ const mockApi = (() => {
         },
         GetProjectTree: async () => JSON.stringify([
             { id: 'global', title: '全局项目', type: 'project', children: [
-                { id: 'global|D:\\test', title: 'D:\\test', type: 'directory', children: [
+                { id: 'global|/home/user/test', title: '/home/user/test', type: 'directory', children: [
                     { id: 'ses_abc', title: '开发 Skill 桌面管理工具', type: 'session' },
                 ]},
             ]},
@@ -282,7 +282,7 @@ const mockApi = (() => {
                 "unspecified-high": { "model": "deepseek/deepseek-v4-flash" }
             }
         }`,
-        GetWorkDir: async () => 'E:\\data\\ai_test\\feishu\\skill-manager',
+        GetWorkDir: async () => '/home/user/ai_test/skill-manager',
         AddModelType: async () => ({ success: true }),
         DeleteModelType: async () => ({ success: true }),
         AnswerQuestion: async (sessionID, answers) => {
@@ -294,10 +294,10 @@ const mockApi = (() => {
             return { success: true, status: 200 };
         },
         // ========== 方案管理 mock ==========
-        GetSchemeDir: async () => '.sisyphus\\omo-schemes',
+        GetSchemeDir: async () => '/.sisyphus/omo-schemes',
         ListSchemes: async () => [
-            { name: 'default', fileName: 'default.jsonc', fullPath: '.sisyphus\\omo-schemes\\default.jsonc' },
-            { name: 'custom', fileName: 'custom.jsonc', fullPath: '.sisyphus\\omo-schemes\\custom.jsonc' },
+            { name: 'default', fileName: 'default.jsonc', fullPath: '/.sisyphus/omo-schemes/default.jsonc' },
+            { name: 'custom', fileName: 'custom.jsonc', fullPath: '/.sisyphus/omo-schemes/custom.jsonc' },
         ],
         ReadScheme: async (name) => {
             const mockData = {
