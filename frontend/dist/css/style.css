@@ -4878,8 +4878,8 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ======== CSS 变量补丁 ======== */
-:root { --bg-code: var(--bg-secondary); --bg-tag: var(--bg-input); --text-dim: var(--text-muted); }
-[data-theme="dark"] { --bg-code: var(--bg-secondary); --bg-tag: var(--bg-input); --text-dim: var(--text-muted); }
+:root { --bg-code: var(--bg-secondary); --bg-tag: var(--bg-input); --text-dim: var(--text-muted); color-scheme: light;}
+[data-theme="dark"] { --bg-code: var(--bg-secondary); --bg-tag: var(--bg-input); --text-dim: var(--text-muted);  color-scheme: dark;}
 
 /* ======== 技能卡片扩展 ======== */
 .skill-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
