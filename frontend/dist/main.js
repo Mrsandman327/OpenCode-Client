@@ -50,7 +50,10 @@ import {
 import {
     renderCommandsCard, renderApiDocs, apiDocLoaded,
 } from './views/commands.js';
+import { bindKnowledgeEvents } from './views/knowledge.js';
 import { loadProviders } from './views/provider.js';
+// 知识库 @ 引用：输入框输入 @ 弹出知识库搜索面板（需 DOM 就绪后显式初始化）
+import { initKnowledgeRef } from './chat/knowledge-ref.js';
 // 副作用模块：聊天命令面板在模块顶层自绑定键盘/输入事件（无导出符号被消费）
 import './chat/cmd-palette.js';
 // 副作用模块：侧边栏导航在模块顶层绑定点击事件并恢复折叠状态
@@ -209,6 +212,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 跟踪用户拖拽滚动条
+
+    // 知识库 @ 引用：绑定输入框的 @ 检测与搜索面板（幂等）
+    initKnowledgeRef();
 
     // 附件
     document.getElementById('btnAttachFile').addEventListener('click', () => {
@@ -414,6 +420,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof bindSkillManagerEvents === 'function') {
         bindSkillManagerEvents();
     }
+
+    // ========================
+    // 知识库视图事件绑定
+    // （数据在切换到「知识库」时按需加载，见 chat/navigation.js）
+    // ========================
+    bindKnowledgeEvents();
 
     // ========================
     // 技能管理 - L2 来源目录事件

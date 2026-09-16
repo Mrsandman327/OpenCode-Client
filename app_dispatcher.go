@@ -421,6 +421,46 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.CheckOpenCodeVersion(currentVersion), nil
+	case "KnowledgeList":
+		return a.KnowledgeList()
+	case "KnowledgeGet":
+		var id string
+		if err := decodeArgs(args, &id); err != nil {
+			return nil, err
+		}
+		return a.KnowledgeGet(id)
+	case "KnowledgeSave":
+		var entry model.KnowledgeEntry
+		if err := decodeArgs(args, &entry); err != nil {
+			return nil, err
+		}
+		return a.KnowledgeSave(entry)
+	case "KnowledgeDelete":
+		var id string
+		if err := decodeArgs(args, &id); err != nil {
+			return nil, err
+		}
+		return nil, a.KnowledgeDelete(id)
+	case "KnowledgeCategories":
+		return a.KnowledgeCategories()
+	case "KnowledgeSaveCategories":
+		var cats []model.KnowledgeCategory
+		if err := decodeArgs(args, &cats); err != nil {
+			return nil, err
+		}
+		return nil, a.KnowledgeSaveCategories(cats)
+	case "KnowledgeConvertPreview":
+		var req model.ConvertRequest
+		if err := decodeArgs(args, &req); err != nil {
+			return nil, err
+		}
+		return a.KnowledgeConvertPreview(req)
+	case "KnowledgeConvert":
+		var req model.ConvertRequest
+		if err := decodeArgs(args, &req); err != nil {
+			return nil, err
+		}
+		return a.KnowledgeConvert(req)
 	default:
 		return nil, fmt.Errorf("unsupported method: %s", method)
 	}

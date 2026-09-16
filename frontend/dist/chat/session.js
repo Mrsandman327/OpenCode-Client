@@ -23,6 +23,9 @@ import { rememberKnownDir } from './tree.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
 import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
+// 知识库 @ 引用：collectKnowledgeRefs 取引用全文注入发送 parts，clearKnowledgeRefs 在发送成功后清空引用区。
+// 该模块不识 session.js，无循环依赖。
+import { collectKnowledgeRefs, clearKnowledgeRefs, hasKnowledgeRefs } from './knowledge-ref.js';
 
 // ============================
 // 全局 Agent/Model 选择器
@@ -913,7 +916,8 @@ export async function sendPrompt() {
     try {
         const input = document.getElementById('ocPrompt');
         const text = input.value.trim();
-        if (!text.trim() && !store.attachedFiles.length) return;
+        // 仅有知识库引用（无正文、无附件）时同样允许发送
+        if (!text.trim() && !store.attachedFiles.length && !hasKnowledgeRefs()) return;
         // 立即清空输入框（不等请求返回）：即使发送中锁已复位，
         // 重复触发（键盘抖动/双击）也因无文本而被拦截，不会发两条一样的。
         input.value = '';
@@ -969,7 +973,13 @@ export async function sendPrompt() {
             smartScroll(getActiveMessagesEl(), true);
             updateSendButton();
         }
-        const body = { parts: buildParts(text) };
+        // 知识库引用：正文与引用全文拆成独立 part，模型可区分「用户的话」与「参考资料」
+        const refs = await collectKnowledgeRefs();
+        const parts = buildParts(text);
+        refs.forEach(r => {
+            parts.push({ type: 'text', text: `【知识库引用：${r.title}】\n${r.content}` });
+        });
+        const body = { parts };
         if (store.selectedAgent) body.agent = store.selectedAgent;
         if (store.selectedModel) {
             const slashIdx = store.selectedModel.indexOf('/');
@@ -991,6 +1001,8 @@ export async function sendPrompt() {
             };
         }
         clearAttachments();
+        // 发送成功才清空引用区；失败路径（catch）保留引用，避免用户重新选择
+        clearKnowledgeRefs();
         if (!isMobileTreeMode()) {
             await loadMessages();
         }

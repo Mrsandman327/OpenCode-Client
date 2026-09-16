@@ -85,6 +85,50 @@ export namespace model {
 		}
 	}
 	
+	export class ConvertPreview {
+	    targetPath: string;
+	    mode: string;
+	    newContent: string;
+	    oldContent: string;
+	    exists: boolean;
+	    appendAtLine: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConvertPreview(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.targetPath = source["targetPath"];
+	        this.mode = source["mode"];
+	        this.newContent = source["newContent"];
+	        this.oldContent = source["oldContent"];
+	        this.exists = source["exists"];
+	        this.appendAtLine = source["appendAtLine"];
+	    }
+	}
+	export class ConvertRequest {
+	    id: string;
+	    kind: string;
+	    scope: string;
+	    projectDir: string;
+	    name: string;
+	    syncMode: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConvertRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.kind = source["kind"];
+	        this.scope = source["scope"];
+	        this.projectDir = source["projectDir"];
+	        this.name = source["name"];
+	        this.syncMode = source["syncMode"];
+	    }
+	}
 	export class DirectoryEntry {
 	    name: string;
 	    path: string;
@@ -591,6 +635,68 @@ export namespace model {
 	        this.sourcePath = source["sourcePath"];
 	        this.imported = source["imported"];
 	        this.globalExist = source["globalExist"];
+	    }
+	}
+	export class KnowledgeCategory {
+	    id: string;
+	    name: string;
+	    children: KnowledgeCategory[];
+	
+	    static createFrom(source: any = {}) {
+	        return new KnowledgeCategory(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.children = this.convertValues(source["children"], KnowledgeCategory);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class KnowledgeEntry {
+	    id: string;
+	    title: string;
+	    category: string;
+	    tags: string[];
+	    summary: string;
+	    created: string;
+	    updated: string;
+	    converted: string[];
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new KnowledgeEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.category = source["category"];
+	        this.tags = source["tags"];
+	        this.summary = source["summary"];
+	        this.created = source["created"];
+	        this.updated = source["updated"];
+	        this.converted = source["converted"];
+	        this.content = source["content"];
 	    }
 	}
 	export class Modalities {

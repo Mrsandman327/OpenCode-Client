@@ -19,6 +19,7 @@ import (
 	"oc-manager/config/skill"
 	"oc-manager/model"
 	"oc-manager/service/filebrowser"
+	"oc-manager/service/knowledge"
 	"oc-manager/service/opencode"
 	"oc-manager/service/projectconfig"
 	"oc-manager/service/web"
@@ -665,4 +666,96 @@ func (a *App) CheckOpenCodeVersion(currentVersion string) model.VersionCheckResu
 	result.LatestVersion = release.TagName
 	result.IsLatest = current == latest
 	return result
+}
+
+// ========== 知识库 ==========
+
+// knowledgeStore 返回默认知识库存储实例。
+func (a *App) knowledgeStore() (*knowledge.Store, error) {
+	return knowledge.Default()
+}
+
+// KnowledgeList 返回知识库条目元数据列表（不含正文）。
+func (a *App) KnowledgeList() ([]model.KnowledgeEntry, error) {
+	store, err := a.knowledgeStore()
+	if err != nil {
+		return nil, err
+	}
+	return store.List()
+}
+
+// KnowledgeGet 返回单个知识库条目（含正文）。
+func (a *App) KnowledgeGet(id string) (*model.KnowledgeEntry, error) {
+	store, err := a.knowledgeStore()
+	if err != nil {
+		return nil, err
+	}
+	return store.Get(id)
+}
+
+// KnowledgeSave 新建或更新知识库条目，返回最终条目 ID。
+func (a *App) KnowledgeSave(entry model.KnowledgeEntry) (string, error) {
+	store, err := a.knowledgeStore()
+	if err != nil {
+		return "", err
+	}
+	return store.Save(entry)
+}
+
+// KnowledgeDelete 删除知识库条目。
+func (a *App) KnowledgeDelete(id string) error {
+	store, err := a.knowledgeStore()
+	if err != nil {
+		return err
+	}
+	return store.Delete(id)
+}
+
+// KnowledgeCategories 返回完整知识库分类树。
+func (a *App) KnowledgeCategories() ([]model.KnowledgeCategory, error) {
+	store, err := a.knowledgeStore()
+	if err != nil {
+		return nil, err
+	}
+	return store.LoadCategories()
+}
+
+// KnowledgeSaveCategories 整树覆盖写入知识库分类。
+func (a *App) KnowledgeSaveCategories(cats []model.KnowledgeCategory) error {
+	store, err := a.knowledgeStore()
+	if err != nil {
+		return err
+	}
+	return store.SaveCategories(cats)
+}
+
+// knowledgeConverter 返回默认知识库转化器。
+func (a *App) knowledgeConverter() (*knowledge.Converter, error) {
+	store, err := a.knowledgeStore()
+	if err != nil {
+		return nil, err
+	}
+	return knowledge.NewConverter(store)
+}
+
+// KnowledgeConvertPreview 预览知识库条目转化为 OpenCode 资产的结果（不产生任何写入）。
+func (a *App) KnowledgeConvertPreview(req model.ConvertRequest) (*model.ConvertPreview, error) {
+	converter, err := a.knowledgeConverter()
+	if err != nil {
+		return nil, err
+	}
+	preview, err := converter.Preview(req)
+	if err != nil {
+		return nil, err
+	}
+	return &preview, nil
+}
+
+// KnowledgeConvert 执行知识库条目转化，返回写入目标的完整路径。
+func (a *App) KnowledgeConvert(req model.ConvertRequest) (string, error) {
+	converter, err := a.knowledgeConverter()
+	if err != nil {
+		return "", err
+	}
+	return converter.Convert(req)
 }

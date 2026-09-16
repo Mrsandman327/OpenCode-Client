@@ -36,6 +36,11 @@
                 <span class="nav-icon" aria-hidden="true"></span>
                 <span class="nav-label">技能管理</span>
             </div>
+            <!-- 知识库：按原型顺序置于「技能管理」与「常用命令」之间 -->
+            <div class="nav-item" data-view="view-knowledge" title="知识库">
+                <span class="nav-icon" aria-hidden="true"></span>
+                <span class="nav-label">知识库</span>
+            </div>
             <div class="nav-item" data-view="view-commands" title="常用命令">
                 <span class="nav-icon" aria-hidden="true"></span>
                 <span class="nav-label">常用命令</span>
@@ -135,6 +140,14 @@
                             <div class="oc-cmd-palette" id="ocCmdPalette" style="display:none">
                                 <div class="oc-cmd-palette-scroll"></div>
                             </div>
+                            <!-- 知识库 @ 引用搜索面板：在 #ocPrompt 输入 @ 时弹出，交互与定位对齐命令面板 -->
+                            <div class="oc-kb-palette" id="ocKbPalette" style="display:none">
+                                <div class="oc-kb-search">
+                                    <span class="oc-kb-search-icon"><svg class="kb-i kb-i-14" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5l-4.2-4.2"/></svg></span>
+                                    <input type="text" class="oc-kb-search-input" id="ocKbSearchInput" placeholder="搜索知识库..." autocomplete="off" spellcheck="false" />
+                                </div>
+                                <div class="oc-kb-scroll" id="ocKbScroll"></div>
+                            </div>
                             <!-- 权限请求弹层：横向铺满会话区，紧凑高度，非全屏遮罩 -->
                             <div class="oc-permission-pop" id="permissionModal" style="display:none">
                                 <div class="oc-permission-body">
@@ -149,6 +162,8 @@
                                 </div>
                             </div>
                             <div class="oc-input-wrap">
+                                <!-- 知识库引用区：textarea 内无法渲染胶囊，故引用以胶囊形式独立放在输入框上方 -->
+                                <div class="oc-refs hidden" id="ocRefs"></div>
                                 <textarea id="ocPrompt" disabled></textarea>
                                 <div class="oc-input-actions">
                                     <button type="button" class="oc-attach-btn" id="btnAttachFile" disabled title="附件">📎</button>
@@ -297,6 +312,71 @@
                 <main class="skill-list" id="skillList">
                     <div class="loading"><div class="spinner"></div><p>正在加载技能列表...</p></div>
                 </main>
+            </div>
+
+            <!-- ===== View: 知识库 ===== -->
+            <div class="view-panel" id="view-knowledge">
+                <!-- 顶部工具栏：搜索 + 标签筛选 + 列表/卡片切换 + 新建 -->
+                <div class="kb-toolbar">
+                    <div class="kb-search">
+                        <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5l-4.2-4.2"/></svg>
+                        <input type="search" id="kbSearch" placeholder="搜索标题、说明、标签…" autocomplete="off" />
+                    </div>
+
+                    <!-- 标签筛选：与分类筛选相互独立，可与搜索叠加 -->
+                    <div class="kb-tag-filter">
+                        <button type="button" class="btn btn-sm kb-tag-btn" id="kbTagFilterBtn" title="按标签筛选">
+                            <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><path d="M7 7h.01"/></svg>
+                            <span id="kbTagFilterLabel" class="kb-tag-btn-label">标签</span>
+                            <svg class="kb-i kb-i-14 kb-tag-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+                        </button>
+                        <div class="kb-tag-pop" id="kbTagPop" style="display:none"></div>
+                    </div>
+
+                    <div class="kb-toolbar-spacer"></div>
+
+                    <!-- 视图切换：默认卡片视图 -->
+                    <div class="kb-seg" id="kbViewSeg">
+                        <button type="button" class="kb-seg-btn" data-view="list" title="列表视图">
+                            <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>
+                            列表
+                        </button>
+                        <button type="button" class="kb-seg-btn active" data-view="card" title="卡片视图">
+                            <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+                            卡片
+                        </button>
+                    </div>
+
+                    <button type="button" class="btn btn-primary btn-sm" id="kbNewEntryBtn">
+                        <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                        新建条目
+                    </button>
+                </div>
+
+                <div class="kb-body">
+                    <!-- 左侧：分类树 -->
+                    <div class="kb-cat-pane">
+                        <div class="kb-cat-head">
+                            <span>分类</span>
+                            <span title="分类用于归档，一个条目归属一个分类">归档</span>
+                        </div>
+                        <div class="kb-cat-scroll" id="kbCatTree"></div>
+                        <button type="button" class="kb-cat-new" id="kbAddCatBtn">
+                            <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                            新建分类
+                        </button>
+                    </div>
+
+                    <!-- 右侧：条目列表 / 卡片 -->
+                    <div class="kb-list-pane">
+                        <div class="kb-list-head">
+                            <span class="kb-list-crumb" id="kbListCrumb">全部条目</span>
+                            <span class="kb-list-count" id="kbListCount"></span>
+                        </div>
+                        <div class="kb-list-scroll" id="kbListView" style="display:none"></div>
+                        <div class="kb-grid" id="kbCardView"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- ===== View 4: 常用命令 ===== -->
@@ -606,6 +686,222 @@
             </div>
             <div class="project-config-body" id="projectConfigBody">
                 <div class="oc-empty">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 知识库条目编辑弹窗（点击条目 / 新建条目打开同一个弹窗） =====
+         设计：标题 / 说明 / 内容 三个必填区上下堆叠，各自带标签与边框；
+         分类与标签收拢到弹窗底部一行（不再是右侧元数据面板）。 -->
+    <div class="modal-overlay" id="kbEntryModal" style="display:none">
+        <div class="modal kb-entry-modal" onclick="event.stopPropagation()">
+            <!-- 头部：弹窗标题 + 关闭 -->
+            <div class="modal-header kb-entry-head">
+                <h3 id="kbEntryModalTitle">新建条目</h3>
+                <button type="button" class="btn btn-sm" id="kbEntryCloseBtn" title="关闭弹窗">✕ 关闭</button>
+            </div>
+
+            <!-- 中部：三个独立必填区 -->
+            <div class="kb-entry-fields">
+                <!-- 必填区 1：标题 -->
+                <section class="kb-field" id="kbFieldTitle">
+                    <div class="kb-field-head">
+                        <label class="kb-field-label" for="kbEntryTitle">标题 <span class="kb-field-req">*</span></label>
+                    </div>
+                    <input type="text" id="kbEntryTitle" class="kb-field-input kb-field-title"
+                           placeholder="一句话说清这条知识是什么" autocomplete="off" />
+                    <div class="kb-field-error" id="kbErrTitle"></div>
+                </section>
+
+                <!-- 必填区 2：说明（用户手填的短文本，列表页展示这条） -->
+                <section class="kb-field" id="kbFieldSummary">
+                    <div class="kb-field-head">
+                        <label class="kb-field-label" for="kbEntrySummary">说明 <span class="kb-field-req">*</span></label>
+                    </div>
+                    <textarea id="kbEntrySummary" class="kb-field-input kb-field-summary" rows="2" wrap="soft"
+                              placeholder="一两句话概括，列表页显示这条"></textarea>
+                    <div class="kb-field-error" id="kbErrSummary"></div>
+                </section>
+
+                <!-- 必填区 3：内容（Markdown 正文，占主要高度；支持编辑 / 预览 切换） -->
+                <section class="kb-field kb-field-grow" id="kbFieldContent">
+                    <div class="kb-field-head">
+                        <label class="kb-field-label" for="kbEntryContent">内容 <span class="kb-field-req">*</span></label>
+                        <!-- 编辑 / 预览 分段控件：默认停在「编辑」，切「预览」用 marked 渲染 textarea 当前内容 -->
+                        <div class="kb-seg kb-content-seg" id="kbContentSeg">
+                            <button type="button" class="kb-seg-btn active" data-kb-content-mode="edit">编辑</button>
+                            <button type="button" class="kb-seg-btn" data-kb-content-mode="preview">预览</button>
+                        </div>
+                    </div>
+                    <!-- wrap="soft"：长行按容器宽度软换行，不出现横向滚动条 -->
+                    <textarea id="kbEntryContent" class="kb-field-input kb-field-content" wrap="soft"
+                              placeholder="在这里写正文，支持 Markdown 语法…" spellcheck="false"></textarea>
+                    <!-- 预览容器：默认隐藏，切到「预览」时写入 marked 渲染结果（.oc-text 为项目统一 Markdown 排版） -->
+                    <div class="oc-text kb-md-preview" id="kbContentPreview" style="display:none"></div>
+                    <div class="kb-field-error" id="kbErrContent"></div>
+                </section>
+            </div>
+
+            <!-- 归属行：分类 + 标签 -->
+            <div class="kb-entry-meta">
+                <div class="kb-meta-inline">
+                    <label for="kbEntryCat">分类</label>
+                    <select id="kbEntryCat" class="kb-meta-select"></select>
+                </div>
+                <div class="kb-meta-inline kb-meta-tags">
+                    <label>标签</label>
+                    <div class="kb-tag-editor" id="kbTagEditor"></div>
+                </div>
+            </div>
+
+            <!-- 底部：取消 / 保存 / 转化为资产
+                 删除入口在条目卡片 / 列表行右上角的删除按钮上，弹窗内不放删除按钮；
+                 「转化为资产」仅对已保存（有 ID）的条目可用，新建未保存时由 JS 置灰 -->
+            <div class="kb-entry-foot">
+                <div class="kb-entry-foot-right">
+                    <button type="button" class="kb-btn-ghost" id="kbEntryCancelBtn">取消</button>
+                    <button type="button" class="btn btn-primary" id="kbEntrySaveBtn">保存</button>
+                    <button type="button" class="kb-btn-convert" id="kbEntryConvertBtn" title="转化为 OpenCode 资产">转化为资产</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 知识库分类右键菜单（新建子分类 / 重命名 / 删除） ===== -->
+    <div class="oc-tree-context-menu kb-cat-menu" id="kbCatMenu" style="display:none">
+        <div class="oc-tree-context-menu-item kb-cat-menu-item" data-cat-action="new-sub">
+            <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6M9 14h6"/></svg>
+            新建子分类
+        </div>
+        <div class="oc-tree-context-menu-item kb-cat-menu-item" data-cat-action="rename">
+            <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+            重命名
+        </div>
+        <div class="oc-tree-context-menu-item kb-cat-menu-item" data-cat-action="delete">
+            <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+            删除
+        </div>
+    </div>
+
+    <!-- ===== 转化为 OpenCode 资产 弹窗（入口：编辑弹窗底部的「转化为资产」） =====
+         层级高于编辑弹窗（本弹窗 z-index 420 > 编辑弹窗 300），关闭后回到编辑弹窗、编辑上下文不丢。
+         预览区随任一选项变化实时刷新：调用 KnowledgeConvertPreview（纯读取，不写任何文件），
+         由 JS 按 mode 渲染三种形态——create（新文件）/ overwrite（红绿 diff）/ append（追加到 AGENTS.md）。 -->
+    <div class="modal-overlay kb-convert-overlay" id="kbConvertModal" style="display:none">
+        <div class="modal kb-convert-modal" onclick="event.stopPropagation()">
+            <div class="modal-header kb-entry-head">
+                <h3>转化为 OpenCode 资产</h3>
+                <button type="button" class="btn btn-sm" id="kbConvertCloseBtn" title="关闭弹窗">✕ 关闭</button>
+            </div>
+
+            <div class="kb-convert-body">
+                <!-- 类型：决定目标产物的形态（技能 = 独立目录，项目准则 = 追加到 AGENTS.md） -->
+                <div class="kb-form-row">
+                    <div class="kb-form-label">类型</div>
+                    <div class="kb-form-main">
+                        <div class="kb-radio-group">
+                            <label class="kb-radio-opt">
+                                <input type="radio" name="kbConvKind" data-kind="skill" />
+                                <span class="kb-radio-dot"></span>技能
+                            </label>
+                            <label class="kb-radio-opt">
+                                <input type="radio" name="kbConvKind" data-kind="command" checked />
+                                <span class="kb-radio-dot"></span>命令
+                            </label>
+                            <label class="kb-radio-opt">
+                                <input type="radio" name="kbConvKind" data-kind="rule" />
+                                <span class="kb-radio-dot"></span>规则
+                            </label>
+                            <label class="kb-radio-opt">
+                                <input type="radio" name="kbConvKind" data-kind="agents" />
+                                <span class="kb-radio-dot"></span>项目准则
+                            </label>
+                        </div>
+                        <div class="kb-conv-note" id="kbConvKindNote"></div>
+                    </div>
+                </div>
+
+                <!-- 作用域：全局 = 跨项目可用；项目 = 写入所选项目 -->
+                <div class="kb-form-row">
+                    <div class="kb-form-label">作用域</div>
+                    <div class="kb-form-main">
+                        <div class="kb-radio-group">
+                            <label class="kb-radio-opt">
+                                <input type="radio" name="kbConvScope" data-scope="global" />
+                                <span class="kb-radio-dot"></span>全局
+                            </label>
+                            <label class="kb-radio-opt">
+                                <input type="radio" name="kbConvScope" data-scope="project" checked />
+                                <span class="kb-radio-dot"></span>项目
+                            </label>
+                        </div>
+                        <div class="kb-conv-note" id="kbConvScopeNote"></div>
+                    </div>
+                </div>
+
+                <!-- 目标项目：仅作用域 = 项目时显示；选项来自 api.GetProjectTree()，默认选中当前会话所在项目 -->
+                <div class="kb-form-row" id="kbConvProjectRow">
+                    <div class="kb-form-label">目标项目</div>
+                    <div class="kb-form-main">
+                        <div class="kb-input-line">
+                            <select id="kbConvProject" class="kb-conv-select"></select>
+                        </div>
+                        <div class="kb-conv-note" id="kbConvProjectNote"></div>
+                    </div>
+                </div>
+
+                <!-- 同步方式：复制（默认，独立文件）/ 软链接（指向知识库条目，改动立即生效） -->
+                <div class="kb-form-row">
+                    <div class="kb-form-label">同步方式</div>
+                    <div class="kb-form-main">
+                        <div class="kb-radio-group">
+                            <label class="kb-radio-opt">
+                                <input type="radio" name="kbConvSync" data-sync="copy" checked />
+                                <span class="kb-radio-dot"></span>复制
+                                <span class="kb-rec">推荐</span>
+                            </label>
+                            <label class="kb-radio-opt">
+                                <input type="radio" name="kbConvSync" data-sync="symlink" />
+                                <span class="kb-radio-dot"></span>软链接
+                            </label>
+                        </div>
+                        <div class="kb-conv-note" id="kbConvSyncNote"></div>
+                    </div>
+                </div>
+
+                <!-- 名称：技能为目录名（入口固定 SKILL.md），命令/规则为文件名；项目准则固定 AGENTS，故整行隐藏 -->
+                <div class="kb-form-row" id="kbConvNameRow">
+                    <div class="kb-form-label">名称</div>
+                    <div class="kb-form-main">
+                        <div class="kb-input-line">
+                            <input type="text" id="kbConvName" class="kb-conv-input" autocomplete="off" placeholder="目标名称，如 deploy-flow" />
+                            <span class="kb-conv-ext" id="kbConvExtHint">.md</span>
+                        </div>
+                        <div class="kb-conv-note" id="kbConvNameNote"></div>
+                    </div>
+                </div>
+
+                <!-- 预览区：随任一选项变化实时刷新 -->
+                <div class="kb-conv-preview">
+                    <div class="kb-path-bar" id="kbConvPathBar" style="display:none"></div>
+                    <div class="kb-preview-block" id="kbConvPreviewBlock" style="display:none">
+                        <div class="kb-preview-label">
+                            <span id="kbConvPreviewLabel">写入内容预览</span>
+                            <span class="kb-diff-legend" id="kbConvLegend"></span>
+                        </div>
+                        <div class="kb-preview-code" id="kbConvCode"></div>
+                    </div>
+                    <!-- 预览计算中 / 预览失败 / 未选项目时的状态提示 -->
+                    <div class="kb-conv-state" id="kbConvState">正在计算预览…</div>
+                </div>
+            </div>
+
+            <div class="kb-entry-foot">
+                <div class="kb-conv-foot-note" id="kbConvFootNote"></div>
+                <div class="kb-entry-foot-right">
+                    <button type="button" class="kb-btn-ghost" id="kbConvertCancelBtn">取消</button>
+                    <button type="button" class="btn btn-primary" id="kbConvertConfirmBtn">确认写入</button>
+                </div>
             </div>
         </div>
     </div>

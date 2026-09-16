@@ -93,6 +93,22 @@ export function GitPush(arg1:string,arg2:model.ProxyConfig):Promise<model.GitAct
 
 export function ImportSkill(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function KnowledgeCategories():Promise<Array<model.KnowledgeCategory>>;
+
+export function KnowledgeConvert(arg1:model.ConvertRequest):Promise<string>;
+
+export function KnowledgeConvertPreview(arg1:model.ConvertRequest):Promise<model.ConvertPreview>;
+
+export function KnowledgeDelete(arg1:string):Promise<void>;
+
+export function KnowledgeGet(arg1:string):Promise<model.KnowledgeEntry>;
+
+export function KnowledgeList():Promise<Array<model.KnowledgeEntry>>;
+
+export function KnowledgeSave(arg1:model.KnowledgeEntry):Promise<string>;
+
+export function KnowledgeSaveCategories(arg1:Array<model.KnowledgeCategory>):Promise<void>;
+
 export function LaunchWindowsTerminal(arg1:string,arg2:string,arg3:string):Promise<model.WebResult>;
 
 export function ListBrowsableDirs(arg1:string):Promise<Array<model.DirectoryEntry>>;

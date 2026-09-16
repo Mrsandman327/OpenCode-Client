@@ -182,6 +182,38 @@ export function ImportSkill(arg1, arg2, arg3) {
   return window['go']['main']['App']['ImportSkill'](arg1, arg2, arg3);
 }
 
+export function KnowledgeCategories() {
+  return window['go']['main']['App']['KnowledgeCategories']();
+}
+
+export function KnowledgeConvert(arg1) {
+  return window['go']['main']['App']['KnowledgeConvert'](arg1);
+}
+
+export function KnowledgeConvertPreview(arg1) {
+  return window['go']['main']['App']['KnowledgeConvertPreview'](arg1);
+}
+
+export function KnowledgeDelete(arg1) {
+  return window['go']['main']['App']['KnowledgeDelete'](arg1);
+}
+
+export function KnowledgeGet(arg1) {
+  return window['go']['main']['App']['KnowledgeGet'](arg1);
+}
+
+export function KnowledgeList() {
+  return window['go']['main']['App']['KnowledgeList']();
+}
+
+export function KnowledgeSave(arg1) {
+  return window['go']['main']['App']['KnowledgeSave'](arg1);
+}
+
+export function KnowledgeSaveCategories(arg1) {
+  return window['go']['main']['App']['KnowledgeSaveCategories'](arg1);
+}
+
 export function LaunchWindowsTerminal(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchWindowsTerminal'](arg1, arg2, arg3);
 }

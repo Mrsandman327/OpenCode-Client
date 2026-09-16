@@ -18,7 +18,15 @@ func AtomicWrite(path string, data []byte, perm os.FileMode) error {
 	if err := ValidateJSONC(data); err != nil {
 		return fmt.Errorf("拒绝写入无效配置文件 %s: %w", path, err)
 	}
+	return AtomicWriteRaw(path, data, perm)
+}
 
+// AtomicWriteRaw 将数据原子写入 path（临时文件 + fsync + 重命名），不做 JSON 校验。
+// 用于 Markdown 等非 JSON 内容；空内容同样被拒绝，避免把文件写空。
+func AtomicWriteRaw(path string, data []byte, perm os.FileMode) error {
+	if len(data) == 0 {
+		return fmt.Errorf("拒绝写入空文件: %s", path)
+	}
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
 	if err != nil {

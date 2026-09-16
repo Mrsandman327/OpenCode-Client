@@ -9,6 +9,7 @@ import { $$ } from '../core/utils.js';
 import { checkWebStatus } from './service.js';
 import { loadModelConfig } from '../views/omo-config.js';
 import { loadSkillsData } from '../views/skill-manager.js';
+import { loadKnowledgeView } from '../views/knowledge.js';
 import { loadCommands } from '../views/commands.js';
 
 export function switchView(viewId) {
@@ -27,6 +28,9 @@ export function switchView(viewId) {
         loadModelConfig();
     } else if (viewId === 'view-skills') {
         loadSkillsData();
+    } else if (viewId === 'view-knowledge') {
+        // 知识库：切换到该视图时按需拉取条目与分类
+        loadKnowledgeView();
     } else if (viewId === 'view-commands') {
         loadCommands();
     } else if (viewId === 'view-opencode') {
