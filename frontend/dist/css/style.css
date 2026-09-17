@@ -47,16 +47,19 @@
     --diff-del-bg: rgba(255, 59, 48, 0.12);
     --diff-del-text: #c0392b;
 
-    /* 知识库卡片专用阴影（浅色）：近距锐利 + 中距柔和 + 远距扩散，三层叠加。
+    /* 可悬浮卡片阴影（浅色）：近距锐利 + 中距柔和 + 远距扩散，三层叠加。
        比全局 --shadow 明显更重，用来营造卡片「悬浮」的立体层次。
-       ⚠ 仅供 .kb-card 使用，不改动全局 --shadow / --shadow-md / --shadow-lg，
+       ⚠ 命名刻意与具体模块解耦（原 --kb-card-shadow）：
+         .kb-card 与 .skill-card 等不同形态的卡片共用同一套层次语言，
+         避免变量名带「kb」语义却被他处引用。
+       ⚠ 不改动全局 --shadow / --shadow-md / --shadow-lg，
        避免波及命令行、文件树等其他模块 */
-    --kb-card-shadow:
+    --card-shadow-float:
         0 1px 2px rgba(0, 0, 0, 0.05),
         0 6px 16px -4px rgba(0, 0, 0, 0.10),
         0 16px 32px -12px rgba(0, 0, 0, 0.10);
     /* hover：投影整体加深并向外扩散，配合 transform 上浮形成「抬升」手感 */
-    --kb-card-shadow-hover:
+    --card-shadow-float-hover:
         0 2px 4px rgba(0, 0, 0, 0.07),
         0 14px 28px -6px rgba(0, 0, 0, 0.14),
         0 30px 60px -16px rgba(0, 0, 0, 0.16);
@@ -132,15 +135,16 @@
     --diff-del-bg: rgba(255, 69, 58, 0.16);
     --diff-del-text: #ff8a80;
 
-    /* 知识库卡片专用阴影（深色）：深色底吃光，浅色那套值搬过来几乎看不见，
+    /* 可悬浮卡片阴影（深色）：深色底吃光，浅色那套值搬过来几乎看不见，
        因此黑色投影显著加重；末尾补一条顶部 inset 高光——深色面板受光时边缘会比
-       中间亮一线，用来把卡片从暗背景里「切」出来，避免整块糊在背景上 */
-    --kb-card-shadow:
+       中间亮一线，用来把卡片从暗背景里「切」出来，避免整块糊在背景上。
+       与浅色同名变量成对，供 .kb-card / .skill-card 等共用 */
+    --card-shadow-float:
         0 1px 2px rgba(0, 0, 0, 0.35),
         0 6px 16px -4px rgba(0, 0, 0, 0.45),
         0 16px 32px -12px rgba(0, 0, 0, 0.45),
         inset 0 1px 0 rgba(255, 255, 255, 0.04);
-    --kb-card-shadow-hover:
+    --card-shadow-float-hover:
         0 2px 4px rgba(0, 0, 0, 0.45),
         0 14px 28px -6px rgba(0, 0, 0, 0.55),
         0 30px 60px -16px rgba(0, 0, 0, 0.60),
@@ -3524,6 +3528,76 @@ input::placeholder, textarea::placeholder {
     flex-shrink: 0;
 }
 
+/* ============================================================
+   技能管理视图：path-bar 操作按钮统一形态 + 质感
+   ------------------------------------------------------------
+   作用域说明：全部选择器以 `#view-skills .path-bar` 开头（ID 选择器），
+   仅命中技能管理页 path-bar 内的操作按钮；
+   不使用裸 `.btn-sm` / `.btn-open`，故不会外溢到全站其它页面的
+   同名类（项目配置 / 供应商 / 文件浏览器 / 弹窗等）。
+   形态统一：6 个按钮一律「白底(--bg-input) + 1px 同色边框 + 同色文字」，
+   三者体量完全一致（同 padding / 同边框宽 / 同字号），
+   语义层级只由色相醒目度体现（蓝 > 灰；红用于警示），
+   不再靠「实心 -> 描边 -> 纯文字」的填充度递减（旧版头重脚轻）：
+     主动作   -> 蓝（--accent）        hover 填淡蓝底 --accent-ghost
+     次要操作 -> 灰（--text-secondary）hover 填淡灰底 --bg-card-hover
+     危险操作 -> 红（--danger）        hover 填淡红底 --danger-bg
+   命名说明：`.btn-danger-ghost` 为历史类名，其视觉已由「纯红字无边框」
+   升级为「红色描边」，语义等同 outline-danger；此处保留类名不动，
+   以免牵动 HTML 结构与可能的外部引用。
+   优先级说明：作用域块带 ID 选择器，优先级高于全局单类 `.btn-sm`，
+   因此能稳定覆盖其 background / color / border（不必改 HTML 的 class）。
+   ============================================================ */
+#view-skills .path-bar .btn-sm {
+    padding: 7px 16px;          /* 三个按钮同 padding，保证体量一致 */
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    /* 状态过渡只做背景/文字/边框/位移，保持克制，不加渐变与重阴影 */
+    transition: background .15s ease, color .15s ease,
+                border-color .15s ease, transform .1s ease;
+}
+/* 按下微沉：统一覆盖全局 .btn:active 的缩放，给出「按得下去」的物理反馈 */
+#view-skills .path-bar .btn-sm:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+/* 主动作（添加目录 / 方案入库）：蓝字 + 蓝边 + 白底，hover 填淡蓝底 */
+#view-skills .path-bar .btn-primary {
+    background: var(--bg-input);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+#view-skills .path-bar .btn-primary:hover:not(:disabled) {
+    background: var(--accent-ghost);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* 次要操作（打开目录 / 应用方案）：灰字 + 灰边 + 白底，hover 填淡灰底 */
+#view-skills .path-bar .btn-open {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+#view-skills .path-bar .btn-open:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    color: var(--text-secondary);
+    border-color: var(--border);
+}
+
+/* 危险操作（删除目录 / 删除方案）：红字 + 红边 + 白底，hover 填淡红底 */
+#view-skills .path-bar .btn-danger-ghost {
+    background: var(--bg-input);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+}
+#view-skills .path-bar .btn-danger-ghost:hover:not(:disabled) {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
 .path-label {
     color: var(--text-muted);
     font-weight: 500;
@@ -3698,33 +3772,76 @@ input::placeholder, textarea::placeholder {
     min-width: 70px;
 }
 
-/* 技能列表 */
+/* 技能列表：网格卡片布局（由原「全宽横条列表」改造而来）
+   列宽取 420px，理由：
+   - 卡片内要同时容纳「技能名 + 来源标签」「最多两行描述」「等宽字体的技能路径」三块内容，
+     其中等宽路径最长，300px（知识库卡片档）会让路径过早截断，420px 能露出有意义的目录层级；
+   - 桌面端内容区约 1600px 时可排成 3 列，卡片明显大于原横条，又不显空旷；
+   - min(420px, 100%) 保证容器窄于 420px 时列宽退化为满宽，不产生横向溢出。 */
 .skill-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
+    gap: 16px;
+    /* 行紧凑排列在顶部，避免行高被拉伸导致卡片间出现垂直空隙 */
+    align-content: start;
+    /* 行高必须由内容自然高度决定（max-content）。
+       本容器是 #view-skills 的 flex 子项（flex:1 + min-height:0，高度被父级定死），
+       若行轨道保持隐式 auto，浏览器会把容器高度「均分」给每一行：
+       视口变矮时卡片被压扁、内容被裁且不出现滚动条（知识库 .kb-grid 已踩过此坑）。
+       显式声明 max-content 后，行高不再随容器高度收缩，内容一溢出即触发滚动。 */
+    grid-auto-rows: max-content;
+    padding: 8px 24px;
+    /* 以下两行保留原横条列表的取值；技能视图下由 #view-skills .skill-list 覆盖为可滚动 */
     flex: none;
     overflow-y: visible;
-    padding: 8px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
 }
 
-/* 技能卡片 */
+/* 空态、加载态与提示横幅不是卡片，需跨越所有列占满整行 */
+.skill-list > .oc-empty,
+.skill-list > .loading,
+.skill-list > .no-sources-banner {
+    grid-column: 1 / -1;
+}
+
+/* 技能卡片：与知识库卡片（.kb-card）共用同一套「悬浮卡片」视觉语言；
+   卡片化后改为纵向堆叠——信息区在上、操作区贴底，尺寸明显大于原全宽横条 */
 .skill-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    transition: all var(--transition);
+    /* 与知识库卡片同档的三层阴影，让卡片从列表底色上浮起 */
+    box-shadow: var(--card-shadow-float);
+    /* 只过渡会变化的视觉属性，避免 transition:all 带来的无谓重绘；
+       transform / box-shadow 走更长的缓出曲线，与知识库卡片完全一致 */
+    transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color var(--transition), background var(--transition);
+    /* 作为 hover 时 z-index 的定位参照，避免阴影被相邻卡片盖住 */
+    position: relative;
     overflow: hidden;
-    flex-shrink: 0;
+    /* 纵向堆叠：.skill-info 在上撑满，.skill-actions 贴底 */
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    /* 卡片内部间距由 12px 提到 14px：让名称/描述/操作区之间更透气，
+       配合更高的保底高度，卡片整体更饱满 */
+    gap: 14px;
+    /* 卡片化后加大内边距并保底高度，让信息有呼吸感，尺寸明显大于原横条（原高约 81px）；
+       保底高度由 150px 提到 190px——用户反馈宽度合适但高度偏小，故主要靠保底高度拉高卡片，
+       同时给 3 行描述留出足够空间，避免描述换行后被压扁 */
+    padding: 16px 18px;
+    min-height: 190px;
 }
 
 .skill-card:hover {
     border-color: var(--border-light);
-    background: var(--bg-card-hover);
+    /* 切到更大扩散的一档阴影；卡片化后回到知识库网格卡片同款的 3px 上浮——
+       卡片已不再是 1800px 全宽横条，3px 的位移在卡片尺度上正合适 */
+    box-shadow: var(--card-shadow-float-hover);
+    transform: translateY(-3px);
+    z-index: 1;
+    /* 不再叠加 --bg-card-hover 底色：与知识库卡片同理，浮起 + 换底会显脏，
+       层次感交给阴影与描边承担 */
 }
 
 .skill-header {
@@ -3736,6 +3853,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .skill-info {
+    /* 卡片为纵向 flex，flex:1 让信息区撑满剩余高度，把 .skill-actions 顶到卡片底部；
+       同一行卡片即使描述长度不同，操作区也能保持对齐 */
     flex: 1;
     min-width: 0;
 }
@@ -3745,17 +3864,27 @@ input::placeholder, textarea::placeholder {
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 1px;
+    width: calc(100% - 42px);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: left;
 }
 
 .skill-desc {
     font-size: 12px;
     color: var(--text-dim);
-    line-height: 1.3;
+    line-height: 1.5;
     margin-bottom: 2px;
+    margin-top: 5px;
+    /* 描述由 2 行放宽到 3 行，信息展示更完整；min-height 预留三行高度（3×1.3×12≈47px），
+       让同一行卡片的路径与操作区纵向对齐 */
     display: -webkit-box;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    min-height: 68px;
+    
 }
 
 .skill-toggles {
@@ -5118,12 +5247,16 @@ input::placeholder, textarea::placeholder {
 [data-theme="dark"] { --bg-code: var(--bg-secondary); --bg-tag: var(--bg-input); --text-dim: var(--text-muted);  color-scheme: dark;}
 
 /* ======== 技能卡片扩展 ======== */
-.skill-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+/* 名字 + 来源标签行：flex-wrap 让长技能名或标签在窄卡片里换行，不溢出卡片 */
+.skill-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
 .skill-tag { font-size: 11px; padding: 1px 6px; border-radius: var(--radius-xs); }
 .skill-source-global { background: var(--bg-tag); color: var(--text-dim); }
 .skill-source-project { background: var(--accent-ghost); color: var(--accent); }
-.skill-path { font-size: 11px; color: var(--text-muted); font-family: "SF Mono", 'Cascadia Code', 'Fira Code', 'Consolas', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.skill-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* 技能路径：等宽字体、单行省略号；上方留一点间距与描述拉开层次 */
+.skill-path { font-size: 11px; color: var(--text-secondary); font-family: "SF Mono", 'Cascadia Code', 'Fira Code', 'Consolas', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 10px; }
+/* 操作区贴底：margin-top:auto 把开关与「打开」按钮推到卡片底部，
+   顶部加一条分隔线与信息区分开，两端对齐（开关在左、按钮在右） */
+.skill-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
 /* 技能卡片按钮暗黑主题兼容 */
 .skill-card .btn {
     background: var(--bg-input);
@@ -6717,6 +6850,11 @@ input::placeholder, textarea::placeholder {
     min-width: 180px;
     max-width: 500px;
     height: 30px;
+    /* 垂直 padding 必须归零：本元素 height 固定 30px 且全局 box-sizing 为 border-box，
+       若沿用全局 select 的 7px 上下内边距，内容盒仅剩 14px（30 - 2边框 - 14内边距），
+       小于 13px 字号的实际行高（约 16px），会导致选中文字上下被裁。
+       此处与 .toolbar-input / .batch-model-select / .omo-scheme-select 的写法保持一致。 */
+    padding: 0 10px;
     font-size: 13px;
 }
 .toolbar-input {
@@ -7253,8 +7391,8 @@ input.toolbar-input {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    /* 知识库专用阴影（三层叠加），营造悬浮层次 */
-    box-shadow: var(--kb-card-shadow);
+    /* 通用可悬浮卡片阴影（三层叠加），营造悬浮层次 */
+    box-shadow: var(--card-shadow-float);
     cursor: pointer;
     /* 作为右上角删除按钮的定位参照 */
     position: relative;
@@ -7270,7 +7408,7 @@ input.toolbar-input {
    z-index 抬升，避免放大后的阴影被相邻卡片盖住 */
 .kb-card:hover {
     border-color: var(--border-light);
-    box-shadow: var(--kb-card-shadow-hover);
+    box-shadow: var(--card-shadow-float-hover);
     transform: translateY(-3px);
     z-index: 1;
 }

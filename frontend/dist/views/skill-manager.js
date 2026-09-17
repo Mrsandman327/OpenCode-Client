@@ -56,7 +56,7 @@ export function renderSkillList(filter) {
         var html = '<div class="skill-card" data-skill="' + safeName + '" data-path="' + safePath + '">' +
             '<div class="skill-info">' +
                 '<div class="skill-name-row">' +
-                    '<button type="button" class="skill-name" data-action="open-skill" data-skill-path="' + safePath + '" style="cursor:pointer;text-decoration:underline;color:var(--accent);background:none;border:none;padding:0;font:inherit;">' + safeName + '</button>' +
+                    '<button type="button" class="skill-name" data-action="open-skill" data-skill-path="' + safePath + '" style="cursor:pointer;text-decoration:underline;color:var(--accent);background:none;border:none;padding:0;font:inherit;font-size:14px;font-weight:600;">' + safeName + '</button>' +
                     (s.conflict ? '<span class="skill-tag conflict-tag">冲突</span>' : '<span class="skill-tag ' + sourceClass + '">' + sourceLabel + '</span>') +
                 '</div>' +
                 '<div class="skill-desc">' + safeDesc + '</div>' +
