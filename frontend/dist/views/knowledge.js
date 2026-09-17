@@ -86,12 +86,6 @@ function kbCatPath(id) {
     return path.map(function (c) { return c.name; }).join(' / ');
 }
 
-/** 分类识别色的键：子分类继承顶层分类的颜色；未匹配到则返回空串（回退中性灰） */
-function kbCatColorKey(id) {
-    var path = kbFindPath(id);
-    return path && path.length ? path[0].id : '';
-}
-
 /** 该分类及其全部后代的 id */
 function kbCatSubtreeIds(cat) {
     var ids = [cat.id];
@@ -341,8 +335,7 @@ export function renderKbEntries() {
             listView.innerHTML = '<div class="kb-empty">' + ICONS.search + '<span>' + escapeHtml(emptyText) + '</span></div>';
         } else {
             listView.innerHTML = list.map(function (e) {
-                var colorKey = kbCatColorKey(e.category);
-                return '<div class="kb-row' + (colorKey ? ' cat-' + attr(colorKey) : '') + '" data-kb-entry="' + attr(e.id) + '">' +
+                return '<div class="kb-row" data-kb-entry="' + attr(e.id) + '">' +
                             kbDeleteBtnHtml(e.id) +
                             '<div class="kb-row-icon">' + ICONS.doc + '</div>' +
                             '<div class="kb-row-main">' +
@@ -366,8 +359,7 @@ export function renderKbEntries() {
             cardView.innerHTML = '<div class="kb-empty">' + ICONS.search + '<span>' + escapeHtml(emptyText) + '</span></div>';
         } else {
             cardView.innerHTML = list.map(function (e) {
-                var colorKey = kbCatColorKey(e.category);
-                return '<div class="kb-card' + (colorKey ? ' cat-' + attr(colorKey) : '') + '" data-kb-entry="' + attr(e.id) + '">' +
+                return '<div class="kb-card" data-kb-entry="' + attr(e.id) + '">' +
                             kbDeleteBtnHtml(e.id) +
                             '<div class="kb-card-head">' +
                                 '<div class="kb-row-icon">' + ICONS.doc + '</div>' +

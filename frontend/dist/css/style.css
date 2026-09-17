@@ -47,27 +47,19 @@
     --diff-del-bg: rgba(255, 59, 48, 0.12);
     --diff-del-text: #c0392b;
 
-    /* 知识库分类识别色（浅色）：每个分类一组四值，色相固定、低饱和，
-       --cat-xxx       主色：色条 + 图标前景 + hover 描边基色
-       --cat-xxx-bg    图标容器底色（比主色透明，做出柔和的同色底）
-       --cat-xxx-tint  卡片极淡的分类底色（几乎只是一层"呼吸感"）
-       --cat-xxx-edge  hover 时卡片描边（半透明主色，避免边框过重） */
-    --cat-personal: #3768b0;
-    --cat-personal-bg: rgba(55, 104, 176, 0.14);
-    --cat-personal-tint: rgba(55, 104, 176, 0.045);
-    --cat-personal-edge: rgba(55, 104, 176, 0.42);
-    --cat-company: #b0762a;
-    --cat-company-bg: rgba(176, 118, 42, 0.14);
-    --cat-company-tint: rgba(176, 118, 42, 0.045);
-    --cat-company-edge: rgba(176, 118, 42, 0.42);
-    --cat-project: #2f8a60;
-    --cat-project-bg: rgba(47, 138, 96, 0.14);
-    --cat-project-tint: rgba(47, 138, 96, 0.045);
-    --cat-project-edge: rgba(47, 138, 96, 0.42);
-    --cat-prompt: #7a5cb8;
-    --cat-prompt-bg: rgba(122, 92, 184, 0.14);
-    --cat-prompt-tint: rgba(122, 92, 184, 0.045);
-    --cat-prompt-edge: rgba(122, 92, 184, 0.42);
+    /* 知识库卡片专用阴影（浅色）：近距锐利 + 中距柔和 + 远距扩散，三层叠加。
+       比全局 --shadow 明显更重，用来营造卡片「悬浮」的立体层次。
+       ⚠ 仅供 .kb-card 使用，不改动全局 --shadow / --shadow-md / --shadow-lg，
+       避免波及命令行、文件树等其他模块 */
+    --kb-card-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.05),
+        0 6px 16px -4px rgba(0, 0, 0, 0.10),
+        0 16px 32px -12px rgba(0, 0, 0, 0.10);
+    /* hover：投影整体加深并向外扩散，配合 transform 上浮形成「抬升」手感 */
+    --kb-card-shadow-hover:
+        0 2px 4px rgba(0, 0, 0, 0.07),
+        0 14px 28px -6px rgba(0, 0, 0, 0.14),
+        0 30px 60px -16px rgba(0, 0, 0, 0.16);
 
     /* 边框 */
     --border: #e0e0e0;
@@ -140,24 +132,19 @@
     --diff-del-bg: rgba(255, 69, 58, 0.16);
     --diff-del-text: #ff8a80;
 
-    /* 知识库分类识别色（深色）：深色下重新调亮主色并压低混入比例——
-       浅色值直接搬过来会在深色卡片上过饱和、发脏，所以单独取一套 */
-    --cat-personal: #7ba7e0;
-    --cat-personal-bg: rgba(123, 167, 224, 0.20);
-    --cat-personal-tint: rgba(123, 167, 224, 0.060);
-    --cat-personal-edge: rgba(123, 167, 224, 0.50);
-    --cat-company: #dda85f;
-    --cat-company-bg: rgba(221, 168, 95, 0.20);
-    --cat-company-tint: rgba(221, 168, 95, 0.060);
-    --cat-company-edge: rgba(221, 168, 95, 0.50);
-    --cat-project: #6dc79a;
-    --cat-project-bg: rgba(109, 199, 154, 0.20);
-    --cat-project-tint: rgba(109, 199, 154, 0.060);
-    --cat-project-edge: rgba(109, 199, 154, 0.50);
-    --cat-prompt: #b49ae0;
-    --cat-prompt-bg: rgba(180, 154, 224, 0.20);
-    --cat-prompt-tint: rgba(180, 154, 224, 0.060);
-    --cat-prompt-edge: rgba(180, 154, 224, 0.50);
+    /* 知识库卡片专用阴影（深色）：深色底吃光，浅色那套值搬过来几乎看不见，
+       因此黑色投影显著加重；末尾补一条顶部 inset 高光——深色面板受光时边缘会比
+       中间亮一线，用来把卡片从暗背景里「切」出来，避免整块糊在背景上 */
+    --kb-card-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.35),
+        0 6px 16px -4px rgba(0, 0, 0, 0.45),
+        0 16px 32px -12px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    --kb-card-shadow-hover:
+        0 2px 4px rgba(0, 0, 0, 0.45),
+        0 14px 28px -6px rgba(0, 0, 0, 0.55),
+        0 30px 60px -16px rgba(0, 0, 0, 0.60),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* ========== 基础重置 ========== */
@@ -7151,11 +7138,12 @@ input.toolbar-input {
     cursor: pointer;
     transition: background var(--transition);
     border: 1px solid transparent;
-    /* 作为分类色条与删除按钮的定位参照 */
+    /* 作为删除按钮的定位参照 */
     position: relative;
     overflow: hidden;
 }
-.kb-row:hover { background: var(--bg-card-hover); border-color: var(--border); }
+/* hover 描边统一走中性色（与「常用命令」卡片一致） */
+.kb-row:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
 
 .kb-row-icon {
     width: 30px;
@@ -7165,8 +7153,18 @@ input.toolbar-input {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    /* 缺省中性外观：灰色底 + 弱化图标。
+       知识库内（.kb-card / .kb-row）的配色由下方规则覆盖为淡品牌蓝底 + 品牌蓝图标 */
     background: var(--bg-secondary);
-    color: var(--text-secondary);
+    color: var(--text-muted);
+}
+
+/* 卡片与列表行的图标：淡品牌蓝底 + 品牌蓝图标，与标题形成同色系锚点。
+   仅限定在知识库范围内生效；尺寸 / 圆角 / 间距仍由上方 .kb-row-icon 基础规则控制 */
+.kb-card .kb-row-icon,
+.kb-row .kb-row-icon {
+    background: var(--accent-ghost);   /* 品牌蓝 6% 淡底 */
+    color: var(--accent);              /* 品牌蓝图标 */
 }
 
 .kb-row-main { flex: 1; min-width: 0; }
@@ -7193,11 +7191,13 @@ input.toolbar-input {
     align-items: center;
     gap: 4px;
     font-size: 12px;
+    /* 分类名保持中性弱化灰，不再染分类色 */
     color: var(--text-muted);
     white-space: nowrap;
 }
 
-/* 标签胶囊 */
+/* 标签胶囊：卡片与列表行统一采用「常用命令」页快捷胶囊的黄色点缀
+   （warning 文字 + 淡黄底 + 胶囊圆角），深浅主题各自取值 */
 .tag-list { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .tag-pill {
     display: inline-flex;
@@ -7205,13 +7205,14 @@ input.toolbar-input {
     gap: 4px;
     padding: 1px 8px;
     border-radius: var(--radius-pill);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
+    background: var(--warning-bg);
+    /* 淡黄底已足够界定胶囊边界，再加一圈描边会显脏 */
+    border: 1px solid transparent;
+    color: var(--warning);
     font-size: 11.5px;
+    font-weight: 500;
     white-space: nowrap;
 }
-.kb-row:hover .tag-pill { background: var(--bg-primary); }
 
 /* 卡片视图 */
 .kb-grid {
@@ -7231,33 +7232,43 @@ input.toolbar-input {
     flex-direction: column;
     gap: 10px;
     padding: 16px;
+    /* 纯净卡片底（与「常用命令」卡片一致），不再叠分类色渐变 */
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow);
+    /* 知识库专用阴影（三层叠加），营造悬浮层次 */
+    box-shadow: var(--kb-card-shadow);
     cursor: pointer;
-    /* 作为分类色条与右上角删除按钮的定位参照；overflow 裁掉色条在圆角处的溢出 */
+    /* 作为右上角删除按钮的定位参照 */
     position: relative;
     overflow: hidden;
-    /* 只过渡会变化的视觉属性，避免 transition:all 带来的无谓重绘 */
-    transition: box-shadow var(--transition), transform var(--transition),
+    /* 只过渡会变化的视觉属性，避免 transition:all 带来的无谓重绘；
+       transform / box-shadow 走更长的缓出曲线，让「浮起」带一点回弹质感 */
+    transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
                 border-color var(--transition), background var(--transition);
 }
-/* hover：阴影抬升一档 + 轻微上浮，做出「浮起」的实感；
-   底色与描边交给下方的分类色规则（无分类时维持默认） */
+/* hover：投影整体加深并向外扩散 + 上浮 3px；
+   描边回到中性色（与「常用命令」卡片一致）；
+   z-index 抬升，避免放大后的阴影被相邻卡片盖住 */
 .kb-card:hover {
     border-color: var(--border-light);
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+    box-shadow: var(--kb-card-shadow-hover);
+    transform: translateY(-3px);
+    z-index: 1;
 }
 /* 卡片标题行：右侧留出删除按钮的位置，标题被压短时用省略号收尾 */
 .kb-card-head { display: flex; align-items: center; gap: 10px; padding-right: 22px; }
-/* 卡片内图标容器：比列表视图略大，作为分类识别色的载体 */
-.kb-card .kb-row-icon { width: 32px; height: 32px; }
+/* 卡片内图标容器：比列表视图略大，保持中性灰块 */
+.kb-card .kb-row-icon {
+    width: 32px;
+    height: 32px;
+}
 .kb-card-title {
     font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
+    font-weight: 700;
+    /* 标题统一走品牌蓝（沿用「常用命令」页 cmd-card-name 用强调色点名的做法） */
+    color: var(--accent);
     line-height: 1.35;
     letter-spacing: -0.01em;
     flex: 1;
@@ -7328,54 +7339,6 @@ input.toolbar-input {
 @media (hover: none) {
     .kb-del-btn { opacity: 1; pointer-events: auto; }
 }
-
-/* ---- 分类识别色 ----
-   子分类继承其顶层分类的颜色，故只针对顶层分类 id 建立规则；
-   未匹配到已知顶层分类时不着色，回退为中性外观。
-   卡片上四种手段叠加：左侧 3px 色条 + 极淡分类底色 + 图标同色 + hover 分类描边，
-   色相彼此拉开、饱和度压得很低，做到「一眼能区分分类」而不花哨；
-   列表行只保留色条与图标色（行本身已有 hover 底色，再叠一层会显脏）。 */
-.kb-card::before,
-.kb-row::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: transparent;
-    pointer-events: none;
-}
-.kb-row::before { width: 2px; }
-
-.kb-card.cat-personal { background: var(--cat-personal-tint); }
-.kb-card.cat-personal::before { background: var(--cat-personal); }
-.kb-card.cat-personal .kb-row-icon { background: var(--cat-personal-bg); color: var(--cat-personal); }
-.kb-card.cat-personal:hover { border-color: var(--cat-personal-edge); }
-
-.kb-card.cat-company { background: var(--cat-company-tint); }
-.kb-card.cat-company::before { background: var(--cat-company); }
-.kb-card.cat-company .kb-row-icon { background: var(--cat-company-bg); color: var(--cat-company); }
-.kb-card.cat-company:hover { border-color: var(--cat-company-edge); }
-
-.kb-card.cat-project { background: var(--cat-project-tint); }
-.kb-card.cat-project::before { background: var(--cat-project); }
-.kb-card.cat-project .kb-row-icon { background: var(--cat-project-bg); color: var(--cat-project); }
-.kb-card.cat-project:hover { border-color: var(--cat-project-edge); }
-
-.kb-card.cat-prompt { background: var(--cat-prompt-tint); }
-.kb-card.cat-prompt::before { background: var(--cat-prompt); }
-.kb-card.cat-prompt .kb-row-icon { background: var(--cat-prompt-bg); color: var(--cat-prompt); }
-.kb-card.cat-prompt:hover { border-color: var(--cat-prompt-edge); }
-
-.kb-row.cat-personal::before { background: var(--cat-personal); }
-.kb-row.cat-personal .kb-row-icon { background: var(--cat-personal-bg); color: var(--cat-personal); }
-.kb-row.cat-company::before { background: var(--cat-company); }
-.kb-row.cat-company .kb-row-icon { background: var(--cat-company-bg); color: var(--cat-company); }
-.kb-row.cat-project::before { background: var(--cat-project); }
-.kb-row.cat-project .kb-row-icon { background: var(--cat-project-bg); color: var(--cat-project); }
-.kb-row.cat-prompt::before { background: var(--cat-prompt); }
-.kb-row.cat-prompt .kb-row-icon { background: var(--cat-prompt-bg); color: var(--cat-prompt); }
 
 /* 空状态 */
 .kb-empty {
