@@ -20,12 +20,13 @@ func Create(sourcePath, linkPath string) error {
 }
 
 // Remove 安全删除 linkPath 处的符号链接或目录联接。
+// 语义幂等：路径不存在时视为「已删除」并返回 nil。
 // Windows 上使用 rmdir 删除联接，避免跟随目标目录。
 func Remove(linkPath string) error {
 	if runtime.GOOS == "windows" {
 		return removeWindows(linkPath)
 	}
-	return os.Remove(linkPath)
+	return removeUnix(linkPath)
 }
 
 // Exists 检查 linkPath 是否存在（包括断开的符号链接）。
@@ -47,6 +48,18 @@ func createWindows(sourcePath, linkPath string) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("创建联接失败: %w\n输出: %s", err, string(out))
+	}
+	return nil
+}
+
+// removeUnix 删除 Unix 系统下的符号链接或普通文件，语义幂等。
+// 路径不存在时返回 nil：首次启用技能时「先移除旧链接」会对不存在的路径
+// 调用本函数，若不忽略 ENOENT，整个启用操作会因此失败。
+// 仅忽略 IsNotExist，权限不足、目录非空等其他错误照常返回，
+// 因此不使用 os.RemoveAll（它会掩盖错误并可能误删）。
+func removeUnix(linkPath string) error {
+	if err := os.Remove(linkPath); err != nil && !os.IsNotExist(err) {
+		return err
 	}
 	return nil
 }
