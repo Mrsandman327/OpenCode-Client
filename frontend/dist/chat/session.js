@@ -223,7 +223,8 @@ export async function refreshCurrentSession() {
         }
 
         try {
-            const statuses = await loadSessionStatuses();
+            // 会话状态请求同样无超时，这里加超时，避免它挂起整个刷新流程导致刷新锁无法释放
+            const statuses = await withTimeout(loadSessionStatuses(), SESSION_STATUS_TIMEOUT_MS, '会话状态');
             if (refreshSessionId === store.currentSessionId && statuses) {
                 // 只更新目标会话的状态（快照权威），其它会话 key 保留本地值
                 if (statuses[refreshSessionId] !== undefined) {
@@ -392,9 +393,40 @@ export async function loadOlderMessages(sessionID) {
     }
 }
 
+/** 加载会话消息请求的最长等待时间。页面 fetch 与本地 API 都没有超时，
+ *  一旦某次请求永不 settle，在途锁会永久为 true，之后所有刷新都被静默跳过。 */
+const LOAD_MESSAGES_TIMEOUT_MS = 15000;
+/** 刷新流程中「会话状态」请求的最长等待时间，避免其挂起整个刷新流程。 */
+const SESSION_STATUS_TIMEOUT_MS = 10000;
+
+/**
+ * 给 Promise 套一层超时，保证 await 必然 settle。
+ * 前端 fetch 与服务端代理都没有超时机制，请求可能永久挂起；
+ * 超时后抛出错误，调用方的 finally 才会执行、在途锁才会被释放。
+ */
+function withTimeout(promise, ms, label) {
+    let timer = null;
+    // 原请求在超时之后仍可能 reject（fetch 无法真正取消），
+    // 先挂一个空 catch，避免它变成 unhandled rejection 污染控制台。
+    promise.catch(function () {});
+    return Promise.race([
+        promise,
+        new Promise(function (_, reject) {
+            timer = setTimeout(function () {
+                reject(new Error((label || '请求') + '超时（' + ms + 'ms）'));
+            }, ms);
+        }),
+    ]).finally(function () {
+        if (timer) clearTimeout(timer);
+    });
+}
+
+/** 各会话是否有消息校正请求在途：用于去重，避免刷新按钮 / SSE 状态事件 / 4 秒轮询
+ *  在同一会话上密集触发 loadMessages 时重复发起请求（请求风暴）。 */
+const loadMessagesInflight = {};
+
 export async function loadMessages(sessionID) {
     const targetId = sessionID || store.currentSessionId;
-    const seq = (store.sessionLoadSeq[targetId] = (store.sessionLoadSeq[targetId] || 0) + 1);
     if (!targetId) {
         // 无当前会话：仅当池中没有 tab 容器时才写空态提示；
         // 否则保留隐藏的 tab 容器与新建会话占位提示，避免误清空
@@ -406,38 +438,78 @@ export async function loadMessages(sessionID) {
     }
     const box = ensureTabMessagesEl(targetId);
     if (!box) return;
-    // 已加载过（分页进行中）：不重新拉取覆盖，直接渲染缓存，避免破坏分页状态
     const existing = getCachedMessages(targetId);
-    if (existing.length) {
+    const hasCache = existing.length > 0;
+    if (hasCache) {
+        // 已有缓存：先把旧内容渲染出来，让用户立即看到消息、不出现加载态闪烁。
+        // 但不再像以前那样“直接渲染缓存并 return”——那样会让 SSE 丢事件造成的
+        // 残缺缓存永远无法通过刷新校正（只能重开会话），这正是本次修复的根因。
+        // 这里继续往下走 API 拉取，用服务端权威数据修正缓存。
         renderMessages(existing, box);
         if (!isMobileTreeMode()) {
             extractSubtaskSummaries(targetId);
             renderSubtaskPanel();
         }
-        return;
+    } else {
+        // 无缓存 = 全新加载（会话被关闭后重开、或刚 fork 出的新会话）：
+        // 重置分页状态，防止 closeSessionTab 未清理的 loadedAll 残留（来自关闭前的滚动加载）
+        // 把向上滚动加载永久拦截，导致只能看到最近 20 条。
+        // 注意：有缓存时绝不能重置，否则会破坏已加载的分页历史。
+        sessionPaging[targetId] = { loadedAll: false, loading: false };
     }
-    // 无缓存 = 全新加载（会话可能被关闭后重开、或刚 fork 出的新会话）：
-    // 重置分页状态，防止 closeSessionTab 未清理的 loadedAll 残留（来自关闭前的滚动加载）
-    // 把向上滚动加载永久拦截，导致只能看到最近 20 条。
-    sessionPaging[targetId] = { loadedAll: false, loading: false };
+    // 在途去重：必须在自增 seq 之前判断，否则本次被跳过的调用会把在途请求的 seq
+    // 挤成“过期”，导致在途请求拉回数据后被竞态保护丢弃、双方都不渲染。
+    if (loadMessagesInflight[targetId]) return;
+    const seq = (store.sessionLoadSeq[targetId] = (store.sessionLoadSeq[targetId] || 0) + 1);
+    loadMessagesInflight[targetId] = true;
+    // 兜底看门狗：即使 withTimeout 因意外未生效，也在稍后强制释放在途锁，
+    // 确保「刷新被永久跳过」不可能发生（幂等，重复置 false 无副作用）。
+    const inflightWatchdog = setTimeout(function () {
+        loadMessagesInflight[targetId] = false;
+    }, LOAD_MESSAGES_TIMEOUT_MS + 2000);
+    // 校正前的缓存快照：用于判断校正后数据是否变化，避免无谓的整列表重渲染
+    const beforeJson = hasCache ? JSON.stringify(existing) : '';
     try {
-        // 首次加载：分页拉最新 20 条
-        const messages = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(targetId)}/message?limit=20`);
+        // 首次加载与缓存校正共用：拉取最新 20 条（带超时，避免请求挂起卡死刷新）
+        const messages = await withTimeout(
+            api.OpenCodeCall('GET', `/session/${encodeURIComponent(targetId)}/message?limit=20`),
+            LOAD_MESSAGES_TIMEOUT_MS,
+            '加载会话消息'
+        );
         if (seq !== store.sessionLoadSeq[targetId]) return;
-        cacheMessages(targetId, messages || []);
-        // 返回条数 < 20 说明没有更多历史（已全部加载）
-        if (!messages || messages.length < 20) {
+        const incoming = messages || [];
+        // 校正缓存：缓存里可能已含向上分页加载的更早历史，直接整体覆盖会把它们抹掉，
+        // 并使“加载更多”因 loadedAll 残留而永久失效。因此以 API 首条消息为锚点，
+        // 只替换「锚点及之后」的最新一段，保留锚点之前的更早历史；
+        // 缓存为空 / 无历史（锚点就是首条）/ 找不到锚点时，整体覆盖即可（等价一次全量刷新）。
+        const firstId = String(incoming[0]?.info?.id || incoming[0]?.id || '');
+        const anchorIdx = firstId
+            ? existing.findIndex(item => String(item.info?.id || item.id || '') === firstId)
+            : -1;
+        cacheMessages(targetId, anchorIdx > 0 ? existing.slice(0, anchorIdx).concat(incoming) : incoming);
+        // 仅在“全新加载”路径判断是否已全部加载，避免覆盖有分页历史会话的分页状态
+        if (!hasCache && incoming.length < 20) {
             if (!sessionPaging[targetId]) sessionPaging[targetId] = {};
             sessionPaging[targetId].loadedAll = true;
         }
-        renderMessages(getCachedMessages(targetId), box);
-        if (!isMobileTreeMode()) {
-            extractSubtaskSummaries(targetId);
-            renderSubtaskPanel();
+        const after = getCachedMessages(targetId);
+        // 校正后数据与校正前一致时跳过重渲染，避免多余的全量重建与闪烁
+        if (!hasCache || JSON.stringify(after) !== beforeJson) {
+            renderMessages(after, box);
+            if (!isMobileTreeMode()) {
+                extractSubtaskSummaries(targetId);
+                renderSubtaskPanel();
+            }
         }
     } catch (e) {
         if (seq !== store.sessionLoadSeq[targetId]) return;
-        box.innerHTML = `<div class="oc-empty error">${escapeHtml(e.message || e)}</div>`;
+        // 有缓存时校正失败不覆盖已显示内容（保留旧数据优于显示报错）
+        if (!hasCache) {
+            box.innerHTML = `<div class="oc-empty error">${escapeHtml(e.message || e)}</div>`;
+        }
+    } finally {
+        clearTimeout(inflightWatchdog);
+        loadMessagesInflight[targetId] = false;
     }
 }
 

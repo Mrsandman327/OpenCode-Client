@@ -28,6 +28,19 @@ type BrowserSSEEvent struct {
 	Data string
 }
 
+const (
+	// browserSSEBufferSize 是每个浏览器 SSE 客户端的缓冲深度。
+	// 原值 32 在消息密集时（思考/正文/工具会产生大量 part 事件）极易被填满：
+	// 一旦消费端（浏览器网络）稍慢，缓冲即溢出，旧实现会静默剔除该客户端，
+	// 造成前端丢事件却无从感知，残缺缓存（缺 text part）就此长期停留在界面上。
+	// 提升到 256 显著降低触发概率；真正溢出时由 sse-lagged 通知 + 前端全量补齐兜底。
+	browserSSEBufferSize = 256
+	// sseLaggedEventName 是「客户端已滞后、事件即将丢失」的显式通知事件名。
+	// 服务端在剔除慢客户端前尽力投递一条该事件，让前端明确知道自己丢过事件，
+	// 从而主动触发一次 loadMessages() 全量补齐，而不是停在残缺缓存上。
+	sseLaggedEventName = "sse-lagged"
+)
+
 // StartOpenCodeEvents 连接 opencode 全局 SSE，并通过 Wails 事件转发给前端。
 func StartOpenCodeEvents(ctx context.Context) model.APIResult {
 	WebSessMu.Lock()
@@ -98,7 +111,7 @@ func SubscribeBrowserSSE() (int, <-chan BrowserSSEEvent) {
 	defer browserSSEMu.Unlock()
 	browserSSENextID++
 	id := browserSSENextID
-	ch := make(chan BrowserSSEEvent, 32)
+	ch := make(chan BrowserSSEEvent, browserSSEBufferSize)
 	browserSSEClients[id] = ch
 	return id, ch
 }
@@ -120,8 +133,20 @@ func broadcastBrowserSSE(name, data string) {
 		select {
 		case ch <- BrowserSSEEvent{Name: name, Data: data}:
 		default:
-			close(ch)
-			delete(browserSSEClients, id)
+			// 缓冲已满：该客户端消费过慢，已滞后，即将被剔除。
+			// 剔除前必须先显式通知前端（否则它会拿着残缺缓存却毫不知情）。
+			// 但由于缓冲此刻是满的，通知本身也塞不进去，因此先丢弃一条最旧的积压事件
+			// 腾出槽位（丢弃的增量由前端随后的全量补齐覆盖，不会造成最终数据缺失），再投递通知。
+			select {
+			case <-ch:
+			default:
+			}
+			select {
+			case ch <- BrowserSSEEvent{Name: sseLaggedEventName, Data: `{"reason":"buffer overflow"}`}:
+			default:
+			}
+			close(ch)                     // 前端读到流结束会触发 EventSource 自动重连并重新订阅
+			delete(browserSSEClients, id) // 直接剔除客户端
 		}
 	}
 }

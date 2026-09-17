@@ -72,6 +72,13 @@ export function startEventStream() {
         es.addEventListener('oc-event-error', (event) => {
             showToast('事件流异常: ' + (event.data || '连接已断开'), 'error');
         });
+        // 服务端缓冲溢出、客户端即将被剔除前发来的显式通知：
+        // 说明这段时间的事件已丢失，缓存可能残缺（缺正文/思考 part），
+        // 必须主动全量补齐一次，否则界面会一直停在残缺状态。
+        es.addEventListener('sse-lagged', () => {
+            showThrottledToast('es-lagged', '事件流出现延迟，正在补齐消息...', 'warning');
+            loadMessages();
+        });
         es.onerror = () => {
             if (es.readyState === EventSource.CLOSED) {
                 // 连接彻底关闭（非自动重连）：节流提示，避免重复刷屏
@@ -85,8 +92,14 @@ export function startEventStream() {
             }
         };
         // 连接成功（含浏览器自动重连成功）时重置计数，避免计数只增不减导致误报
+        let sseEverConnected = false;
         es.onopen = () => {
             reconnectAttempts = 0;
+            // 重连成功：断线期间的事件已永久丢失，主动全量补齐一次，
+            // 否则残缺缓存（缺 text part）会一直停留在界面上，而刷新又可能被在途锁跳过。
+            // 首次连接不补齐（初始加载由会话选择/状态轮询负责），避免无意义的重复请求。
+            if (sseEverConnected) loadMessages();
+            sseEverConnected = true;
         };
     }
     if (api.StartOpenCodeEvents) api.StartOpenCodeEvents();

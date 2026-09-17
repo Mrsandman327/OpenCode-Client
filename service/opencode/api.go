@@ -23,6 +23,15 @@ func getWebSessionBase() (string, error) {
 	return fmt.Sprintf("http://%s:%d", sess.hostname, sess.port), nil
 }
 
+// apiClient 专用于普通 API 代理请求，带整体超时。
+// 背景：原实现使用 http.DefaultClient，而它没有 Timeout —— 一旦 opencode serve 侧
+// 迟迟不响应某个请求，此处会永久阻塞，进而让页面端 fetch 永久 pending，
+// 最终卡死前端的在途锁（loadMessagesInflight / currentSessionRefreshPending），
+// 表现为「点刷新毫无反应」。加超时保证请求必然返回。
+// 注意：绝对不要给 http.DefaultClient 设置 Timeout —— sse.go 的全局事件流是长连接，
+// 依赖它「无超时」，否则会被周期性地切断。
+var apiClient = &http.Client{Timeout: 60 * time.Second}
+
 // OpenCodeAPI 代理访问本机 opencode serve API，避免前端跨域限制。
 func OpenCodeAPI(method, path, body string) model.APIResult {
 	sess := getWebSession()
@@ -47,7 +56,7 @@ func OpenCodeAPI(method, path, body string) model.APIResult {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := apiClient.Do(req)
 	if err != nil {
 		return model.APIResult{Error: err.Error()}
 	}
