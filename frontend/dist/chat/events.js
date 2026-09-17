@@ -24,6 +24,20 @@ import { showPermissionRequest, closePermissionModal } from './permission.js';
 /** EventSource 断线重连计数（浏览器模式；Wails 模式经 runtime 事件自动重连） */
 let reconnectAttempts = 0;
 
+/** 同类提示节流窗口（毫秒）：避免断开/重连提示在短时间内反复弹出刷屏 */
+const TOAST_THROTTLE_MS = 10000;
+
+/** 各提示键上次弹出的时间戳（键 -> 时间戳），用于节流判断 */
+const toastLastShownAt = {};
+
+/** 带节流的提示：同一 key 在 TOAST_THROTTLE_MS 内只弹一次，既保留断开可见性又不重复刷屏 */
+function showThrottledToast(key, message, type) {
+    const now = Date.now();
+    if (now - (toastLastShownAt[key] || 0) < TOAST_THROTTLE_MS) return;
+    toastLastShownAt[key] = now;
+    showToast(message, type);
+}
+
 /** 解析 SSE 事件原始 JSON 载荷，解包 payload 字段 */
 export function parseEventPayload(raw) {
     try {
@@ -60,14 +74,19 @@ export function startEventStream() {
         });
         es.onerror = () => {
             if (es.readyState === EventSource.CLOSED) {
-                showToast('事件流连接已断开，请刷新页面', 'error');
+                // 连接彻底关闭（非自动重连）：节流提示，避免重复刷屏
+                showThrottledToast('es-closed', '事件流连接已断开，请刷新页面', 'error');
             } else {
                 reconnectAttempts++;
                 if (reconnectAttempts >= 3) {
-                    showToast('事件流异常，正在自动重连...', 'warning');
+                    showThrottledToast('es-reconnecting', '事件流异常，正在自动重连...', 'warning');
                     reconnectAttempts = 0; // 重置，防止持续弹框
                 }
             }
+        };
+        // 连接成功（含浏览器自动重连成功）时重置计数，避免计数只增不减导致误报
+        es.onopen = () => {
+            reconnectAttempts = 0;
         };
     }
     if (api.StartOpenCodeEvents) api.StartOpenCodeEvents();

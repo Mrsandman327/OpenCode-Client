@@ -136,7 +136,8 @@ export function buildMessageNode(item) {
     node.innerHTML = `<div class="oc-message-role">${escapeHtml(displayRole)}</div>`;
     const body = document.createElement('div');
     body.className = 'oc-message-parts';
-    const partList = Array.isArray(parts) ? parts : [parts];
+    // 渲染前按 part 自身顺序修正：不依赖 SSE 事件到达顺序（Web 端可能乱序）
+    const partList = sortParts(Array.isArray(parts) ? parts : [parts]);
     const messageErrorText = info.error?.message || info.error?.data?.message || '';
     if (role === 'assistant' && messageErrorText) {
         const errEl = document.createElement('div');
@@ -232,7 +233,8 @@ export function renderMessages(items, targetBox) {
             if (lastMsg && lastMsg.classList.contains('assistant')) {
                 const body = lastMsg.querySelector('.oc-message-parts');
                 if (body) {
-                    const partList = Array.isArray(last.parts) ? last.parts : [last.parts];
+                    // 流式增量分支同样按 part 自身顺序修正后再比对/追加
+                    const partList = sortParts(Array.isArray(last.parts) ? last.parts : [last.parts]);
                     const newIds = partList.map(p => p.id || '');
                     const existingIds = Array.from(body.children).map(c => c.dataset.partId || '');
                     if (newIds.length > existingIds.length && existingIds.every((id, index) => id === newIds[index])) {
@@ -435,6 +437,54 @@ export function updateSendButton() {
         btn.textContent = '发送';
         btn.className = 'btn btn-primary';
     }
+}
+
+// ============================
+// Part 顺序修正
+// ============================
+
+/**
+ * 判断 part 是否携带服务端有序 id。
+ * opencode 的 part id 形如 `prt_<定长有序段>`（实测前缀统一为 prt_、长度统一为 30），
+ * 同一消息内其字典序即逻辑生成顺序。本地占位 part（user_local_* 等）没有该前缀，
+ * 不能参与重排，否则会被挤到错误位置。
+ */
+function hasServerOrderId(part) {
+    return typeof part?.id === 'string' && part.id.startsWith('prt_');
+}
+
+/**
+ * 按 part 自身的顺序字段稳定排序。
+ * 背景：parts 的显示顺序原本等于事件到达顺序（cache.js 按到达顺序 push）。
+ * 桌面端走 Wails 事件通道顺序通常正确；Web 端走 SSE 广播（含 channel 缓冲、
+ * 慢客户端剔除、断线重连），到达顺序可能与逻辑顺序不一致，
+ * 表现为「执行工具」跑到「文本输出」前面。显示顺序不应依赖到达顺序，故渲染前统一按 id 排序。
+ * 稳定性保证：仅服务端 part 在它们占据的槽位之间重排，本地占位 part 保持原槽位不动；
+ * id 相同（理论上不会出现）时按原下标先后，保证结果确定。
+ * @param {Array} parts 消息的 part 数组
+ * @returns {Array} 排序后的新数组（已有序时原样返回，避免流式期间每帧重建）
+ */
+export function sortParts(parts) {
+    const list = Array.isArray(parts) ? parts : [];
+    if (list.length < 2) return list;
+    const sortable = [];
+    list.forEach((part, index) => {
+        if (hasServerOrderId(part)) sortable.push({ part, index });
+    });
+    if (sortable.length < 2) return list;
+    // 已有序：直接返回原数组，避免无意义的数组分配
+    let ordered = true;
+    for (let i = 1; i < sortable.length; i++) {
+        if (sortable[i - 1].part.id > sortable[i].part.id) { ordered = false; break; }
+    }
+    if (ordered) return list;
+    // 槽位（升序下标）与「排序后的 part」一一对应填回，占位 part 的槽位不在其中，故保持原位
+    const slots = sortable.map(entry => entry.index);
+    const sorted = sortable.slice().sort((a, b) =>
+        a.part.id < b.part.id ? -1 : a.part.id > b.part.id ? 1 : a.index - b.index);
+    const result = list.slice();
+    slots.forEach((slot, i) => { result[slot] = sorted[i].part; });
+    return result;
 }
 
 // ============================
