@@ -7011,7 +7011,9 @@ input.toolbar-input {
     color: var(--text-muted);
     flex-shrink: 0;
 }
-.kb-cat-scroll { flex: 1; overflow-y: auto; padding: 0 6px 8px; }
+/* min-height:0：解除 flex 子项默认的「内容最小高度」，
+   否则分类树内容过长时会把面板撑高（再被 overflow:hidden 裁掉）而不出现滚动条 */
+.kb-cat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 6px 8px; }
 
 /* 分类节点（缩进由 JS 按层级写入内联 padding-left，支持任意层级） */
 .kb-cat-node {
@@ -7110,7 +7112,10 @@ input.toolbar-input {
 /* ---------- 条目区 ---------- */
 .kb-list-pane {
     flex: 1;
+    /* 横向与纵向都允许被压缩：min-width:0 管横向（.kb-body 为横向 flex），
+       min-height:0 管纵向（自身为纵向 flex 容器，避免被下方滚动区内容撑高） */
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -7125,7 +7130,9 @@ input.toolbar-input {
 .kb-list-crumb { font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .kb-list-count { font-size: 12px; color: var(--text-muted); }
 
-.kb-list-scroll { flex: 1; overflow-y: auto; padding: 4px 16px 20px; }
+/* min-height:0 是关键：作为纵向 flex 子项，若保持默认 min-height:auto，
+   内容会被用来「撑高」本容器而不是触发内部滚动，多出来的部分再被父级裁掉 —— 表现为标签区看不见且没有滚动条 */
+.kb-list-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 20px; }
 
 /* 列表行 */
 .kb-row {
@@ -7223,9 +7230,19 @@ input.toolbar-input {
     gap: 12px;
     /* 行紧凑排列在顶部，避免行高被拉伸导致卡片间出现垂直空隙 */
     align-content: start;
+    /* 行高必须由内容自然高度决定（max-content）。
+       本容器是 .kb-list-pane 的 flex 子项（flex:1 + min-height:0，高度被父级定死），
+       若行轨道保持隐式 auto，浏览器会把容器高度「均分」给每一行：
+       视口变矮时卡片被压扁，内容随之不再溢出，scrollHeight === clientHeight，
+       于是既不出现滚动条、卡片又被裁掉（这正是本 bug 的根因）。
+       显式声明 max-content 后，行高不再随容器高度收缩，内容一溢出
+       就会触发 overflow-y:auto 生成滚动条 */
+    grid-auto-rows: max-content;
     padding: 4px 16px 20px;
     overflow-y: auto;
     flex: 1;
+    /* 与 .kb-list-scroll 同理：必须允许高度被压缩到内容之下，否则卡片堆高后只会撑高容器、被父级裁剪而无滚动条 */
+    min-height: 0;
 }
 .kb-card {
     display: flex;
@@ -7883,8 +7900,22 @@ input.toolbar-input {
 }
 @media (max-width: 900px) {
     .kb-cat-pane { display: none; }
-    .kb-row-meta .tag-list { display: none; }
-    /* 窄屏下 @ 引用面板让标题与说明占满宽度，标签让位 */
+
+    /* 窄屏：列表行的标签不再整块隐藏（原先 display:none 会让用户完全看不到标签），
+       改为允许整行换行 —— 图标 + 标题/说明占第一行，标签与分类折到第二行；
+       元信息占满整行且自身可换行，多标签时自动折行，保持紧凑而不挤压标题 */
+    .kb-row {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+    .kb-row-meta {
+        /* 占满一整行 → 必定折到主信息下方；flex-wrap 让标签在多标签时换行 */
+        flex-basis: 100%;
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    /* 窄屏下 @ 引用面板让标题与说明占满宽度，标签让位（既有设计，保持不动） */
     .oc-kb-item-tags { display: none; }
 }
 @media (max-width: 760px) {
