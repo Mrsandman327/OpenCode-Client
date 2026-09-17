@@ -621,7 +621,13 @@ export async function openKbEntryModal(id) {
 
     fillKbCatSelect();
     var catSelect = $('#kbEntryCat');
-    if (catSelect) catSelect.value = entry ? (entry.category || '') : '';
+    if (catSelect) {
+        // 新建：默认继承用户当前所在的分类（「全部条目」时回退「未分类」）；
+        // 当前分类若已被删除（异常态）同样安全回退「未分类」，避免赋一个不存在的值
+        // 编辑：始终显示条目自身的分类，不受当前选中分类影响
+        var defaultCat = (kbState.cat !== 'all' && kbFindCat(kbState.cat)) ? kbState.cat : '';
+        catSelect.value = entry ? (entry.category || '') : defaultCat;
+    }
 
     renderKbTagEditor();
 
