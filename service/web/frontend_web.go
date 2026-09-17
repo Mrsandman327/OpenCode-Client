@@ -39,6 +39,10 @@ var (
 	frontendCurrent  *frontendWebSession
 	frontendLastHost = "127.0.0.1"
 	frontendLastPort = 8081
+	// sseHeartbeatInterval 是 SSE 事件流的心跳间隔。
+	// 取 15 秒：远低于常见浏览器/反向代理/TCP keepalive 的空闲超时门槛(通常 30~120 秒)，
+	// 又足够稀疏，不会给空闲连接带来明显流量负担。定义为变量便于测试缩短间隔。
+	sseHeartbeatInterval = 15 * time.Second
 )
 
 func StartFrontendWebServer(frontendFS fs.FS, bridge FrontendWebBridge, port int, hostname string) model.WebResult {
@@ -175,10 +179,20 @@ func (h *frontendWebHandler) handleEvents(w http.ResponseWriter, r *http.Request
 	defer opencode.UnsubscribeBrowserSSE(id)
 	_, _ = io.WriteString(w, ": connected\n\n")
 	flusher.Flush()
+	// 心跳：空闲时没有任何业务事件，连接上零流量会被浏览器/TCP keepalive/中间代理判定超时而切断。
+	// 定期发送 SSE 注释行（以冒号开头）作为心跳，浏览器 EventSource 会自动忽略注释，不触发 oc-event。
+	ticker := time.NewTicker(sseHeartbeatInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-r.Context().Done():
 			return
+		case <-ticker.C:
+			// 写失败说明连接已经断开，直接退出以释放订阅与 goroutine 资源
+			if _, err := io.WriteString(w, ": heartbeat\n\n"); err != nil {
+				return
+			}
+			flusher.Flush()
 		case event, ok := <-ch:
 			if !ok { return }
 			_, _ = io.WriteString(w, opencode.FormatBrowserSSE(event))
