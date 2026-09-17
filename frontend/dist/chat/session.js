@@ -474,6 +474,12 @@ export function getTreePanelDynamicMaxWidth() {
     const client = document.getElementById('webContainer');
     if (!client) return TREE_PANEL_MAX_WIDTH;
     const availableWidth = client.clientWidth;
+    // 容器隐藏（祖先 .view-panel 非 active → display:none）或尚未完成布局时，
+    // clientWidth 为 0，此时无法计算动态上限。
+    // 若继续用 0 参与计算（0 - 360 - 320），结果会被夹到最小值，
+    // 导致窗口 resize 时把用户宽度错误钳制到最小宽度（切回工作区后面板变窄）。
+    // 因此这里返回静态上限，让宽度保持用户偏好值，不参与钳制。
+    if (availableWidth <= 0) return TREE_PANEL_MAX_WIDTH;
     return Math.max(TREE_PANEL_MIN_WIDTH, Math.min(TREE_PANEL_MAX_WIDTH, availableWidth - 360 - 320));
 }
 
@@ -618,6 +624,9 @@ export function getSidepanelDynamicMaxWidth() {
     const client = document.getElementById('webContainer');
     if (!client) return SIDEPANEL_MAX_WIDTH;
     const availableWidth = client.clientWidth;
+    // 与项目树面板同理：容器隐藏或未布局时 clientWidth 为 0，
+    // 无法计算动态上限，直接返回静态上限，避免把用户宽度错误钳制到最小宽度。
+    if (availableWidth <= 0) return SIDEPANEL_MAX_WIDTH;
     const leftWidth = client.classList.contains('hide-left')
         ? 0
         : (parseFloat(getComputedStyle(client).getPropertyValue('--tree-panel-width')) || TREE_PANEL_DEFAULT_WIDTH);
