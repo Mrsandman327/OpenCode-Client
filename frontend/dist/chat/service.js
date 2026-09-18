@@ -323,6 +323,7 @@ export async function stopWeb() {
         store.selectedModel = '';
         store.selectedVariant = '';
         store.agentModelSelectorsLoaded = false;
+        store.agentModelSyncedSession = '';
         ['ocAgentSelect', 'ocModelSelect', 'ocVariantSelect'].forEach(function(id) {
             var sel = document.getElementById(id);
             if (sel) sel.value = '';

@@ -10,7 +10,7 @@
 // ============================================================
 
 import { store } from '../core/state.js';
-import { escapeHtml, getTabMessagesEl, ensureTabMessagesEl } from '../core/utils.js';
+import { escapeHtml, getTabMessagesEl, ensureTabMessagesEl, getCachedMessages, updateModelInfo } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { updateScrollBottomButton, updateSendButton } from './render.js';
 import { loadSessionStatuses } from './events.js';
@@ -138,6 +138,10 @@ export function switchTab(sessionID) {
     activateTabContainer(sessionID);
     // 同步项目树高亮（树节点与当前 tab 一致）
     updateTreeActiveSession();
+
+    // activateTabContainer 会触发加载，由 renderMessages → doUpdateModelInfo 完成同步。
+    store.agentModelSyncedSession = '';
+    updateModelInfo(getCachedMessages(sessionID));
 
     // 标题、目录路径更新
     var title = '';

@@ -29,6 +29,57 @@ export function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// ============================
+// Agent / Model 选择值校验
+// ============================
+
+/** 规范化选择器名称：去掉零宽字符（U+200B..U+200D、U+FEFF）与首尾空白，并忽略大小写。
+ *  背景：oh-my-openagent 插件曾把层级缩进用的零宽空格写进 agent 名，历史会话数据里因此残留
+ *  「\u200bSisyphus - Ultraworker」这类与当前注册名（Sisyphus - ultraworker）不等的旧值，
+ *  只有规范化之后才能真正匹配上 /agent、/provider 返回的当前值。 */
+export function normalizeSelectorName(name) {
+    return String(name == null ? '' : name).replace(/[\u200b-\u200d\ufeff]/g, '').trim().toLowerCase();
+}
+
+/** 判断 agent 名是否在当前 /agent 列表中（精确相等或规范化后相等）。
+ *  API 列表尚未加载时返回 true，避免误拦正常发送。 */
+export function isKnownAgentName(name) {
+    if (!name) return false;
+    const list = store.agentList || [];
+    if (!list.length) return true;
+    return list.some(function (a) {
+        return normalizeSelectorName(a && a.name) === normalizeSelectorName(name);
+    });
+}
+
+/** 判断 model 标识（providerID/modelID）是否在当前 /provider 列表中（精确相等或规范化后相等）。
+ *  API 列表尚未加载时返回 true，避免误拦正常发送。 */
+export function isKnownModelId(id) {
+    if (!id) return false;
+    const list = store.modelList || [];
+    if (!list.length) return true;
+    return list.some(function (m) {
+        return normalizeSelectorName(m && m.value) === normalizeSelectorName(id);
+    });
+}
+
+/** 在候选列表里找出与 value 对应的「当前有效值」：先精确相等，再规范化匹配；找不到返回空串。
+ *  valueGetter 用于取候选项的匹配键（agent 用 name，model 用 value）。 */
+export function resolveKnownValue(list, value, valueGetter) {
+    if (!value) return '';
+    const items = list || [];
+    const target = normalizeSelectorName(value);
+    for (let i = 0; i < items.length; i++) {
+        const candidate = valueGetter(items[i]);
+        if (candidate === value) return candidate;
+    }
+    for (let i = 0; i < items.length; i++) {
+        const candidate = valueGetter(items[i]);
+        if (candidate && normalizeSelectorName(candidate) === target) return candidate;
+    }
+    return '';
+}
+
 /** 模型 ID（providerID/modelID）→ 显示名（providerID/name）；查不到时原样返回。
  *  数据源优先 modelList（聊天模块），其次 availableModels（OMO 配置模块）。 */
 export function modelDisplayLabel(modelId) {

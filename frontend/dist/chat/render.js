@@ -10,7 +10,7 @@
 // ============================================================
 
 import { store } from '../core/state.js';
-import { escapeHtml, getActiveMessagesEl, showToast, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler, modelDisplayLabel } from '../core/utils.js';
+import { escapeHtml, getActiveMessagesEl, showToast, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler, modelDisplayLabel, resolveKnownValue } from '../core/utils.js';
 import { api } from '../core/apicall.js';
 import { updateUserNav } from './search.js';
 
@@ -280,6 +280,11 @@ function doUpdateModelInfo(items) {
     const agentSel = document.getElementById('ocAgentSelect');
     const modelSel = document.getElementById('ocModelSelect');
     if (!agentSel || !modelSel) return;
+
+    // 会话级守卫：同一会话只自动同步一次（用户手选会提前标记，见 session.js 的 change 监听）
+    const sessionID = store.currentSessionId || '';
+    if (sessionID && store.agentModelSyncedSession === sessionID) return;
+
     const list = items || [];
     let agent = '';
     let model = '';
@@ -294,21 +299,45 @@ function doUpdateModelInfo(items) {
             break;
         }
     }
+    // 历史里没有可用信息：保持现状，等后续渲染再尝试同步
+    if (!agent && !model) return;
 
-    // 确保下拉框中有当前值（API 加载失败时的降级）
-    if (agent) ensureSelectOption(agentSel, agent, agent);
-    if (model)  ensureSelectOption(modelSel, model, model);
+    // API 列表未加载时无法校验，退化为沿用历史值（保留原「API 加载失败时降级」语义）
+    const agentApiLoaded = (store.agentList || []).length > 0;
+    const modelApiLoaded = (store.modelList || []).length > 0;
+    const nextAgent = agent ? (agentApiLoaded ? resolveKnownValue(store.agentList, agent, agentValueOf) : agent) : '';
+    const nextModel = model ? (modelApiLoaded ? resolveKnownValue(store.modelList, model, modelValueOf) : model) : '';
 
-    // 同步选中值
-    if (agent && agentSel) agentSel.value = agent;
-    if (model && modelSel)  modelSel.value = model;
+    // DOM 与 store 同时更新：校验不通过时回退「默认」（空串），绝不让失效名进入请求
+    if (agent) {
+        if (nextAgent) ensureSelectOption(agentSel, nextAgent, nextAgent);
+        agentSel.value = nextAgent;
+        store.selectedAgent = nextAgent;
+    }
+    if (model) {
+        if (nextModel) ensureSelectOption(modelSel, nextModel, nextModel);
+        modelSel.value = nextModel;
+        store.selectedModel = nextModel;
+    }
     const variantSel = document.getElementById('ocVariantSelect');
-    if (variant && variantSel) variantSel.value = variant;
+    if (variant && variantSel) {
+        variantSel.value = variant;
+        // 与 agent / model 同理：variant 选项是 index.html 静态定义的，若历史值与之不匹配，
+        // 浏览器会把 select.value 置为空串；此处同步回 store，避免「显示 ≠ 发送」。
+        store.selectedVariant = variantSel.value;
+    }
 
-    // 首次加载时同步全局选中值
-    if (agent && !store.selectedAgent) store.selectedAgent = agent;
-    if (model && !store.selectedModel) store.selectedModel = model;
-    if (variant && !store.selectedVariant) store.selectedVariant = variant;
+    if (sessionID) store.agentModelSyncedSession = sessionID;
+}
+
+/** 取 agent 候选项的匹配键（/agent 返回对象的 name 字段） */
+function agentValueOf(item) {
+    return item && item.name;
+}
+
+/** 取 model 候选项的匹配键（/provider 展开后的 value，形如 providerID/modelID） */
+function modelValueOf(item) {
+    return item && item.value;
 }
 
 // 模块加载时注册 updateModelInfo 实现到 core 注册中心（service/tree 从 core 调用）

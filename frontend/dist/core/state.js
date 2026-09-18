@@ -132,6 +132,10 @@ export const store = {
     selectedVariant: '',
     /** Agent/Model 选择器是否已初始化加载 */
     agentModelSelectorsLoaded: false,
+    /** 已完成 Agent/Model 历史同步的会话 ID（用户手动选择时也会写入）
+     *  打开会话后只在首次同步时从消息历史回填选择器；用户在当前会话内手动选择后
+     *  同样写入本字段，避免后续重渲染（SSE 刷新 / 滚动回填）覆盖用户的选择。 */
+    agentModelSyncedSession: '',
 
     // ============================
     // 子任务面板

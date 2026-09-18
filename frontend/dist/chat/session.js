@@ -13,7 +13,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession } from '../core/utils.js';
+import { showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
@@ -72,16 +72,19 @@ export async function loadAgentModelSelectors() {
     modelSel.value = store.selectedModel;
 
     // change 事件（带绑定守卫：启停多次只绑一次，避免重复监听）
+    // 用户手动选择后立即标记「本会话已完成同步」，阻止后续重渲染用消息历史覆盖该选择
     if (!agentSel.dataset.modelBound) {
         agentSel.dataset.modelBound = '1';
         agentSel.addEventListener('change', () => {
             store.selectedAgent = agentSel.value;
+            store.agentModelSyncedSession = store.currentSessionId || '';
         });
     }
     if (!modelSel.dataset.modelBound) {
         modelSel.dataset.modelBound = '1';
         modelSel.addEventListener('change', () => {
             store.selectedModel = modelSel.value;
+            store.agentModelSyncedSession = store.currentSessionId || '';
         });
     }
 
@@ -1058,8 +1061,10 @@ export async function sendPrompt() {
             parts.push({ type: 'text', text: `【知识库引用：${r.title}】\n${r.content}` });
         });
         const body = { parts };
-        if (store.selectedAgent) body.agent = store.selectedAgent;
-        if (store.selectedModel) {
+        if (store.selectedAgent && isKnownAgentName(store.selectedAgent)) {
+            body.agent = store.selectedAgent;
+        }
+        if (store.selectedModel && isKnownModelId(store.selectedModel)) {
             const slashIdx = store.selectedModel.indexOf('/');
             if (slashIdx > 0) {
                 body.model = {
