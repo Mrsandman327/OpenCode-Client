@@ -614,6 +614,20 @@ input::placeholder, textarea::placeholder {
 #view-skills .batch-bar {
     flex-shrink: 0;
 }
+/* 技能管理页三行工具栏（来源目录 / 技能方案 / 搜索）垂直间距收紧：
+   全站 .path-bar 默认 padding 10px 24px，相邻两行间距为 10+10=20px；
+   此处仅技能页把上下内边距收窄为 5px，相邻两行间距降到 10px，
+   整体更紧凑，同时保留足够的点击/视觉呼吸空间。 */
+#view-skills .path-bar {
+    padding: 5px 24px;
+}
+/* 搜索行与上方两组配置行之间加一条 1px 细分隔线，避免三行糊成一片；
+   同时给略多的上内边距（5 + 1 + 9 ≈ 15px），仍比原来的 20px 紧凑。
+   选择器带上 .path-bar 提高一级优先级，确保覆盖上方 padding 简写。 */
+#view-skills .path-bar.path-bar-search {
+    padding-top: 9px;
+    border-top: 1px solid var(--border);
+}
 #view-skills .skill-list {
     flex: 1;
     min-height: 0;
@@ -3529,73 +3543,35 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ============================================================
-   技能管理视图：path-bar 操作按钮统一形态 + 质感
-   ------------------------------------------------------------
-   作用域说明：全部选择器以 `#view-skills .path-bar` 开头（ID 选择器），
-   仅命中技能管理页 path-bar 内的操作按钮；
-   不使用裸 `.btn-sm` / `.btn-open`，故不会外溢到全站其它页面的
-   同名类（项目配置 / 供应商 / 文件浏览器 / 弹窗等）。
-   形态统一：6 个按钮一律「白底(--bg-input) + 1px 同色边框 + 同色文字」，
-   三者体量完全一致（同 padding / 同边框宽 / 同字号），
-   语义层级只由色相醒目度体现（蓝 > 灰；红用于警示），
-   不再靠「实心 -> 描边 -> 纯文字」的填充度递减（旧版头重脚轻）：
-     主动作   -> 蓝（--accent）        hover 填淡蓝底 --accent-ghost
-     次要操作 -> 灰（--text-secondary）hover 填淡灰底 --bg-card-hover
-     危险操作 -> 红（--danger）        hover 填淡红底 --danger-bg
-   命名说明：`.btn-danger-ghost` 为历史类名，其视觉已由「纯红字无边框」
-   升级为「红色描边」，语义等同 outline-danger；此处保留类名不动，
-   以免牵动 HTML 结构与可能的外部引用。
-   优先级说明：作用域块带 ID 选择器，优先级高于全局单类 `.btn-sm`，
-   因此能稳定覆盖其 background / color / border（不必改 HTML 的 class）。
+   技能管理视图：path-bar 操作按钮统一为「灰边 + 灰字」胶囊
    ============================================================ */
 #view-skills .path-bar .btn-sm {
-    padding: 7px 16px;          /* 三个按钮同 padding，保证体量一致 */
+    padding: 6px 16px;          /* 6 个按钮同 padding，保证体量一致 */
     font-size: 13px;
     font-weight: 500;
-    border-radius: var(--radius-sm);
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+    color: var(--text-muted);        /* 灰字 */
+    background: var(--bg-input);         /* 浅底 */
+    border: 1px solid var(--border);     /* 细灰边 */
+    border-radius: var(--radius-md);   /* 胶囊圆角 */
     /* 状态过渡只做背景/文字/边框/位移，保持克制，不加渐变与重阴影 */
     transition: background .15s ease, color .15s ease,
                 border-color .15s ease, transform .1s ease;
+}
+/* 悬停反馈：同灰色系内轻微加深，不改变色相 */
+#view-skills .path-bar .btn-sm:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--border-light);
+    background: var(--bg-card-hover);
 }
 /* 按下微沉：统一覆盖全局 .btn:active 的缩放，给出「按得下去」的物理反馈 */
 #view-skills .path-bar .btn-sm:active:not(:disabled) {
     transform: translateY(1px);
 }
-
-/* 主动作（添加目录 / 方案入库）：蓝字 + 蓝边 + 白底，hover 填淡蓝底 */
-#view-skills .path-bar .btn-primary {
-    background: var(--bg-input);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-}
-#view-skills .path-bar .btn-primary:hover:not(:disabled) {
-    background: var(--accent-ghost);
-    color: var(--accent);
-    border-color: var(--accent);
-}
-
-/* 次要操作（打开目录 / 应用方案）：灰字 + 灰边 + 白底，hover 填淡灰底 */
-#view-skills .path-bar .btn-open {
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-}
-#view-skills .path-bar .btn-open:hover:not(:disabled) {
-    background: var(--bg-card-hover);
-    color: var(--text-secondary);
-    border-color: var(--border);
-}
-
-/* 危险操作（删除目录 / 删除方案）：红字 + 红边 + 白底，hover 填淡红底 */
-#view-skills .path-bar .btn-danger-ghost {
-    background: var(--bg-input);
-    color: var(--danger);
-    border: 1px solid var(--danger);
-}
-#view-skills .path-bar .btn-danger-ghost:hover:not(:disabled) {
-    background: var(--danger-bg);
-    color: var(--danger);
-    border-color: var(--danger);
+/* 按钮紧跟下拉框：本页取消 .toolbar-spacer 的右推（margin-left:auto），
+   使「添加目录 / 方案入库」贴住各自控件排列，不再甩到最右侧 */
+#view-skills .path-bar .toolbar-spacer {
+    margin-left: 0;
 }
 
 .path-label {
