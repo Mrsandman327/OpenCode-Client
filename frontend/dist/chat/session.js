@@ -891,6 +891,21 @@ export function buildParts(text) {
     return parts;
 }
 
+/** 生成本地乐观消息 id，随请求通过 body.messageID 交给 opencode。
+ *  opencode 的 MessageID 只校验「必须以 msg 开头」，且 createUserMessage 采用
+ *  `input.messageID ?? MessageID.ascending()`，因此这个 id 会成为真实的消息 id，
+ *  乐观卡片与服务端确认后的消息天然同 id，回执无需任何猜测即可精确命中。
+ *  形状模仿 MessageID.ascending()（msg_ + 12 位 + 14 位，共 30 字符），
+ *  前 12 位取时间戳的十六进制，保证与其他消息比较时字典序不回退。 */
+export function makeLocalMessageId() {
+    const stamp = Date.now().toString(16).padStart(12, '0').slice(-12);
+    let suffix = '';
+    while (suffix.length < 14) {
+        suffix += Math.random().toString(36).slice(2);
+    }
+    return 'msg_' + stamp + suffix.slice(0, 14);
+}
+
 // ============================
 // 会话轮询与发送按钮
 // ============================
@@ -1006,6 +1021,11 @@ export async function sendPrompt() {
     btn.disabled = true;
     const isNew = !store.currentSessionId;
     let sessionDir = '';
+    // 本地生成消息 id 并随请求发给 opencode（body.messageID）：
+    // opencode 的 MessageID 只要求以 "msg" 开头，且 createUserMessage 采用
+    // input.messageID ?? MessageID.ascending()，因此乐观消息与服务端确认后的消息是
+    // 同一个 id —— 回执按 id 精确命中，不再需要「取最近一条」或文本比对这类猜测。
+    const localMessageId = makeLocalMessageId();
     try {
         if (isNew) {
             if (store.pendingWorkDir) {
@@ -1045,7 +1065,9 @@ export async function sendPrompt() {
             store.sessionStatuses[store.currentSessionId] = 'busy';
             ensurePendingAssistant(store.currentSessionId);
             // 乐观添加用户消息到缓存，立即显示用户输入（不等 API/事件推送）
-            cacheLocalUserMessage(store.currentSessionId, text);
+            // 传入 localMessageId 与完整 parts（正文 + 附件）：该 id 会随请求发给 opencode，
+            // 服务端确认后的消息 id 与本地一致，回执按 id 精确命中；附件也立即可见。
+            cacheLocalUserMessage(store.currentSessionId, localMessageId, buildParts(text));
             if (isMobileTreeMode()) {
                 renderPendingAssistantPlaceholder(store.currentSessionId);
             } else {
@@ -1060,7 +1082,11 @@ export async function sendPrompt() {
         refs.forEach(r => {
             parts.push({ type: 'text', text: `【知识库引用：${r.title}】\n${r.content}` });
         });
-        const body = { parts };
+        // messageID：把本地生成的 id 交给 opencode，让乐观消息与服务端确认后的消息同 id
+        // （createUserMessage 采用 input.messageID ?? MessageID.ascending()，仅校验必须以 "msg" 开头）
+        const body = { parts, messageID: localMessageId };
+        // 兜底校验：选择器里可能残留历史会话的失效名（插件改名 / agent 已删除），
+        // 直接作为 agent / model 参数发出去会让 opencode 抛 "Agent not found"（前端表现为 UnknownError）。
         if (store.selectedAgent && isKnownAgentName(store.selectedAgent)) {
             body.agent = store.selectedAgent;
         }
@@ -1093,8 +1119,8 @@ export async function sendPrompt() {
         scheduleRefresh();
         updateSendButton();
     } catch (e) {
-        // 发送失败：移除乐观用户消息，避免残留"已发送"假象
-        if (store.currentSessionId) removeLocalUserMessage(store.currentSessionId);
+        // 发送失败：按 id 精确移除乐观用户消息，避免残留"已发送"假象
+        if (store.currentSessionId) removeLocalUserMessage(store.currentSessionId, localMessageId);
         showToast('发送失败: ' + (e.message || e), 'error');
     }
         btn.disabled = false;

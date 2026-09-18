@@ -475,7 +475,7 @@ export function updateSendButton() {
 /**
  * 判断 part 是否携带服务端有序 id。
  * opencode 的 part id 形如 `prt_<定长有序段>`（实测前缀统一为 prt_、长度统一为 30），
- * 同一消息内其字典序即逻辑生成顺序。本地占位 part（user_local_* 等）没有该前缀，
+ * 同一消息内其字典序即逻辑生成顺序。本地乐观 part（形如 msg_*_p0）没有该前缀，
  * 不能参与重排，否则会被挤到错误位置。
  */
 function hasServerOrderId(part) {

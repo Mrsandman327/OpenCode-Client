@@ -15,6 +15,12 @@ import { renderMessages, isSessionBusy } from './render.js';
 // 消息缓存与渲染
 // ============================
 
+/** 尚未被服务端确认的本地乐观用户消息 id。
+ *  发送时通过 body.messageID 把本地 id 交给 opencode，确认后 id 不变，
+ *  因此这里只用于「发送失败时回滚」以及判断消息是否仍处于待确认状态。
+ *  （改用 messageID 方案后，不再依赖 `user_local_` id 前缀来识别乐观消息。） */
+const pendingUserMessageIds = new Set();
+
 /**
  * 缓存会话消息（增量合并模式）
  * 会话非忙碌或缓存为空时直接覆盖，否则按 id 逐个合并新消息
@@ -22,13 +28,16 @@ import { renderMessages, isSessionBusy } from './render.js';
 export function cacheMessages(sessionID, items) {
     const incoming = (items || []).map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
     if (!isSessionBusy(sessionID) || !store.messageCache[sessionID]?.length) {
+        // 全量覆盖：这些消息已由服务端确认，对应的乐观标记随之失效
+        incoming.forEach(item => {
+            const id = item.info?.id || item.id;
+            if (id) pendingUserMessageIds.delete(id);
+        });
         store.messageCache[sessionID] = incoming;
         return;
     }
-    // 真实用户消息已由 API 返回：移除本地乐观占位，避免 SSE 丢消息时重复
-    if (incoming.some(item => item.info?.role === 'user' || item.role === 'user')) {
-        store.messageCache[sessionID] = getCachedMessages(sessionID).filter(item => !(item.info?.id || item.id || '').startsWith('user_local_'));
-    }
+    // 乐观用户消息与服务端消息共用同一个 id（发送时用 body.messageID 指定），
+    // 因此这里不需要任何「按位置或按文本寻找乐观占位」的特殊处理，按 id 合并即可。
     const existing = getCachedMessages(sessionID);
     for (const item of incoming) {
         const key = item.info?.id || item.id;
@@ -38,6 +47,7 @@ export function cacheMessages(sessionID, items) {
         } else {
             existing.push(item);
         }
+        if ((item.info?.role || item.role) === 'user' && key) pendingUserMessageIds.delete(key);
     }
     store.messageCache[sessionID] = existing;
 }
@@ -63,12 +73,17 @@ export function prependMessages(sessionID, items) {
     }
 }
 
-/** 合并两条消息（info 浅合并，parts 逐个按 id 合并） */
+/** 合并两条消息（info 浅合并，parts 逐个按 id 合并）。
+ *  服务端返回了真实 parts 时，先丢弃本地乐观 part（id 非 `prt_` 前缀，由 cacheLocalUserMessage
+ *  在发送瞬间造出），否则同一条消息里会同时存在本地造的和服务端推的两份 part，显示为重复。 */
 export function mergeMessage(existing, incoming) {
     if (!existing) return incoming;
     const existingParts = Array.isArray(existing.parts) ? existing.parts : [];
     const incomingParts = Array.isArray(incoming.parts) ? incoming.parts : [];
-    const mergedParts = [...existingParts];
+    const baseParts = incomingParts.length
+        ? existingParts.filter(part => typeof part?.id === 'string' && part.id.startsWith('prt_'))
+        : existingParts;
+    const mergedParts = [...baseParts];
     for (const part of incomingParts) {
         const existingIndex = mergedParts.findIndex(old => old.id && old.id === part.id);
         if (existingIndex >= 0) {
@@ -126,23 +141,39 @@ export function scheduleRenderCachedMessages(sessionID) {
     });
 }
 
-/** 移除本地乐观用户消息（发送失败时清理，避免残留"已发送"假象） */
-export function removeLocalUserMessage(sessionID) {
+/** 移除本地乐观用户消息（发送失败时回滚，避免残留"已发送"假象）。
+ *  乐观消息与服务端消息共用同一个 id，因此按 id 精确删除即可。 */
+export function removeLocalUserMessage(sessionID, messageId) {
     if (!sessionID) return;
-    store.messageCache[sessionID] = getCachedMessages(sessionID).filter(item => !(item.info?.id || item.id || '').startsWith('user_local_'));
+    if (messageId) {
+        store.messageCache[sessionID] = getCachedMessages(sessionID).filter(item => (item.info?.id || item.id) !== messageId);
+        pendingUserMessageIds.delete(messageId);
+        return;
+    }
+    // 未指定 id 时的兜底：移除所有仍处于待确认状态的乐观消息
+    store.messageCache[sessionID] = getCachedMessages(sessionID).filter(item => !pendingUserMessageIds.has(item.info?.id || item.id));
 }
 
 /**
- * 乐观添加用户消息到缓存（本地占位 id），发送后立即显示用户输入，
- * 不必等 API/SSE 推送。真实用户消息到达时由 upsertMessage 移除本地占位，避免重复。
+ * 乐观添加用户消息到缓存：发送后立即显示用户输入，不必等 API/SSE 推送。
+ * 使用调用方生成的 messageId（会随请求通过 body.messageID 交给 opencode），
+ * 因此服务端确认后的消息 id 与本地完全一致，回执时按 id 命中即可，无需任何猜测。
+ * @param {string} sessionID 会话 id
+ * @param {string} messageId 本地生成且会发给 opencode 的消息 id（必须以 msg 开头）
+ * @param {Array} parts 发送用的 parts（正文 + 附件，通常来自 buildParts(text)）；
+ *                      这里为每个 part 补上本地 id，供渲染与排序使用。
+ *                      传入完整 parts 后，附件在乐观卡片里同样立即可见。
  */
-export function cacheLocalUserMessage(sessionID, text) {
-    if (!sessionID || !text) return;
+export function cacheLocalUserMessage(sessionID, messageId, parts) {
+    const source = Array.isArray(parts) ? parts : [];
+    if (!sessionID || !messageId || !source.length) return;
     const list = getCachedMessages(sessionID);
-    const id = 'user_local_' + Date.now();
+    pendingUserMessageIds.add(messageId);
     const msg = {
-        info: { id, sessionID, role: 'user', time: { created: Date.now() } },
-        parts: [{ id: id + '_p', sessionID, messageID: id, type: 'text', text }],
+        info: { id: messageId, sessionID, role: 'user', time: { created: Date.now() } },
+        parts: source.map(function (part, i) {
+            return { ...part, id: messageId + '_p' + i, sessionID, messageID: messageId };
+        }),
     };
     // 插到 pending assistant 占位之前；无占位则追加末尾
     const pendingIdx = list.findIndex(item => (item.info?.id || item.id || '').startsWith('pending_'));
@@ -161,15 +192,9 @@ export function upsertMessage(info) {
     if (info.role === 'assistant') {
         store.messageCache[info.sessionID] = list.filter(item => !(item.info?.id || item.id || '').startsWith('pending_'));
     } else if (info.role === 'user') {
-        // 真实用户消息到达：把本地乐观消息"升级"为真实消息（id 换成服务端 id、文本保留），
-        // 避免重渲染时用户输入短暂消失（真实消息的 text part 由 message.part.updated 单独推送，
-        // 会在 upsertPart 中清理本地占位 part 后替换）
-        const localIdx = list.findIndex(item => (item.info?.id || item.id || '').startsWith('user_local_'));
-        if (localIdx >= 0) {
-            list[localIdx].info = { ...list[localIdx].info, ...info, id: info.id };
-            store.messageCache[info.sessionID] = list;
-            return;
-        }
+        // 乐观消息用的就是同一个 id（发送时通过 body.messageID 指定），因此这里只需解除
+        // 待确认标记，随后按 id 走下面的正常合并即可 —— 不再需要「找最近一条乐观占位再升级」。
+        pendingUserMessageIds.delete(info.id);
     }
     const nextList = getCachedMessages(info.sessionID);
     const index = nextList.findIndex(item => (item.info?.id || item.id) === info.id);
@@ -190,9 +215,10 @@ export function upsertPart(part) {
         list.push(message);
     }
     const parts = Array.isArray(message.parts) ? message.parts : [];
-    // 用户消息的真实 part 到达：清理本地乐观占位 part（避免同一文本重复显示）
+    // 用户消息的真实 part 到达时，丢弃本地乐观 part（id 非 `prt_` 前缀，由 cacheLocalUserMessage 造出），
+    // 由服务端 part 取代，避免同一条消息里出现本地和服务端两份内容。
     const isUserMsg = (message.info?.role || message.role) === 'user';
-    const filtered = isUserMsg ? parts.filter(p => !(p.id || '').startsWith('user_local_')) : parts;
+    const filtered = isUserMsg ? parts.filter(p => typeof p?.id === 'string' && p.id.startsWith('prt_')) : parts;
     const index = filtered.findIndex(item => item.id === part.id);
     if (index >= 0) {
         filtered[index] = mergePart(filtered[index], part);
