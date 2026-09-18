@@ -4072,14 +4072,19 @@ input::placeholder, textarea::placeholder {
     grid-column: 1 / -1;
 }
 
-/* 技能卡片：与知识库卡片（.kb-card）共用同一套「悬浮卡片」视觉语言；
-   卡片化后改为纵向堆叠——信息区在上、操作区贴底，尺寸明显大于原全宽横条 */
+/* 技能卡片：采用原型「配置收起」布局——顶部一行（图标 + 信息 + 右上开关），
+   底部独立一行路径；与知识库卡片（.kb-card）共用同一套「悬浮卡片」视觉语言 */
 .skill-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px 16px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     /* 与知识库卡片同档的三层阴影，让卡片从列表底色上浮起 */
     box-shadow: var(--card-shadow-float);
+    min-height: 150px;
     /* 只过渡会变化的视觉属性，避免 transition:all 带来的无谓重绘；
        transform / box-shadow 走更长的缓出曲线，与知识库卡片完全一致 */
     transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
@@ -4088,18 +4093,6 @@ input::placeholder, textarea::placeholder {
     /* 作为 hover 时 z-index 的定位参照，避免阴影被相邻卡片盖住 */
     position: relative;
     overflow: hidden;
-    /* 纵向堆叠：.skill-info 在上撑满，.skill-actions 贴底 */
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    /* 卡片内部间距由 12px 提到 14px：让名称/描述/操作区之间更透气，
-       配合更高的保底高度，卡片整体更饱满 */
-    gap: 14px;
-    /* 卡片化后加大内边距并保底高度，让信息有呼吸感，尺寸明显大于原横条（原高约 81px）；
-       保底高度由 150px 提到 190px——用户反馈宽度合适但高度偏小，故主要靠保底高度拉高卡片，
-       同时给 3 行描述留出足够空间，避免描述换行后被压扁 */
-    padding: 16px 18px;
-    min-height: 190px;
 }
 
 .skill-card:hover {
@@ -4121,9 +4114,40 @@ input::placeholder, textarea::placeholder {
     gap: 8px;
 }
 
+/* 卡片顶部一行：图标 + 信息 + 右上开关（开关是第三个子元素，故位于右上） */
+.skill-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+/* 技能图标：低饱和柔和底 + 同色描边图标（与知识库卡片 .kb-row-icon 同一视觉语言） */
+.skill-icon {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+/* 图标本体：线性 stroke 风格，颜色继承 .skill-icon 的 currentColor */
+#view-skills .skill-icon-i {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* 信息区：占据顶部行的剩余宽度，与右侧开关同一基线对齐 */
 .skill-info {
-    /* 卡片为纵向 flex，flex:1 让信息区撑满剩余高度，把 .skill-actions 顶到卡片底部；
-       同一行卡片即使描述长度不同，操作区也能保持对齐 */
     flex: 1;
     min-width: 0;
 }
@@ -4132,28 +4156,45 @@ input::placeholder, textarea::placeholder {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 1px;
-    width: calc(100% - 42px);
+    letter-spacing: -0.01em;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
     text-align: left;
 }
+/* 技能名按钮：作为「打开技能」入口之一，去除按钮默认外观；
+   默认使用品牌蓝（强调色）以恢复改造前的视觉，hover 提亮作为可点击反馈 */
+.skill-name-btn {
+    max-width: 100%;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    /* 默认即品牌蓝，覆盖 .skill-name 的深色（同优先级，靠后的规则生效） */
+    color: var(--accent);
+    cursor: pointer;
+    transition: color var(--transition);
+}
+/* 默认已为蓝色，hover 改用提亮色，保持品牌蓝语义的同时给出可点击反馈 */
+.skill-name-btn:hover { color: var(--accent-hover); }
+.skill-name-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+}
 
 .skill-desc {
     font-size: 12px;
-    color: var(--text-dim);
-    line-height: 1.5;
-    margin-bottom: 2px;
-    margin-top: 5px;
-    /* 描述由 2 行放宽到 3 行，信息展示更完整；min-height 预留三行高度（3×1.3×12≈47px），
-       让同一行卡片的路径与操作区纵向对齐 */
+    color: var(--text-tertiary);
+    line-height: 1.55;
+    /* 描述最多 3 行，超出省略；预留三行高度让同排卡片底部路径对齐 */
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    min-height: 68px;
-    
+    min-height: 56px;
 }
 
 .skill-toggles {
@@ -5516,27 +5557,44 @@ input::placeholder, textarea::placeholder {
 [data-theme="dark"] { --bg-code: var(--bg-secondary); --bg-tag: var(--bg-input); --text-dim: var(--text-muted);  color-scheme: dark;}
 
 /* ======== 技能卡片扩展 ======== */
-/* 名字 + 来源标签行：flex-wrap 让长技能名或标签在窄卡片里换行，不溢出卡片 */
-.skill-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
-.skill-tag { font-size: 11px; padding: 1px 6px; border-radius: var(--radius-xs); }
-.skill-source-global { background: var(--bg-tag); color: var(--text-dim); }
-.skill-source-project { background: var(--accent-ghost); color: var(--accent); }
-/* 技能路径：等宽字体、单行省略号；上方留一点间距与描述拉开层次 */
-.skill-path { font-size: 11px; color: var(--text-secondary); font-family: "SF Mono", 'Cascadia Code', 'Fira Code', 'Consolas', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 10px; }
-/* 操作区贴底：margin-top:auto 把开关与「打开」按钮推到卡片底部，
-   顶部加一条分隔线与信息区分开，两端对齐（开关在左、按钮在右） */
-.skill-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
-/* 技能卡片按钮暗黑主题兼容 */
-.skill-card .btn {
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-}
-.skill-card .btn:hover {
-    background: var(--bg-card-hover);
+/* 名字 + 冲突标签行：flex-wrap 让长技能名或标签在窄卡片里换行，不溢出卡片 */
+.skill-name-row { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; flex-wrap: wrap; min-width: 0; }
+.skill-tag { flex-shrink: 0; font-size: 10.5px; font-weight: 500; line-height: 1; padding: 3px 7px; border-radius: var(--radius-xs); }
+/* 冲突来源展开：整行块，位于顶部信息区与底部路径之间 */
+.skill-conflict-sources { font-size: 11px; color: var(--danger); line-height: 1.5; }
+.skill-conflict-src { padding-left: 12px; }
+/* 技能路径：卡片底部独立成行，等宽字体、单行省略；
+   整行是 <button>，点击即打开该技能（复用 open-skill 逻辑） */
+.skill-path {
+    margin-top: auto;
+    padding-top: 9px;
+    border: none;
+    border-top: 1px solid var(--border);
+    background: none;
+    font-family: "SF Mono", 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 10.5px;
     color: var(--text-primary);
-    border-color: var(--border-light);
+    text-align: left;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color var(--transition);
 }
+/* hover / 键盘聚焦时变色 + 下划线，明确「可点击打开」的暗示 */
+.skill-path:hover { color: var(--accent); text-decoration: underline; }
+.skill-path:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-xs); }
+
+/* 技能卡片信息区的垂直呼吸感（仅作用于 #view-skills，深/浅主题通用）：
+   1) 标题（技能名行）与内容（描述）之间：原来只有 4px，观感偏挤；
+      提到 8px，让标题与描述之间有清晰的分层。
+   2) 内容与底部路径之间：路径按钮的上内边距由 9px 提到 13px；
+      叠加卡片自身 10px 的 flex 间距后，描述到路径文字的总距离由 19px 变为 23px。
+   这里只调间距，图标尺寸、颜色、圆角、阴影与 hover 效果一律不动，
+   也不改 .skill-card 的 gap（避免影响图标与文字的横向对齐关系）。 */
+#view-skills .skill-name-row { margin-bottom: 8px; }
+#view-skills .skill-path { padding-top: 13px; }
 
 /* ======== 搜索栏 ======== */
 .oc-search-bar { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
@@ -6529,10 +6587,12 @@ input::placeholder, textarea::placeholder {
     flex-shrink: 0;
 }
 
-/* 冲突标签 */
+/* 冲突标签：与卡片内其它标签（.skill-tag）保持同一尺寸基线，仅换用危险色 */
 .conflict-tag {
-    font-size: 11px;
-    padding: 1px 6px;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 3px 7px;
     border-radius: var(--radius-xs);
     background: rgba(239,68,68,0.15);
     color: var(--danger);

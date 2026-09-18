@@ -30,6 +30,11 @@ var CFG_ICON_X = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><pat
 var CFG_ICON_BOOKMARK = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
 var CFG_ICON_PLUS = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 
+// 技能卡片图标（闪电，线性 stroke 风格，禁用 emoji）。
+// 与顶部配置区的 cfg-i 图标同一视觉语言：fill:none + stroke:currentColor，
+// 颜色由 .skill-icon 容器统一走 --accent，尺寸由 .skill-icon-i 控制
+var SKILL_ICON = '<svg class="skill-icon-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z"/></svg>';
+
 // 取路径末两段作为 chip 上的短标签（完整路径仍保留在 title 提示里）
 function shortPath(p) {
     var parts = String(p).split(/[\\/]/).filter(Boolean);
@@ -71,40 +76,43 @@ export function renderSkillList(filter) {
         var safeName = escapeHtml(s.name);
         var safePath = escapeHtml(s.path);
         var safeDesc = escapeHtml(s.description || '无描述');
-        var sourceLabel = s.source && s.source !== 'global' ? '全局' : 'opencode';
-        var sourceClass = s.source === 'global' || !s.source ? 'skill-source-global' : 'skill-source-project';
 
         // 开关状态
         var checkedAttr = s.linked ? 'checked' : '';
         var disabledAttr = (!s.enableable) ? 'disabled' : '';
         var toggleTitle = s.conflict ? '冲突，不可操作' : (s.noSources ? '无来源目录，不可操作' : (s.linked ? '点击禁用' : '点击启用'));
 
+        // 卡片结构（对齐原型）：顶部一行 = 图标 + 信息 + 右上开关；路径独立成行贴底。
+        // 技能已不再区分「全局 / 项目」，故移除来源标识，仅保留「冲突」提示。
+        // 打开入口：技能名与底部路径均可点击，二者共用 data-action="open-skill" 事件委托
         var html = '<div class="skill-card" data-skill="' + safeName + '" data-path="' + safePath + '">' +
-            '<div class="skill-info">' +
-                '<div class="skill-name-row">' +
-                    '<button type="button" class="skill-name" data-action="open-skill" data-skill-path="' + safePath + '" style="cursor:pointer;text-decoration:underline;color:var(--accent);background:none;border:none;padding:0;font:inherit;font-size:14px;font-weight:600;">' + safeName + '</button>' +
-                    (s.conflict ? '<span class="skill-tag conflict-tag">冲突</span>' : '<span class="skill-tag ' + sourceClass + '">' + sourceLabel + '</span>') +
+            '<div class="skill-card-top">' +
+                '<div class="skill-icon">' + SKILL_ICON + '</div>' +
+                '<div class="skill-info">' +
+                    '<div class="skill-name-row">' +
+                        '<button type="button" class="skill-name skill-name-btn" data-action="open-skill" data-skill-path="' + safePath + '" title="打开技能：' + safePath + '">' + safeName + '</button>' +
+                        (s.conflict ? '<span class="skill-tag conflict-tag">冲突</span>' : '') +
+                    '</div>' +
+                    '<div class="skill-desc">' + safeDesc + '</div>' +
                 '</div>' +
-                '<div class="skill-desc">' + safeDesc + '</div>' +
-                '<div class="skill-path">' + safePath + '</div>';
-
-        // 冲突状态：展开显示冲突来源
-        if (s.conflict && s.sources && s.sources.length > 0) {
-            html += '<div class="skill-conflict-sources" style="margin-top:4px;font-size:11px;color:var(--danger);">该技能在 ' + s.sources.length + ' 个来源目录中存在同名冲突：';
-            s.sources.forEach(function(src) {
-                html += '<div style="padding-left:12px;">→ ' + escapeHtml(src.path) + '</div>';
-            });
-            html += '</div>';
-        }
-        html += '</div>' +
-            '<div class="skill-actions">' +
                 '<label class="toggle" title="' + toggleTitle + '">' +
                     '<input type="checkbox" ' + checkedAttr + ' ' + disabledAttr +
                         ' data-action="toggle-skill" data-skill-path="' + safePath + '" data-skill-name="' + safeName + '" />' +
                     '<span class="toggle-slider"></span>' +
                 '</label>' +
-                '<button class="btn btn-sm btn-open" data-action="open-skill" data-skill-path="' + safePath + '">📂 打开</button>' +
-            '</div>' +
+            '</div>';
+
+        // 冲突状态：展开显示冲突来源（整行块，位于顶部信息区与底部路径之间）
+        if (s.conflict && s.sources && s.sources.length > 0) {
+            html += '<div class="skill-conflict-sources">该技能在 ' + s.sources.length + ' 个来源目录中存在同名冲突：';
+            s.sources.forEach(function(src) {
+                html += '<div class="skill-conflict-src">→ ' + escapeHtml(src.path) + '</div>';
+            });
+            html += '</div>';
+        }
+
+        // 路径：卡片底部独立成行，点击即打开该技能（复用 open-skill 逻辑）
+        html += '<button type="button" class="skill-path" data-action="open-skill" data-skill-path="' + safePath + '" title="打开技能：' + safePath + '">' + safePath + '</button>' +
         '</div>';
         return html;
     }).join('');
