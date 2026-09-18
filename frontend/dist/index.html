@@ -281,13 +281,23 @@
                 </section>
 
                 <!-- L2: 配置状态行（常态形态）
-                     一行只读摘要：来源目录只报数量（目录之间没有「当前项」概念），
-                     技能方案报当前生效的方案名；右侧「更改」就地展开完整配置区 -->
+                     一行只读摘要：来源目录与技能方案都只报数量，两项结构完全对称
+                     （图标 + 标签 + 数量）。
+                     概念说明：技能启用状态由 opencode 全局技能目录下的软链接决定（唯一真相源），
+                     方案只是该状态的一份快照（配方），应用方案 = 把配方写回软链接。
+                     系统不记录「当前用的是哪个方案」，故不存在「当前方案 / 选中方案」，
+                     状态行只报方案数量，不显示方案名 -->
                 <section class="skill-config-bar">
                     <div class="skill-config-status">
-                        <span class="skill-status-item">来源：<b id="skillSrcCount" class="skill-status-empty">未添加</b></span>
+                        <span class="skill-status-item">
+                            <svg class="skill-status-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+                            来源：<b id="skillSrcCount">未添加</b>
+                        </span>
                         <span class="skill-status-sep">·</span>
-                        <span class="skill-status-item">当前方案：<b id="skillPlanText" class="skill-status-empty">未应用</b><span class="skill-status-count" id="skillPlanCount"></span></span>
+                        <span class="skill-status-item">
+                            <svg class="skill-status-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                            技能方案：<b id="skillPlanCount">未添加</b>
+                        </span>
                     </div>
                     <button type="button" class="btn btn-sm skill-cfg-toggle" id="btnSkillCfgToggle" aria-expanded="false" aria-controls="skillCfgInline" title="展开 / 收起技能来源与方案配置">
                         更改
@@ -306,7 +316,8 @@
                             <div class="chip-row" id="skillDirChips"></div>
                         </div>
 
-                        <!-- 技能方案：点击 chip 主体直接应用该方案（高亮 = 当前生效），✕ 删除，虚线按钮入库 -->
+                        <!-- 技能方案：与来源目录完全对称。点击 chip 主体 = 应用该方案（写回软链接，一次性动作），
+                             ✕ 删除，虚线按钮「保存为方案」。无选中 / 当前 / 高亮概念 -->
                         <div class="skill-cfg-block">
                             <div class="skill-cfg-label">技能方案<span class="skill-cfg-n" id="skillPlanCountBadge">0</span></div>
                             <div class="chip-row" id="skillPlanChips"></div>

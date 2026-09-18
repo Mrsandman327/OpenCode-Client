@@ -13,17 +13,21 @@ export let addingSourceDir = false;  // 防重入 guard
 // ========== 技能页顶部配置区的 UI 状态 ==========
 // 来源目录：并列的多个目录，没有「当前 / 选中」概念（点击 chip 主体只执行打开）
 var skillDirs = [];
-// 技能方案：activeScheme 表示「当前生效的方案名」（应用成功后写入），'' 表示尚无生效方案。
-// 注意：后端未提供「查询当前生效方案」的接口，故初始加载时无法回填，一律不高亮。
+// 技能方案：技能启用状态的一份份「快照 / 配方」，同样没有「当前 / 选中」概念。
+// 事实依据：技能启用哪些由 opencode 全局技能目录下存在哪些软链接决定（唯一真相源）。
+// 「应用方案」= 把配方写回真相源（按方案记录增删软链接）；应用后系统里只有一堆软链接，
+// 没有任何地方记录「当前用的是哪个方案」，故不存在「当前方案」。
+// 因此这里只维护可应用的配方清单，点击 chip 只是「执行应用动作」而非「选中」。
 var skillSchemes = [];
-var activeScheme = '';
-// 应用进行中的方案名（'' 表示空闲）。用于防止异步应用未完成时连点 chip 重复触发
+// 应用进行中的方案名（'' 表示空闲）。这是临时的「正在执行」忙碌态，
+// 用于防止异步应用未完成时连点 chip 重复触发，与「当前 / 选中」无关
 var applyingScheme = '';
 
 // 配置区使用的内联 SVG 图标（禁用 emoji，统一线性 stroke 风格）
 var CFG_ICON_FOLDER = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>';
 var CFG_ICON_X = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
-var CFG_ICON_CHECK = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
+// 方案书签图标：与来源目录的文件夹图标对应，用于方案 chip 主体
+var CFG_ICON_BOOKMARK = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
 var CFG_ICON_PLUS = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 
 // 取路径末两段作为 chip 上的短标签（完整路径仍保留在 title 提示里）
@@ -183,8 +187,9 @@ async function handleSkillConfigClick(event) {
         await saveSkillScheme();
         return;
     }
-    // 功能 5：点击 chip 主体 = 直接应用该方案（与来源目录「点 chip 主体执行该区块主操作」对称）
-    if (action === 'select-scheme') {
+    // 功能 5：点击 chip 主体 = 直接应用该方案（与来源目录「点 chip 主体执行该区块主操作」对称）。
+    // 这是「执行应用动作」而非「选中」——应用后不回写任何「当前方案」状态
+    if (action === 'apply-scheme') {
         await applySkillScheme(target.dataset.schemeName || '');
         return;
     }
@@ -250,38 +255,18 @@ export function renderSourceDirs(dirs) {
 
 // ========== 顶部配置区渲染 ==========
 
-// 状态行摘要：来源只报数量（无「当前目录」概念），方案报当前生效的方案名
+// 状态行摘要：来源目录与技能方案两项完全对称——都只报数量、都不显示名称。
+// 依据：技能启用状态由软链接决定，方案只是状态快照，应用后系统不记录「当前用的是哪个方案」，
+// 故不存在「当前方案」，状态行不显示方案名，只报可应用方案的数量。
 function renderSkillConfigStatus() {
     var srcCountEl = document.getElementById('skillSrcCount');
     if (srcCountEl) {
-        if (skillDirs.length) {
-            srcCountEl.textContent = skillDirs.length + ' 个目录';
-            srcCountEl.classList.remove('skill-status-empty');
-        } else {
-            srcCountEl.textContent = '未添加';
-            srcCountEl.classList.add('skill-status-empty');
-        }
+        srcCountEl.textContent = skillDirs.length ? skillDirs.length + ' 个目录' : '未添加';
     }
 
-    // 方案：显示当前生效的方案名，无生效方案时为「未应用」
-    var planTextEl = document.getElementById('skillPlanText');
-    if (planTextEl) {
-        if (activeScheme) {
-            planTextEl.textContent = activeScheme;
-            planTextEl.classList.remove('skill-status-empty');
-        } else {
-            planTextEl.textContent = '未应用';
-            planTextEl.classList.add('skill-status-empty');
-        }
-    }
-    // 数量尾缀：未应用时报总数，有生效方案时提示「还有多个」，避免方案名把数量信息挤掉
     var planCountEl = document.getElementById('skillPlanCount');
     if (planCountEl) {
-        if (activeScheme) {
-            planCountEl.textContent = skillSchemes.length > 1 ? '共 ' + skillSchemes.length + ' 个' : '';
-        } else {
-            planCountEl.textContent = skillSchemes.length ? '共 ' + skillSchemes.length + ' 个' : '';
-        }
+        planCountEl.textContent = skillSchemes.length ? skillSchemes.length + ' 个' : '未添加';
     }
 
     // 展开区里的数量徽标
@@ -310,7 +295,7 @@ function renderDirChips() {
         return '<span class="chip">' +
             '<button type="button" class="' + mainCls + '" data-action="open-dir" data-dir-index="' + i + '" title="' + mainTitle + '">' +
                 CFG_ICON_FOLDER +
-                '<span class="chip-path">' + escapeHtml(shortPath(dir)) + '</span>' +
+                '<span class="chip-text">' + escapeHtml(shortPath(dir)) + '</span>' +
             '</button>' +
             '<button type="button" class="chip-x" data-action="remove-dir" data-dir-index="' + i + '" title="移除该来源目录">' + CFG_ICON_X + '</button>' +
         '</span>';
@@ -319,30 +304,31 @@ function renderDirChips() {
     box.innerHTML = html;
 }
 
-// 技能方案 chip 行：
-//   chip 主体点击 = 直接应用该方案（异步；成功后该 chip 高亮 = 当前生效方案）
+// 技能方案 chip 行（结构与来源目录 chip 行完全对称）：
+//   chip 主体点击 = 应用该方案（一次性动作，把配方写回软链接；不产生任何高亮 / 选中态）
 //   chip 上的 ✕   = 删除该方案
-//   末尾虚线按钮  = 入库（把当前技能启用状态保存为新方案）
-// 高亮语义 = 「当前生效的方案」，而非「选中待应用」；应用进行中该 chip 呈忙碌态并禁用
+//   末尾虚线按钮  = 保存为方案（把当前技能启用状态保存为一份配方）
+// 概念说明：方案只是技能启用状态的一份快照（配方），应用后系统里只有软链接，
+// 没有任何地方记录「当前用的是哪个方案」，所以「当前方案 / 选中方案」是误解——
+// 点击 chip 只是「执行应用动作」，而非「选中」。应用进行中该 chip 呈忙碌态并禁用
 function renderPlanChips() {
     var box = document.getElementById('skillPlanChips');
     if (!box) return;
-    var html = skillSchemes.map(function(name, i) {
-        var isActive = (name === activeScheme);
+    var html = skillSchemes.map(function(name) {
         var isBusy = (name === applyingScheme);
         var safeName = escapeHtml(name);
         var mainTitle = isBusy ? '正在应用方案：' + safeName : '点击应用该方案：' + safeName;
         // 应用进行中禁用所有 chip 主体与 ✕，避免连点重复触发
         var disabledAttr = applyingScheme ? ' disabled' : '';
-        return '<span class="chip' + (isActive ? ' active' : '') + (isBusy ? ' chip--busy' : '') + '">' +
-            '<button type="button" class="chip-main" data-action="select-scheme" data-scheme-name="' + safeName + '" title="' + mainTitle + '"' + disabledAttr + '>' +
-                (isActive ? CFG_ICON_CHECK : '') +
-                '<span>' + safeName + '</span>' +
+        return '<span class="chip' + (isBusy ? ' chip--busy' : '') + '">' +
+            '<button type="button" class="chip-main" data-action="apply-scheme" data-scheme-name="' + safeName + '" title="' + mainTitle + '"' + disabledAttr + '>' +
+                CFG_ICON_BOOKMARK +
+                '<span class="chip-text">' + safeName + '</span>' +
             '</button>' +
             '<button type="button" class="chip-x" data-action="delete-scheme" data-scheme-name="' + safeName + '" title="删除该方案"' + disabledAttr + '>' + CFG_ICON_X + '</button>' +
         '</span>';
     }).join('');
-    html += '<button type="button" class="chip-action" data-action="save-scheme" title="把当前技能启用状态保存为方案">' + CFG_ICON_PLUS + '入库</button>';
+    html += '<button type="button" class="chip-action" data-action="save-scheme" title="把当前技能启用状态保存为方案">' + CFG_ICON_PLUS + '保存为方案</button>';
     box.innerHTML = html;
 }
 
@@ -429,13 +415,9 @@ export async function openSelectedSourceDir(dir) {
 export async function loadSkillSchemes() {
     try {
         var schemes = await api.ListSkillSchemes();
+        // 后端只返回方案名列表（配方清单）。方案没有「当前 / 选中」概念，
+        // 无需回填任何「生效方案」状态，直接渲染清单即可
         skillSchemes = schemes || [];
-        // 已有生效方案若已不存在（被删/改名），则清空，避免状态行显示失效的名称。
-        // 注意：接口只返回方案名列表，无法反查「当前生效方案」，故初始加载时 activeScheme 保持为 ''
-        // （即不预设高亮），只有用户实际点击应用成功后才会高亮。
-        if (activeScheme && skillSchemes.indexOf(activeScheme) < 0) {
-            activeScheme = '';
-        }
         renderPlanChips();
         renderSkillConfigStatus();
     } catch (err) {
@@ -459,7 +441,7 @@ export async function saveSkillScheme() {
             return;
         }
         showToast('已保存方案：' + name, 'success');
-        // 入库只是新增方案，不等于已应用，故不写入 activeScheme（当前生效方案保持不变）
+        // 保存只是新增一份配方，不等于已应用，也不存在「当前方案」需要维护
         await loadSkillSchemes();
     } catch (err) {
         showToast('保存方案失败: ' + (err.message || err), 'error');
@@ -480,22 +462,23 @@ export async function deleteSkillScheme(name) {
             return;
         }
         showToast('已删除方案：' + name, 'success');
-        // 删掉的正是当前生效方案 → 清空生效态（loadSkillSchemes 也会兜底清理失效方案名）
-        if (activeScheme === name) activeScheme = '';
+        // 删除只是移除一份配方；不涉及「当前方案」状态（本就不存在该状态）
         await loadSkillSchemes();
     } catch (err) {
         showToast('删除方案失败: ' + (err.message || err), 'error');
     }
 }
 
-// 应用技能方案。name 由方案 chip 主体点击传入；应用成功后该方案即「当前生效方案」（chip 高亮）。
+// 应用技能方案。name 由方案 chip 主体点击传入。
+// 语义：把该方案（配方）写回唯一真相源——opencode 全局技能目录下的软链接。
+// 应用成功后系统里只有软链接，不会记录「当前用的是哪个方案」，
+// 故此处不写入任何持久状态，仅用 toast 反馈结果；下次点击只是再次执行应用动作。
 export async function applySkillScheme(name) {
     // 防重复点击：上一次应用尚未结束时拒绝新的触发
     if (applyingScheme) {
         showToast('方案「' + applyingScheme + '」正在应用中，请稍候…', 'info');
         return;
     }
-    name = name || activeScheme;
     if (!name) {
         showToast('请先选择要应用的方案', 'error');
         return;
@@ -510,8 +493,6 @@ export async function applySkillScheme(name) {
         if (result.conflicts && result.conflicts.length > 0) msgParts.push('✗ ' + result.conflicts.length + ' 个技能冲突: ' + result.conflicts.join(', '));
         if (result.errors && result.errors.length > 0) msgParts.push('✗ 错误: ' + result.errors.join(', '));
         showToast(msgParts.join(' | '), result.success ? 'success' : 'error');
-        // 只有后端报告成功才记为当前生效方案；失败/部分失败则保持原状态，避免高亮误导
-        if (result.success) activeScheme = name;
         store.skillsLoaded = false;
         await loadSkillsData();
     } catch (err) {

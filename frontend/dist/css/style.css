@@ -636,9 +636,6 @@ input::placeholder, textarea::placeholder {
 
 /* ============================================================
    技能管理视图：顶部配置区（状态行 + 就地展开的 chip 配置区）
-   —— 作用域全部限定在 #view-skills 内，不影响其他页面
-   —— 常态只显示一行状态摘要；点「更改」就地展开，把下方搜索与列表整体下推
-   —— 来源目录只报数量（目录之间没有「当前项」）；技能方案报当前选中项
    ============================================================ */
 
 /* 状态行：左侧一行摘要，右侧「更改」入口 */
@@ -666,18 +663,23 @@ input::placeholder, textarea::placeholder {
 
 #view-skills .skill-status-item {
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     gap: 5px;
     min-width: 0;
     white-space: nowrap;
 }
 
-/* 标签之后的值部分加粗：让「3 个目录 / 未应用」等实际取值比标签更醒目。
-   用 600（semibold）而非 700（bold）——与页面既有强调字重
-   （.skill-cfg-label / .skill-cfg-n 均为 600）保持一致，醒目但不过重。
-   统一说明：无论值是否为空态，取值部分都走主色 + 600 加粗，不再按空态变色，
-   保证「来源」与「方案」两处取值样式完全一致；弱化色仅保留给标签部分。
-   注意：skill-status-empty 仍由 JS 增删，仅作状态标记，不再有专属样式 */
+#view-skills .skill-status-i {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 #view-skills .skill-status-item b {
     font-weight: 600;
     color: var(--text-primary);
@@ -685,19 +687,6 @@ input::placeholder, textarea::placeholder {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-/* 方案数量尾缀（如「共 3 个」）。不可收缩，
-   保证「有多个」这个关键信息永远不被方案名挤掉。
-   字重刻意保持常规：不加 font-weight 声明，继承到 400（普通字重）。
-   依据：状态行内并无字重设置，祖先链 .skill-status-item（无声明）
-   → .skill-config-status（无声明）→ body（400），故 computed 字重为 400。
-   它仅靠更小的字号（12px）与次要色（--text-muted）维持从属层级，
-   不与主值（.skill-status-item b 的 600 加粗）争抢视觉权重 */
-#view-skills .skill-status-count {
-    flex-shrink: 0;
-    font-size: 12px;
-    color: var(--text-muted);
 }
 
 #view-skills .skill-status-sep {
@@ -757,20 +746,25 @@ input::placeholder, textarea::placeholder {
     margin-top: 14px;
 }
 
+/* 块标题「来源目录 / 技能方案」用 700：中文字体无 500 / 600 档，
+   600 会被浏览器回退成 400，中文标题看起来完全没加粗；
+   取 Bold 档后与同处的数字/英文粗细一致 */
 #view-skills .skill-cfg-label {
     display: flex;
     align-items: center;
     gap: 6px;
     margin-bottom: 8px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-tertiary);
 }
 
-/* 数量徽标：正面强调「来源目录 / 方案是多个」 */
+/* 数量徽标：正面强调「来源目录 / 方案是多个」。
+   字重取 700：中文字体没有 500 / 600 档，徽标需与同行的中文块标题
+   保持一致的加粗观感（数字虽有中间字重，但与中文 700 对齐后更统一） */
 #view-skills .skill-cfg-n {
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1;
     padding: 2px 7px;
     border-radius: var(--radius-pill);
@@ -811,12 +805,12 @@ input::placeholder, textarea::placeholder {
 #view-skills .chip:hover {
     border-color: var(--border-light);
 }
-/* 选中态只用于技能方案；来源目录 chip 永远不会带 .active */
-#view-skills .chip.active {
-    border-color: var(--accent);
-    background: var(--accent-ghost);
-}
 
+/* chip 文字（目录名 / 方案名）是数据项正文，保持 500 不升到 700：
+   升 700 会明显过重，且会打破与 .chip-action(400) 的「数据项 vs 动作」
+   字重层级对比（该对比是三类视觉差异之一，见下方 .chip-action 注释）。
+   代价：中文字体无 500 档会回退成 400，与英文 500 略有差异，
+   但正文性文字下这一差异可接受，优先保层级与克制 */
 #view-skills .chip-main {
     display: inline-flex;
     align-items: center;
@@ -844,10 +838,6 @@ input::placeholder, textarea::placeholder {
     cursor: default;
     color: var(--text-secondary);
 }
-#view-skills .chip.active .chip-main {
-    color: var(--accent);
-    font-weight: 600;
-}
 
 /* 应用进行中态：chip 降透明度，主体与 ✕ 同时禁用（配合 disabled 属性），
    避免异步应用未完成时连点重复触发；禁用期间不再显示 hover 强调色 */
@@ -861,14 +851,16 @@ input::placeholder, textarea::placeholder {
 #view-skills .chip-main:disabled:hover {
     color: var(--text-secondary);
 }
-#view-skills .chip.active .chip-main:disabled:hover {
-    color: var(--accent);
-}
 
-/* 目录 chip 上的短路径：等宽字体，便于快速辨识 */
-#view-skills .chip-path {
-    font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+/* chip 内文字（来源目录名 / 技能方案名）统一采用「来源目录」原来的等宽样式，
+   用户明确指定用这一种：等宽字体栈 + 11.5px，
+   笔画更实、观感更统一；字重与颜色仍继承 .chip-main。
+   注意：若方案名含中文，等宽字体栈无 CJK 字形时会回退到系统字体，
+   可能出现同一 chip 内中英混排——用户已接受该代价 */
+#view-skills .chip-text {
+    font-family: "Noto Sans SC", "SF Mono", "Cascadia Code", "Consolas", monospace;
     font-size: 11.5px;
+    font-weight: 600;
 }
 
 /* chip 上的删除按钮（✕ 图标）：默认淡显，hover chip 时完全显现。
@@ -895,7 +887,7 @@ input::placeholder, textarea::placeholder {
     color: var(--danger);
 }
 
-/* 操作按钮（+ 添加目录 / + 入库）：
+/* 操作按钮（+ 添加目录 / + 保存为方案）：
    虚线边框 + 透明底 + 更弱字重 + 小圆角，明确读作「动作」而非「数据项」。
    与 chip 的对比点：边框 虚线↔实线 / 底色 透明↔填充 / 字重 400↔500 / 圆角 小↔胶囊 */
 #view-skills .chip-action {
