@@ -908,7 +908,7 @@ export function scheduleRefresh() {
             store.refreshTimer = null;
             return;
         }
-        const wasBusy = isSessionBusy(refreshSessionId);
+        
         loadSessionStatuses().then(statuses => {
             const nextStatuses = statuses || {};
             // 只更新目标会话的状态（快照权威，纠正 SSE 可能丢失的事件）；
@@ -918,9 +918,6 @@ export function scheduleRefresh() {
             }
             updateSendButton();
             const busy = isSessionBusy(refreshSessionId);
-            // if (busy || wasBusy) {
-            //     loadMessages();
-            // }
             if (!busy) {
                 clearInterval(store.refreshTimer);
                 store.refreshTimer = null;

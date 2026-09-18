@@ -3,7 +3,6 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 )
 
 // ========== 技能管理相关 ==========
@@ -34,21 +33,9 @@ type SkillConfigResult struct {
 	Stats      Stats       `json:"stats"`
 }
 
-// RemoveSourceDirResult 删除来源目录时的返回结果，包含可能受影响的已启用技能。
-type RemoveSourceDirResult struct {
-	Success         bool     `json:"success"`
-	Error           string   `json:"error,omitempty"`
-	AffectedSkills  []string `json:"affectedSkills,omitempty"` // 该目录下已启用的技能名称
-}
-
 // Stats 统计信息。
 type Stats struct {
 	GlobalSkills int `json:"globalSkills"`
-}
-
-// String 实现 Stringer 接口，便于调试。
-func (s Stats) String() string {
-	return fmt.Sprintf("Skills: %d", s.GlobalSkills)
 }
 
 // ToggleResult 单个技能切换结果。
@@ -271,12 +258,6 @@ type ProxyConfig struct {
 	ProxyPort    string `json:"proxyPort"`
 }
 
-// SessionInfo 会话记录。
-type SessionInfo struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-}
-
 // TreeNode 项目-目录-会话树节点。
 type TreeNode struct {
 	ID        string     `json:"id"`
@@ -285,13 +266,6 @@ type TreeNode struct {
 	Children  []TreeNode `json:"children,omitempty"`
 	UpdatedAt string     `json:"updatedAt,omitempty"`
 	Directory string     `json:"directory,omitempty"`
-}
-
-// CmdPaletteItem 命令面板展示项。
-type CmdPaletteItem struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Source      string `json:"source"`
 }
 
 // SaveResult 保存操作结果。

@@ -165,9 +165,6 @@ func UploadBrowserFile(rootDir, relPath, fileName, base64Data string, overwrite 
 	if strings.TrimSpace(fileName) == "" {
 		return model.FileBrowserUploadResult{Success: false, Error: "文件名不能为空"}, nil
 	}
-	if relPath == "/" {
-		// 根目录本身允许上传，后面按目录处理
-	}
 	absDir, _, err := resolveBrowserPath(rootDir, relPath)
 	if err != nil {
 		return model.FileBrowserUploadResult{}, err
@@ -207,9 +204,6 @@ func CreateBrowserDir(rootDir, relPath, dirName string) (model.SaveResult, error
 	}
 	if dirName == "." || dirName == ".." {
 		return model.SaveResult{Success: false, Error: "文件夹名称不合法"}, nil
-	}
-	if strings.Contains(dirName, "/") || strings.Contains(dirName, "\\") {
-		return model.SaveResult{Success: false, Error: "文件夹名称不能包含路径分隔符"}, nil
 	}
 	absDir, _, err := resolveBrowserPath(rootDir, relPath)
 	if err != nil {
@@ -261,9 +255,6 @@ func normalizeBrowserRelPath(rel string) string {
 	}
 	if !strings.HasPrefix(rel, "/") {
 		rel = "/" + rel
-	}
-	if strings.HasSuffix(rel, "/") {
-		return rel
 	}
 	return rel
 }

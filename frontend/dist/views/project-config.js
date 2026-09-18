@@ -618,16 +618,6 @@ export function editorGoBack() {
     renderCurrentTab();
 }
 
-/** 降级高亮：当 fileBrowserHighlightCode 不可用时 */
-export function pcHighlightFallback(code, ext) {
-    var lines = String(code || '').split('\n');
-    var numbered = '';
-    for (var i = 0; i < lines.length; i++) {
-        numbered += '<div class="hljs-line"><span class="hljs-line-no">' + (i + 1) + '</span><span class="hljs-line-content">' + (escapeHtml(lines[i]) || ' ') + '</span></div>';
-    }
-    return numbered;
-}
-
 // ============================
 // 编辑模式（纯 textarea，无行号）
 // ============================
@@ -724,10 +714,6 @@ export function setupEditMode() {
 // 只读预览（全局配置查看）
 // ============================
 
-export function pcHighlightLines(code, lang) {
-    return escapeHtml(code);
-}
-
 export async function saveCurrentFile() {
     var state = window._projectConfig;
     var editing = state.editingFile;
@@ -800,12 +786,6 @@ export function bindAddEntryButton(category, basePath, onDone) {
             showToast('创建失败: ' + (e.message || e), 'error');
         });
     });
-}
-
-export function detectCodeLang(fileName) {
-    var ext = (fileName || '').split('.').pop().toLowerCase();
-    var map = { 'md': 'markdown', 'json': 'json', 'jsonc': 'json', 'yaml': 'yaml', 'yml': 'yaml', 'toml': 'ini', 'xml': 'xml', 'js': 'javascript', 'ts': 'typescript', 'css': 'css', 'html': 'xml', 'sh': 'bash', 'py': 'python', 'go': 'go', 'rs': 'rust', 'java': 'java' };
-    return map[ext] || '';
 }
 
 // ============================

@@ -59,9 +59,6 @@ export function startEventStream() {
         window.runtime.EventsOn('oc-event', (raw) => handleOcEvent(parseEventPayload(raw)));
         window.runtime.EventsOn('oc-event-error', (msg) => {
             showToast('事件流异常: ' + msg, 'error');
-            // SSE 断开 → 交叉验证：调 GetWebStatus() 确认服务是否真停了
-            // 若在线 → 自动重连 SSE；若离线 → 更新 UI 状态
-            //setTimeout(() => checkWebStatus(), 200);
         });
         startEventStream.bound = true;
     }

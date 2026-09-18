@@ -8,7 +8,6 @@ import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
 
 export let skills = [];
-export let addingSourceDir = false;  // 防重入 guard
 
 // ========== 技能页顶部配置区的 UI 状态 ==========
 // 来源目录：并列的多个目录，没有「当前 / 选中」概念（点击 chip 主体只执行打开）

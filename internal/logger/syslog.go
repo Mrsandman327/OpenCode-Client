@@ -1,10 +1,4 @@
-/*
-@Time : 2025/6/7 11:00
-@Author : cx
-@File : satellite.go
-@Software: vscode
-@Description:接收到的卫星数据日志
-*/
+// Package logger 封装 oc-manager 的运行日志写入与分级输出。
 package logger
 
 import (

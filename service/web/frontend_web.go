@@ -132,29 +132,6 @@ func newFrontendWebHandler(frontendFS fs.FS, bridge FrontendWebBridge) http.Hand
 	mux.HandleFunc("/api/app-call", h.handleAppCall)
 	mux.HandleFunc("/events", h.handleEvents)
 	mux.Handle("/", http.FileServer(http.FS(frontendFS)))
-	//用户文件服务,支持热切换
-	// fs := NewSwitchableFileServer("./files")
-	// mux.Handle("/files/", fs)
-	// mux.HandleFunc("/api/switch-dir", func(w http.ResponseWriter, r *http.Request) {
-	// 	if r.Method != http.MethodPost {
-	// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	// 		return
-	// 	}
-
-	// 	newDir := r.FormValue("directory")
-	// 	if newDir == "" {
-	// 		http.Error(w, "directory parameter required", http.StatusBadRequest)
-	// 		return
-	// 	}
-
-	// 	fs.SetDirectory(newDir)
-	// 	w.Write([]byte("Directory switched to: " + newDir))
-	// })
-
-	// // 查询当前目录
-	// mux.HandleFunc("/api/current-dir", func(w http.ResponseWriter, r *http.Request) {
-	// 	w.Write([]byte("Current directory: " + fs.GetDirectory()))
-	// })
 	return mux
 }
 

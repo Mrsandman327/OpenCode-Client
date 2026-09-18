@@ -326,26 +326,6 @@ input::placeholder, textarea::placeholder {
     border-color: var(--accent);
 }
 
-.btn-icon {
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    font-size: 12px;
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.btn-icon:hover {
-    background: var(--bg-card-hover);
-    color: var(--text-primary);
-}
-
 .btn-open {
     background: var(--bg-input);
     color: var(--text-secondary);
@@ -356,16 +336,6 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card-hover);
     color: var(--accent);
     border-color: var(--accent);
-}
-
-.btn-success {
-    background: var(--success-bg);
-    color: var(--success);
-    border: 1px solid var(--success);
-}
-.btn-success:hover:not(:disabled) {
-    background: var(--success);
-    color: #fff;
 }
 
 .btn-danger-outline {
@@ -425,12 +395,6 @@ input::placeholder, textarea::placeholder {
     background: var(--success-bg);
     color: var(--success);
     border-color: var(--success);
-}
-
-.btn-launch {
-    padding: 10px 32px;
-    font-size: 15px;
-    font-weight: 600;
 }
 
 /* ========== 主布局 ========== */
@@ -610,8 +574,7 @@ input::placeholder, textarea::placeholder {
     overflow: hidden;
 }
 #view-skills .stats-bar,
-#view-skills .path-bar,
-#view-skills .batch-bar {
+#view-skills .path-bar {
     flex-shrink: 0;
 }
 /* 技能管理页三行工具栏（来源目录 / 技能方案 / 搜索）垂直间距收紧：
@@ -1011,14 +974,6 @@ input::placeholder, textarea::placeholder {
     color: #fff;
 }
 
-.oc-web-status {
-    font-size: 12px;
-    color: var(--text-muted);
-}
-.oc-web-status.running {
-    color: var(--success);
-    font-weight: 600;
-}
 .oc-client {
     --tree-panel-width: 240px;
     --sidepanel-width: 320px;
@@ -1460,12 +1415,6 @@ input::placeholder, textarea::placeholder {
 .subtask-status-badge[data-status="running"]   { background: var(--accent-ghost); color: var(--accent); }
 .subtask-status-badge[data-status="error"]     { background: var(--danger-bg); color: var(--danger); }
 .subtask-status-badge[data-status="interrupt"] { background: var(--warning-bg); color: var(--warning); }
-.oc-panel-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
 .oc-tree-search-bar {
     display: flex;
     align-items: center;
@@ -1932,14 +1881,6 @@ input::placeholder, textarea::placeholder {
     .oc-user-nav-count {
         font-size: 9px;
     }
-}
-.oc-history-more {
-    width: 100%;
-    margin-bottom: 12px;
-    text-align: center;
-    border-style: dashed;
-    color: var(--text-secondary);
-    background: var(--bg-secondary);
 }
 .oc-message {
     border-radius: var(--radius-md);
@@ -2579,16 +2520,6 @@ input::placeholder, textarea::placeholder {
 .oc-version-check-btn:hover {
     text-decoration: underline;
 }
-.oc-version-check-label.checking {
-    color: var(--text-muted);
-}
-.oc-version-check-label.latest {
-    color: var(--success);
-}
-.oc-version-check-label.outdated {
-    color: var(--warning);
-}
-
 .oc-todos {
     flex: 1;
     min-height: 0;
@@ -2797,73 +2728,8 @@ input::placeholder, textarea::placeholder {
     flex-shrink: 0;
 }
 
-.oc-tree-head {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 6px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 12px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.oc-tree-head:hover {
-    background: var(--bg-card-hover);
-    color: var(--text-primary);
-}
-.oc-tree-head.dir {
-    color: var(--accent);
-    font-weight: 500;
-}
-.oc-tree-head.file {
-    color: var(--text-primary);
-}
-.oc-tree-arrow {
-    display: inline-block;
-    width: 14px;
-    text-align: center;
-    font-size: 10px;
-    color: var(--text-muted);
-    flex-shrink: 0;
-}
-.oc-tree-file-icon {
-    flex-shrink: 0;
-}
-.oc-tree-stats {
-    margin-left: auto;
-    font-size: 11px;
-    color: var(--text-muted);
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    flex-shrink: 0;
-}
-.oc-tree-children.hidden,
-.oc-tree-body.hidden {
+.oc-tree-children.hidden {
     display: none;
-}
-.oc-tree-body {
-    padding: 4px 0 4px 28px;
-}
-.oc-tree-body pre {
-    margin: 0;
-    padding: 6px 8px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    white-space: pre-wrap;
-    word-break: break-word;
-    color: var(--text-secondary);
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    font-size: 11px;
-    user-select: text;
-    -webkit-user-select: text;
-    max-height: 200px;
-    overflow: auto;
-}
-.oc-tree-node.expanded > .oc-tree-head.file {
-    color: var(--accent);
 }
 .oc-input-bar {
     position: relative;
@@ -3276,24 +3142,6 @@ input::placeholder, textarea::placeholder {
     padding: 14px;
     text-align: center;
 }
-.oc-dir-input {
-    font-size: 12px;
-    color: var(--text-muted);
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    width: 200px;
-    font-family: "SF Mono", monospace;
-    outline: none;
-}
-.oc-dir-input.set {
-    color: var(--text-secondary);
-}
-.oc-dir-input:focus {
-    border-color: var(--accent);
-}
-
 /* ── 模型信息栏 ── */
 .oc-model-info {
     display: flex;
@@ -3702,30 +3550,6 @@ input::placeholder, textarea::placeholder {
     color: var(--text-primary);
 }
 
-.model-variant-select {
-    width: 110px;
-    flex-shrink: 0;
-    padding: 6px 10px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-size: 12px;
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    cursor: pointer;
-    outline: none;
-    transition: border-color var(--transition);
-}
-
-.model-variant-select:focus {
-    border-color: var(--accent);
-}
-
-.model-variant-select option {
-    background: var(--bg-card);
-    color: var(--text-primary);
-}
-
 .model-type-badge {
     font-size: 10px;
     font-weight: 600;
@@ -3995,52 +3819,6 @@ input::placeholder, textarea::placeholder {
     transition: background 0.3s ease;
 }
 
-/* 批量操作栏 */
-.batch-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 24px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-
-.batch-label {
-    font-size: 13px;
-    color: var(--text-secondary);
-    font-weight: 500;
-    flex-shrink: 0;
-}
-
-.batch-buttons {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    flex: 1;
-}
-
-.batch-extra {
-    flex-shrink: 0;
-}
-
-.batch-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 12px;
-    background: var(--bg-primary);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-}
-
-.batch-target-name {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-weight: 600;
-    min-width: 70px;
-}
-
 /* 技能列表：网格卡片布局（由原「全宽横条列表」改造而来）
    列宽取 420px，理由：
    - 卡片内要同时容纳「技能名 + 来源标签」「最多两行描述」「等宽字体的技能路径」三块内容，
@@ -4104,14 +3882,6 @@ input::placeholder, textarea::placeholder {
     z-index: 1;
     /* 不再叠加 --bg-card-hover 底色：与知识库卡片同理，浮起 + 换底会显脏，
        层次感交给阴影与描边承担 */
-}
-
-.skill-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
-    gap: 8px;
 }
 
 /* 卡片顶部一行：图标 + 信息 + 右上开关（开关是第三个子元素，故位于右上） */
@@ -4194,13 +3964,7 @@ input::placeholder, textarea::placeholder {
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    min-height: 56px;
-}
-
-.skill-toggles {
-    display: flex;
-    gap: 4px;
-    flex-shrink: 0;
+    min-height: 72px;
 }
 
 /* 开关组件 */
@@ -4627,11 +4391,6 @@ input::placeholder, textarea::placeholder {
     height: 100%;
     overflow-y: auto;
 }
-.providers-toolbar {
-    flex-shrink: 0;
-    padding: 12px 24px;
-    border-bottom: 1px solid var(--border);
-}
 .providers-list {
     padding: 12px 24px;
     display: flex;
@@ -4815,23 +4574,6 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     gap: 14px;
 }
-.provider-field {
-    display: flex;
-    gap: 10px;
-    font-size: 13px;
-}
-.provider-field-label {
-    color: var(--text-muted);
-    min-width: 60px;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-}
-.provider-field-value {
-    color: var(--text-secondary);
-    font-family: "SF Mono", "Cascadia Code", monospace;
-    flex: 1;
-    word-break: break-all;
-}
 .provider-models {
     margin-top: 8px;
 }
@@ -4865,16 +4607,6 @@ input::placeholder, textarea::placeholder {
 .model-subcard .btn-del-model {
     align-self: flex-start;
     margin-top: 2px;
-}
-.model-subcard-id {
-    font-family: "SF Mono", "Cascadia Code", monospace;
-    color: var(--accent);
-    flex: 1;
-    font-size: 13px;
-}
-.model-subcard-name {
-    color: var(--text-muted);
-    width: 140px;
 }
 /* 模型子卡片：ID/名称行与能力区纵向堆叠，占满剩余宽度 */
 .model-subcard-fields {
@@ -5252,27 +4984,8 @@ input::placeholder, textarea::placeholder {
     .main-layout {
         padding-left: 0;
     }
-    .oc-params-grid {
-        grid-template-columns: 1fr;
-    }
     .cmd-grid {
         grid-template-columns: 1fr;
-    }
-    .skill-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-    .skill-toggles {
-        width: 100%;
-        justify-content: flex-start;
-    }
-    .batch-bar {
-        flex-wrap: wrap;
-    }
-    .batch-buttons {
-        flex-direction: column;
-        gap: 8px;
     }
     .skill-list {
         padding: 8px 12px;
@@ -5492,23 +5205,6 @@ input::placeholder, textarea::placeholder {
     border-color: var(--accent);
 }
 
-.oc-question-custom-btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: var(--radius-pill);
-    background: var(--accent);
-    color: #fff;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
-    white-space: nowrap;
-    transition: opacity 0.15s;
-}
-
-.oc-question-custom-btn:hover {
-    opacity: 0.85;
-}
-
 /* 跳过按钮行（在自定义输入下方） */
 .oc-question-skip-row {
     margin-top: 8px;
@@ -5571,7 +5267,7 @@ input::placeholder, textarea::placeholder {
     border: none;
     border-top: 1px solid var(--border);
     background: none;
-    font-family: "SF Mono", 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-family: "Noto Sans SC", "SF Mono", 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
     font-size: 10.5px;
     color: var(--text-primary);
     text-align: left;
@@ -6546,25 +6242,6 @@ input::placeholder, textarea::placeholder {
     padding: 8px;
 }
 
-/* ======== 技能源目录样式 ======== */
-.source-dir-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    transition: border-color var(--transition);
-}
-.source-dir-item:hover {
-    border-color: var(--border-light);
-}
-.source-dir-item .btn:hover {
-    color: var(--danger) !important;
-}
-
 /* 方案管理 + 来源目录按钮 Apple 风格 */
 #btnDeleteSkillScheme { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-sm); }
 #btnDeleteSkillScheme:hover { background: var(--danger-bg); }
@@ -6850,19 +6527,6 @@ input::placeholder, textarea::placeholder {
 }
 
 .pc-editor-actions { display: flex; gap: 8px; flex-shrink: 0; }
-
-.pc-ro-badge {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--text-muted);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 1px 6px;
-    margin-left: 6px;
-    vertical-align: middle;
-}
 
 /* ===== 编辑模式：纯 textarea，无行号 ===== */
 
@@ -7170,19 +6834,6 @@ input::placeholder, textarea::placeholder {
     margin-left: auto;
 }
 
-/* 工具栏下拉框 / 搜索框统一样式 */
-.toolbar-select {
-    flex: 1;
-    min-width: 180px;
-    max-width: 500px;
-    height: 30px;
-    /* 垂直 padding 必须归零：本元素 height 固定 30px 且全局 box-sizing 为 border-box，
-       若沿用全局 select 的 7px 上下内边距，内容盒仅剩 14px（30 - 2边框 - 14内边距），
-       小于 13px 字号的实际行高（约 16px），会导致选中文字上下被裁。
-       此处与 .toolbar-input / .batch-model-select / .omo-scheme-select 的写法保持一致。 */
-    padding: 0 10px;
-    font-size: 13px;
-}
 .toolbar-input {
     flex: 1;
     height: 30px;
