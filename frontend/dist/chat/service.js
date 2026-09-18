@@ -42,6 +42,9 @@ export async function checkWebStatus() {
             loadServiceStatus();
             loadAgentModelSelectors();
         } else {
+            // 服务未运行（含被外部停止）：复位后端 SSE 标记，
+            // 避免下次启动时被误判为已建立而不再调用 StartOpenCodeEvents
+            startEventStream.backendStarted = false;
             renderServiceStatus();
         }
     } catch (e) {
@@ -278,6 +281,8 @@ export async function stopWeb() {
     try {
         await api.StopOpenCodeWeb();
         await api.StopOpenCodeEvents();
+        // 后端 SSE 已停止：复位标记，使下次启动时 startEventStream() 能重新建立连接
+        startEventStream.backendStarted = false;
         store.webRunning = false;
         store.webURL = '';
         store.currentSessionId = '';

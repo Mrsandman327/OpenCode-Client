@@ -99,7 +99,15 @@ export function startEventStream() {
             sseEverConnected = true;
         };
     }
-    if (api.StartOpenCodeEvents) api.StartOpenCodeEvents();
+    // 后端 SSE 只需建立一次：startEventStream() 会被 checkWebStatus() 反复调用
+    // （例如每次点击侧栏 OpenCode 视图），若无条件重调会不断重建后端 SSE 连接并造成事件丢失。
+    // 用一次性标记（同 startEventStream.bound 模式）避免重复；服务停止时在
+    // stopWeb() 与 checkWebStatus() 中复位，保证重启后能重新建立连接。
+    if (api.StartOpenCodeEvents && !startEventStream.backendStarted) {
+        startEventStream.backendStarted = true;
+        // 调用失败则复位标记，使下次有机会重试
+        api.StartOpenCodeEvents().catch(() => { startEventStream.backendStarted = false; });
+    }
 }
 
 /** 主事件处理中枢：按 type 分发到缓存、渲染、会话、树、面板等模块 */

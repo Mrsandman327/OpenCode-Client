@@ -6380,6 +6380,10 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-secondary);
 }
 
+/* 变量归一化说明：本区块历史代码引用了 5 个从未在 :root/[data-theme="dark"] 中定义的变量，
+   导致声明非法被丢弃、样式静默失效。现按语义映射到既有变量：
+   --primary→--accent（品牌色）、--text→--text-primary（正文色）、--hover→--bg-card-hover（悬停底色）、
+   --surface→--bg-secondary（次级表面）、--bg→--bg-primary（编辑器画布主背景）。 */
 .pc-tab {
     padding: 11px 20px;
     border: none;
@@ -6395,11 +6399,11 @@ input::placeholder, textarea::placeholder {
     transition: color .15s, border-color .15s;
 }
 
-.pc-tab:hover { color: var(--text); }
+.pc-tab:hover { color: var(--text-primary); }
 
 .pc-tab.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
+    color: var(--accent);
+    border-bottom-color: var(--accent);
     font-weight: 600;
 }
 
@@ -6461,7 +6465,7 @@ input::placeholder, textarea::placeholder {
     transition: background .12s;
 }
 
-.pc-file-item:hover { background: var(--hover); }
+.pc-file-item:hover { background: var(--bg-card-hover); }
 
 .pc-file-icon { font-size: 18px; flex-shrink: 0; }
 
@@ -6491,7 +6495,7 @@ input::placeholder, textarea::placeholder {
 
 .pc-skill-card:hover .pc-file-del { opacity: 1; }
 
-.pc-file-del:hover { color: var(--danger); background: var(--hover); }
+.pc-file-del:hover { color: var(--danger); background: var(--bg-card-hover); }
 
 /* 新增按钮底部 */
 .pc-file-list-footer {
@@ -6513,13 +6517,13 @@ input::placeholder, textarea::placeholder {
     padding: 10px 20px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
-    background: var(--surface);
+    background: var(--bg-secondary);
 }
 
 .pc-editor-filename {
     font-size: 13px;
     font-weight: 600;
-    color: var(--text);
+    color: var(--text-primary);
     letter-spacing: -0.2px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -6540,8 +6544,8 @@ input::placeholder, textarea::placeholder {
     font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
     font-size: 13px;
     line-height: 1.6;
-    color: var(--text);
-    background: var(--bg);
+    color: var(--text-primary);
+    background: var(--bg-primary);
     tab-size: 4;
     white-space: pre-wrap;
     word-break: break-word;
@@ -6553,7 +6557,7 @@ input::placeholder, textarea::placeholder {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    background: var(--bg);
+    background: var(--bg-primary);
 }
 
 .pc-code-editor {
@@ -6721,8 +6725,8 @@ input::placeholder, textarea::placeholder {
 .oc-tree-directory:hover .oc-tree-config { opacity: 1; }
 
 .oc-tree-config:hover {
-    color: var(--primary);
-    background: var(--hover);
+    color: var(--accent);
+    background: var(--bg-card-hover);
 }
 
 /* ===== 技能管理卡片 ===== */
@@ -6746,8 +6750,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .pc-skill-card:hover {
-    border-color: var(--primary);
-    background: var(--hover);
+    border-color: var(--accent);
+    background: var(--bg-card-hover);
 }
 
 .pc-skill-info { flex: 1; min-width: 0; }
@@ -6755,7 +6759,7 @@ input::placeholder, textarea::placeholder {
 .pc-skill-name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--text);
+    color: var(--text-primary);
     margin-bottom: 2px;
 }
 
@@ -6798,7 +6802,7 @@ input::placeholder, textarea::placeholder {
     padding: 1px 6px;
     vertical-align: middle;
 }
-.pc-import-tag.imported { color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); }
+.pc-import-tag.imported { color: var(--text-muted); background: var(--bg-secondary); border: 1px solid var(--border); }
 .pc-import-tag.global { color: var(--warning); background: var(--warning-bg, #fff3cd); }
 
 /* ===== 幽灵按钮 ===== */
@@ -6813,7 +6817,7 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     transition: background .12s, color .12s;
 }
-.btn-ghost:hover { background: var(--hover); color: var(--text); }
+.btn-ghost:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
 /* ========== 通用工具类（消除内联样式） ========== */
 /* 弹窗头部布局：标题 + 右侧操作区 */

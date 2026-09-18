@@ -466,7 +466,9 @@ export async function deleteSession(id) {
         showToast('已删除', 'success');
         if (id === store.currentSessionId) {
             store.currentSessionId = '';
-            store.messageCache[store.currentSessionId] = null;
+            // 旧会话缓存由下方 closeSessionTab(id) 统一清理（tabs.js 内 delete messageCache[id]）。
+            // 此处原先写入 messageCache[currentSessionId]，但 currentSessionId 已置空，
+            // 实际只产生 messageCache[''] 这个无效键，属无效代码，故删除。
             store.expandedParts = {};
             setMessagesEmpty('选择会话后查看消息，或输入内容创建新会话');
             document.getElementById('ocChatTitle').textContent = '未选择会话';
