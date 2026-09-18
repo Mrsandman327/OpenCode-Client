@@ -280,29 +280,42 @@
                     <button type="button" class="btn btn-sm btn-refresh" id="btnRefresh" title="刷新技能列表">🔄 刷新</button>
                 </section>
 
-                <!-- L2: 来源目录 select 下拉框 -->
-                <section class="path-bar">
-                    <span class="path-label">来源目录：</span>
-                    <select id="sourceDirSelect" class="toolbar-select">
-                        <option value="">（未添加来源目录）</option>
-                    </select>
-                    <button type="button" class="btn btn-sm btn-primary toolbar-spacer" id="btnAddSourceDir">添加目录</button>
-                    <button type="button" class="btn btn-sm btn-open" id="btnOpenSourceDir">打开目录</button>
-                    <button type="button" class="btn btn-sm btn-danger-ghost" id="btnRemoveSourceDir">删除目录</button>
+                <!-- L2: 配置状态行（常态形态）
+                     一行只读摘要：来源目录只报数量（目录之间没有「当前项」概念），
+                     技能方案报当前生效的方案名；右侧「更改」就地展开完整配置区 -->
+                <section class="skill-config-bar">
+                    <div class="skill-config-status">
+                        <span class="skill-status-item">来源：<b id="skillSrcCount" class="skill-status-empty">未添加</b></span>
+                        <span class="skill-status-sep">·</span>
+                        <span class="skill-status-item">当前方案：<b id="skillPlanText" class="skill-status-empty">未应用</b><span class="skill-status-count" id="skillPlanCount"></span></span>
+                    </div>
+                    <button type="button" class="btn btn-sm skill-cfg-toggle" id="btnSkillCfgToggle" aria-expanded="false" aria-controls="skillCfgInline" title="展开 / 收起技能来源与方案配置">
+                        更改
+                        <svg class="skill-cfg-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
                 </section>
 
-                <!-- L3: 技能方案管理 -->
-                <section class="path-bar">
-                    <span class="path-label">技能方案：</span>
-                    <select id="skillSchemeSelect" class="toolbar-select">
-                        <option value="">（无可用方案）</option>
-                    </select>
-                    <button type="button" class="btn btn-sm btn-primary toolbar-spacer" id="btnSaveSkillScheme">方案入库</button>
-                    <button type="button" class="btn btn-sm btn-open" id="btnApplySkillScheme">应用方案</button>
-                    <button type="button" class="btn btn-sm btn-danger-ghost" id="btnDeleteSkillScheme">删除方案</button>
-                </section>
+                <!-- L3: 就地展开的配置区（点「更改」展开，把下方搜索与列表整体下推）
+                     两行布局：块标题独占一行，chip 与操作按钮在下一行。
+                     chip = 数据项（实线边框 + 浅色填充）；chip-action = 操作按钮（虚线 + 小圆角） -->
+                <div class="skill-cfg-inline" id="skillCfgInline">
+                    <div class="skill-cfg-inner">
+                        <!-- 来源目录：纯并列列表，点击 chip 主体即打开，不产生任何选中态 -->
+                        <div class="skill-cfg-block">
+                            <div class="skill-cfg-label">来源目录<span class="skill-cfg-n" id="skillDirCountBadge">0</span></div>
+                            <div class="chip-row" id="skillDirChips"></div>
+                        </div>
 
-                <!-- L4: 搜索栏（保持不变；path-bar-search 仅用于本页收紧行距与加分隔线） -->
+                        <!-- 技能方案：点击 chip 主体直接应用该方案（高亮 = 当前生效），✕ 删除，虚线按钮入库 -->
+                        <div class="skill-cfg-block">
+                            <div class="skill-cfg-label">技能方案<span class="skill-cfg-n" id="skillPlanCountBadge">0</span></div>
+                            <div class="chip-row" id="skillPlanChips"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- L4: 搜索栏（保持不变；path-bar-search 仅用于本页收紧行距，
+                     分隔线由上方状态行 / 展开配置区的 border-bottom 提供） -->
                 <section class="path-bar path-bar-search">
                     <span class="path-label">搜索：</span>
                     <input type="text" id="skillSearch" class="toolbar-input" placeholder="输入技能名称过滤..." />

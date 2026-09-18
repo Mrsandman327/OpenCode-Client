@@ -621,17 +621,318 @@ input::placeholder, textarea::placeholder {
 #view-skills .path-bar {
     padding: 5px 24px;
 }
-/* 搜索行与上方两组配置行之间加一条 1px 细分隔线，避免三行糊成一片；
-   同时给略多的上内边距（5 + 1 + 9 ≈ 15px），仍比原来的 20px 紧凑。
+/* 搜索行：分隔线由上方「配置状态行 / 展开的配置区」的 border-bottom 提供，
+   此处不再重复画上边框，避免折叠时两条 1px 线贴在一起形成 2px 双线。
    选择器带上 .path-bar 提高一级优先级，确保覆盖上方 padding 简写。 */
 #view-skills .path-bar.path-bar-search {
-    padding-top: 9px;
-    border-top: 1px solid var(--border);
+    padding-top: 5px;
+    padding-bottom: 9px;
 }
 #view-skills .skill-list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+}
+
+/* ============================================================
+   技能管理视图：顶部配置区（状态行 + 就地展开的 chip 配置区）
+   —— 作用域全部限定在 #view-skills 内，不影响其他页面
+   —— 常态只显示一行状态摘要；点「更改」就地展开，把下方搜索与列表整体下推
+   —— 来源目录只报数量（目录之间没有「当前项」）；技能方案报当前选中项
+   ============================================================ */
+
+/* 状态行：左侧一行摘要，右侧「更改」入口 */
+#view-skills .skill-config-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 24px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+#view-skills .skill-config-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    /* 状态摘要必须单行：中文可任意断行，不加 nowrap 会被压成竖排把状态行撑高 */
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#view-skills .skill-status-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+/* 标签之后的值部分加粗：让「3 个目录 / 未应用」等实际取值比标签更醒目。
+   用 600（semibold）而非 700（bold）——与页面既有强调字重
+   （.skill-cfg-label / .skill-cfg-n 均为 600）保持一致，醒目但不过重。
+   统一说明：无论值是否为空态，取值部分都走主色 + 600 加粗，不再按空态变色，
+   保证「来源」与「方案」两处取值样式完全一致；弱化色仅保留给标签部分。
+   注意：skill-status-empty 仍由 JS 增删，仅作状态标记，不再有专属样式 */
+#view-skills .skill-status-item b {
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 方案数量尾缀（如「共 3 个」）。不可收缩，
+   保证「有多个」这个关键信息永远不被方案名挤掉。
+   字重刻意保持常规：不加 font-weight 声明，继承到 400（普通字重）。
+   依据：状态行内并无字重设置，祖先链 .skill-status-item（无声明）
+   → .skill-config-status（无声明）→ body（400），故 computed 字重为 400。
+   它仅靠更小的字号（12px）与次要色（--text-muted）维持从属层级，
+   不与主值（.skill-status-item b 的 600 加粗）争抢视觉权重 */
+#view-skills .skill-status-count {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+#view-skills .skill-status-sep {
+    color: var(--border-light);
+}
+
+/* 「更改」入口：与其他操作按钮同属小圆角（btn-sm 已给出 --radius-sm） */
+#view-skills .skill-cfg-toggle {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+#view-skills .skill-cfg-chev {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* 展开时箭头翻转 180°，给出方向反馈 */
+#view-skills .skill-cfg-toggle[aria-expanded="true"] .skill-cfg-chev {
+    transform: rotate(180deg);
+}
+
+/* 就地展开的配置区：默认折叠（max-height:0 + 透明），展开时把下方内容整体下推 */
+#view-skills .skill-cfg-inline {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    background: var(--bg-primary);
+    border-bottom: 1px solid transparent;
+    flex-shrink: 0;
+    transition: max-height 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.2s ease,
+                border-color 0.2s ease;
+}
+#view-skills .skill-cfg-inline.open {
+    /* 两块 chip 行，留足余量避免展开动画末段被裁 */
+    max-height: 520px;
+    opacity: 1;
+    border-bottom-color: var(--border);
+}
+
+#view-skills .skill-cfg-inner {
+    padding: 12px 24px 14px;
+}
+
+/* 配置块：标题独占一行、chip 与操作按钮在下一行（两行布局） */
+#view-skills .skill-cfg-block + .skill-cfg-block {
+    margin-top: 14px;
+}
+
+#view-skills .skill-cfg-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+}
+
+/* 数量徽标：正面强调「来源目录 / 方案是多个」 */
+#view-skills .skill-cfg-n {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 2px 7px;
+    border-radius: var(--radius-pill);
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+
+#view-skills .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ============================================================
+   数据项 chip 与操作按钮的视觉区分
+   —— chip = 数据项（真实存在的目录 / 方案）：实线边框 + 浅色填充
+   —— 操作 = 动作（添加目录 / 入库）：虚线边框 + 透明底
+              + 更弱字重 + 小圆角
+   三重差异（边框样式 / 底色 / 字重）叠加，保证一眼可分；
+   全部沿用既有 CSS 变量，深浅主题自动适配
+   ============================================================ */
+
+/* chip：外层负责边框与状态，内部放「主操作 + 删除」两个按钮，
+   避免 button 套 button 的非法结构，视觉上仍是一个完整 chip */
+#view-skills .chip {
+    display: inline-flex;
+    align-items: center;
+    /* 实线 + 浅灰填充 = 「存在的实体」。
+       填充色用 --bg-secondary 而非 --bg-input：浅色主题下容器本身是纯白，
+       若 chip 也用纯白则「填充」这一层区分会消失 */
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--bg-secondary);
+    overflow: hidden;
+    transition: border-color var(--transition), background var(--transition);
+}
+#view-skills .chip:hover {
+    border-color: var(--border-light);
+}
+/* 选中态只用于技能方案；来源目录 chip 永远不会带 .active */
+#view-skills .chip.active {
+    border-color: var(--accent);
+    background: var(--accent-ghost);
+}
+
+#view-skills .chip-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px 5px 11px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color var(--transition);
+}
+#view-skills .chip-main:hover {
+    color: var(--accent);
+}
+/* Web 端目录 chip 主体：不承诺「打开本地目录」（环境限制），
+   用默认光标弱化可点击暗示、hover 也不再变强调色；
+   但文字保持可读、chip 完整显示，目录名信息仍然可见 */
+#view-skills .chip-main--noop,
+#view-skills .chip-main--noop:hover {
+    cursor: default;
+    color: var(--text-secondary);
+}
+#view-skills .chip.active .chip-main {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* 应用进行中态：chip 降透明度，主体与 ✕ 同时禁用（配合 disabled 属性），
+   避免异步应用未完成时连点重复触发；禁用期间不再显示 hover 强调色 */
+#view-skills .chip--busy {
+    opacity: 0.55;
+}
+#view-skills .chip-main:disabled,
+#view-skills .chip-x:disabled {
+    cursor: default;
+}
+#view-skills .chip-main:disabled:hover {
+    color: var(--text-secondary);
+}
+#view-skills .chip.active .chip-main:disabled:hover {
+    color: var(--accent);
+}
+
+/* 目录 chip 上的短路径：等宽字体，便于快速辨识 */
+#view-skills .chip-path {
+    font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+    font-size: 11.5px;
+}
+
+/* chip 上的删除按钮（✕ 图标）：默认淡显，hover chip 时完全显现。
+   既弱化低频的删除动作，又不把入口藏到难以发现 */
+#view-skills .chip-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 10px 5px 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    opacity: 0.5;
+    cursor: pointer;
+    transition: color var(--transition), opacity var(--transition);
+}
+#view-skills .chip:hover .chip-x,
+#view-skills .chip:focus-within .chip-x,
+#view-skills .chip-x:hover,
+#view-skills .chip-x:focus-visible {
+    opacity: 1;
+}
+#view-skills .chip-x:hover {
+    color: var(--danger);
+}
+
+/* 操作按钮（+ 添加目录 / + 入库）：
+   虚线边框 + 透明底 + 更弱字重 + 小圆角，明确读作「动作」而非「数据项」。
+   与 chip 的对比点：边框 虚线↔实线 / 底色 透明↔填充 / 字重 400↔500 / 圆角 小↔胶囊 */
+#view-skills .chip-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border: 1px dashed var(--border-light);
+    /* 小圆角（非胶囊），与数据项 chip 的胶囊形拉开差异 */
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+#view-skills .chip-action:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-ghost);
+}
+
+/* chip 与操作按钮内的内联 SVG 图标（线性 stroke 风格，不用 emoji） */
+#view-skills .cfg-i {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* OpenCode 视图：web 嵌入 */
@@ -6215,9 +6516,6 @@ input::placeholder, textarea::placeholder {
 }
 
 /* 方案管理 + 来源目录按钮 Apple 风格 */
-#btnApplySkillScheme { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm);}
-#btnApplySkillScheme:hover { background: var(--accent-hover); }
-#btnApplySkillScheme:active { transform: scale(0.97); }
 #btnDeleteSkillScheme { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-sm); }
 #btnDeleteSkillScheme:hover { background: var(--danger-bg); }
 #btnDeleteSkillScheme:active { transform: scale(0.97); }

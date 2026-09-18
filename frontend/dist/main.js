@@ -45,7 +45,7 @@ import {
 import {
     loadSkillsData, renderSkillList, bindSkillManagerEvents,
     addSourceDir, removeSourceDir, openSelectedSourceDir,
-    saveSkillScheme, deleteSkillScheme, applySkillScheme,
+    saveSkillScheme, deleteSkillScheme,
 } from './views/skill-manager.js';
 import {
     renderCommandsCard, renderApiDocs, apiDocLoaded,
@@ -449,9 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnDeleteSkillScheme')?.addEventListener('click', async () => {
         if (typeof deleteSkillScheme === 'function') await deleteSkillScheme();
     });
-    document.getElementById('btnApplySkillScheme')?.addEventListener('click', async () => {
-        if (typeof applySkillScheme === 'function') await applySkillScheme();
-    });
+    // 注：「应用方案」按钮已移除，应用动作改由方案 chip 主体点击触发（见 skill-manager.js）
 
 
     // ========================
