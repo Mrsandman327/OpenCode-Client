@@ -244,6 +244,22 @@ func GetProjectTree(knownDirs string) string {
 	for _, project := range projects {
 		extraDirs = append(extraDirs, project.Worktree)
 	}
+
+	// 自动发现所有会话目录：从全量会话列表提取 directory 字段。
+	// 必要性：Web 端浏览器的 localStorage 与桌面 WebView2 隔离，knownDirs 为空；
+	// 若不自动发现，未注册为 opencode 项目、但建过会话的目录（如当前工作目录）的会话将丢失。
+	if respAll, errAll := client.Get(base + "/session?limit=1000"); errAll == nil {
+		bodyAll, _ := io.ReadAll(respAll.Body)
+		respAll.Body.Close()
+		var discovered []treeSession
+		if json.Unmarshal(bodyAll, &discovered) == nil {
+			for _, s := range discovered {
+				if s.Directory != "" {
+					extraDirs = append(extraDirs, s.Directory)
+				}
+			}
+		}
+	}
 	//去重
 	deduplicateInPlace := func(s []string) []string {
 		if len(s) == 0 {
