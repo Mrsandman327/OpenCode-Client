@@ -98,20 +98,26 @@ func pathsEqual(a, b string) bool {
 	return cleanedA == cleanedB
 }
 
-// hasSkillDir 检查目录（及其子目录）中是否包含 SKILL.md 文件。
-func hasSkillDir(dir string) bool {
+// hasSkillDir 检查目录下是否存在技能（即某个子目录中包含 SKILL.md）。
+// depth 为已下探层数（传入目录为 0），最多下探 maxScanDepth 层，
+// 与扫描逻辑（scanSourceRecursive / scanDir）保持一致：
+// 只有落在允许层数内的技能才算有效，避免「添加时校验通过、扫描时却找不到」的割裂。
+func hasSkillDir(dir string, depth int) bool {
+	if depth >= maxScanDepth {
+		return false
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return false
 	}
 	for _, entry := range entries {
-		entryPath := filepath.Join(dir, entry.Name())
 		if entry.IsDir() {
+			entryPath := filepath.Join(dir, entry.Name())
 			skillMDPath := filepath.Join(entryPath, "SKILL.md")
 			if _, err := os.Stat(skillMDPath); err == nil {
 				return true
 			}
-			if hasSkillDir(entryPath) {
+			if hasSkillDir(entryPath, depth+1) {
 				return true
 			}
 		}
@@ -137,7 +143,7 @@ func AddSourceDir(dir string, globalDir string) (*model.SkillConfig, error) {
 	if err == nil && pathsEqual(normalized, normalizedGlobal) {
 		return nil, fmt.Errorf("不能添加 opencode 全局技能目录: %s", normalized)
 	}
-	if !hasSkillDir(normalized) {
+	if !hasSkillDir(normalized, 0) {
 		return nil, fmt.Errorf("该目录中未包含有效技能: %s", normalized)
 	}
 	cfg, err := LoadSkillConfig()

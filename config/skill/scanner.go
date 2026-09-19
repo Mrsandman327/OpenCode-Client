@@ -34,9 +34,19 @@ func (m *Manager) SourceDir() string {
 	return m.globalDir
 }
 
+// maxScanDepth 限制技能目录的递归深度：最多下探两层。
+// 层数计数基准为「来源根目录的直接子目录 = 第 1 层」：
+//   - 第 1 层技能：<来源根>/<技能名>/SKILL.md
+//   - 第 2 层技能：<来源根>/<分组>/<技能名>/SKILL.md
+//
+// 第 3 层及更深不再扫描。设置上限的原因：来源目录由用户自由指定，
+// 一旦误选为大目录（例如用户主目录），不设上限会全盘遍历，
+// 既拖慢扫描又会扫出大量无关技能。
+const maxScanDepth = 2
+
 // GetAllSkills 扫描 opencode 技能目录，兼容软链接和真实目录。
 func (m *Manager) GetAllSkills() []model.SkillInfo {
-	skills := m.scanDir(m.globalDir, "global", "")
+	skills := m.scanDir(m.globalDir, "global", "", 0)
 	for i := range skills {
 		skills[i].NoSources = true
 		skills[i].Enableable = false
@@ -46,12 +56,16 @@ func (m *Manager) GetAllSkills() []model.SkillInfo {
 
 // ScanSourceDir 扫描单个来源目录并返回该目录下所有技能的来源信息。
 func (m *Manager) ScanSourceDir(dir string, sourceName string) []model.AggregatedSourceInfo {
-	return m.scanSourceRecursive(dir, sourceName, "")
+	return m.scanSourceRecursive(dir, sourceName, "", 0)
 }
 
 // scanSourceRecursive 递归扫描目录，查找所有包含 SKILL.md 的子目录。
-func (m *Manager) scanSourceRecursive(dir, sourceName, prefix string) []model.AggregatedSourceInfo {
+// depth 为当前已下探的层数（来源根目录为 0）；达到 maxScanDepth 后立即返回，不再深入。
+func (m *Manager) scanSourceRecursive(dir, sourceName, prefix string, depth int) []model.AggregatedSourceInfo {
 	var result []model.AggregatedSourceInfo
+	if depth >= maxScanDepth {
+		return result
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return result
@@ -67,7 +81,7 @@ func (m *Manager) scanSourceRecursive(dir, sourceName, prefix string) []model.Ag
 		if _, err := os.Stat(skillMD); err != nil {
 			info, err2 := os.Stat(skillPath)
 			if err2 == nil && info.IsDir() {
-				subResults := m.scanSourceRecursive(skillPath, sourceName, relName)
+				subResults := m.scanSourceRecursive(skillPath, sourceName, relName, depth+1)
 				result = append(result, subResults...)
 			}
 			continue
@@ -76,7 +90,7 @@ func (m *Manager) scanSourceRecursive(dir, sourceName, prefix string) []model.Ag
 			Path:   skillPath,
 			Source: sourceName,
 		})
-		subResults := m.scanSourceRecursive(skillPath, sourceName, relName)
+		subResults := m.scanSourceRecursive(skillPath, sourceName, relName, depth+1)
 		result = append(result, subResults...)
 	}
 	return result
@@ -171,8 +185,12 @@ func (m *Manager) ScanWithGlobal(dirs []string) []model.SkillInfo {
 }
 
 // scanDir 递归扫描目录，兼容软链接和真实目录。
-func (m *Manager) scanDir(dir, source, prefix string) []model.SkillInfo {
+// depth 语义与 scanSourceRecursive 一致：传入目录为 0，达到 maxScanDepth 后不再深入。
+func (m *Manager) scanDir(dir, source, prefix string, depth int) []model.SkillInfo {
 	skills := make([]model.SkillInfo, 0)
+	if depth >= maxScanDepth {
+		return skills
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return skills
@@ -188,7 +206,7 @@ func (m *Manager) scanDir(dir, source, prefix string) []model.SkillInfo {
 		if _, err := os.Stat(skillMD); err != nil {
 			info, err2 := os.Stat(skillPath)
 			if err2 == nil && info.IsDir() {
-				subSkills := m.scanDir(skillPath, source, relName)
+				subSkills := m.scanDir(skillPath, source, relName, depth+1)
 				skills = append(skills, subSkills...)
 			}
 			continue
@@ -211,7 +229,7 @@ func (m *Manager) scanDir(dir, source, prefix string) []model.SkillInfo {
 			Linked:      linked,
 			Source:      source,
 		})
-		subSkills := m.scanDir(skillPath, source, relName)
+		subSkills := m.scanDir(skillPath, source, relName, depth+1)
 		skills = append(skills, subSkills...)
 	}
 	return skills
