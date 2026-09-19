@@ -364,29 +364,17 @@ export async function deleteModelType(entryType, entryCount) {
     showToast(`已删除类型 ${entryType}`, 'success');
 }
 
+// 添加 OMO 配置类型：直接使用系统原生输入框（与「会话重命名」/分类重命名同一交互），
+// 不再自绘模态弹窗。函数名与导出保持不变，main.js 的按钮绑定无需改动。
 export function showAddTypeModal() {
-    const old = document.querySelector('.modal-overlay');
-    if (old) old.remove();
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-        <div class="modal">
-            <h3>添加OMO 配置类型</h3>
-            <div class="modal-field"><label>类型名称（section）</label><input id="modalTypeKey" placeholder="如 agents / categories / reviewers" /></div>
-            <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAddType">取消</button><button class="btn btn-primary" id="btnConfirmAddType">➕ 添加类型</button></div>
-        </div>`;
-    document.body.appendChild(overlay);
-    overlay.addEventListener('click', () => overlay.remove());
-    overlay.querySelector('.modal').addEventListener('click', (e) => e.stopPropagation());
-    overlay.querySelector('#btnCancelAddType').addEventListener('click', () => overlay.remove());
-    overlay.querySelector('#btnConfirmAddType').addEventListener('click', async () => {
-        const type = overlay.querySelector('#modalTypeKey').value.trim();
-        if (!type) { showToast('类型名称不能为空', 'error'); return; }
-        if (modelTypes.includes(type)) { showToast('类型已存在', 'error'); return; }
-        const result = await api.AddModelType(type);
+    const input = window.prompt('请输入新的OMO配置类型名称（section）：', '');
+    if (input === null) return; // 用户点击取消
+    const type = input.trim();
+    if (!type) { showToast('类型名称不能为空', 'error'); return; }
+    if (modelTypes.includes(type)) { showToast('类型已存在', 'error'); return; }
+    api.AddModelType(type).then(result => {
         if (!result.success) { showToast('添加类型失败: ' + (result.error || '未知错误'), 'error'); return; }
         modelTypes.push(type);
-        overlay.remove();
         renderModelConfig();
         checkUnsavedChanges();
         showToast(`已添加类型 ${type}`, 'success');
