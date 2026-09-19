@@ -4425,11 +4425,15 @@ input::placeholder, textarea::placeholder {
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    transition: box-shadow 0.15s ease;
+    /* 与技能 / 知识库卡片共用同一套悬浮层次（只换阴影档位，不做 hover 上浮） */
+    box-shadow: var(--card-shadow-float);
+    /* hover 时抬升 z-index 的定位参照，避免阴影被相邻卡片盖住 */
+    position: relative;
+    transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .provider-card:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow: var(--card-shadow-float-hover);
+    z-index: 1;
 }
 .provider-card-header {
     display: flex;
@@ -4611,7 +4615,6 @@ input::placeholder, textarea::placeholder {
     align-items: center;
     gap: 10px;
     padding: 8px 14px;
-    background: var(--bg-secondary);
     border: none;
     border-radius: var(--radius-sm);
     margin-bottom: 4px;
