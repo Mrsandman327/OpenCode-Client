@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('刷新模型列表失败: ' + (err.message || err), 'error');
         }
         btn.disabled = false;
-        btn.textContent = '🔄 刷新列表';
+        btn.textContent = '🔄 刷新';
     });
 
     document.getElementById('btnAddModelType').addEventListener('click', showAddTypeModal);
