@@ -37,6 +37,7 @@ import {
     closeFileBrowserModal, closeFileBrowserUploadConflictModal, refreshFileBrowser,
     openFileBrowserUploadPicker, handleBrowserUploadSelected, submitBrowserUpload,
     showFileBrowserRenameMode, switchFileBrowserMode, downloadCurrentFilePreview,
+    openFileBrowserModal,
 } from './filebrowser/browser.js';
 import {
     showAddTypeModal, loadModelConfig, handleSchemeSwitch, handleSchemeImport,
@@ -529,6 +530,20 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSkillsData();
     checkWebStatus();
     checkFrontendWebStatus();
+
+    // ============ 独立文件浏览器窗口模式 ============
+    // 桌面端多窗口 / 浏览器新标签页通过 ?view=filebrowser&root=...&git=1 进入：
+    // 自动全屏打开文件浏览器（复用同一份前端资源，rootDir 由 URL 参数传入，不依赖会话状态）。
+    (function initStandaloneFileBrowserMode() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('view') !== 'filebrowser') return;
+        var root = params.get('root') || '';
+        var withGit = params.get('git') === '1';
+        document.documentElement.classList.add('standalone-file-browser-mode');
+        var modal = document.getElementById('fileBrowserModal');
+        if (modal) modal.classList.add('file-browser-standalone');
+        openFileBrowserModal(root, withGit ? { features: ['git'] } : undefined);
+    })();
 });
 
 // ============================

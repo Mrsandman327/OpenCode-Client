@@ -22,7 +22,7 @@ import { isSessionBusy, smartScroll, updateSendButton, renderMessages } from './
 import { rememberKnownDir } from './tree.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
 import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
-import { openFileBrowserModal } from '../filebrowser/browser.js';
+import { openFileBrowserModal, openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 // 知识库 @ 引用：collectKnowledgeRefs 取引用全文注入发送 parts，clearKnowledgeRefs 在发送成功后清空引用区。
 // 该模块不识 session.js，无循环依赖。
 import { collectKnowledgeRefs, clearKnowledgeRefs, hasKnowledgeRefs } from './knowledge-ref.js';
@@ -290,8 +290,8 @@ export async function selectSession(id) {
         dirEl.onclick = function() {
             var p = info?.directory || '';
             if (!p) return;
-            // 桌面端和 Web 端统一：都打开站内文件浏览器
-            openFileBrowserModal(p, { features: ['git'] });
+            // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）
+            openFileBrowserStandaloneFor(p, { features: ['git'] });
         };
     }
     // 创建并激活该会话容器，显示加载态
@@ -1106,7 +1106,8 @@ export async function sendPrompt() {
         await api.OpenCodeCall('POST', `/session/${encodeURIComponent(store.currentSessionId)}/prompt_async${directoryQuery}`, body);
         if (isNew) {
             dirEl.onclick = function() {
-                openFileBrowserModal(requestDir, { features: ['git'] });
+                // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）
+                openFileBrowserStandaloneFor(requestDir, { features: ['git'] });
             };
         }
         clearAttachments();

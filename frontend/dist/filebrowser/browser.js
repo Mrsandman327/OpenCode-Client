@@ -7,7 +7,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml } from '../core/utils.js';
+import { showToast, escapeHtml, isDesktopRuntime } from '../core/utils.js';
 import {
     renderGitFilePreview,
     renderGitHistoryFilePreview,
@@ -785,6 +785,32 @@ export function gitStatusClass(code) {
     if (c.indexOf('D') >= 0) return 'delete';
     if (c.indexOf('A') >= 0) return 'add';
     return 'modify';
+}
+
+/**
+ * 在独立窗口打开指定目录的文件浏览器（工作区点击目录入口直接调用，跳过模态）。
+ * - 桌面端（Wails）：后端 OpenFileBrowserWindow 创建原生多窗口
+ * - Web 端：新标签页打开 /?view=filebrowser&root=...&git=1
+ */
+export function openFileBrowserStandaloneFor(rootDir, options) {
+    if (!rootDir) {
+        showToast('当前没有可浏览的目录', 'error');
+        return;
+    }
+    var withGit = !!(options && Array.isArray(options.features) && options.features.indexOf('git') >= 0);
+    if (isDesktopRuntime()) {
+        // 桌面端：原生多窗口（失败时提示原因）
+        Promise.resolve(api.OpenFileBrowserWindow(rootDir, withGit)).catch(function (e) {
+            showToast('打开独立窗口失败: ' + (e && e.message ? e.message : e), 'error');
+        });
+    } else {
+        // Web 端：新标签页
+        var url = '/?view=filebrowser&root=' + encodeURIComponent(rootDir) + (withGit ? '&git=1' : '');
+        var win = window.open(url, '_blank');
+        if (!win) {
+            showToast('浏览器拦截了新窗口，请允许弹出窗口后重试', 'error');
+        }
+    }
 }
 
 export function openFileBrowserModal(rootDir, options) {

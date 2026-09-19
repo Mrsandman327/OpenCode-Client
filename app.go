@@ -7,6 +7,7 @@ import (
 	iofs "io/fs"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"oc-manager/config/omo"
 	"oc-manager/config/provider"
 	"oc-manager/config/skill"
+	"oc-manager/internal/logger"
 	"oc-manager/model"
 	"oc-manager/service/filebrowser"
 	"oc-manager/service/knowledge"
@@ -606,6 +608,30 @@ func executablePath() string {
 		return "."
 	}
 	return p
+}
+
+// OpenFileBrowserWindow 打开独立的文件浏览器窗口（桌面端 Wails 多窗口）。
+// 窗口加载同一份前端资源，通过 URL 参数（?view=filebrowser&root=...&git=1）进入独立窗口模式：
+// 前端启动时检测到该参数即自动全屏打开文件浏览器。浏览器（Web）端由前端直接 window.open 新标签页实现。
+func (a *App) OpenFileBrowserWindow(rootDir string, withGit bool) {
+	logger.Printf("[popout] OpenFileBrowserWindow 被调用: root=%q git=%v appNil=%v", rootDir, withGit, a.app == nil)
+	if a.app == nil || strings.TrimSpace(rootDir) == "" {
+		logger.Printf("[popout] 参数无效（app 为空或 rootDir 为空），跳过创建")
+		return
+	}
+	url := "/?view=filebrowser&root=" + url.QueryEscape(rootDir)
+	if withGit {
+		url += "&git=1"
+	}
+	win := a.app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:     "文件浏览 - " + rootDir,
+		Width:     1280,
+		Height:    820,
+		MinWidth:  720,
+		MinHeight: 480,
+		URL:       url,
+	})
+	logger.Printf("[popout] 窗口已创建: id=%d url=%s", win.ID(), url)
 }
 
 // StartFrontendWeb 启动页面访问服务。

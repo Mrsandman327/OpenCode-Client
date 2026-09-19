@@ -62,3 +62,10 @@ func (l *SysLog) Printf(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	l.logger.Println(msg)
 }
+
+// Printf 包级日志函数：Log 未初始化（如测试环境）时静默跳过，避免调用方反复判空。
+func Printf(format string, args ...any) {
+	if Log != nil {
+		Log.Printf(format, args...)
+	}
+}

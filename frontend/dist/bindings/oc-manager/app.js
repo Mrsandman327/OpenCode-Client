@@ -692,6 +692,18 @@ export function OpenDirectoryDialog() {
 }
 
 /**
+ * OpenFileBrowserWindow 打开独立的文件浏览器窗口（桌面端 Wails 多窗口）。
+ * 窗口加载同一份前端资源，通过 URL 参数（?view=filebrowser&root=...&git=1）进入独立窗口模式：
+ * 前端启动时检测到该参数即自动全屏打开文件浏览器。浏览器（Web）端由前端直接 window.open 新标签页实现。
+ * @param {string} rootDir
+ * @param {boolean} withGit
+ * @returns {$CancellablePromise<void>}
+ */
+export function OpenFileBrowserWindow(rootDir, withGit) {
+    return $Call.ByID(3110062565, rootDir, withGit);
+}
+
+/**
  * OpenSchemeDir 在文件资源管理器中打开方案目录。
  * @returns {$CancellablePromise<void>}
  */

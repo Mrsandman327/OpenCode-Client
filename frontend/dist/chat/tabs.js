@@ -16,7 +16,7 @@ import { updateScrollBottomButton, updateSendButton } from './render.js';
 import { loadSessionStatuses } from './events.js';
 import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
 import { resetUserNav, updateUserNav } from './search.js';
-import { openFileBrowserModal } from '../filebrowser/browser.js';
+import { openFileBrowserModal, openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { updateTreeActiveSession } from '../core/utils.js';
 
 /**
@@ -157,7 +157,8 @@ export function switchTab(sessionID) {
         dirEl.textContent = dirPath || sessionID;
         dirEl.title = dirPath || '';
         dirEl.onclick = function() {
-            if (dirPath) openFileBrowserModal(dirPath, { features: ['git'] });
+            // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）
+            if (dirPath) openFileBrowserStandaloneFor(dirPath, { features: ['git'] });
         };
     }
 
