@@ -24,12 +24,13 @@ import (
 	"oc-manager/service/projectconfig"
 	"oc-manager/service/web"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // App 是 Wails 应用的核心结构体，所有绑定到前端的方法都定义在此。
 type App struct {
 	ctx context.Context
+	app *application.App // v3 应用引用（由 main 注入），供事件/对话框/浏览器调用
 	sm  *skill.Manager
 }
 
@@ -40,21 +41,43 @@ func NewApp() *App {
 	}
 }
 
-// startup 在应用启动时调用
-func (a *App) startup(ctx context.Context) {
+// setApplication 注入 v3 应用引用（在 application.New 之后、app.Run 之前由 main 调用）。
+// 同时把桌面事件发射器注入 service 层，供 SSE 事件转发使用。
+func (a *App) setApplication(app *application.App) {
+	a.app = app
+	opencode.SetDesktopEmitter(&eventEmitter{app: app})
+}
+
+// eventEmitter 把 v3 的 Event.Emit 适配为 service 层的 DesktopEmitter 接口。
+type eventEmitter struct {
+	app *application.App
+}
+
+// Emit 实现 opencode.DesktopEmitter：向桌面端（WebView）转发事件。
+func (e *eventEmitter) Emit(name string, data ...any) {
+	e.app.Event.Emit(name, data...)
+}
+
+// ServiceStartup 在应用启动时调用（v3 Service 生命周期，替代 v2 的 OnStartup）。
+func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	a.ctx = ctx
+	return nil
 }
 
-// domReady 在 DOM 加载完成后调用，通知前端开始初始化。
-func (a *App) domReady(ctx context.Context) {
-	wruntime.EventsEmit(a.ctx, "app-ready")
+// emitAppReady 在窗口运行时（页面 DOM）就绪后通知前端开始初始化。
+// 由 main 包在窗口的 WindowRuntimeReady 事件中调用（替代 v2 的 OnDomReady）。
+func (a *App) emitAppReady() {
+	if a.app != nil {
+		a.app.Event.Emit("app-ready")
+	}
 }
 
-// shutdown 在应用关闭时调用，清理资源。
-func (a *App) shutdown(ctx context.Context) {
+// ServiceShutdown 在应用关闭时调用（v3 Service 生命周期，替代 v2 的 OnShutdown），清理资源。
+func (a *App) ServiceShutdown() error {
 	a.StopOpenCodeEvents()
 	a.StopOpenCodeWeb()
 	a.StopFrontendWeb()
+	return nil
 }
 
 // ========== 技能管理 ==========
@@ -241,7 +264,9 @@ func (a *App) OpenDir(path string) error {
 
 // OpenURL 用系统默认浏览器打开指定 URL（外部链接统一走这里，避免 WebView 导航离开工作台）。
 func (a *App) OpenURL(url string) {
-	wruntime.BrowserOpenURL(a.ctx, url)
+	if a.app != nil {
+		_ = a.app.Browser.OpenURL(url)
+	}
 }
 
 // GetStats 返回统计信息。
@@ -544,7 +569,7 @@ func (a *App) GetProjectTree(knownDirs string) string {
 
 // StartOpenCodeEvents 连接 opencode 全局 SSE。
 func (a *App) StartOpenCodeEvents() model.APIResult {
-	return opencode.StartOpenCodeEvents(a.ctx)
+	return opencode.StartOpenCodeEvents()
 }
 
 // StopOpenCodeEvents 停止 SSE 转发。
@@ -557,14 +582,30 @@ func (a *App) LaunchWindowsTerminal(mode, webURL, dir string) model.WebResult {
 	return opencode.LaunchWindowsTerminal(mode, webURL, dir)
 }
 
-// OpenDirectoryDialog 打开目录选择对话框。
+// OpenDirectoryDialog 打开目录选择对话框，返回所选目录路径（取消时返回空字符串）。
 func (a *App) OpenDirectoryDialog() string {
-	return opencode.OpenDirectoryDialog(a.ctx)
+	if a.app == nil {
+		return ""
+	}
+	dir, err := a.app.Dialog.OpenFile().
+		SetTitle("选择工作目录").
+		SetDirectory(filepath.Dir(executablePath())).
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		PromptForSingleSelection()
+	if err != nil {
+		return ""
+	}
+	return dir
 }
 
-// ShowConfirmDialog 显示原生确认对话框，桌面端替代 window.confirm。
-func (a *App) ShowConfirmDialog(title, message string) bool {
-	return opencode.ShowConfirmDialog(a.ctx, title, message)
+// executablePath 返回当前进程可执行文件的路径（作为目录选择对话框的默认目录）。
+func executablePath() string {
+	p, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	return p
 }
 
 // StartFrontendWeb 启动页面访问服务。

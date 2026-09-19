@@ -3,7 +3,6 @@ package opencode
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,14 +11,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"oc-manager/internal/executil"
 	"oc-manager/model"
@@ -419,39 +415,4 @@ func stringValue(value interface{}) string {
 	default:
 		return ""
 	}
-}
-
-// executablePath 返回当前进程可执行文件的路径。
-func executablePath() string {
-	p, err := os.Executable()
-	if err != nil {
-		return "."
-	}
-	return p
-}
-
-// OpenDirectoryDialog 打开目录选择对话框。
-func OpenDirectoryDialog(ctx context.Context) string {
-	dir, err := wruntime.OpenDirectoryDialog(ctx, wruntime.OpenDialogOptions{
-		Title:            "选择工作目录",
-		DefaultDirectory: filepath.Dir(executablePath()),
-	})
-	if err != nil {
-		return ""
-	}
-	return dir
-}
-
-// ShowConfirmDialog 显示原生确认对话框（QuestionDialog），返回 true=确定 / false=取消。
-// Wails WebView2 禁用了 window.confirm，此方法通过 OS 原生对话框替代。
-func ShowConfirmDialog(ctx context.Context, title, message string) bool {
-	res, err := wruntime.MessageDialog(ctx, wruntime.MessageDialogOptions{
-		Type:    wruntime.QuestionDialog,
-		Title:   title,
-		Message: message,
-	})
-	if err != nil {
-		return false
-	}
-	return res == "Yes"
 }

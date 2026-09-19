@@ -9,7 +9,7 @@
 
 import { store } from '../core/state.js';
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml, getCachedMessages, safeText } from '../core/utils.js';
+import { showToast, escapeHtml, getCachedMessages, safeText, isDesktopRuntime, loadWailsRuntime } from '../core/utils.js';
 import { loadMessages, refreshSessionTitle, selectSession } from './session.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
@@ -53,16 +53,24 @@ export function parseEventPayload(raw) {
     } catch { return { type: 'raw', data: raw }; }
 }
 
-/** 启动 SSE 事件流连接（Wails EventsOn / 浏览器 EventSource 双模式） */
+/** 启动 SSE 事件流连接（Wails v3 事件 / 浏览器 EventSource 双模式） */
 export function startEventStream() {
-    if (window.runtime && !startEventStream.bound) {
-        window.runtime.EventsOn('oc-event', (raw) => handleOcEvent(parseEventPayload(raw)));
-        window.runtime.EventsOn('oc-event-error', (msg) => {
-            showToast('事件流异常: ' + msg, 'error');
-        });
+    if (isDesktopRuntime() && !startEventStream.bound) {
+        // 桌面模式：订阅 wails3 运行时事件。
+        // 回调参数为 WailsEvent 对象（{ name, data, sender }），业务载荷在 ev.data。
         startEventStream.bound = true;
+        loadWailsRuntime().then((rt) => {
+            rt.Events.On('oc-event', (ev) => handleOcEvent(parseEventPayload(ev.data)));
+            rt.Events.On('oc-event-error', (ev) => {
+                showToast('事件流异常: ' + ev.data, 'error');
+            });
+        }).catch((err) => {
+            // 加载失败时复位标记，使下次调用有机会重试
+            startEventStream.bound = false;
+            showToast('事件流初始化失败: ' + (err && err.message ? err.message : err), 'error');
+        });
     }
-    if (!window.runtime && !startEventStream.eventSource) {
+    if (!isDesktopRuntime() && !startEventStream.eventSource) {
         const es = new EventSource('/events');
         startEventStream.eventSource = es;
         es.addEventListener('oc-event', (event) => handleOcEvent(parseEventPayload(event.data)));

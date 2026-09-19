@@ -934,6 +934,9 @@
     <input type="file" id="fileBrowserUploadInput" hidden />
     <!-- ES Modules 化：所有业务模块由 main.js 统一 import，依赖关系在模块内显式声明 -->
     <!-- lib 第三方库仍用普通 script 全局加载（marked、CodeMirror 均非 ESM 导出） -->
+    <!-- Wails v3 桌面运行时：仅桌面 WebView 提供 /wails/runtime.js（注入 window._wails 全局，
+         前端据此判定桌面环境并订阅 oc-event/app-ready 事件）；浏览器模式该请求 404，无副作用 -->
+    <script type="module" src="/wails/runtime.js"></script>
     <script src="/lib/codemirror-project-config.js"></script>
     <script type="module" src="/main.js"></script>
 </body>

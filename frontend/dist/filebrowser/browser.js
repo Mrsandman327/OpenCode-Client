@@ -573,9 +573,8 @@ export async function fileBrowserConfirmDelete(item) {
     var name = item && item.name ? item.name : '该条目';
     var typeLabel = item && item.type === 'dir' ? '文件夹' : '文件';
     var message = '确定删除' + typeLabel + '「' + name + '」吗？';
-    if (window.runtime && api.ShowConfirmDialog) {
-        return await api.ShowConfirmDialog('删除确认', message);
-    }
+    // 桌面（WebView2）与浏览器统一使用脚本原生确认框：
+    // wails v3 未禁用 WebView2 脚本对话框，window.confirm 可直接使用（与 window.prompt 同机制）。
     return confirm(message);
 }
 

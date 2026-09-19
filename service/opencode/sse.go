@@ -10,8 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"oc-manager/model"
 )
 
@@ -28,6 +26,27 @@ type BrowserSSEEvent struct {
 	Data string
 }
 
+// DesktopEmitter 抽象桌面端（Wails）的事件发射能力，避免本包直接依赖具体 GUI 框架。
+// main 包在应用启动时通过 SetDesktopEmitter 注入实现（内部调用 application.App.Event.Emit）。
+type DesktopEmitter interface {
+	Emit(name string, data ...any)
+}
+
+// desktopEmitter 当前注入的桌面事件发射器；为 nil 时（纯 Web 模式）事件仅走浏览器通道。
+var desktopEmitter DesktopEmitter
+
+// SetDesktopEmitter 注入桌面事件发射器（由 main 包在 application.New 之后调用）。
+func SetDesktopEmitter(e DesktopEmitter) {
+	desktopEmitter = e
+}
+
+// emitToDesktop 向桌面端发射事件；未注入发射器时静默跳过，保证纯 Web 模式可用。
+func emitToDesktop(name string, data any) {
+	if desktopEmitter != nil {
+		desktopEmitter.Emit(name, data)
+	}
+}
+
 const (
 	// browserSSEBufferSize 是每个浏览器 SSE 客户端的缓冲深度。
 	// 原值 32 在消息密集时（思考/正文/工具会产生大量 part 事件）极易被填满：
@@ -41,8 +60,8 @@ const (
 	sseLaggedEventName = "sse-lagged"
 )
 
-// StartOpenCodeEvents 连接 opencode 全局 SSE，并通过 Wails 事件转发给前端。
-func StartOpenCodeEvents(ctx context.Context) model.APIResult {
+// StartOpenCodeEvents 连接 opencode 全局 SSE，并通过桌面事件与浏览器 SSE 双通道转发给前端。
+func StartOpenCodeEvents() model.APIResult {
 	WebSessMu.Lock()
 	sess := WebSess
 	WebSessMu.Unlock()
@@ -62,12 +81,12 @@ func StartOpenCodeEvents(ctx context.Context) model.APIResult {
 	go func() {
 		req, err := http.NewRequestWithContext(sseCtx, http.MethodGet, url, nil)
 		if err != nil {
-			wruntime.EventsEmit(ctx, "oc-event-error", err.Error())
+			emitToDesktop("oc-event-error", err.Error())
 			return
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			wruntime.EventsEmit(ctx, "oc-event-error", err.Error())
+			emitToDesktop("oc-event-error", err.Error())
 			broadcastBrowserSSE("oc-event-error", err.Error())
 			return
 		}
@@ -82,12 +101,12 @@ func StartOpenCodeEvents(ctx context.Context) model.APIResult {
 			line := scanner.Text()
 			if strings.HasPrefix(line, "data:") {
 				payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-				wruntime.EventsEmit(ctx, "oc-event", payload)
+				emitToDesktop("oc-event", payload)
 				broadcastBrowserSSE("oc-event", payload)
 			}
 		}
 		if err := scanner.Err(); err != nil && sseCtx.Err() == nil {
-			wruntime.EventsEmit(ctx, "oc-event-error", err.Error())
+			emitToDesktop("oc-event-error", err.Error())
 			broadcastBrowserSSE("oc-event-error", err.Error())
 		}
 	}()

@@ -7,7 +7,7 @@
 // 模块导入（依赖关系显式声明）
 // ============================
 import { toggleTheme } from './core/theme.js';
-import { isBrowserRuntimeForMain, showToast } from './core/utils.js';
+import { isBrowserRuntimeForMain, showToast, isDesktopRuntime, loadWailsRuntime } from './core/utils.js';
 import { api } from './core/apicall.js';
 import { store } from './core/state.js';
 import {
@@ -73,9 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // 只拦截外部协议链接；锚点(#)和内部相对路径不拦
         if (/^(https?:|mailto:|tel:|file:)/i.test(href)) {
             e.preventDefault();
-            if (window.go && window.go.main && window.go.main.App && window.go.main.App.OpenURL) {
-                // 桌面端：交给 Go 用系统默认浏览器打开
-                window.go.main.App.OpenURL(href);
+            if (isDesktopRuntime()) {
+                // 桌面端：交给 Go 用系统默认浏览器打开（api.OpenURL 走 wails3 Browser 管理器）
+                api.OpenURL(href);
             } else {
                 // Web/手机端：新标签页打开，不离开当前工作台
                 window.open(href, '_blank');
@@ -515,20 +515,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Wails OnDomReady → 前端就绪后检测服务状态
-    if (window.runtime) {
-        window.runtime.EventsOn('app-ready', () => {
-            checkWebStatus();
-            checkFrontendWebStatus();
-        });
+    // Wails v3 窗口就绪（app-ready）→ 前端就绪后检测服务状态
+    if (isDesktopRuntime()) {
+        loadWailsRuntime().then((rt) => {
+            rt.Events.On('app-ready', () => {
+                checkWebStatus();
+                checkFrontendWebStatus();
+            });
+        }).catch(() => { /* 运行时加载失败时由下方初始检测兜底 */ });
     }
 
-    // 初始加载（非 Wails 环境）
+    // 初始加载：立即检测一次；桌面模式另由 app-ready 事件补一次检测（幂等）
     loadSkillsData();
-    if (!window.runtime) {
-        checkWebStatus();
-        checkFrontendWebStatus();
-    }
+    checkWebStatus();
+    checkFrontendWebStatus();
 });
 
 // ============================

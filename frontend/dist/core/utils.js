@@ -94,12 +94,30 @@ export function modelDisplayLabel(modelId) {
 }
 
 // ============================================================
-// 运行环境判定
+// 运行环境判定（Wails v3）
 // ============================================================
 
-/** 是否为纯浏览器环境（无 Wails runtime） */
+/** 是否运行在 Wails v3 桌面 WebView 中。
+ *  桌面模式由 /wails/runtime.js（index.html 中加载）注入 window._wails 全局对象；
+ *  浏览器/手机端不存在该对象，走自建 HTTP（/api/app-call）与 SSE（/events）通道。 */
+export function isDesktopRuntime() {
+    return typeof window._wails !== 'undefined';
+}
+
+/** 是否为纯浏览器环境（无 Wails runtime），保留原函数名供既有调用点使用 */
 export function isBrowserRuntimeForMain() {
-    return !window.runtime;
+    return !isDesktopRuntime();
+}
+
+/** 懒加载桌面运行时模块（/wails/runtime.js，仅桌面模式可加载成功）。
+ *  返回模块命名空间（含 Events 等导出），供事件订阅使用；
+ *  浏览器模式该路径 404，调用方需自行 catch 处理。 */
+let wailsRuntimePromise = null;
+export function loadWailsRuntime() {
+    if (!wailsRuntimePromise) {
+        wailsRuntimePromise = import('/wails/runtime.js');
+    }
+    return wailsRuntimePromise;
 }
 
 // ============================================================

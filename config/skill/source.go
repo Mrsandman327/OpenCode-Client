@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"oc-manager/internal/fileutil"
 	"oc-manager/model"
@@ -37,7 +38,8 @@ func SkillConfigPath() (string, error) {
 	return filepath.Join(dir, "skill-schemes", "skill-config.json"), nil
 }
 
-// LoadSkillConfig 读取并解析 skill-sources.json，文件不存在时返回空配置。
+// LoadSkillConfig 读取并解析 skill-config.json，文件不存在时返回空配置。
+// 文件损坏（空文件/非法 JSON）时自动备份损坏文件并回退为空配置，避免整个技能管理功能被永久卡死。
 func LoadSkillConfig() (*model.SkillConfig, error) {
 	path, err := SkillConfigPath()
 	if err != nil {
@@ -53,7 +55,11 @@ func LoadSkillConfig() (*model.SkillConfig, error) {
 	cleaned := fileutil.StripComments(string(data))
 	var cfg model.SkillConfig
 	if err := json.Unmarshal([]byte(cleaned), &cfg); err != nil {
-		return nil, fmt.Errorf("解析技能配置文件失败: %w", err)
+		// 容错自愈：损坏的配置不应导致「添加目录/移除目录」等全部操作失败。
+		// 备份损坏文件（保留现场供排查），随后返回空配置（下次保存时自动重建）。
+		backup := path + ".corrupt-" + time.Now().Format("20060102-150405")
+		_ = os.Rename(path, backup)
+		return &model.SkillConfig{}, nil
 	}
 	return &cfg, nil
 }

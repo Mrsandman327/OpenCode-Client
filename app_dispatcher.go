@@ -279,12 +279,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		return a.RejectQuestion(sessionID), nil
 	case "OpenDirectoryDialog":
 		return a.OpenDirectoryDialog(), nil
-	case "ShowConfirmDialog":
-		var title, message string
-		if err := decodeArgs(args, &title, &message); err != nil {
-			return nil, err
-		}
-		return a.ShowConfirmDialog(title, message), nil
 	case "LaunchWindowsTerminal":
 		var mode, webURL, dir string
 		if err := decodeArgs(args, &mode, &webURL, &dir); err != nil {

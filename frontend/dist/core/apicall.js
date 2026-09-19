@@ -1,11 +1,24 @@
 // ============================================================
 // OpenCode 管理中心 - Wails API 封装（含 mock 回退）
 // ============================================================
-// api 延迟绑定：Wails 就绪前脚本可能已执行，此时 window.go 不存在
-// 因此每次调用时先检测真实 API，就绪后自动切换
+// api 延迟绑定：wails3 绑定模块依赖 /wails/runtime.js（仅桌面 WebView 存在），
+// 浏览器模式加载会失败，因此采用「桌面判定 + 动态 import」策略：
+//   - 桌面模式（window._wails 存在）：动态加载 frontend/dist/bindings/oc-manager/app.js
+//   - 浏览器模式：走 webApi（fetch /api/app-call）与 mockApi 兜底
 
 import { store } from './state.js';
-import { showToast } from './utils.js';
+import { showToast, isDesktopRuntime } from './utils.js';
+
+// 桌面绑定模块懒加载（wails3 generate bindings 生成，位于 dist/bindings/ 下）
+let desktopBindingsPromise = null;
+
+/** 加载桌面绑定模块，返回模块命名空间（含各服务方法的 PascalCase 导出） */
+function loadDesktopBindings() {
+    if (!desktopBindingsPromise) {
+        desktopBindingsPromise = import('../../bindings/oc-manager/app.js');
+    }
+    return desktopBindingsPromise;
+}
 
 export const api = new Proxy({}, {
     get(_, prop) {
@@ -38,8 +51,15 @@ export const api = new Proxy({}, {
                 }
             };
         }
-        if (window.go && window.go.main && window.go.main.App && window.go.main.App[prop]) {
-            return window.go.main.App[prop];
+        if (isDesktopRuntime()) {
+            // 桌面模式：统一走 wails3 绑定（首次调用时动态加载绑定模块并转发到对应方法）
+            return (...args) => loadDesktopBindings().then((mod) => {
+                const fn = mod[prop];
+                if (typeof fn !== 'function') {
+                    throw new Error('桌面绑定缺少方法: ' + String(prop));
+                }
+                return fn(...args);
+            });
         }
         if (webApi[prop]) {
             return webApi[prop];
