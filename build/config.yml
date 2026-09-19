@@ -1,0 +1,62 @@
+# This file contains the configuration for this project.
+# When you update `info` or `fileAssociations`, run `wails3 task common:update:build-assets` to update the assets.
+# Note that this will overwrite any changes you have made to the assets.
+version: '3'
+
+# This information is used to generate the build assets.
+info:
+  companyName: "Linsn" # The name of the company
+  productName: "OC Manager" # The name of the application
+  productIdentifier: "com.linsn.ocmanager" # The unique product identifier
+  description: "OpenCode 全能工作台（桌面 / 浏览器 / 手机三端）" # The application description
+  copyright: "(c) 2026, Linsn" # Copyright text
+  comments: "OC Manager" # Comments
+  version: "1.0.0" # The application version
+
+# Dev mode configuration
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - .codegraph
+      - .omo
+      - .opencode
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+      - "*.js"
+      - "*.html"
+      - "*.css"
+    git_ignore: true
+  executes:
+    - cmd: wails3 build DEV=true
+      type: blocking
+    - cmd: wails3 task run
+      type: primary
+
+# File Associations
+# More information at: https://v3.wails.io/noit/done/yet
+fileAssociations:
+#  - ext: wails
+#    name: Wails
+#    description: Wails Application File
+#    iconName: wailsFileIcon
+#    role: Editor
+#  - ext: jpg
+#    name: JPEG
+#    description: Image File
+#    iconName: jpegFileIcon
+#    role: Editor
+#    mimeType: image/jpeg  # (optional)
+
+# Other data
+other:
+  - name: My Other Data

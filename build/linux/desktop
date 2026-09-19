@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=My Product
+Comment=A demo-w3 application
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/demo-w3.exe %u
+Terminal=false
+Type=Application
+Icon=demo-w3.exe
+Categories=Utility;
+StartupWMClass=demo-w3.exe
+
+ 

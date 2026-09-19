@@ -44,6 +44,9 @@ func main() {
 		URL:              "/",
 	})
 
+	// 系统托盘：单击切换窗口显示，右键菜单（显示主窗口/退出）。
+	setupSystemTray(app, window)
+
 	// 页面运行时（DOM）就绪后通知前端开始初始化（替代 v2 的 OnDomReady）。
 	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(event *application.WindowEvent) {
 		myApp.emitAppReady()
