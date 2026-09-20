@@ -71,6 +71,8 @@ window.fileBrowserState = {
         stageLoadingPath: '',
         unstageLoadingPath: '',
         stageAllLoading: false,
+        // 变更树折叠状态：key = 组名 + '|' + 目录路径，值为 true 表示已折叠
+        collapsedDirs: {},
     },
 };
 
@@ -789,6 +791,25 @@ export function gitStatusClass(code) {
 }
 
 /**
+ * 将 git 提交时间格式化为「2026/09/10 12:34:12」。
+ * 后端用 --date=iso-strict 输出（如 2026-09-10T12:34:12+08:00），
+ * 优先按字符串截取以保留提交记录的原始时区时间，避免浏览器时区换算；
+ * 格式不符时回退 Date 解析（本地时区）。
+ */
+export function formatGitCommitDate(raw) {
+    if (!raw) return '';
+    var m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+        return m[1] + '/' + m[2] + '/' + m[3] + ' ' + m[4] + ':' + m[5] + ':' + (m[6] || '00');
+    }
+    var d = new Date(raw);
+    if (isNaN(d.getTime())) return String(raw);
+    var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' +
+        pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+/**
  * 在独立窗口打开指定目录的文件浏览器（工作区点击目录入口直接调用，跳过模态）。
  * - 桌面端（Wails）：后端 OpenFileBrowserWindow 创建原生多窗口
  * - Web 端：新标签页打开 /?view=filebrowser&root=...&git=1
@@ -1017,34 +1038,104 @@ export function renderFileBrowserGitGroup(title, files, groupName) {
     if (!files.length) {
         return html + '<div class="file-browser-empty">当前没有' + escapeHtml(title) + '文件</div></div>';
     }
-    html += files.map(function(item) {
-        var fullPath = item.path.replace(/^\//, '');
-        var displayName = item.name || fullPath;
-        var actionBtn = '';
-        var discardBtn = '<button type="button" class="file-browser-git-action-btn file-browser-git-discard-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="discard" title="撤销变更">↩</button>';
-        if (groupName === 'unstaged') {
-            actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="stage" title="加入暂存区" ' + (window.fileBrowserState.git.stageLoadingPath === item.path || window.fileBrowserState.git.stageAllLoading ? 'disabled' : '') + '>+</button>';
-        } else if (groupName === 'staged') {
-            actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="unstage" title="移出暂存区" ' + (window.fileBrowserState.git.unstageLoadingPath === item.path ? 'disabled' : '') + '>-</button>';
-        }
-        return '<div class="file-browser-git-item-row">' +
-            '<button type="button" class="file-browser-git-item" data-git-path="' + escapeHtml(item.path) + '" data-git-group="' + escapeHtml(groupName) + '">' +
-                '<span class="file-browser-git-status status-' + escapeHtml(gitStatusClass(item.statusCode || 'xx')) + '">' + escapeHtml(item.statusCode || '') + '</span>' +
-                '<span class="file-browser-git-text" title="' + escapeHtml(fullPath) + '">' +
-                    '<span class="file-browser-git-name">' + escapeHtml(displayName) + '</span>' +
-                    '<span class="file-browser-git-path">' + escapeHtml(fullPath) + '</span>' +
-                '</span>' +
-            '</button>' +
-            discardBtn +
-            actionBtn +
-        '</div>';
-    }).join('');
+    // 目录树渲染：按路径层级分组，目录可折叠
+    html += renderGitTreeNodes(buildGitFileTree(files), groupName, 0);
     html += '</div>';
     return html;
 }
 
+/**
+ * 把变更文件列表构建成目录树。
+ * 每个文件按 path 的 '/' 分段挂到树上；目录节点携带累计路径（折叠状态 key 用）。
+ */
+export function buildGitFileTree(files) {
+    var root = { name: '', path: '', children: {}, files: [] };
+    (files || []).forEach(function(item) {
+        var clean = String(item.path || '').replace(/^\//, '');
+        var parts = clean.split('/').filter(Boolean);
+        parts.pop(); // 去掉文件名，剩下目录段
+        var node = root;
+        var acc = '';
+        parts.forEach(function(seg) {
+            acc = acc ? acc + '/' + seg : seg;
+            if (!node.children[seg]) {
+                node.children[seg] = { name: seg, path: acc, children: {}, files: [] };
+            }
+            node = node.children[seg];
+        });
+        node.files.push(item);
+    });
+    return root;
+}
+
+/**
+ * 递归渲染变更树节点为 HTML：
+ * - 目录行（带展开箭头，点击折叠/展开）
+ * - 文件行（缩进 + 状态码 + 文件名 + 暂存/撤销按钮；完整路径放 title）
+ */
+export function renderGitTreeNodes(node, groupName, depth) {
+    var state = window.fileBrowserState;
+    var INDENT = 14;
+    var html = '';
+    var dirNames = Object.keys(node.children).sort(function(a, b) { return a.localeCompare(b); });
+    dirNames.forEach(function(dirName) {
+        var child = node.children[dirName];
+        var collapseKey = groupName + '|' + child.path;
+        var collapsed = !!(state.git.collapsedDirs && state.git.collapsedDirs[collapseKey]);
+        html += '<div class="file-browser-git-tree-dir" data-tree-dir="' + escapeHtml(collapseKey) + '"' +
+            ' style="padding-left:' + (depth * INDENT + 6) + 'px" title="' + escapeHtml(child.path) + '">' +
+            '<span class="file-browser-git-tree-toggle">' + (collapsed ? '⯈' : '▼') + '</span>' +
+            '<span class="file-browser-git-tree-icon">📁</span>' +
+            '<span class="file-browser-git-tree-name">' + escapeHtml(dirName) + '</span>' +
+        '</div>';
+        if (!collapsed) html += renderGitTreeNodes(child, groupName, depth + 1);
+    });
+    var fileList = node.files.slice().sort(function(a, b) {
+        return String(a.name || a.path).localeCompare(String(b.name || b.path));
+    });
+    fileList.forEach(function(item) {
+        html += renderGitTreeFileRow(item, groupName, depth, INDENT);
+    });
+    return html;
+}
+
+/** 渲染树中的单个文件行（保留状态码与暂存/撤销操作） */
+export function renderGitTreeFileRow(item, groupName, depth, indentUnit) {
+    var INDENT = indentUnit || 14;
+    var fullPath = String(item.path || '').replace(/^\//, '');
+    var displayName = item.name || fullPath;
+    var actionBtn = '';
+    var discardBtn = '<button type="button" class="file-browser-git-action-btn file-browser-git-discard-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="discard" title="撤销变更">↩</button>';
+    if (groupName === 'unstaged') {
+        actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="stage" title="加入暂存区" ' + (window.fileBrowserState.git.stageLoadingPath === item.path || window.fileBrowserState.git.stageAllLoading ? 'disabled' : '') + '>+</button>';
+    } else if (groupName === 'staged') {
+        actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="unstage" title="移出暂存区" ' + (window.fileBrowserState.git.unstageLoadingPath === item.path ? 'disabled' : '') + '>-</button>';
+    }
+    return '<div class="file-browser-git-item-row" style="padding-left:' + (depth * INDENT) + 'px">' +
+        '<button type="button" class="file-browser-git-item" data-git-path="' + escapeHtml(item.path) + '" data-git-group="' + escapeHtml(groupName) + '" title="' + escapeHtml(fullPath) + '">' +
+            '<span class="file-browser-git-status status-' + escapeHtml(gitStatusClass(item.statusCode || 'xx')) + '">' + escapeHtml(item.statusCode || '') + '</span>' +
+            '<span class="file-browser-git-text">' +
+                '<span class="file-browser-git-name">' + escapeHtml(displayName) + '</span>' +
+            '</span>' +
+        '</button>' +
+        discardBtn +
+        actionBtn +
+    '</div>';
+}
+
 export function bindCurrentGitFileEvents(bodyEl) {
     var state = window.fileBrowserState;
+
+    // 目录行点击：切换折叠状态并重渲染变更面板
+    bodyEl.querySelectorAll('.file-browser-git-tree-dir').forEach(function(dirEl) {
+        dirEl.addEventListener('click', function() {
+            var key = this.dataset.treeDir || '';
+            if (!key) return;
+            if (!state.git.collapsedDirs) state.git.collapsedDirs = {};
+            state.git.collapsedDirs[key] = !state.git.collapsedDirs[key];
+            renderFileBrowserGitSection();
+        });
+    });
 
     bodyEl.querySelectorAll('.file-browser-git-item').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -1141,11 +1232,10 @@ export function renderFileBrowserGitHistory(bodyEl) {
             }
         }
         return '<div class="file-browser-git-group">' +
-            '<button type="button" class="file-browser-git-item commit-item' + (expanded ? ' active' : '') + '" data-commit-hash="' + escapeHtml(item.hash) + '">' +
-                '<span class="file-browser-git-status status-modify">' + escapeHtml(item.shortHash || '') + '</span>' +
+            '<button type="button" class="file-browser-git-item commit-item' + (expanded ? ' active' : '') + '" data-commit-hash="' + escapeHtml(item.hash) + '" title="提交 ID：' + escapeHtml(item.hash) + '">' +
                 '<span class="file-browser-git-text" title="' + escapeHtml(item.subject || '') + '">' +
                     '<span class="file-browser-git-name">' + escapeHtml(item.subject || '(无标题提交)') + '</span>' +
-                    '<span class="file-browser-git-path">' + escapeHtml([item.author || '', item.date || ''].filter(Boolean).join(' · ')) + '</span>' +
+                    '<span class="file-browser-git-path">' + escapeHtml([item.author || '', formatGitCommitDate(item.date || '')].filter(Boolean).join(' · ')) + '</span>' +
                 '</span>' +
                 syncedIcon +
             '</button>' + fileHtml +

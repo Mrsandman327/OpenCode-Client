@@ -5627,6 +5627,14 @@ input::placeholder, textarea::placeholder {
     border-color: var(--danger);
     color: var(--danger);
 }
+/* 文件操作按钮（撤销/暂存）：默认不占位隐藏，悬停该文件行或键盘聚焦时显示 */
+.file-browser-git-item-row .file-browser-git-action-btn {
+    display: none;
+}
+.file-browser-git-item-row:hover .file-browser-git-action-btn,
+.file-browser-git-item-row:focus-within .file-browser-git-action-btn {
+    display: flex;
+}
 
 /* 未同步图标 */
 .file-browser-git-sync-icon {
@@ -5804,7 +5812,7 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    padding: 7px 8px;
+    padding: 4px 0px 4px 0px;
     border: none;
     background: transparent;
     color: var(--text-primary);
@@ -5812,6 +5820,7 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     text-align: left;
     font-size: 12px;
+    font-family: "SF Mono", "Cascadia Code", monospace;
 }
 .file-browser-git-item:hover {
     background: var(--bg-card-hover);
@@ -5887,6 +5896,41 @@ input::placeholder, textarea::placeholder {
     font-family: "SF Mono", "Cascadia Code", monospace;
     font-size: 10px;
     color: var(--text-muted);
+}
+/* ===== 变更文件目录树 ===== */
+.file-browser-git-tree-dir {
+    display: flex;
+    align-items: center;
+    gap: 0px;
+    padding: 1px 1px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    user-select: none;
+    -webkit-user-select: none;
+    font-family: "SF Mono", "Cascadia Code", monospace;
+}
+.file-browser-git-tree-dir:hover {
+    background: var(--bg-card-hover);
+}
+.file-browser-git-tree-toggle {
+    flex-shrink: 0;
+    width: 12px;
+    font-size: 9px;
+    line-height: 1;
+    color: var(--text-muted);
+    text-align: center;
+}
+.file-browser-git-tree-icon {
+    flex-shrink: 0;
+    font-size: 12px;
+}
+.file-browser-git-tree-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .file-browser-git-history-files {
     padding: 0 0 0 10px;
