@@ -861,7 +861,7 @@ export function openFileBrowserModal(rootDir, options) {
         unstageLoadingPath: '',
         stageAllLoading: false,
     };
-    if (title) title.textContent = '文件浏览 - ' + (rootDir || '');
+    if (title) title.textContent = '文件管理 - ' + (rootDir || '');
     if (hasExtraFeatures) {
         modal.classList.remove('file-browser-compact');
     } else {

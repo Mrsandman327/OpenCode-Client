@@ -5335,6 +5335,7 @@ input::placeholder, textarea::placeholder {
     height: 96vh;
     display: flex;
     flex-direction: column;
+    padding: 10px;
 }
 /* 独立窗口模式（?view=filebrowser）：文件浏览器铺满整个窗口（无模态边距/圆角） */
 #fileBrowserModal.file-browser-standalone {
@@ -5347,7 +5348,6 @@ input::placeholder, textarea::placeholder {
     box-shadow: none;
 }
 .file-browser-modal .modal-header {
-    padding: 0px 12px 16px 16px;
     border-bottom: 1px solid var(--border);
 }
 .file-browser-modal .modal-header h3 {
