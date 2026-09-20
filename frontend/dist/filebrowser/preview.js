@@ -163,10 +163,15 @@ export function isFileBrowserDarkTheme(theme) {
 export function destroyFileBrowserEditor() {
     var state = window.fileBrowserState;
     stopFileBrowserSearchButtonSync();
+    if (state && state.previewDiffInstance && state.previewDiffInstance.destroy) {
+        // git diff 视图：销毁左右双编辑器实例
+        state.previewDiffInstance.destroy();
+    }
     if (state && state.previewEditorInstance && window.ProjectConfigCodeEditor) {
         window.ProjectConfigCodeEditor.destroy(state.previewEditorInstance);
     }
     if (state) {
+        state.previewDiffInstance = null;
         state.previewEditorInstance = null;
     }
 }
@@ -199,6 +204,8 @@ export function clearFileBrowserPreview() {
     state.previewEditorValue = '';
     state.previewOriginalContent = '';
     state.previewEditorInstance = null;
+    state.previewDiffInstance = null;
+    state.gitPreviewPath = '';
     state.previewSearchSyncTimer = null;
     state.savingPreview = false;
     state.previewDownloadPath = '';
@@ -212,8 +219,13 @@ export function clearFileBrowserPreview() {
 
 export function syncFileBrowserEditorTheme(theme) {
     var state = window.fileBrowserState;
+    var isDark = isFileBrowserDarkTheme(theme);
+    if (state && state.previewDiffInstance && state.previewDiffInstance.setTheme) {
+        // git diff 视图：左右两个编辑器同步换肤
+        state.previewDiffInstance.setTheme(isDark);
+    }
     if (state && state.previewEditorInstance && window.ProjectConfigCodeEditor) {
-        window.ProjectConfigCodeEditor.setTheme(state.previewEditorInstance, isFileBrowserDarkTheme(theme));
+        window.ProjectConfigCodeEditor.setTheme(state.previewEditorInstance, isDark);
     }
 }
 
@@ -278,6 +290,26 @@ export function renderFilePreviewToolbar() {
     if (!actionsEl) return;
 
     var meta = state.previewMeta;
+
+    // Git 视图：渲染「保存」按钮。
+    // git 模式：diff 由 createDiff 实例提供（getValueRightClean + isDirty）：
+    //  - git-file（工作区 vs HEAD）：右上栏可编辑并可保存
+    //  - git-history（提交快照）：两侧均只读
+    if (state.previewMode === 'git' || state.previewMode === 'git-history') {
+        var diff = state.previewDiffInstance;
+        var canSave = state.previewMode === 'git' && diff && diff.isDirty() && !state.savingPreview;
+        var buttons = '';
+        if (state.previewMode === 'git') {
+            buttons = '<button type="button" class="btn btn-sm btn-primary" id="btnGitDiffSave"' +
+                (canSave ? '' : ' disabled') + '>' +
+                (state.savingPreview ? '保存中...' : '保存') + '</button>';
+        }
+        actionsEl.innerHTML = buttons;
+        var gSave = document.getElementById('btnGitDiffSave');
+        if (gSave) gSave.addEventListener('click', saveCurrentGitDiffPreview);
+        return;
+    }
+
     if (!meta || state.previewMode !== 'file' || !state.selectedItem || state.selectedItem.type !== 'file') {
         actionsEl.innerHTML = '';
         return;
@@ -664,14 +696,23 @@ export async function saveCurrentFilePreview() {
 /** 把当前预览文件的编辑状态存入缓存（切 tab / 关闭 tab 前调用） */
 export function saveFileTabState() {
     var state = window.fileBrowserState;
-    if (!state || state.previewMode !== 'file') return;
+    if (!state) return;
     var path = state.activeFileTabPath || (state.selectedItem && state.selectedItem.path);
     if (!path) return;
-    state.fileTabCache[path] = {
-        editorValue: state.previewEditorValue || '',
-        originalContent: state.previewOriginalContent || '',
-        renderMode: state.previewRenderMode || 'preview',
-    };
+    if (state.previewMode === 'file') {
+        state.fileTabCache[path] = {
+            editorValue: state.previewEditorValue || '',
+            originalContent: state.previewOriginalContent || '',
+            renderMode: state.previewRenderMode || 'preview',
+        };
+        return;
+    }
+    // git 模式：缓存右栏（工作区）编辑值，切 tab 不丢失未保存的修改
+    if (state.previewMode === 'git' && state.previewDiffInstance) {
+        state.fileTabCache[path] = {
+            gitRightContent: state.previewDiffInstance.getValueRight() || '',
+        };
+    }
 }
 
 /** 渲染文件 tab 栏（含切换 / 关闭事件） */
@@ -714,7 +755,7 @@ export function renderFileBrowserTabs() {
  */
 export function fileBrowserOpenFileTab(item) {
     var state = window.fileBrowserState;
-    if (!state || !item || item.type !== 'file') return;
+    if (!state || !item || (item.type !== 'file' && item.type !== 'git-file' && item.type !== 'git-history-file')) return;
     var path = item.path;
     // 1. 保存当前活动 tab 的编辑状态
     saveFileTabState();
@@ -727,6 +768,18 @@ export function fileBrowserOpenFileTab(item) {
     state.activeFileTabPath = path;
     state.selectedItem = item;
     renderFileBrowserTabs();
+    // git 变更文件：无编辑态缓存，重新拉取并渲染全文件对比视图。
+    // （普通文件与 git diff 在同一套 tab 栏里可互相切换）
+    if (item.type === 'git-file') {
+        // 切回 git 变更 tab 时恢复右栏未保存的编辑值（若存在缓存）
+        var gitCache = state.fileTabCache[path];
+        renderGitFilePreview(item.gitPath, gitCache ? gitCache.gitRightContent : undefined);
+        return;
+    }
+    if (item.type === 'git-history-file') {
+        renderGitHistoryFilePreview(item.commitHash, item.gitPath);
+        return;
+    }
     // 4. 从缓存恢复目标文件编辑状态（打开过则保留编辑内容/渲染模式）
     var cache = state.fileTabCache[path];
     if (cache) {
@@ -743,6 +796,47 @@ export function fileBrowserOpenFileTab(item) {
         state.previewRenderMode = 'preview';
         renderFilePreview(item, { skipMetaReload: false });
     }
+}
+
+/**
+ * 以 tab 打开一个 git 变更文件（diff 视图）。
+ * tab key 带 "git:" 前缀，与普通文件 tab 隔离（同名文件可同时开普通预览与 diff）；
+ * 标题加 ◆ 标记便于识别是 git 对比。
+ */
+export function fileBrowserOpenGitTab(gitPath, group) {
+    var state = window.fileBrowserState;
+    if (!state || !gitPath) return;
+    var clean = String(gitPath).replace(/^\//, '');
+    var parts = clean.split('/');
+    var name = parts[parts.length - 1] || clean;
+    var groupTag = group === 'staged' ? ' [已暂存]' : '';
+    fileBrowserOpenFileTab({
+        path: 'git:' + clean,
+        name: '◆ ' + name + groupTag,
+        type: 'git-file',
+        gitPath: gitPath
+    });
+}
+
+/**
+ * 以 tab 打开一个提交历史中的文件（diff 视图）。
+ * key 带 "git-history:" 前缀，与普通文件 / git 变更列表 tab 均隔离；
+ * 标题显示 ◆ 文件名 @前7位哈希。
+ */
+export function fileBrowserOpenGitHistoryTab(commitHash, gitPath) {
+    var state = window.fileBrowserState;
+    if (!state || !commitHash || !gitPath) return;
+    var clean = String(gitPath).replace(/^\//, '');
+    var parts = clean.split('/');
+    var name = parts[parts.length - 1] || clean;
+    var short = String(commitHash).slice(0, 7);
+    fileBrowserOpenFileTab({
+        path: 'git-history:' + short + ':' + clean,
+        name: '◆ ' + name + ' @' + short,
+        type: 'git-history-file',
+        gitPath: gitPath,
+        commitHash: commitHash
+    });
 }
 
 /** 切换到指定路径的 tab（复用打开逻辑：已存在则仅激活） */
@@ -937,12 +1031,42 @@ export function renderCSVPreview(content) {
     return html;
 }
 
-export async function renderGitFilePreview(path) {
+/**
+ * 将全量 diff 的 blocks 展平为行对列表。
+ * parseUnifiedDiffToBlocks 保证每个 block 的 left/right 长度恒等（appendPair 同步推进），
+ * 全量模式（-U1000000 覆盖整文件）下 blocks 即完整行对；左侧 del/右侧 add 的变更行
+ * 在对侧以 empty 行占位，前端据此重建等行数文档实现逐行对齐。
+ */
+export function buildGitPairRows(blocks) {
+    var rows = [];
+    (blocks || []).forEach(function(block) {
+        var L = block.left || [];
+        var R = block.right || [];
+        var n = L.length > R.length ? L.length : R.length;
+        for (var i = 0; i < n; i++) {
+            var l = L[i] || { kind: 'empty', oldNo: 0, newNo: 0, text: '' };
+            var r = R[i] || { kind: 'empty', oldNo: 0, newNo: 0, text: '' };
+            rows.push({
+                left: { text: l.text || '', no: l.oldNo || 0, kind: l.kind || 'empty' },
+                right: { text: r.text || '', no: r.newNo || 0, kind: r.kind || 'empty' }
+            });
+        }
+    });
+    return rows;
+}
+
+/**
+ * 渲染工作区 Git 变更的编辑器 diff 视图（左侧 HEAD 版本 / 右侧工作区版本）。
+ * presetRightContent 为 tab 缓存里恢复的右侧编辑值（未保存的编辑不因切 tab 丢失）；
+ * 传 undefined 表示无缓存，用后端返回的 rightContent。
+ */
+export async function renderGitFilePreview(path, presetRightContent) {
     var state = window.fileBrowserState;
     if (!state || !path) return;
     fileBrowserClearObjectURL();
     state.previewMode = 'git';
     state.selectedItem = null;
+    state.gitPreviewPath = path;
     updateFileBrowserDownloadButton(null);
     var titleEl = document.getElementById('filePreviewTitle');
     var metaEl = document.getElementById('filePreviewMeta');
@@ -953,17 +1077,33 @@ export async function renderGitFilePreview(path) {
     renderFilePreviewToolbar();
     try {
         var data = await fileBrowserApiGitPreview(state.rootDir, path);
-        if (!data.tracked) {
-            bodyEl.innerHTML = '<div class="git-preview-section">' +
-                '<div class="git-preview-section-title">未跟踪文件</div>' +
-                '<div class="file-browser-empty" style="padding:0 0 12px">当前文件尚未纳入 Git 管理，因此没有历史 diff。</div>' +
-                '<pre class="file-browser-code"><code class="hljs">' + fileBrowserHighlightCode(data.untrackedContent || '', '.' + ((data.path || '').split('.').pop() || '').toLowerCase()) + '</code></pre>' +
-                '</div>';
-            return;
+        var isUntracked = !data.tracked;
+        var blocks = (data.stagedBlocks && data.stagedBlocks.length) ? data.stagedBlocks : (data.unstagedBlocks || []);
+        var fullBlocks = !isUntracked && !!data.fullBlocks && blocks.length > 0;
+        // 行对模式下：由全量 blocks 展平行对；右文档由行对重建（含占位符）。
+        // tab 缓存（presetRightContent）是用户编辑过的行对右文档，仅当行数与当前行对
+        // 一致才采纳（用户增删行导致长度变化时丢弃缓存，用后端内容重建）。
+        var pairRows = fullBlocks ? buildGitPairRows(blocks) : null;
+        var presetDoc = null;
+        if (pairRows && typeof presetRightContent === 'string') {
+            if (presetRightContent.split('\n').length === pairRows.length) presetDoc = presetRightContent;
         }
-        bodyEl.innerHTML = '' +
-            renderGitSection('已暂存修改', data.stagedBlocks || [], data.hasStaged) +
-            renderGitSection('未暂存修改', data.unstagedBlocks || [], data.hasUnstaged);
+        // 非行对模式下的右栏内容：优先用 tab 缓存里未保存的编辑值
+        var rightContent = (typeof presetRightContent === 'string')
+            ? presetRightContent
+            : (isUntracked ? (data.untrackedContent || '') : (data.rightContent || ''));
+        renderGitDiffEditor({
+            fileName: ((data.path || path).split('/').pop() || ''),
+            leftTitle: isUntracked ? '（新文件，无旧版本）' : 'HEAD 版本',
+            rightTitle: isUntracked ? '工作区内容（可编辑）' : '工作区（可编辑）',
+            leftContent: isUntracked ? '' : (data.leftContent || ''),
+            rightContent: rightContent,
+            blocks: isUntracked ? [] : blocks,
+            fullBlocks: fullBlocks,
+            pairRows: pairRows,
+            presetRightDoc: presetDoc,
+            rightReadOnly: false
+        });
     } catch (err) {
         bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
     }
@@ -985,49 +1125,247 @@ export async function renderGitHistoryFilePreview(commitHash, path) {
     renderFilePreviewToolbar();
     try {
         var data = await fileBrowserApiGitHistoryPreview(state.rootDir, commitHash, path);
-        var blocks = data.blocks || [];
-        bodyEl.innerHTML = renderGitSection('提交修改', blocks, true);
+        renderGitDiffEditor({
+            fileName: (path.split('/').pop() || ''),
+            leftTitle: '父提交版本',
+            rightTitle: '当前提交版本（只读）',
+            leftContent: data.leftContent || '',
+            rightContent: data.rightContent || '',
+            blocks: data.blocks || [],
+            fullBlocks: !!data.fullBlocks,
+            rightReadOnly: true
+        });
     } catch (err) {
         bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
     }
 }
 
-export function renderGitSection(title, blocks, enabled) {
-    if (!enabled || !blocks || !blocks.length) {
-        return '<div class="git-preview-section">' +
-            '<div class="git-preview-section-title">' + escapeHtml(title) + '</div>' +
-            '<div class="file-browser-empty">当前没有' + escapeHtml(title) + '</div>' +
+/**
+ * 用左右两个 CodeMirror 编辑器渲染 diff 视图。
+ * opts: { fileName, leftTitle, rightTitle, leftContent, rightContent, blocks, fullBlocks, rightReadOnly }
+ * fullBlocks=true 且 blocks 非空时走「行对模式」（等行数 + 1:1 滚动）；
+ * 否则回退「独立双文档 + 比例滚动」模式（片段 diff 或未跟踪文件）。
+ */
+export function renderGitDiffEditor(opts) {
+    var state = window.fileBrowserState;
+    var bodyEl = document.getElementById('filePreviewBody');
+    if (!bodyEl || !window.ProjectConfigCodeEditor || !window.ProjectConfigCodeEditor.createDiff) return;
+    // 先销毁旧 diff 实例（切换文件 / tab / 刷新时复用）
+    if (state.previewDiffInstance) {
+        state.previewDiffInstance.destroy();
+        state.previewDiffInstance = null;
+    }
+    // 行对模式前置条件：全量 diff + 有 blocks 且编辑器 createDiff 返回 paired 实例
+    var usePaired = opts.fullBlocks && opts.blocks && opts.blocks.length;
+    var pairRows = usePaired ? (opts.pairRows || buildGitPairRows(opts.blocks)) : null;
+    bodyEl.innerHTML =
+        '<div class="file-browser-diff-wrap">' +
+            '<div class="file-browser-diff-pane">' +
+                '<div class="file-browser-diff-pane-title">' + escapeHtml(opts.leftTitle || '旧版本') + '</div>' +
+                '<div class="file-browser-code-editor" id="fileBrowserDiffLeft"></div>' +
+            '</div>' +
+            '<div class="file-browser-diff-divider"></div>' +
+            '<div class="file-browser-diff-pane">' +
+                '<div class="file-browser-diff-pane-title">' + escapeHtml(opts.rightTitle || '新版本') + '</div>' +
+                '<div class="file-browser-code-editor" id="fileBrowserDiffRight">' +
+                    // minimap 容器：位于编辑器可视区内右上角，行对模式下显示变更概览
+                    '<div class="file-browser-diff-minimap" id="fileBrowserDiffMinimap" style="display:none"></div>' +
+                '</div>' +
+            '</div>' +
         '</div>';
-    }
-    var html = '<div class="git-preview-section">' +
-            '<div class="git-preview-section-title">' + escapeHtml(title) + '</div>';
-    blocks.forEach(function(block) {
-        html += renderGitDiffBlock(block);
+    var leftMount = document.getElementById('fileBrowserDiffLeft');
+    var rightMount = document.getElementById('fileBrowserDiffRight');
+    if (!leftMount || !rightMount) return;
+    state.previewDiffInstance = window.ProjectConfigCodeEditor.createDiff(leftMount, rightMount, {
+        fileName: opts.fileName || '',
+        isDark: isFileBrowserDarkTheme(),
+        pairRows: pairRows,
+        presetRightDoc: opts.presetRightDoc,
+        leftContent: opts.leftContent || '',
+        rightContent: opts.rightContent || '',
+        blocks: opts.blocks || [],
+        rightReadOnly: !!opts.rightReadOnly,
+        onChangeRight: function(value) {
+            state.previewEditorValue = value || '';
+            renderFilePreviewToolbar();
+        }
     });
-    html += '</div>';
-    return html;
-}
-
-export function renderGitDiffBlock(block) {
-    var leftLines = block.left || [];
-    var rightLines = block.right || [];
-    var maxLen = Math.max(leftLines.length, rightLines.length);
-    var html = '<div class="git-diff-grid">';
-    for (var i = 0; i < maxLen; i++) {
-        var left = leftLines[i] || { kind: 'empty', oldNo: 0, newNo: 0, text: '' };
-        var right = rightLines[i] || { kind: 'empty', oldNo: 0, newNo: 0, text: '' };
-        html += renderGitDiffLine(left, 'left');
-        html += renderGitDiffLine(right, 'right');
+    // 行对模式：构建并显示滚动条 minimap
+    if (pairRows && state.previewDiffInstance && state.previewDiffInstance.paired) {
+        buildGitDiffMinimap(pairRows, state.previewDiffInstance);
     }
-    html += '</div>';
-    return html;
+    // 中间分隔条拖拽调节左右宽度（双击恢复等宽）
+    initGitDiffDivider();
+    state.previewOriginalContent = opts.rightContent || '';
+    renderFilePreviewToolbar();
 }
 
-export function renderGitDiffLine(line, side) {
-    var no = side === 'left' ? line.oldNo : line.newNo;
-    var noText = no ? String(no) : '';
-        return '<div class="git-diff-line ' + escapeHtml(line.kind || 'context') + '">' +
-            '<span class="git-diff-line-no">' + escapeHtml(noText) + '</span>' +
-            '<span class="git-diff-line-text">' + escapeHtml(line.text || '') + '</span>' +
-    '</div>';
+/**
+ * 构建滚动条 minimap（GitHub 风格）：
+ * - 按 pairRows 计算变更段：连续 del/add 行归并为一段，标记 删(add-only)/增(del-only)/改(混合)
+ * - 段位置与高度按行号比例线性映射（行对模式无折行、行高恒等，映射精确）
+ * - 视口指示条跟随左右编辑器滚动（行对模式两侧 1:1，监听一侧即可）
+ * - 点击段/任意位置 → scrollToRow(rowIndex) 两侧同步跳转
+ */
+export function buildGitDiffMinimap(rows, diff) {
+    var mmEl = document.getElementById('fileBrowserDiffMinimap');
+    if (!mmEl || !rows || !rows.length || !diff || !diff.right || !diff.scrollToRow) return;
+    // 1. 收集变更段
+    var segs = [];
+    var cur = null;
+    rows.forEach(function(r, i) {
+        var hasDel = (r.left && r.left.kind === 'del');
+        var hasAdd = (r.right && r.right.kind === 'add');
+        if (!hasDel && !hasAdd) {
+            if (cur) { segs.push(cur); cur = null; }
+            return;
+        }
+        if (!cur) {
+            cur = { start: i, end: i, hasDel: hasDel, hasAdd: hasAdd };
+        } else {
+            cur.end = i;
+            if (hasDel) cur.hasDel = true;
+            if (hasAdd) cur.hasAdd = true;
+        }
+    });
+    if (cur) segs.push(cur);
+    var total = rows.length;
+    // 2. 渲染色块
+    var html = '';
+    segs.forEach(function(s) {
+        var topPct = (s.start / total) * 100;
+        var hPct = ((s.end - s.start + 1) / total) * 100;
+        if (hPct < 0.4) hPct = 0.4; // 保证 1 行也可见
+        var cls = (s.hasDel && s.hasAdd) ? 'modified' : (s.hasDel ? 'del' : 'add');
+        html += '<div class="file-browser-diff-minimap-seg ' + cls + '" data-start="' + s.start + '"' +
+            ' style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%"></div>';
+    });
+    html += '<div class="file-browser-diff-minimap-viewport"></div>';
+    mmEl.innerHTML = html;
+    mmEl.style.display = 'block';
+    // 3. 视口指示条随滚动移动
+    var scrollDom = diff.left && diff.left.view ? diff.left.view.scrollDOM : null;
+    if (!scrollDom && diff.right && diff.right.view) scrollDom = diff.right.view.scrollDOM;
+    var vp = mmEl.querySelector('.file-browser-diff-minimap-viewport');
+    function updateMinimapViewport() {
+        if (!scrollDom || !vp) return;
+        var maxTop = scrollDom.scrollHeight - scrollDom.clientHeight;
+        var ratio = maxTop > 0 ? (scrollDom.scrollTop / maxTop) : 0;
+        // 指示条高度表示当前可视窗口占比
+        var vpH = (scrollDom.clientHeight / scrollDom.scrollHeight) * 100;
+        if (vpH > 100) vpH = 100;
+        vp.style.top = ratio * (100 - vpH) + '%';
+        vp.style.height = vpH + '%';
+    }
+    if (scrollDom) scrollDom.addEventListener('scroll', updateMinimapViewport);
+    updateMinimapViewport();
+    // 4. 点击跳转：点中色块跳到段首行；空白处按比例换算行号
+    mmEl.addEventListener('click', function(e) {
+        var target = e.target;
+        if (target && target.classList && target.classList.contains('file-browser-diff-minimap-seg')) {
+            var start = parseInt(target.dataset.start || '0', 10);
+            if (!isNaN(start)) diff.scrollToRow(start);
+            return;
+        }
+        var rect = mmEl.getBoundingClientRect();
+        var ratio = (e.clientY - rect.top) / rect.height;
+        if (ratio < 0 || ratio > 1) return;
+        var row = Math.min(total - 1, Math.floor(ratio * total));
+        diff.scrollToRow(Math.max(0, row));
+    });
 }
+
+/**
+ * 中间分隔条拖拽调节左右 diff 面板宽度：
+ * - mousedown 记录起始 X 与左侧 pane 当前宽，mousemove 实时改左侧 flex-basis
+ * - 最小宽度守卫（120px），右侧 pane 保持弹性撑满剩余空间
+ * - 双击分隔条恢复等宽（flex: 1 1 0）
+ * CodeMirror 自带 ResizeObserver，容器宽度变化后自动重排，无需额外通知。
+ */
+export function initGitDiffDivider() {
+    var bodyEl = document.getElementById('filePreviewBody');
+    if (!bodyEl) return;
+    var wrap = bodyEl.querySelector('.file-browser-diff-wrap');
+    if (!wrap) return;
+    var divider = wrap.querySelector('.file-browser-diff-divider');
+    if (!divider) return;
+    var panes = wrap.querySelectorAll('.file-browser-diff-pane');
+    if (panes.length < 2) return;
+    var leftPane = panes[0];
+    var rightPane = panes[1];
+    var MIN_W = 120;
+    var startX = 0;
+    var startLeftW = 0;
+    var dragging = false;
+
+    function clampPanes(leftW) {
+        var wrapW = wrap.clientWidth;
+        var maxW = wrapW - MIN_W - 8;
+        if (leftW < MIN_W) leftW = MIN_W;
+        if (leftW > maxW) leftW = maxW;
+        leftPane.style.flex = '0 0 ' + leftW + 'px';
+        rightPane.style.flex = '1 1 0';
+        rightPane.style.flexGrow = '1';
+    }
+    function onMove(e) {
+        if (!dragging) return;
+        var delta = e.clientX - startX;
+        clampPanes(startLeftW + delta);
+    }
+    function onUp() {
+        if (!dragging) return;
+        dragging = false;
+        document.body.classList.remove('file-browser-diff-dragging');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+    }
+    divider.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        dragging = true;
+        startX = e.clientX;
+        startLeftW = leftPane.getBoundingClientRect().width;
+        document.body.classList.add('file-browser-diff-dragging');
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+    // 双击恢复等宽
+    divider.addEventListener('dblclick', function() {
+        leftPane.style.flex = '';
+        leftPane.style.flex = '1 1 0';
+        rightPane.style.flex = '1 1 0';
+    });
+}
+
+/** 保存 git-file 视图右侧（工作区）的编辑内容到磁盘 */
+export async function saveCurrentGitDiffPreview() {
+    var state = window.fileBrowserState;
+    var diff = state.previewDiffInstance;
+    if (!state || !diff || state.previewMode !== 'git' || state.savingPreview) return;
+    var path = state.gitPreviewPath;
+    if (!path) return;
+    state.savingPreview = true;
+    renderFilePreviewToolbar();
+    try {
+        // 行对模式右文档含 \u200b 占位行，保存前必须过滤（getValueRightClean）；
+        // 非行对模式该函数等价于 getValueRight。
+        var result = await fileBrowserApiSave(state.rootDir, path, diff.getValueRightClean());
+        if (!result.success) {
+            showToast(result.error || '保存失败', 'error');
+            return;
+        }
+        diff.markClean();
+        showToast('保存成功', 'success');
+        // 保存后重新拉取 diff（工作区已变化，右栏与左栏应趋于一致）
+        await renderGitFilePreview(path);
+    } catch (err) {
+        showToast(err.message || '保存失败', 'error');
+    } finally {
+        state.savingPreview = false;
+        renderFilePreviewToolbar();
+    }
+}
+
+// ===== Git 改动跳转 =====
+// 上一处/下一处按钮已移除（滚动条 minimap 承担跳转职责，点击即达）；
+// 编辑器 diff 的跳转能力保留在 createDiff 实例的 scrollToRow（minimap 使用）。

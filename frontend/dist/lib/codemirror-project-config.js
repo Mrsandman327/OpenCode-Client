@@ -36518,13 +36518,40 @@
       function create(parent, options) {
         var languageCompartment = new Compartment();
         var themeCompartment = new Compartment();
+        var readOnlyCompartment = new Compartment();
         var startValue = String(options && options.content || "");
         var startTheme = !!(options && options.isDark);
         var fileName = options && options.fileName;
         var onChange = options && options.onChange;
+        // diff 视图专用：左侧传 'left'（标红删除行），右侧传 'right'（标绿新增行）
+        var diffSide = options && options.diffSide;
+        var diffBlocks = options && options.diffBlocks;
+        // 行对模式：lineKinds 为逐行 kind（'add'/'del'/'context'/null），编辑器文档与真实 diff 行一一对应
+        var lineKinds = options && options.lineKinds;
+        // 行对模式：gutterNumbers 为逐行显示的真实文件行号（null 表示该行是占位行，不显示行号）
+        var gutterNumbers = options && options.gutterNumbers;
+        // diff 逐行对齐依赖等行高：wrap=false 时禁止折行（长行横向滚动），行高恒等
+        var wrapEnabled = !(options && options.wrap === false);
         var updateListener2 = EditorView.updateListener.of(function(update) {
           if (update.docChanged && typeof onChange === "function") onChange(update.state.doc.toString());
         });
+        var extraExtensions = [];
+        // 只读控制：readOnly 为 true 时挂只读 facet（可用 readOnlyCompartment 动态切换）
+        if (options && options.readOnly) {
+          extraExtensions.push(readOnlyCompartment.of(EditorState.readOnly.of(true)));
+        }
+        // diff 行装饰插件：按 blocks 行号（旧方案）或 lineKinds 逐行标记（行对方案）高亮增删行
+        if (diffSide && lineKinds) {
+          extraExtensions.push(buildGitDiffPluginByKinds(diffSide, lineKinds));
+        } else if (diffSide && diffBlocks) {
+          extraExtensions.push(buildGitDiffPlugin(diffSide, diffBlocks));
+        }
+        // 行对模式：自定义行号列，按 gutterNumbers 显示真实文件行号，占位行无行号
+        if (gutterNumbers) {
+          extraExtensions.push(buildGitNumberGutter(gutterNumbers));
+          // basicSetup 自带的默认序列号列与自定义行号列会并存，这里按 view 隐藏默认列
+          extraExtensions.push(EditorView.theme({ '.cm-lineNumbers': { display: 'none' } }));
+        }
         var view = new EditorView({
           state: EditorState.create({
             doc: startValue,
@@ -36544,15 +36571,312 @@
                 ...completionKeymap
               ]),
               EditorState.phrases.of(zhPhrases),
-              EditorView.lineWrapping,
+              ...(wrapEnabled ? [EditorView.lineWrapping] : []),
               languageCompartment.of(getLanguageExtension(fileName)),
               themeCompartment.of(getThemeExtension(startTheme)),
-              updateListener2
+              updateListener2,
+              ...extraExtensions
             ]
           }),
           parent
         });
-        return { view, languageCompartment, themeCompartment, cleanValue: startValue };
+        return { view, languageCompartment, themeCompartment, readOnlyCompartment, cleanValue: startValue };
+      }
+      // 行对模式的 diff 装饰：lineKinds 数组与编辑器文档逐行对应。
+      // 左侧标红 del 行、右侧标绿 add 行；占位行（'placeholder'）加浅斜纹背景提示；
+      // 其余（null / context）不着色。
+      function buildGitDiffPluginByKinds(side, lineKinds) {
+        var markClass = side === 'left' ? 'cm-git-del-line' : 'cm-git-add-line';
+        var targetKind = side === 'left' ? 'del' : 'add';
+        function buildDecorations(view) {
+          var ranges = [];
+          var total = view.state.doc.lines;
+          var count = Math.min(lineKinds.length, total);
+          for (var i = 0; i < count; i++) {
+            var line = view.state.doc.line(i + 1);
+            var kind = lineKinds[i];
+            if (kind === targetKind) {
+              ranges.push(Decoration.line({ class: markClass }).range(line.from));
+            } else if (kind === 'placeholder') {
+              ranges.push(Decoration.line({ class: 'cm-git-placeholder-line' }).range(line.from));
+            }
+          }
+          return Decoration.set(ranges);
+        }
+        return ViewPlugin.fromClass(class {
+          constructor(view) {
+            this.decorations = buildDecorations(view);
+          }
+          update(update) {
+            if (update.docChanged) this.decorations = buildDecorations(update.view);
+          }
+        }, { decorations: function(v) { return v.decorations; } });
+      }
+      // 行对模式的自定义行号列：显示真实文件行号；null 对应占位行（空）。
+      function buildGitNumberGutter(gutterNumbers) {
+        var LineNoMarker = class extends GutterMarker {
+          constructor(text) {
+            super();
+            this.text = text;
+          }
+          toDOM() {
+            var span = document.createElement('span');
+            span.textContent = this.text;
+            span.className = 'cm-git-lno';
+            return span;
+          }
+        };
+        return gutter({
+          class: 'cm-git-no-gutter',
+          renderEmptyElements: false,
+          lineMarker: function(view, line) {
+            var t = gutterNumbers[line.number - 1];
+            return (t !== undefined && t !== null && t !== '') ? new LineNoMarker(String(t)) : null;
+          },
+          initialSpacer: function() { return new LineNoMarker('000'); }
+        });
+      }
+      // 依据 diff blocks 构建视图插件：左侧高亮 del 行（红），右侧高亮 add 行（绿）。
+      // side: 'left' | 'right'；blocks: 后端返回的 GitDiffBlock[]。
+      function buildGitDiffPlugin(side, blocks) {
+        var markClass = side === 'left' ? 'cm-git-del-line' : 'cm-git-add-line';
+        // 收集目标行号：左侧取 del 行的 oldNo，右侧取 add 行的 newNo（全文行号）
+        var lineNos = [];
+        (blocks || []).forEach(function(block) {
+          var arr = side === 'left' ? block.left : block.right;
+          (arr || []).forEach(function(l) {
+            var isTarget = side === 'left' ? l.kind === 'del' : l.kind === 'add';
+            var no = side === 'left' ? l.oldNo : l.newNo;
+            if (isTarget && no > 0) lineNos.push(no);
+          });
+        });
+        function buildDecorations(view) {
+          var ranges = [];
+          var total = view.state.doc.lines;
+          lineNos.forEach(function(no) {
+            if (no >= 1 && no <= total) {
+              var line = view.state.doc.line(no);
+              ranges.push(Decoration.line({ class: markClass }).range(line.from));
+            }
+          });
+          return Decoration.set(ranges);
+        }
+        return ViewPlugin.fromClass(class {
+          constructor(view) {
+            this.decorations = buildDecorations(view);
+          }
+          // 文档变化后按新行号重建装饰；行号越界的行自动忽略
+          update(update) {
+            if (update.docChanged) this.decorations = buildDecorations(update.view);
+          }
+        }, { decorations: function(v) { return v.decorations; } });
+      }
+      // 创建左右并排的 diff 编辑器。
+      // options: { fileName, isDark, leftContent, rightContent, blocks, rightReadOnly, onChangeRight }
+      // 左侧固定只读（旧版本），右侧按 rightReadOnly 控制（工作区视图可编辑）。
+      // 返回实例包含 destroy / jumpToChange / getValueLeft / getValueRight / isDirty / markClean / setTheme。
+      function createDiff(leftParent, rightParent, options) {
+        var opt = options || {};
+        // 行对模式：pairRows 由调用方（preview.js）依据全量 diff blocks 展平而来，
+        // 每对含 left/right 的 {text,no,kind}；left/right 行数严格相等，
+        // 重建左右文档后可实现逐行对齐 + 1:1 同步滚动。
+        if (opt.pairRows && opt.pairRows.length) {
+          return createDiffPaired(leftParent, rightParent, opt);
+        }
+        // 旧模式（片段 diff / 回退）：独立双文档 + 比例同步滚动
+        return createDiffFree(leftParent, rightParent, opt);
+      }
+      // 行对占位标记：视觉不可见的零宽空格；重建文档时两侧对齐行用它占位，
+      // 保存时按精确匹配过滤，不会误删真实空行（真实空行为空字符串）。
+      var GIT_PLACEHOLDER = '\u200b';
+      // 行对模式实现：重建左右文档（增删处对侧以占位行补齐）→ 行数相等 →
+      // 禁折行行高恒等 + scrollTop 1:1 直赋 → 自定义行号列 + 行级着色。
+      function createDiffPaired(leftParent, rightParent, opt) {
+        var rows = opt.pairRows;
+        var leftDoc = rows.map(function(r) {
+          return r.left.kind === 'empty' ? GIT_PLACEHOLDER : (r.left.text || '');
+        }).join('\n');
+        var rightDoc = rows.map(function(r) {
+          return r.right.kind === 'empty' ? GIT_PLACEHOLDER : (r.right.text || '');
+        }).join('\n');
+        // 行号列数据：占位行无行号（null）
+        var leftNos = rows.map(function(r) { return r.left.kind === 'empty' ? null : r.left.no; });
+        var rightNos = rows.map(function(r) { return r.right.kind === 'empty' ? null : r.right.no; });
+        // 行级着色数据：左侧 del 染红、右侧 add 染绿；empty 占位行标 placeholder（浅斜纹）
+        var leftKinds = rows.map(function(r) { return r.left.kind === 'del' ? 'del' : (r.left.kind === 'empty' ? 'placeholder' : null); });
+        var rightKinds = rows.map(function(r) { return r.right.kind === 'add' ? 'add' : (r.right.kind === 'empty' ? 'placeholder' : null); });
+        // 禁折行：保证每行一行高，两侧行高恒等，逐行严格对齐
+        var left = create(leftParent, {
+          content: leftDoc,
+          fileName: opt.fileName,
+          isDark: opt.isDark,
+          readOnly: true,
+          wrap: false,
+          lineKinds: leftKinds,
+          gutterNumbers: leftNos,
+          diffSide: 'left'
+        });
+        var right = create(rightParent, {
+          // 允许调用方以 presetRightDoc 覆盖右文档（恢复切 tab 前未保存的编辑值）
+          content: (typeof opt.presetRightDoc === 'string') ? opt.presetRightDoc : rightDoc,
+          fileName: opt.fileName,
+          isDark: opt.isDark,
+          readOnly: !!opt.rightReadOnly,
+          wrap: false,
+          lineKinds: rightKinds,
+          gutterNumbers: rightNos,
+          diffSide: 'right',
+          onChange: opt.onChangeRight
+        });
+        // 1:1 同步滚动：文档行数相等，scrollTop 直赋（不是比例）
+        var syncing = false;
+        var leftDom = left.view.scrollDOM;
+        var rightDom = right.view.scrollDOM;
+        function mirrorScroll(src, dst) {
+          if (syncing) return;
+          syncing = true;
+          dst.scrollTop = src.scrollTop;
+          // 水平滚动同样直赋（长行使用横向滚动时保持对齐观感）
+          dst.scrollLeft = src.scrollLeft;
+          requestAnimationFrame(function() { syncing = false; });
+        }
+        leftDom.addEventListener('scroll', function() { mirrorScroll(leftDom, rightDom); });
+        rightDom.addEventListener('scroll', function() { mirrorScroll(rightDom, leftDom); });
+        // 跳转标记：每个「变更段」首行（del 或 add 的连续段取首）作为一处改动
+        var marks = [];
+        var inChange = false;
+        rows.forEach(function(r, i) {
+          var isChange = r.left.kind === 'del' || r.right.kind === 'add';
+          if (isChange && !inChange) { marks.push(i); inChange = true; }
+          else if (!isChange) inChange = false;
+        });
+        var idx = -1;
+        // 行对模式下两侧行号一致，滚到 rowIndex（0-based → 文档行号+1）
+        function scrollToRow(view, rowIndex) {
+          if (!view) return;
+          var no = rowIndex + 1;
+          if (no < 1 || no > view.state.doc.lines) return;
+          var line = view.state.doc.line(no);
+          view.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: 'center' }) });
+        }
+        function jumpToChange(dir) {
+          if (!marks.length) return { index: -1, total: 0 };
+          if (dir > 0) idx = idx >= marks.length - 1 ? 0 : idx + 1;
+          else idx = idx <= 0 ? marks.length - 1 : idx - 1;
+          scrollToRow(left.view, marks[idx]);
+          scrollToRow(right.view, marks[idx]);
+          return { index: idx, total: marks.length };
+        }
+        // 保存用：过滤占位行得到右侧真实内容
+        function getRightClean() {
+          return getValue(right).split('\n').filter(function(l) { return l !== GIT_PLACEHOLDER; }).join('\n');
+        }
+        return {
+          left: left,
+          right: right,
+          paired: true,
+          diffCount: marks.length,
+          destroy: function() { destroy(left); destroy(right); },
+          jumpToChange: jumpToChange,
+          // minimap 点击跳转：跳到指定行对索引（两侧同步滚动），供 preview.js 使用
+          scrollToRow: function(rowIndex) {
+            if (typeof rowIndex !== 'number' || rowIndex < 0) return;
+            idx = rowIndex;
+            scrollToRow(left.view, rowIndex);
+            scrollToRow(right.view, rowIndex);
+          },
+          getValueLeft: function() { return getValue(left); },
+          getValueRight: function() { return getValue(right); },
+          getValueRightClean: getRightClean,
+          setReadOnlyRight: function(flag) { setReadOnly(right, !!flag); },
+          setTheme: function(isDark) { setTheme(left, isDark); setTheme(right, isDark); },
+          markClean: function() { markClean(left); markClean(right); },
+          isDirty: function() { return isDirty(right); }
+        };
+      }
+      // 旧模式：独立双文档 + 比例同步滚动（片段 diff / 全量回退时使用）
+      function createDiffFree(leftParent, rightParent, opt) {
+        var left = create(leftParent, {
+          content: opt.leftContent || "",
+          fileName: opt.fileName,
+          isDark: opt.isDark,
+          readOnly: true,
+          diffSide: 'left',
+          diffBlocks: opt.blocks
+        });
+        var right = create(rightParent, {
+          content: opt.rightContent || "",
+          fileName: opt.fileName,
+          isDark: opt.isDark,
+          readOnly: !!opt.rightReadOnly,
+          diffSide: 'right',
+          diffBlocks: opt.blocks,
+          onChange: opt.onChangeRight
+        });
+        // 同步滚动：两侧按滚动比例联动（行数不等时比例同步）
+        var syncing = false;
+        var leftDom = left.view.scrollDOM;
+        var rightDom = right.view.scrollDOM;
+        function ratioScroll(src, dst) {
+          if (syncing) return;
+          syncing = true;
+          try {
+            var sh = src.scrollHeight - src.clientHeight;
+            var dh = dst.scrollHeight - dst.clientHeight;
+            dst.scrollTop = (sh > 0 && dh > 0) ? (src.scrollTop / sh) * dh : 0;
+          } finally {
+            requestAnimationFrame(function() { syncing = false; });
+          }
+        }
+        leftDom.addEventListener('scroll', function() { ratioScroll(leftDom, rightDom); });
+        rightDom.addEventListener('scroll', function() { ratioScroll(rightDom, leftDom); });
+        // 跳转标记：每个 block 取首个 del 行（oldNo）与 add 行（newNo）作为一处改动
+        var marks = [];
+        (opt.blocks || []).forEach(function(block) {
+          var oldNo = 0, newNo = 0;
+          (block.left || []).forEach(function(l) {
+            if (!oldNo && l.kind === 'del' && l.oldNo > 0) oldNo = l.oldNo;
+          });
+          (block.right || []).forEach(function(r) {
+            if (!newNo && r.kind === 'add' && r.newNo > 0) newNo = r.newNo;
+          });
+          if (oldNo || newNo) marks.push({ oldNo: oldNo, newNo: newNo });
+        });
+        var idx = -1;
+        function scrollToLine(view, no) {
+          if (!view || !no || no < 1) return;
+          var line = view.state.doc.line(Math.min(no, view.state.doc.lines));
+          view.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: 'center' }) });
+        }
+        function jumpToChange(dir) {
+          if (!marks.length) return { index: -1, total: 0 };
+          if (dir > 0) idx = idx >= marks.length - 1 ? 0 : idx + 1;
+          else idx = idx <= 0 ? marks.length - 1 : idx - 1;
+          scrollToLine(left.view, marks[idx].oldNo);
+          scrollToLine(right.view, marks[idx].newNo);
+          return { index: idx, total: marks.length };
+        }
+        return {
+          left: left,
+          right: right,
+          paired: false,
+          diffCount: marks.length,
+          destroy: function() { destroy(left); destroy(right); },
+          jumpToChange: jumpToChange,
+          getValueLeft: function() { return getValue(left); },
+          getValueRight: function() { return getValue(right); },
+          getValueRightClean: function() { return getValue(right); },
+          setReadOnlyRight: function(flag) { setReadOnly(right, !!flag); },
+          setTheme: function(isDark) { setTheme(left, isDark); setTheme(right, isDark); },
+          markClean: function() { markClean(left); markClean(right); },
+          isDirty: function() { return isDirty(right); }
+        };
+      }
+      // 动态切换实例只读状态（经 readOnlyCompartment 重配置）
+      function setReadOnly(instance, flag) {
+        if (instance && instance.view && instance.readOnlyCompartment) {
+          instance.view.dispatch({ effects: instance.readOnlyCompartment.reconfigure(flag ? EditorState.readOnly.of(true) : []) });
+        }
       }
       function destroy(instance) {
         if (instance && instance.view) instance.view.destroy();
@@ -36598,7 +36922,7 @@
       function isDirty(instance) {
         return !!instance && getValue(instance) !== instance.cleanValue;
       }
-      window.ProjectConfigCodeEditor = { create, destroy, getValue, setTheme, focus, openSearch, closeSearch, toggleSearch, isSearchOpen, markClean, isDirty };
+      window.ProjectConfigCodeEditor = { create, createDiff, setReadOnly, destroy, getValue, setTheme, focus, openSearch, closeSearch, toggleSearch, isSearchOpen, markClean, isDirty };
     }
   });
   require_project_config_codemirror_entry();

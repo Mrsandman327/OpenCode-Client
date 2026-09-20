@@ -6215,63 +6215,158 @@ input::placeholder, textarea::placeholder {
     padding: 4px 0;
     color: var(--text-secondary);
 }
-.git-preview-section {
-    margin-bottom: 16px;
+/* ===== Git 编辑器 diff 视图（左右双 CodeMirror 编辑器）===== */
+.file-browser-diff-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    height: 100%;
+    min-height: 0;
 }
-.git-preview-section-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 8px;
+.file-browser-diff-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    position: relative; /* minimap 绝对定位的父级 */
 }
-.git-diff-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    margin-bottom: 8px;
-}
-.git-diff-grid > .git-diff-line:nth-child(even) {
-    border-left: 1px solid var(--border);
-}
-.git-diff-line {
-    display: grid;
-    grid-template-columns: 56px minmax(0, 1fr);
-    font-family: "SF Mono", "Cascadia Code", monospace;
+.file-browser-diff-pane-title {
+    flex: 0 0 auto;
     font-size: 12px;
-    line-height: 1.5;
-    align-items: start;
-    min-height: 25px;
-}
-.git-diff-line-no {
-    padding: 4px 8px;
-    color: var(--text-muted);
-    border-right: 1px solid rgba(0,0,0,0.05);
-    text-align: right;
-    user-select: none;
-}
-.git-diff-line-text {
-    display: block;
-    padding: 4px 10px;
-    white-space: pre-wrap;
-    word-break: break-all;
-    overflow-wrap: anywhere;
-    user-select: text;
-    -webkit-user-select: text;
-}
-.git-diff-line.context {
-    background: var(--bg-card);
-}
-.git-diff-line.add {
-    background: rgba(52, 199, 89, 0.12);
-}
-.git-diff-line.del {
-    background: rgba(255, 59, 48, 0.12);
-}
-.git-diff-line.empty {
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     background: var(--bg-secondary);
-    padding: 8px;
+    margin-bottom: 0;
+}
+.file-browser-diff-divider {
+    flex: 0 0 10px;                 /* 加宽命中区，方便拖拽 */
+    margin: 0 2px;
+    cursor: col-resize;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: transparent;
+    transition: background 0.15s;
+    position: relative;
+}
+.file-browser-diff-divider:hover,
+.file-browser-diff-divider:active {
+    background: rgba(96, 165, 250, 0.18);
+}
+body.file-browser-diff-dragging {
+    cursor: col-resize;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.file-browser-diff-pane .file-browser-code-editor {
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+/* diff 行高亮：左栏删除行（红）、右栏新增行（绿） */
+.cm-git-del-line {
+    background: rgba(255, 59, 48, 0.14);
+}
+.cm-git-add-line {
+    background: rgba(52, 199, 89, 0.14);
+}
+/* diff 占位行（另一侧增删后补齐的空白行）：浅斜纹提示 */
+.cm-git-placeholder-line {
+    background: repeating-linear-gradient(
+        -45deg,
+        rgba(128, 128, 128, 0.05),
+        rgba(128, 128, 128, 0.05) 4px,
+        rgba(128, 128, 128, 0.02) 4px,
+        rgba(128, 128, 128, 0.02) 8px
+    );
+}
+/* 自定义行号列（行对模式）：真实文件行号，占位行无行号 */
+.file-browser-diff-pane .cm-gutters {
+    /* 主题里 .cm-gutters 引用了不存在的 var(--bg)，这里用有效变量修复透明背景 */
+    background-color: var(--bg-card);
+    border-right: 1px solid var(--border);
+}
+
+.cm-gutter.cm-git-no-gutter{
+    width: 10px;
+}
+
+.cm-git-no-gutter .cm-git-lno {
+    display: inline-block;
+    /* 紧凑：行号右对齐紧贴内容区，宽度由行号位数决定（spacer 3 位），不额外撑开 */
+    padding: 0 0.35em 0 0.1em;
+    text-align: right;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: inherit;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.cm-git-no-gutter .cm-gutterElement {
+    padding: 0;
+    margin: 0;
+}
+/* 禁折行（wrap=false）：长行启用横向滚动，竖向滚动条保持 auto */
+.file-browser-diff-pane .file-browser-code-editor .cm-scroller {
+    overflow-x: auto;
+    overflow-y: auto;
+}
+/* diff 编辑器正文缩小一号（lib 主题默认 13px → 12px），仅 diff 面板内生效 */
+.file-browser-diff-pane .file-browser-code-editor .cm-editor {
+    font-size: 12px;
+}
+/* ===== Git diff 滚动条 minimap（GitHub 风格）===== */
+/* 容器：悬浮在右编辑器可视区右上角（.file-browser-code-editor 为相对定位父级），
+   纵向铺满编辑器可视区，不占 flex 布局，叠加在代码之上。
+   仅 diff 面板内的编辑器作为定位父级，不影响普通文件编辑器。 */
+.file-browser-diff-pane .file-browser-code-editor {
+    position: relative;
+}
+.file-browser-diff-minimap {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    bottom: 6px;
+    width: 10px;
+    cursor: pointer;
+    border-radius: 5px;
+    background: rgba(128, 128, 128, 0.1);
+    z-index: 5;
+}
+.file-browser-diff-minimap:hover {
+    background: rgba(128, 128, 128, 0.18);
+}
+/* 变更段色块：红=删除、绿=新增、黄=修改（同一段内含 del+add） */
+.file-browser-diff-minimap-seg {
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    border-radius: 2px;
+    min-height: 2px;
+}
+.file-browser-diff-minimap-seg.del {
+    background: rgba(255, 59, 48, 0.75);
+}
+.file-browser-diff-minimap-seg.add {
+    background: rgba(52, 199, 89, 0.75);
+}
+.file-browser-diff-minimap-seg.modified {
+    background: rgba(255, 180, 59, 0.8);
+}
+/* 当前视口指示条：半透明高亮覆盖可视窗口位置 */
+.file-browser-diff-minimap-viewport {
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 0;
+    height: 20%;
+    background: rgba(128, 150, 255, 0.2);
+    border: 1px solid rgba(128, 150, 255, 0.45);
+    border-radius: 3px;
+    pointer-events: none;
+    box-sizing: border-box;
+    transition: top 0.05s linear;
 }
 
 /* 方案管理 + 来源目录按钮 Apple 风格 */

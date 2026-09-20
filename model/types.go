@@ -427,6 +427,14 @@ type GitFilePreviewResult struct {
 	StagedBlocks     []GitDiffBlock `json:"stagedBlocks"`
 	UnstagedBlocks   []GitDiffBlock `json:"unstagedBlocks"`
 	UntrackedContent string         `json:"untrackedContent"`
+	// LeftContent 左侧（HEAD 版本）全文，用于编辑器 diff 视图。
+	LeftContent string `json:"leftContent"`
+	// RightContent 右侧（工作区当前）全文，用于编辑器 diff 视图。
+	RightContent string `json:"rightContent"`
+	// FullBlocks 标明 StagedBlocks（已合并 HEAD↔工作区 diff）是否为全量行对：
+	// true 时 blocks 覆盖整个文件，前端可据此重建左右逐行对齐的行对文档（占位补行）；
+	// false 时 blocks 仅为片段（大文件回退 -U3），前端回退为独立双文档 + 比例同步滚动。
+	FullBlocks bool `json:"fullBlocks"`
 }
 
 // GitHistoryItem 表示提交历史中的单条提交。
@@ -466,6 +474,13 @@ type GitCommitFilePreviewResult struct {
 	CommitHash string         `json:"commitHash"`
 	FilePath   string         `json:"filePath"`
 	Blocks     []GitDiffBlock `json:"blocks"`
+	// LeftContent 左侧（父提交）全文，用于编辑器 diff 视图。
+	LeftContent string `json:"leftContent"`
+	// RightContent 右侧（当前提交）全文，用于编辑器 diff 视图。
+	RightContent string `json:"rightContent"`
+	// FullBlocks 标明 Blocks 是否为全量行对（true=小文件全量 diff，
+	// 前端可重建逐行对齐文档；false=大文件片段，前端回退双文档滚动同步）。
+	FullBlocks bool `json:"fullBlocks"`
 }
 
 // GitActionResult 表示 Git 操作结果。

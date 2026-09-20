@@ -16,6 +16,47 @@ func runGitCommand(dir string, args ...string) (string, error) {
 	return executil.RunGit(dir, args...)
 }
 
+// gitDiffFullMaxContext 全量渲染时 unified context 的行数。
+// 取足够大的值，使 `git diff -U<n>` 输出包含整个文件，实现「全文件对比」。
+const gitDiffFullMaxContext = 1000000
+
+// gitDiffFullMaxBytes 全量渲染的文件大小上限（字节）。
+// 超过上限回退默认片段式（-U3），避免一次性生成超大 patch 拖垮前端渲染。
+// 前端 diff 为 CodeMirror 虚拟渲染编辑器，DOM 量不再是瓶颈，可放宽到 8MB。
+const gitDiffFullMaxBytes = 8 * 1024 * 1024
+
+// pickUnifiedContext 依据文件字节数决定 unified context 行数：
+// 小文件返回全量值（输出整个文件），大文件回退默认 3 行片段式。
+// size <= 0 视为未知大小，按小文件处理（走全量）。
+func pickUnifiedContext(size int64) int {
+	if size < 0 || size > gitDiffFullMaxBytes {
+		return 3
+	}
+	return gitDiffFullMaxContext
+}
+
+// worktreeFileSize 返回工作区文件字节数；读取失败返回 -1。
+func worktreeFileSize(repoDir, relNative string) int64 {
+	info, err := os.Stat(filepath.Join(repoDir, relNative))
+	if err != nil {
+		return -1
+	}
+	return info.Size()
+}
+
+// blobSize 返回 git 对象（形如 <commit>:<path>）的字节数；失败返回 -1。
+func blobSize(repoDir, rev string) int64 {
+	out, err := runGitCommand(repoDir, "cat-file", "-s", rev)
+	if err != nil {
+		return -1
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(out), 10, 64)
+	if err != nil {
+		return -1
+	}
+	return n
+}
+
 // IsGitRepository 判断指定目录是否是 Git 仓库。
 func IsGitRepository(dir string) bool {
 	out, err := runGitCommand(dir, "rev-parse", "--is-inside-work-tree")
@@ -193,12 +234,44 @@ func BuildGitCommitFilePreview(dir, commitHash, filePath string) (model.GitCommi
 		return result, fmt.Errorf("提交哈希和文件路径不能为空")
 	}
 	relNative := filepath.FromSlash(result.FilePath)
-	patch, err := runGitCommand(dir, "show", "--no-color", result.CommitHash, "--", relNative)
+	// 全量渲染：依据历史版本大小决定 -U 参数（小文件输出整文件，大文件回退片段式）
+	size := blobSize(dir, result.CommitHash+":"+result.FilePath)
+	// FullBlocks 标记本次是否为全量 diff（size<0 未知时按小文件走全量，也标 true）
+	result.FullBlocks = size < 0 || size <= gitDiffFullMaxBytes
+	patch, err := runGitCommand(dir, "show", "--no-color", fmt.Sprintf("-U%d", pickUnifiedContext(size)), result.CommitHash, "--", relNative)
 	if err != nil {
 		return result, err
 	}
 	result.Blocks = parseUnifiedDiffToBlocks(patch)
+	// 左右全文：右侧为当前提交版本，左侧为父提交版本（根提交或无父版本时留空）。
+	// git show 输出的换行与仓库存储一致，统一归一到 \n 供编辑器分行。
+	rightRev := result.CommitHash + ":" + result.FilePath
+	if content, err := readGitFileContent(dir, rightRev); err == nil {
+		result.RightContent = content
+	}
+	leftRev := result.CommitHash + "^:" + result.FilePath
+	if content, err := readGitFileContent(dir, leftRev); err == nil {
+		result.LeftContent = content
+	}
 	return result, nil
+}
+
+// readGitFileContent 读取 git 对象（形如 <rev>:<path>）的文本内容。
+// 读取失败（对象不存在/二进制偏移/命令错误）返回错误，调用方按空内容处理。
+func readGitFileContent(dir, rev string) (string, error) {
+	out, err := runGitCommand(dir, "show", "--no-color", rev)
+	if err != nil {
+		return "", err
+	}
+	return normalizePackageNewlines(out), nil
+}
+
+// normalizePackageNewlines 将 CRLF 归一为 LF，避免编辑器左侧/右侧分行不一致导致错位。
+func normalizePackageNewlines(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	// 末尾若有多余换行保持原样（git 输出末尾自带 \n，文件本身无换行时 git show 同样带）；
+	// 此处不裁剪，让两侧分别忠实反映各自版本。
+	return s
 }
 
 // BuildGitFilePreview 构建当前工作区中单个文件的 Git 变更预览（含暂存和未暂存 diff）。
@@ -211,25 +284,35 @@ func BuildGitFilePreview(repoDir string, changed model.GitChangedFile) (model.Gi
 	}
 	relPath := strings.TrimPrefix(changed.Path, "/")
 	relNative := filepath.FromSlash(relPath)
+	workSize := worktreeFileSize(repoDir, relNative)
 	if !changed.Tracked {
 		content, err := os.ReadFile(filepath.Join(repoDir, relNative))
 		if err != nil {
 			return preview, fmt.Errorf("读取未跟踪文件失败: %w", err)
 		}
-		preview.UntrackedContent = string(content)
+		preview.UntrackedContent = normalizePackageNewlines(string(content))
+		preview.RightContent = preview.UntrackedContent
+		// 未跟踪文件没有 HEAD 对比，无 diff blocks，约定 fullBlocks=false
+		preview.FullBlocks = false
 		return preview, nil
 	}
-	if changed.HasStaged {
-		patch, err := runGitCommand(repoDir, "diff", "--cached", "--no-color", "--", relNative)
-		if err == nil {
-			preview.StagedBlocks = parseUnifiedDiffToBlocks(patch)
-		}
+	// 编辑器 diff 视图采用「HEAD ↔ 工作区」整体对比：
+	// 左侧为 HEAD 版本全文，右侧为工作区当前全文，blocks 由 `git diff HEAD` 一次性给出，
+	// 覆盖已暂存（--cached）与未暂存两段差异，行号即全文行号。
+	if content, err := readGitFileContent(repoDir, "HEAD:"+relPath); err == nil {
+		preview.LeftContent = content
 	}
-	if changed.HasUnstaged {
-		patch, err := runGitCommand(repoDir, "diff", "--no-color", "--", relNative)
-		if err == nil {
-			preview.UnstagedBlocks = parseUnifiedDiffToBlocks(patch)
-		}
+	if content, err := os.ReadFile(filepath.Join(repoDir, relNative)); err == nil {
+		preview.RightContent = normalizePackageNewlines(string(content))
+	}
+	// FullBlocks 标记本次是否为全量 diff（workSize<0 未知时按小文件走全量，也标 true）
+	preview.FullBlocks = workSize < 0 || workSize <= gitDiffFullMaxBytes
+	ctx := pickUnifiedContext(workSize)
+	patch, err := runGitCommand(repoDir, "diff", "HEAD", "--no-color", fmt.Sprintf("-U%d", ctx), "--", relNative)
+	if err == nil {
+		blocks := parseUnifiedDiffToBlocks(patch)
+		preview.StagedBlocks = blocks
+		preview.UnstagedBlocks = blocks
 	}
 	return preview, nil
 }
@@ -252,6 +335,10 @@ func parseUnifiedDiffToBlocks(patch string) []model.GitDiffBlock {
 			continue
 		}
 		if strings.HasPrefix(line, "+++") || strings.HasPrefix(line, "---") || strings.HasPrefix(line, "diff --git") || strings.HasPrefix(line, "index ") {
+			continue
+		}
+		// git 在文件末尾无换行时输出该标记行，不是代码内容，跳过以免被渲染成普通行。
+		if strings.HasPrefix(line, "\\ No newline at end of file") {
 			continue
 		}
 		if len(line) == 0 {

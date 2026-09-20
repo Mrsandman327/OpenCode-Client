@@ -1,20 +1,19 @@
 // ============================================================
 // 站内文件浏览器 - 目录浏览与状态管理
 // 依赖：core/apicall.js(api)、core/utils.js(showToast/escapeHtml)、
-//       preview.js(renderFilePreview/renderGitFilePreview/renderGitHistoryFilePreview
-//                  /fileBrowserClearObjectURL/destroyFileBrowserEditor/renderFilePreviewToolbar，
+//       preview.js(fileBrowserClearObjectURL/destroyFileBrowserEditor/renderFilePreviewToolbar，
 //                  循环引用)
 // ============================================================
 
 import { api } from '../core/apicall.js';
 import { showToast, escapeHtml, isDesktopRuntime } from '../core/utils.js';
 import {
-    renderGitFilePreview,
-    renderGitHistoryFilePreview,
     fileBrowserClearObjectURL,
     destroyFileBrowserEditor,
     fileBrowserResolveRawResource,
     fileBrowserOpenFileTab,
+    fileBrowserOpenGitTab,
+    fileBrowserOpenGitHistoryTab,
     renderFileBrowserTabs,
     clearFileBrowserPreview
 } from './preview.js';
@@ -38,6 +37,8 @@ window.fileBrowserState = {
     previewEditorValue: '',
     previewOriginalContent: '',
     previewEditorInstance: null,
+    previewDiffInstance: null,
+    gitPreviewPath: '',
     previewSearchSyncTimer: null,
     savingPreview: false,
     loadingList: false,
@@ -1047,14 +1048,15 @@ export function bindCurrentGitFileEvents(bodyEl) {
 
     bodyEl.querySelectorAll('.file-browser-git-item').forEach(function(btn) {
         btn.addEventListener('click', function() {
-            state.previewMode = 'git';
             state.selectedItem = null;
             state.git.activeHistoryFileKey = '';
             renderFileBrowserSelection();
             bodyEl.querySelectorAll('.file-browser-git-item').forEach(function(node) {
                 node.classList.toggle('active', node === btn);
             });
-            renderGitFilePreview(this.dataset.gitPath || '/');
+            // 与文件浏览共用同一套 tab 栏：以 diff 视图打开该变更文件，
+            // 可与普通文件 tab 互相切换
+            fileBrowserOpenGitTab(this.dataset.gitPath || '/', this.dataset.gitGroup || '');
         });
     });
 
@@ -1163,10 +1165,9 @@ export function renderFileBrowserGitHistory(bodyEl) {
     bodyEl.querySelectorAll('.file-item').forEach(function(btn) {
         btn.addEventListener('click', function() {
             state.git.activeHistoryFileKey = this.dataset.historyFileKey || '';
-            state.previewMode = 'git-history';
-            state.selectedItem = null;
             renderFileBrowserSelection();
-            renderGitHistoryFilePreview(this.dataset.commitHash || '', this.dataset.historyPath || '/');
+            // 历史提交中的文件同样以 tab 打开（与 git 变更列表、普通文件同一套 tab 栏）
+            fileBrowserOpenGitHistoryTab(this.dataset.commitHash || '', this.dataset.historyPath || '/');
             renderFileBrowserGitSection();
         });
     });
