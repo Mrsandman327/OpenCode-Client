@@ -5598,6 +5598,9 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-git-item-row .file-browser-git-item {
     flex: 1;
+    /* 关键：flex 子项默认 min-width:auto，长文件名会撑开本行把按钮挤出容器；
+       置 0 后允许收缩，文件名走 ellipsis 截断，按钮始终留在行内右端 */
+    min-width: 0;
 }
 .file-browser-git-action-btn {
     width: 24px;
@@ -5720,9 +5723,7 @@ input::placeholder, textarea::placeholder {
     opacity: 1;
     background: var(--accent);
 }
-.file-browser-git-group {
-    padding-top: 6px;
-}
+
 .file-browser-git-group + .file-browser-git-group {
     margin-top: 8px;
 }
@@ -5830,6 +5831,7 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-git-item.commit-item {
     align-items: center;
+    padding-left: 10px;
 }
 .file-browser-git-item.commit-item .file-browser-git-status {
     min-width: 48px;
@@ -5839,7 +5841,6 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-git-item.file-item {
     margin-top: 4px;
-    padding-left: 26px;
 }
 .file-browser-git-item.file-item .file-browser-git-status {
     min-width: 22px;
@@ -5881,6 +5882,11 @@ input::placeholder, textarea::placeholder {
     display: block;
     font-size: 12px;
     color: var(--text-primary);
+    font-family: "Noto Sans SC", "SF Mono", "Cascadia Code", monospace;
+    font-weight: 500;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 .file-browser-git-text {
     min-width: 0;
@@ -5888,14 +5894,13 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-git-path {
     display: block;
-    margin-top: 2px;
-    overflow: hidden;
-    text-overflow: initial;
-    white-space: normal;
     word-break: break-all;
     font-family: "SF Mono", "Cascadia Code", monospace;
     font-size: 10px;
     color: var(--text-muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 /* ===== 变更文件目录树 ===== */
 .file-browser-git-tree-dir {
