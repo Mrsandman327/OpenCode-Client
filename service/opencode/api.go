@@ -312,7 +312,16 @@ type treeSession struct {
 	Location  *struct {
 		Directory string `json:"directory"`
 	} `json:"location"`
-	Time sessionTime `json:"time"`
+	// ParentID 是 v2 引入的父子关系：子代理（subagent）会话指向其宿主会话。
+	// v1 用 roots=true 让服务端只返回根会话；v2 改为 parentID=null 过滤，
+	// 不加该参数时子会话会一并返回，必须在客户端剔除（见 IsRoot）。
+	ParentID string `json:"parentID"`
+	Time     sessionTime `json:"time"`
+}
+
+// IsRoot 判断是否为根会话（无父会话）。
+func (s treeSession) IsRoot() bool {
+	return s.ParentID == ""
 }
 
 // Dir 返回会话所属目录：优先 v2 的 location.directory，回退到 v1 的 directory。
@@ -340,10 +349,16 @@ func unmarshalSessionList(body []byte) ([]treeSession, error) {
 }
 
 // fetchSessionList 查询某目录下的会话。
-// v1 用 ?directory=&roots=true 递归收集子目录会话；v2 去掉了 roots 参数，
-// 目录作用域由 location/directory 表达，cursor 参数改为游标分页。
+//
+// v1 是 ?directory=&roots=true，roots=true 表示「只要根会话」。
+// v2 取消了 roots，改为 ?parentID=null（官方文档：Use null to return only root sessions）。
+// 不加该参数时，子代理（subagent）会话会混在结果里——实测占比极高
+// （本机 500 条会话里 444 条是子会话），若直接渲染会让会话树被子会话淹没。
+//
+// 这里显式传 parentID=null 只取根会话，与 v1 的 roots=true 语义保持一致；
+// 同时仍在客户端二次过滤，以防服务端忽略该参数。
 func fetchSessionList(base, directory, password string, limit int) []treeSession {
-	urlstr := fmt.Sprintf("%s/api/session?directory=%s&limit=%d",
+	urlstr := fmt.Sprintf("%s/api/session?directory=%s&parentID=null&limit=%d",
 		base, url.QueryEscape(directory), limit)
 	body, err := apiGet(urlstr, password)
 	if err != nil {
@@ -353,7 +368,14 @@ func fetchSessionList(base, directory, password string, limit int) []treeSession
 	if err != nil {
 		return nil
 	}
-	return sessions
+	// 二次过滤：子会话（parentID 非空）不进会话树
+	roots := sessions[:0]
+	for _, s := range sessions {
+		if s.IsRoot() {
+			roots = append(roots, s)
+		}
+	}
+	return roots
 }
 
 // GetProjectTree 获取项目→目录→会话的树形结构 JSON。
@@ -483,6 +505,10 @@ func buildTreeJSON(projects []ProjectInfo, sessions []treeSession) string {
 	}
 
 	for _, s := range sessions {
+		// 兜底：子代理会话只在侧栏「子任务面板」呈现，不进会话树
+		if !s.IsRoot() {
+			continue
+		}
 		pid := s.ProjectID
 		if pid == "" {
 			pid = "global"

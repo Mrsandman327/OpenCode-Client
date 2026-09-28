@@ -75,6 +75,10 @@ const ACTION_LABEL = {
     // v2 权限动作改名：bash→shell、task→subagent（旧的保留，兼容混合版本）
     shell: '执行命令',
     subagent: '运行子任务',
+    // v2 新增：patch 面向支持它的 GPT 模型，其余模型仍用 edit/write；
+    // execute 是 Code Mode 运行时（权限动作为 execute，resource 为 *）
+    patch: '批量修改文件',
+    execute: '执行代码模式',
     webfetch: '发起网络请求',
     websearch: '发起网络搜索',
     lsp: '调用语言服务',
