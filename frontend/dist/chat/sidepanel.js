@@ -58,7 +58,12 @@ export function renderTodos() {
     if (!box) return;
     const todos = extractTodos();
     if (!todos.length) {
-        box.innerHTML = '<div class="oc-empty">会话中暂无代办</div>';
+        // OpenCode v2 的工具清单里已无 todowrite（Files / Commands / Web /
+        // Interaction / Automation 均无），类型定义与事件里也不存在任何 todo 相关项，
+        // 故 v2 下本面板没有数据来源。显式说明，避免用户以为面板坏了。
+        box.innerHTML = store.todoSupported === false
+            ? '<div class="oc-empty">当前服务端未提供代办功能（OpenCode v2 已移除 todowrite 工具）</div>'
+            : '<div class="oc-empty">会话中暂无代办</div>';
         return;
     }
     const active = todos.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
