@@ -142,14 +142,14 @@ export function filterApiDocsEntries(entries) {
 
 /**
  * 加载 opencode 服务的 API 文档（OpenAPI 3.1.0 JSON）
- * 从网络配置中读取 ip:port，访问 http://ip:port/doc
+ * v1 为 GET /doc；OpenCode v2 移除了 /doc，改为在 /openapi.json 提供同一份契约。
  */
 export async function loadApiDocs() {
     const content = document.getElementById('cmdContent');
     content.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在加载 API 文档...</p></div>';
 
     try {
-        const data = await api.OpenCodeCall('GET', '/doc');
+        const data = await api.OpenCodeCall('GET', '/openapi.json');
         apiDocData = data;
         apiDocLoaded = true;
         renderApiDocs();

@@ -345,6 +345,13 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.GetWebStatus(hostname, port), nil
+	case "SetServerPassword":
+		var password string
+		if err := decodeArgs(args, &password); err != nil {
+			return nil, err
+		}
+		a.SetServerPassword(password)
+		return true, nil
 	case "OpenCodeAPI":
 		var method, path, body string
 		if err := decodeArgs(args, &method, &path, &body); err != nil {

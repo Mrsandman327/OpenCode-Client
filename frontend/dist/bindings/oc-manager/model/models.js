@@ -979,6 +979,31 @@ export class GitCommitFilePreviewResult {
              */
             this["blocks"] = [];
         }
+        if (!("leftContent" in $$source)) {
+            /**
+             * LeftContent 左侧（父提交）全文，用于编辑器 diff 视图。
+             * @member
+             * @type {string}
+             */
+            this["leftContent"] = "";
+        }
+        if (!("rightContent" in $$source)) {
+            /**
+             * RightContent 右侧（当前提交）全文，用于编辑器 diff 视图。
+             * @member
+             * @type {string}
+             */
+            this["rightContent"] = "";
+        }
+        if (!("fullBlocks" in $$source)) {
+            /**
+             * FullBlocks 标明 Blocks 是否为全量行对（true=小文件全量 diff，
+             * 前端可重建逐行对齐文档；false=大文件片段，前端回退双文档滚动同步）。
+             * @member
+             * @type {boolean}
+             */
+            this["fullBlocks"] = false;
+        }
 
         Object.assign(this, $$source);
     }
@@ -1196,6 +1221,32 @@ export class GitFilePreviewResult {
              * @type {string}
              */
             this["untrackedContent"] = "";
+        }
+        if (!("leftContent" in $$source)) {
+            /**
+             * LeftContent 左侧（HEAD 版本）全文，用于编辑器 diff 视图。
+             * @member
+             * @type {string}
+             */
+            this["leftContent"] = "";
+        }
+        if (!("rightContent" in $$source)) {
+            /**
+             * RightContent 右侧（工作区当前）全文，用于编辑器 diff 视图。
+             * @member
+             * @type {string}
+             */
+            this["rightContent"] = "";
+        }
+        if (!("fullBlocks" in $$source)) {
+            /**
+             * FullBlocks 标明 StagedBlocks（已合并 HEAD↔工作区 diff）是否为全量行对：
+             * true 时 blocks 覆盖整个文件，前端可据此重建左右逐行对齐的行对文档（占位补行）；
+             * false 时 blocks 仅为片段（大文件回退 -U3），前端回退为独立双文档 + 比例同步滚动。
+             * @member
+             * @type {boolean}
+             */
+            this["fullBlocks"] = false;
         }
 
         Object.assign(this, $$source);

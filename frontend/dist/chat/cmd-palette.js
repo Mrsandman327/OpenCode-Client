@@ -10,6 +10,7 @@ import { escapeHtml, showToast, getCachedMessages, messageText } from '../core/u
 import { loadMessages, loadOlderMessages, isSessionLoadedAll } from './session.js';
 import { openSessionTab } from './tabs.js';
 import { buildTree } from './tree.js';
+import { unwrapList } from '../core/v2compat.js';
 
 let cmdPaletteItems = [];
 let cmdPaletteLoaded = false;
@@ -34,7 +35,8 @@ const cmdInputEl = document.getElementById('ocPrompt');
 export async function loadCmdPalette() {
     if (cmdPaletteLoaded) return;
     try {
-        cmdPaletteItems = await api.OpenCodeCall('GET', '/command') || [];
+        // v2: GET /api/command 返回 {location, data:[...]} 信封
+        cmdPaletteItems = unwrapList(await api.OpenCodeCall('GET', '/api/command'));
     } catch (_) {
         cmdPaletteItems = [];
     }
@@ -210,21 +212,9 @@ export async function executeFixedCmd(cmdName) {
     try {
         switch (cmdName) {
             case 'summarize': {
-                // 从最后一条 assistant 消息中提取 provider/model
-                let providerID = '', modelID = '';
-                const list = getCachedMessages(sid);
-                for (let i = list.length - 1; i >= 0; i--) {
-                    const info = list[i].info || list[i];
-                    if (info.role === 'assistant' && info.modelID) {
-                        modelID = info.modelID;
-                        providerID = info.providerID || '';
-                        break;
-                    }
-                }
-                const body = {};
-                if (providerID) body.providerID = providerID;
-                if (modelID) body.modelID = modelID;
-                await api.OpenCodeCall('POST', `/session/${encodeURIComponent(sid)}/summarize`, body);
+                // v1: POST /session/{id}/summarize {providerID, modelID}
+                // v2: POST /api/session/{id}/compact {}（不再接受 model 参数，沿用会话当前模型）
+                await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/compact`, {});
                 showToast('会话上下文已压缩', 'success');
                 break;
             }
@@ -240,13 +230,15 @@ export async function executeFixedCmd(cmdName) {
                     }
                 }
                 if (!messageID) { showToast('未找到可撤销的消息', 'error'); return; }
-                await api.OpenCodeCall('POST', `/session/${encodeURIComponent(sid)}/revert`, { messageID });
+                // v1: POST /session/{id}/revert  →  v2: POST /api/session/{id}/revert/stage
+                await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/revert/stage`, { messageID });
                 showToast('已撤销最后消息', 'success');
                 loadMessages();
                 break;
             }
             case 'unrevert':
-                await api.OpenCodeCall('POST', `/session/${encodeURIComponent(sid)}/unrevert`);
+                // v1: POST /session/{id}/unrevert  →  v2: POST /api/session/{id}/revert/commit
+                await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/revert/commit`);
                 showToast('已重做撤销', 'success');
                 loadMessages();
                 break;

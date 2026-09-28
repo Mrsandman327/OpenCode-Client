@@ -16,6 +16,7 @@ import { startEventStream, loadSessionStatuses } from './events.js';
 import { buildTree } from './tree.js';
 import { loadAgentModelSelectors } from './session.js';
 import { initSearch, initUserNav } from './search.js';
+import { unwrap } from '../core/v2compat.js';
 
 // ============================
 // Web 状态检测
@@ -31,11 +32,21 @@ function resolveServicePort() {
 export async function checkWebStatus() {
     try {
         const config = getNetworkConfig();
+        // OpenCode v2 的服务需要 Basic 认证：把用户填写的口令交给后端，
+        // 使「连接外部已启动的服务」也能通过鉴权。
+        // 由 OC Manager 自己拉起的服务不依赖此口令（后端从启动输出自动解析）。
+        if (config.servicePassword && api.SetServerPassword) {
+            try { await api.SetServerPassword(config.servicePassword); } catch (_) { /* 旧后端无此方法，忽略 */ }
+        }
         const status = await api.GetWebStatus(config.serviceHost, resolveServicePort());
         store.webRunning = status.running;
         store.webURL = status.url || '';
         store.serverStatus = normalizeServerStatus(status);
         updateWebUI();
+        if (store.webRunning && status.health === '需口令') {
+            // 服务在线但鉴权失败：明确提示，否则表现为「在线却什么都加载不出来」
+            showToast('OpenCode 服务需要访问口令：请在网络配置中填写（口令见 opencode 启动日志的 server password）', 'error');
+        }
         if (store.webRunning) {
             startEventStream();
             buildTree();
@@ -69,19 +80,21 @@ export async function checkWebStatus() {
 export async function loadServiceStatus() {
     const config = getNetworkConfig();
     try {
-        const [web, mcp, lsp, cfg] = await Promise.all([
+        // v2：/api/mcp 与 /api/config；v1 的 /lsp 已移除——
+        // OpenCode v2 不再运行语言服务器、不暴露 LSP 工具，故不再查询 lsp 状态。
+        const [web, mcp, cfg] = await Promise.all([
             api.GetWebStatus(config.serviceHost, resolveServicePort()).catch(() => null),
-            store.webRunning ? api.OpenCodeCall('GET', '/mcp').catch(() => null) : Promise.resolve(null),
-            store.webRunning ? api.OpenCodeCall('GET', '/lsp').catch(() => null) : Promise.resolve(null),
-            store.webRunning ? api.OpenCodeCall('GET', '/config').catch(() => null) : Promise.resolve(null),
+            store.webRunning ? api.OpenCodeCall('GET', '/api/mcp').catch(() => null) : Promise.resolve(null),
+            store.webRunning ? api.OpenCodeCall('GET', '/api/config').catch(() => null) : Promise.resolve(null),
         ]);
         if (web) {
             store.webRunning = !!web.running;
             store.webURL = web.url || '';
         }
         store.serverStatus = normalizeServerStatus(web);
-        store.mcpStatus = mcp;
-        store.lspStatus = lsp;
+        // v2 的 /api/mcp 返回 {location, data:[...]} 信封
+        store.mcpStatus = unwrap(mcp) ?? null;
+        store.lspStatus = null;
         // 插件信息：只取 /config 的 plugin 数组（服务按此加载的插件），
         // 其余字段（含 provider API Key）不进入内存，避免敏感配置暴露
         store.pluginStatus = extractPluginList(cfg);
@@ -96,10 +109,28 @@ export async function loadServiceStatus() {
     }
 }
 
-/** 从 /config 响应提取 plugin 数组（cfg 为 OpenCodeCall 已解析的对象；解析失败返回空） */
+/** 从 /config 响应提取插件名列表（渲染层按字符串数组消费）。
+ *
+ *  OpenCode v2 的 GET /api/config 返回 Config.Entry[]：
+ *    [{ type:'document', path, info:{ ...plugins:[{package, options}] } }, { type:'directory', path }]
+ *  且 v2 把 v1 的 `plugin` 字段改名为 `plugins`，条目形态由 [name, options] 元组
+ *  变为 {package, options} 对象，故这里统一抽取为名称字符串数组。
+ *  同时兼容 v1 形态（裸对象 + plugin 字符串数组）。
+ */
 function extractPluginList(cfg) {
-    if (!cfg || typeof cfg !== 'object') return [];
-    return Array.isArray(cfg.plugin) ? cfg.plugin.slice() : [];
+    if (!cfg) return [];
+    let plugins = null;
+    if (Array.isArray(cfg)) {
+        // v2：取第一个 document 条目里的 info
+        const doc = cfg.find(e => e && e.type === 'document' && e.info);
+        plugins = doc ? (doc.info.plugins ?? doc.info.plugin) : null;
+    } else if (typeof cfg === 'object') {
+        plugins = cfg.plugins ?? cfg.plugin;
+    }
+    if (!Array.isArray(plugins)) return [];
+    return plugins
+        .map(p => (typeof p === 'string' ? p : (p && (p.package || p.name || p[0])) || ''))
+        .filter(Boolean);
 }
 
 /** 将服务器状态对象标准化为统一格式 */

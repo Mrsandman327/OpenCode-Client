@@ -16,6 +16,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as json$0 from "../encoding/json/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as jsontext$0 from "../encoding/json/jsontext/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as model$0 from "./model/models.js";
 
 /**
@@ -868,6 +871,18 @@ export function SaveSkillScheme(name) {
     return $Call.ByID(1652296650, name).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
+}
+
+/**
+ * SetServerPassword 设置外部 opencode 服务的访问口令。
+ * OpenCode v2 起 serve 默认开启 Basic 认证；当连接的不是本进程拉起的服务
+ * （如用户自行启动的 opencode）时，其口令无法自动获得，需由用户从
+ * 启动日志里复制过来填入。
+ * @param {string} password
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetServerPassword(password) {
+    return $Call.ByID(1667908081, password);
 }
 
 /**

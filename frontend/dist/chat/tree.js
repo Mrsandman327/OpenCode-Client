@@ -462,7 +462,7 @@ export async function deleteSession(id) {
     try {
         window._skipSessionDeletedRebuild = true;
         setTimeout(function() { window._skipSessionDeletedRebuild = false; }, 2000);
-        await api.OpenCodeCall('DELETE', `/session/${encodeURIComponent(id)}`);
+        await api.OpenCodeCall('DELETE', `/api/session/${encodeURIComponent(id)}`);
         showToast('已删除', 'success');
         if (id === store.currentSessionId) {
             store.currentSessionId = '';
@@ -655,7 +655,7 @@ export async function renameSession(sid) {
     if (!newTitle || newTitle.trim() === '' || newTitle.trim() === oldTitle) return;
     newTitle = newTitle.trim();
     try {
-        await api.OpenCodeCall('PATCH', '/session/' + encodeURIComponent(sid), { title: newTitle });
+        await api.OpenCodeCall('PATCH', '/api/session/' + encodeURIComponent(sid), { title: newTitle });
         showToast('已重命名', 'success');
         // 同步更新当前会话标题
         if (sid === store.currentSessionId) {
@@ -671,19 +671,13 @@ export async function renameSession(sid) {
     }
 }
 
-/** 重命名项目（PATCH /project/{id} 设置 name；name 为空时项目显示回退为 id） */
+/** 重命名项目。
+ *  OpenCode v2 的 Project 由目录（canonical）派生，没有 name 字段，
+ *  也没有提供项目更新端点（v1 的 PATCH /project/{id} 已移除），
+ *  因此此处明确提示而非发起注定失败的请求。 */
 export async function renameProject(projectId) {
     if (!projectId) return;
-    const input = prompt('请输入新项目名称：');
-    if (input === null) return;
-    const name = input.trim();
-    try {
-        await api.OpenCodeCall('PATCH', '/project/' + encodeURIComponent(projectId), { name });
-        showToast(name ? '项目已重命名' : '项目名已清空（显示为 id）', 'success');
-        buildTree();
-    } catch (e) {
-        showToast('重命名失败: ' + (e.message || e), 'error');
-    }
+    showToast('OpenCode v2 的项目名由目录自动派生，暂不支持重命名', 'warning');
 }
 
 initTreeContextMenu();

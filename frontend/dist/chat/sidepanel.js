@@ -7,7 +7,8 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, normalizeMessageItem, isInternalUserMessage, safeText, modelDisplayLabel } from '../core/utils.js';
+import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, safeText, modelDisplayLabel } from '../core/utils.js';
+import { adaptMessages } from '../core/v2compat.js';
 import { renderPart, setRenderTodosHandler } from './render.js';
 
 // 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（sidepanel→render 单向依赖，无环）。
@@ -379,15 +380,15 @@ export async function loadSubtaskDetailMessages(childSessionId) {
     const thisSeq = ++store.detailMessageLoadSeq;
 
     try {
-        const data = await api.OpenCodeCall('GET', '/session/' + encodeURIComponent(childSessionId) + '/message');
+        const res = await api.OpenCodeCall('GET', '/api/session/' + encodeURIComponent(childSessionId) + '/message');
         if (thisSeq !== store.detailMessageLoadSeq) return;
 
-        if (!data || !Array.isArray(data) || !data.length) {
+        // v2 返回 {data:[扁平消息], cursor}，需还原为 v1 的 [{info,parts}] 且按旧→新排列
+        const items = adaptMessages(childSessionId, res);
+        if (!items.length) {
             if (msgBox) msgBox.innerHTML = '<div class="oc-empty">子会话暂无消息</div>';
             return;
         }
-
-        const items = data.map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
         if (thisSeq !== store.detailMessageLoadSeq) return;
         renderDetailMessages(items);
     } catch (err) {

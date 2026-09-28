@@ -26,6 +26,8 @@ import { openFileBrowserModal, openFileBrowserStandaloneFor } from '../filebrows
 // 知识库 @ 引用：collectKnowledgeRefs 取引用全文注入发送 parts，clearKnowledgeRefs 在发送成功后清空引用区。
 // 该模块不识 session.js，无循环依赖。
 import { collectKnowledgeRefs, clearKnowledgeRefs, hasKnowledgeRefs } from './knowledge-ref.js';
+// OpenCode v2 适配层：拆 {data:...} 信封、把 v2 扁平消息还原为 v1 的 {info,parts}、转换 prompt 请求体。
+import { unwrap, unwrapList, toModelOptions, adaptMessages, prevCursor, toPromptBody, toModelRef } from '../core/v2compat.js';
 
 // ============================
 // 全局 Agent/Model 选择器
@@ -35,12 +37,14 @@ import { collectKnowledgeRefs, clearKnowledgeRefs, hasKnowledgeRefs } from './kn
 export async function loadAgentModelSelectors() {
     if (store.agentModelSelectorsLoaded) return;
     try {
-        const [agents, models] = await Promise.all([
-            api.OpenCodeCall('GET', '/agent').catch(() => []),
-            api.OpenCodeCall('GET', '/provider').catch(() => []),
+        // v2：/api/agent、/api/model 返回 {location, data:[...]} 信封，需拆包。
+        // 注意模型列表必须用 /api/model——v2 的 /api/provider 不再内嵌 models 字段。
+        const [agentsRes, modelsRes] = await Promise.all([
+            api.OpenCodeCall('GET', '/api/agent').catch(() => []),
+            api.OpenCodeCall('GET', '/api/model').catch(() => []),
         ]);
-        store.agentList = agents || [];
-        store.modelList = models || [];
+        store.agentList = unwrapList(agentsRes);
+        store.modelList = toModelOptions(modelsRes);
     } catch (_) {
         store.agentList = [];
         store.modelList = [];
@@ -109,7 +113,8 @@ let currentSessionRefreshPending = false;
 export async function refreshSessionTitle() {
     if (!store.currentSessionId) return;
     try {
-        const data = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(store.currentSessionId)}`);
+        const res = await api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(store.currentSessionId)}`);
+        const data = unwrap(res);
         const title = data?.title || data?.Title;
         // 标题尚未生成（OpenCode 异步生成，晚于 idle 事件）：直接返回，
         // 由 scheduleSessionTitleRefresh 的轮询持续驱动，避免 tab 页 / 项目树停留在占位名
@@ -322,9 +327,12 @@ export async function selectSession(id) {
     }).catch(() => {});
 }
 
-/** 用指定目录创建会话 */
+/** 用指定目录创建会话。
+ *  v2 的 POST /api/session 不接受任何查询参数（v1 用 ?directory=），
+ *  工作目录必须放在请求体的 location.directory 里，否则会话会落到服务端 CWD。 */
 export async function createSessionWithDir(dir) {
-    const session = await api.OpenCodeCall('POST', '/session?directory=' + encodeURIComponent(dir));
+    const res = await api.OpenCodeCall('POST', '/api/session', dir ? { location: { directory: dir } } : {});
+    const session = unwrap(res);
     rememberKnownDir(dir);
     return session;
 }
@@ -341,19 +349,13 @@ export function isSessionLoadedAll(sessionID) {
     return !!(sessionPaging[sessionID] && sessionPaging[sessionID].loadedAll);
 }
 
-/** 构造 before 游标：base64url(JSON{id, time})（time 为毫秒，取自消息 info.time.created） */
-function buildBeforeCursor(msg) {
-    const info = msg.info || msg;
-    const id = info.id;
-    const time = info.time?.created || info.time || 0;
-    if (!id || !time) return '';
-    return btoa(JSON.stringify({ id, time }))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
 /**
  * 加载更早的消息（分页历史，向上滚动 / 用户定位到边界时调用）。
- * 每次拉取 200 条（before=缓存最旧消息游标），前置合并后保持滚动位置。
+ * 每次拉取 200 条，前置合并后保持滚动位置。
+ *
+ * v1 用 before=<本地构造的 {id,time} 游标> 翻页；v2 改为 cursor=<服务端游标>，
+ * 且游标由服务端签发（内含 order/directory），客户端无法自造，
+ * 因此这里使用首次加载时记下的 cursor.previous。
  */
 export async function loadOlderMessages(sessionID) {
     const targetId = sessionID || store.currentSessionId;
@@ -361,21 +363,21 @@ export async function loadOlderMessages(sessionID) {
     if (!sessionPaging[targetId]) sessionPaging[targetId] = {};
     const paging = sessionPaging[targetId];
     if (paging.loadedAll || paging.loading) return;
-    const list = getCachedMessages(targetId);
-    const oldest = list[0];
-    if (!oldest) return;
-    const before = buildBeforeCursor(oldest);
-    if (!before) return;
+    const cursor = paging.cursor;
+    if (!cursor) { paging.loadedAll = true; return; }
     paging.loading = true;
     try {
-        const messages = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(targetId)}/message?limit=200&before=${encodeURIComponent(before)}`);
+        const res = await api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=200&cursor=${encodeURIComponent(cursor)}`);
+        const messages = adaptMessages(targetId, res);
         // 渲染到目标会话自己的容器；仅当前激活会话保持滚动位置与同步用户定位
         const isCurrent = targetId === store.currentSessionId;
         const box = isCurrent ? ensureTabMessagesEl(targetId) : null;
         const prevHeight = box ? box.scrollHeight : 0;
-        if (!messages || !messages.length) {
+        const nextCursorValue = prevCursor(res);
+        if (!messages.length || !nextCursorValue) {
             paging.loadedAll = true; // 没有更早消息，全部加载完成
         } else {
+            paging.cursor = nextCursorValue;
             prependMessages(targetId, messages);
             if (messages.length < 200) paging.loadedAll = true;
             // 新加载的用户消息插入缓存头部，用户定位索引整体偏移（保持"看到的那条"位置）
@@ -474,13 +476,17 @@ export async function loadMessages(sessionID) {
     const beforeJson = hasCache ? JSON.stringify(existing) : '';
     try {
         // 首次加载与缓存校正共用：拉取最新 20 条（带超时，避免请求挂起卡死刷新）
-        const messages = await withTimeout(
-            api.OpenCodeCall('GET', `/session/${encodeURIComponent(targetId)}/message?limit=20`),
+        const res = await withTimeout(
+            api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=20`),
             LOAD_MESSAGES_TIMEOUT_MS,
             '加载会话消息'
         );
         if (seq !== store.sessionLoadSeq[targetId]) return;
-        const incoming = messages || [];
+        // v2 返回 {data:[扁平消息], cursor}，需还原为 v1 的 [{info,parts}] 且按旧→新排列
+        const incoming = adaptMessages(targetId, res);
+        // 记下「更早一页」的服务端游标，供向上滚动分页使用
+        if (!sessionPaging[targetId]) sessionPaging[targetId] = {};
+        sessionPaging[targetId].cursor = prevCursor(res);
         // 校正缓存：缓存里可能已含向上分页加载的更早历史，直接整体覆盖会把它们抹掉，
         // 并使“加载更多”因 loadedAll 残留而永久失效。因此以 API 首条消息为锚点，
         // 只替换「锚点及之后」的最新一段，保留锚点之前的更早历史；
@@ -491,7 +497,7 @@ export async function loadMessages(sessionID) {
             : -1;
         cacheMessages(targetId, anchorIdx > 0 ? existing.slice(0, anchorIdx).concat(incoming) : incoming);
         // 仅在“全新加载”路径判断是否已全部加载，避免覆盖有分页历史会话的分页状态
-        if (!hasCache && incoming.length < 20) {
+        if (!hasCache && (incoming.length < 20 || !prevCursor(res))) {
             if (!sessionPaging[targetId]) sessionPaging[targetId] = {};
             sessionPaging[targetId].loadedAll = true;
         }
@@ -964,18 +970,9 @@ export async function abortSession() {
     clearInterval(store.refreshTimer);
     store.refreshTimer = null;
     try {
-        const dirEl = document.getElementById('ocSideDirPath');
-        const requestDir = (dirEl?.textContent || window._sessionMap?.[sessionID]?.directory || '').trim();
-        const directoryQuery = requestDir ? `?directory=${encodeURIComponent(requestDir)}` : '';
-        try {
-            await api.OpenCodeCall('POST', `/session/${encodeURIComponent(sessionID)}/abort${directoryQuery}`);
-        } catch (err) {
-            if (directoryQuery) {
-                await api.OpenCodeCall('POST', `/session/${encodeURIComponent(sessionID)}/abort`);
-            } else {
-                throw err;
-            }
-        }
+        // v1 为 POST /session/{id}/abort，v2 改名为 /api/session/{id}/interrupt。
+        // v2 的 interrupt 不接收 directory 查询参数（工作目录由会话自身携带），故不再拼接。
+        await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sessionID)}/interrupt`);
         showToast('已停止', 'info');
         delete store.sessionErrors[sessionID];
         store.sessionStatuses[sessionID] = 'idle';
@@ -1086,24 +1083,23 @@ export async function sendPrompt() {
         // （createUserMessage 采用 input.messageID ?? MessageID.ascending()，仅校验必须以 "msg" 开头）
         const body = { parts, messageID: localMessageId };
         // 兜底校验：选择器里可能残留历史会话的失效名（插件改名 / agent 已删除），
-        // 直接作为 agent / model 参数发出去会让 opencode 抛 "Agent not found"（前端表现为 UnknownError）。
+        // 直接作为 agent 参数发出去会让 opencode 抛 "Agent not found"（前端表现为 UnknownError）。
         if (store.selectedAgent && isKnownAgentName(store.selectedAgent)) {
             body.agent = store.selectedAgent;
         }
-        if (store.selectedModel && isKnownModelId(store.selectedModel)) {
-            const slashIdx = store.selectedModel.indexOf('/');
-            if (slashIdx > 0) {
-                body.model = {
-                    providerID: store.selectedModel.slice(0, slashIdx),
-                    modelID: store.selectedModel.slice(slashIdx + 1),
-                };
-            }
-        }
-        if (store.selectedVariant) body.variant = store.selectedVariant;
+        // v2 的 prompt 不再接受 model / variant：
+        // 需先用 POST /api/session/{id}/model 切换会话模型，再以 {text, files, agents} 提交正文。
+        // 注：v2 的 prompt / model / interrupt 端点均不接收 directory 查询参数
+        // （工作目录由会话自身携带），故这里不再拼接目录查询串。
         const dirEl = document.getElementById('ocSideDirPath');
-        const requestDir = (dirEl?.textContent || window._sessionMap?.[store.currentSessionId]?.directory || sessionDir || '').trim();
-        const directoryQuery = requestDir ? `?directory=${encodeURIComponent(requestDir)}` : '';
-        await api.OpenCodeCall('POST', `/session/${encodeURIComponent(store.currentSessionId)}/prompt_async${directoryQuery}`, body);
+        const sid = store.currentSessionId;
+        const modelRef = (store.selectedModel && isKnownModelId(store.selectedModel))
+            ? toModelRef(store.selectedModel, store.selectedVariant)
+            : null;
+        if (modelRef) {
+            await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/model`, { model: modelRef });
+        }
+        await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/prompt`, toPromptBody(body));
         if (isNew) {
             dirEl.onclick = function() {
                 // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）

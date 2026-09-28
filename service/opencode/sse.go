@@ -77,13 +77,15 @@ func StartOpenCodeEvents() model.APIResult {
 	eventStop = cancel
 	eventMu.Unlock()
 
-	url := fmt.Sprintf("http://%s:%d/global/event", sess.hostname, sess.port)
+	// v1 为 /global/event，v2 收拢到 /api/event，且与普通 API 一样需要 Basic 认证
+	url := fmt.Sprintf("http://%s:%d/api/event", sess.hostname, sess.port)
 	go func() {
 		req, err := http.NewRequestWithContext(sseCtx, http.MethodGet, url, nil)
 		if err != nil {
 			emitToDesktop("oc-event-error", err.Error())
 			return
 		}
+		applyAuth(req, sess.password)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			emitToDesktop("oc-event-error", err.Error())
@@ -91,6 +93,21 @@ func StartOpenCodeEvents() model.APIResult {
 			return
 		}
 		defer resp.Body.Close()
+
+		// 认证失败或路径不存在时 v2 会回落到 SPA 首页（200 + HTML），
+		// 此时没有任何 data: 行，前端表现为「连上了但收不到事件」，需显式报错。
+		if resp.StatusCode != http.StatusOK {
+			msg := fmt.Sprintf("事件流连接失败: HTTP %d", resp.StatusCode)
+			emitToDesktop("oc-event-error", msg)
+			broadcastBrowserSSE("oc-event-error", msg)
+			return
+		}
+		if isHTMLResponse(resp.Header.Get("Content-Type")) {
+			msg := "事件流连接失败：OpenCode v2 未提供 /api/event 端点（返回了网页内容）"
+			emitToDesktop("oc-event-error", msg)
+			broadcastBrowserSSE("oc-event-error", msg)
+			return
+		}
 
 		scanner := bufio.NewScanner(resp.Body)
 		buf := make([]byte, 0, 64*1024)
