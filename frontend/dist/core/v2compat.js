@@ -43,6 +43,16 @@ export function dirQuery(directory) {
     return directory ? '?directory=' + enc(directory) : '';
 }
 
+/**
+ * v2 中 /api/agent、/api/model、/api/command、/api/mcp、/api/config、/api/form
+ * 等端点的作用域参数是 `location`，且为 **deepObject** 风格
+ * （style=deepObject, explode=true），必须编码成 `location[directory]=...`。
+ * 写成 `location=...` 会被服务端忽略，列表就退回服务端 CWD 而非当前会话目录。
+ */
+export function locationQuery(directory) {
+    return directory ? '?location%5Bdirectory%5D=' + enc(directory) : '';
+}
+
 /** 把 v1 的 prompt 请求体转换为 v2 的 {text, files, agents, ...} 形态。
  *  v1 发送 {parts:[{type:'text',text},{type:'file',...}], model, variant, agent}；
  *  v2 改为顶层 text + files/agents/skills，且**不再随 prompt 提交 model/agent**——
@@ -90,12 +100,51 @@ export function toModelRef(modelId, variant) {
  * 其中 value 是 "providerID/modelID"。这里做一次归一化，三处调用点共用。
  */
 export function toModelOptions(res) {
-    return unwrapList(res).map(m => ({
-        value: m.providerID ? m.providerID + '/' + m.modelID : (m.id || ''),
-        label: m.name || m.modelID || m.id || '',
-        variants: Array.isArray(m.variants) ? m.variants.map(v => v.id) : [],
-        enabled: m.enabled !== false,
-    }));
+    return unwrapList(res).map(m => {
+        const modelID = m.modelID || m.id || '';
+        const providerID = m.providerID || '';
+        // value 必须是非空且可被 toModelRef 拆成 provider/model：
+        // 下拉框提交时按 '/' 切分，缺 provider 会得到空串并被静默丢弃。
+        // 只有 provider 没有 model（或反之）的条目无法表达，直接剔除。
+        const value = providerID && modelID ? providerID + '/' + modelID : '';
+        return {
+            value,
+            label: m.name || modelID,
+            variants: Array.isArray(m.variants) ? m.variants.map(v => v.id) : [],
+            enabled: m.enabled !== false,
+        };
+    }).filter(m => m.value);
+}
+
+// ============================
+// 会话状态：v2 的 {type:'running'} → v1 的 'busy' / 'idle'
+// ============================
+
+/**
+ * 归一化 /api/session/active 的返回。
+ *
+ * v2 实测形状：{"data":{"<sessionID>":{"type":"running"}}}，且**只列出活跃会话**
+ * （空闲时整个 data 为 {}）。而 v1 是扁平字符串映射 {sessionID: 'busy'|'idle'}，
+ * 现有代码（isSessionBusy 认 status==='busy' 或 status?.type==='busy'、
+ * abortSession 判 statuses[id]==='idle'）都按 v1 契约写，直接透传会导致
+ * 「会话正在跑但发送按钮仍显示发送」「停止后的状态确认永远不成立」。
+ *
+ * 这里统一转成 v1 形态：running → 'busy'；idle → 'idle'；
+ * 其它类型（如 retry）保留对象，使 isSessionBusy 的 retry 分支仍可命中。
+ */
+export function normalizeStatuses(res) {
+    const map = unwrap(res) || {};
+    const out = {};
+    for (const sid of Object.keys(map)) {
+        const v = map[sid];
+        if (v == null) continue;
+        if (typeof v === 'string') { out[sid] = v; continue; }
+        const t = v.type ?? v.status;
+        if (t === 'running' || t === 'busy') out[sid] = 'busy';
+        else if (t === 'idle') out[sid] = 'idle';
+        else out[sid] = v; // retry 等：保留原对象
+    }
+    return out;
 }
 
 // ============================
@@ -219,9 +268,55 @@ function adaptMessage(msg, sessionID) {
         return { info, parts };
     }
 
-    // v2 会在消息流里插入 type:'idle' 之类的伪消息用于标记状态边界，
-    // 它们不是真正的对话消息，必须过滤掉，否则界面上会出现空卡片。
-    return null;
+    // v2 除 user/assistant 外还有若干消息类型。idle 是状态边界标记，必须丢弃
+    // （否则界面上出现空卡片）；agent/model/location-switched 只是 UI 状态切换，
+    // 没有可渲染内容，同样丢弃。其余类型按下表还原。
+    switch (msg.type) {
+        case 'system':
+        case 'synthetic': {
+            // {id, time, type, text, description?} —— 服务端注入的说明性消息
+            const text = [msg.description, msg.text].filter(Boolean).join('\n');
+            if (!text) return null;
+            info.role = 'system';
+            return { info, parts: [{ id: msg.id + '_text', messageID: msg.id, sessionID, type: 'text', text }] };
+        }
+        case 'skill': {
+            // {id, time, type, skill, name, text} —— 技能激活记录
+            const title = msg.name || msg.skill || '';
+            const text = [title ? '**' + title + '**' : '', msg.text || ''].filter(Boolean).join('\n');
+            if (!text) return null;
+            info.role = 'system';
+            return { info, parts: [{ id: msg.id + '_text', messageID: msg.id, sessionID, type: 'text', text }] };
+        }
+        case 'shell': {
+            // {id, time, type, shellID, command, status, exit?, output?}
+            // 还原为通用工具卡片（renderTool 对非 question 的工具走通用渲染）
+            const exited = msg.status === 'exited' || msg.status === 'timeout' || msg.status === 'killed';
+            const isErr = msg.status === 'killed' || (msg.status === 'exited' && typeof msg.exit === 'number' && msg.exit !== 0);
+            return {
+                info,
+                parts: [{
+                    id: msg.id + '_shell', messageID: msg.id, sessionID, type: 'tool',
+                    tool: 'shell',
+                    state: {
+                        status: exited ? (isErr ? 'error' : 'completed') : 'running',
+                        input: { command: msg.command },
+                        output: msg.output?.output || '',
+                        error: isErr ? `命令以 ${msg.exit} 退出` : '',
+                        time: { start: msg.time?.created, end: msg.time?.completed },
+                    },
+                }],
+            };
+        }
+        case 'compaction': {
+            // 上下文压缩标记：渲染为一条系统说明
+            info.role = 'system';
+            return { info, parts: [{ id: msg.id + '_text', messageID: msg.id, sessionID, type: 'text', text: '⟳ 上下文已压缩' }] };
+        }
+        default:
+            // idle / agent-switched / model-switched / location-switched / provider-state 等
+            return null;
+    }
 }
 
 /**

@@ -1,0 +1,908 @@
+[
+  {
+    "id": "evt_0e676156b001LCtGeWmL9MVjXo",
+    "type": "server.connected",
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761a350018tb6r2zTwH9Sj2",
+    "created": 1790572894773,
+    "type": "session.created",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "slug": "stellar-island",
+      "version": "2.0.15",
+      "projectID": "17171257ef3fd7c9e95753b04e5a608eb5e7d8b7",
+      "location": {
+        "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+      },
+      "subpath": ""
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 0,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6761a4f001y5c94ijYHT2LZg",
+    "created": 1790572894799,
+    "type": "project.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "id": "17171257ef3fd7c9e95753b04e5a608eb5e7d8b7",
+      "canonical": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture",
+      "time": {
+        "created": 1790572342468,
+        "updated": 1790572342468,
+        "active": 1790572894798
+      },
+      "sandboxes": []
+    }
+  },
+  {
+    "id": "evt_0e6761d7d001ineP1k8Dc5qzd1",
+    "created": 1790572895613,
+    "type": "integration.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761d86001N0sgjWOwqZlEJV",
+    "created": 1790572895622,
+    "type": "provider.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761d9d001sj0UB7BHUfRAqO",
+    "created": 1790572895645,
+    "type": "model.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761d9f001mrwQfAHoyX7P6c",
+    "created": 1790572895647,
+    "type": "agent.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761d9f002WkRVLADAC5ICGL",
+    "created": 1790572895647,
+    "type": "command.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761da00019bgsLuU48Yk3M7",
+    "created": 1790572895648,
+    "type": "skill.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761da6001IeQngpDwe0MId0",
+    "created": 1790572895654,
+    "type": "websearch.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761da7002oupFS9tyRShAHT",
+    "created": 1790572895655,
+    "type": "reference.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761da8001i6BhW36PnxU0XS",
+    "created": 1790572895656,
+    "type": "plugin.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {}
+  },
+  {
+    "id": "evt_0e6761daa001f16Vv6pfPiFzOo",
+    "created": 1790572895658,
+    "type": "session.inbox.enqueued",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "inboxID": "msg_0e6761b2d001Y23eL8ubvfQd8f",
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "item": {
+        "type": "user",
+        "payload": {
+          "text": "Use the shell tool to run `echo hello-tool-42`, then reply with exactly the output you saw."
+        },
+        "delivery": "steer"
+      }
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 1,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6761daf0011NHK0WNwTjyMTo",
+    "created": 1790572895663,
+    "type": "session.execution.started",
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04"
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 2,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6761dcc001X0NX10DLVQSH45",
+    "created": 1790572895692,
+    "metadata": {
+      "instructions": {
+        "initial": true
+      }
+    },
+    "type": "session.instructions.updated",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "delta": {
+        "core/environment": "de3041871e5d3420c1b6e93c0c8476b0fa7486db421a16f059d9befa18867872",
+        "core/date": "bf08b8486572ab3eef677a3c9ee12468e411ae41a8f4d2fb6cf02a6ca73f1986",
+        "core/codemode": "9bbeb19ab2fa0ee4cafd3d2e36b9cfb6c72f8148481e8c67444eb0c9d38b5a22",
+        "core/skill-guidance": "53539092910f601f6b5abf2ab0fa2cb2bf23a66d824cd3615027517ee7357df7"
+      }
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 3,
+      "version": 2
+    }
+  },
+  {
+    "id": "evt_0e6761dd0001nbEqi3vw2n0FZ5",
+    "created": 1790572895696,
+    "type": "session.inbox.delivered",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "inboxID": "msg_0e6761b2d001Y23eL8ubvfQd8f"
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 4,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e676292f001eyqf9vb7u8JgDY",
+    "created": 1790572898607,
+    "type": "session.step.started",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "agent": "build",
+      "model": {
+        "id": "longcat-2.5-preview-free",
+        "providerID": "opencode-go"
+      },
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "started": 1790572895758
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 5,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6762935001e8IDJRa86J6wS4",
+    "created": 1790572898613,
+    "type": "session.reasoning.started",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "state": {
+        "reasoningField": "reasoning_content"
+      }
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 6,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e676299e001KRUFalhOqTyLGP",
+    "created": 1790572898718,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "delta": "\n"
+    }
+  },
+  {
+    "id": "evt_0e6762a4f001oHay9YVvbzhLTl",
+    "created": 1790572898895,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "delta": "The user wants me to"
+    }
+  },
+  {
+    "id": "evt_0e6762abe001H21vz7V13FobYn",
+    "created": 1790572899006,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "delta": " run a simple shell command and report"
+    }
+  },
+  {
+    "id": "evt_0e6762b25001wilghOvDio3ayQ",
+    "created": 1790572899109,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "delta": " its"
+    }
+  },
+  {
+    "id": "evt_0e6762c82001xPhLukqbjJ2BZR",
+    "created": 1790572899458,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "delta": " output. This is straightforward. I'll execute the command and return the exact output.\n\nThe command is `echo hello-tool-"
+    }
+  },
+  {
+    "id": "evt_0e6762d37001D2YTKyVkQ5BtO0",
+    "created": 1790572899640,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "delta": "42`, which on Windows PowerShell would output `hello-tool"
+    }
+  },
+  {
+    "id": "evt_0e6762dc7001zMLJGjGvxcLAPc",
+    "created": 1790572899784,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "delta": "-42`. No"
+    }
+  },
+  {
+    "id": "evt_0e6762ec50012tVpB2u6Sf773l",
+    "created": 1790572900037,
+    "type": "session.tool.input.started",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "id": "call_41847ad4590c4197b77cc708",
+      "name": "shell"
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 7,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6762f27001et18NpKK47wJka",
+    "created": 1790572900136,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "delta": " other parameters are required for this call."
+    }
+  },
+  {
+    "id": "evt_0e6762f8a001F0uKRmUwY9i3NU",
+    "created": 1790572900234,
+    "type": "session.reasoning.ended",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "ordinal": 0,
+      "text": "\nThe user wants me to run a simple shell command and report its output. This is straightforward. I'll execute the command and return the exact output.\n\nThe command is `echo hello-tool-42`, which on Windows PowerShell would output `hello-tool-42`. No other parameters are required for this call.",
+      "state": {
+        "reasoningField": "reasoning_content"
+      }
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 8,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6762f8e001vZ7LwD01DdpXpo",
+    "created": 1790572900238,
+    "type": "session.tool.input.ended",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "id": "call_41847ad4590c4197b77cc708",
+      "text": "{\"command\": \"echo hello-tool-42\"}"
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 9,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6762f91001x5EWdC0CvcwWcS",
+    "created": 1790572900241,
+    "type": "session.tool.called",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "id": "call_41847ad4590c4197b77cc708",
+      "input": {
+        "command": "echo hello-tool-42"
+      },
+      "executed": false
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 10,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6762f960017blU8b8pr73o7K",
+    "created": 1790572900246,
+    "type": "session.step.streamed",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ"
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 11,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e676301e00132nZ9S8JTfLOCY",
+    "created": 1790572900382,
+    "type": "shell.created",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "info": {
+        "id": "sh_0e6762fc20014sZSaOZUvwJlRs",
+        "status": "running",
+        "command": "echo hello-tool-42",
+        "cwd": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture",
+        "shell": "C:\\Program Files\\WindowsApps\\Microsoft.PowerShell_7.6.6.0_x64__8wekyb3d8bbwe\\pwsh.EXE",
+        "file": "C:\\Users\\swordkee\\.local\\share\\opencode\\shell\\17171257ef3fd7c9e95753b04e5a608eb5e7d8b7\\sh_0e6762fc20014sZSaOZUvwJlRs.out",
+        "metadata": {
+          "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04"
+        },
+        "time": {
+          "started": 1790572900290
+        }
+      }
+    }
+  },
+  {
+    "id": "evt_0e676301f001aDLfzlymST0l44",
+    "created": 1790572900383,
+    "type": "session.tool.progress",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "id": "call_41847ad4590c4197b77cc708",
+      "metadata": {
+        "shellID": "sh_0e6762fc20014sZSaOZUvwJlRs"
+      }
+    }
+  },
+  {
+    "id": "evt_0e6763278001b9e7zYNK0SFD0M",
+    "created": 1790572900984,
+    "type": "shell.exited",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "id": "sh_0e6762fc20014sZSaOZUvwJlRs",
+      "exit": 0,
+      "status": "exited"
+    }
+  },
+  {
+    "id": "evt_0e676327d001QemQxmbVjNbB4b",
+    "created": 1790572900989,
+    "type": "session.tool.success",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "id": "call_41847ad4590c4197b77cc708",
+      "content": [
+        {
+          "type": "text",
+          "text": "hello-tool-42\r\n"
+        }
+      ],
+      "metadata": {
+        "status": "completed",
+        "truncated": false,
+        "exit": 0
+      },
+      "executed": false
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 12,
+      "version": 2
+    }
+  },
+  {
+    "id": "evt_0e6763282001eMSzJrd0XTgCQw",
+    "created": 1790572900994,
+    "type": "session.step.ended",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6761df8001iKRQt97b3sSryZ",
+      "finish": "tool-calls",
+      "rawFinish": "tool_calls",
+      "cost": 0,
+      "tokens": {
+        "input": 5219,
+        "output": 21,
+        "reasoning": 64,
+        "cache": {
+          "read": 1280,
+          "write": 0
+        }
+      }
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 13,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6763287001zOInGBOSVW38wB",
+    "created": 1790572900999,
+    "type": "session.usage.updated",
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "cost": 0,
+      "tokens": {
+        "input": 5219,
+        "output": 21,
+        "reasoning": 64,
+        "cache": {
+          "read": 1280,
+          "write": 0
+        }
+      }
+    }
+  },
+  {
+    "id": "evt_0e6763c1a001YO3ao3eifIQIaH",
+    "created": 1790572903450,
+    "type": "session.step.started",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "agent": "build",
+      "model": {
+        "id": "longcat-2.5-preview-free",
+        "providerID": "opencode-go"
+      },
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "started": 1790572901037
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 14,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6763c1e001bSbVrSPE8R12f3",
+    "created": 1790572903454,
+    "type": "session.reasoning.started",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "state": {
+        "reasoningField": "reasoning_content"
+      }
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 15,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6763c87001Cpwexst4WsUt5C",
+    "created": 1790572903559,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "delta": "\n"
+    }
+  },
+  {
+    "id": "evt_0e6763d44001357ndFXZsKofQb",
+    "created": 1790572903748,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "delta": "The command output"
+    }
+  },
+  {
+    "id": "evt_0e6763db6001NjpORKN74KBAwx",
+    "created": 1790572903862,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "delta": " was `hello-tool-42`."
+    }
+  },
+  {
+    "id": "evt_0e6763dd3001SRUb689YT2oSWc",
+    "created": 1790572903891,
+    "type": "session.usage.updated",
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "cost": 0,
+      "tokens": {
+        "input": 5248,
+        "output": 28,
+        "reasoning": 146,
+        "cache": {
+          "read": 1792,
+          "write": 0
+        }
+      }
+    }
+  },
+  {
+    "id": "evt_0e6763dd40016f5ioL6JID74t3",
+    "created": 1790572903892,
+    "type": "session.renamed",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "title": "Shell command test execution"
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 17,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6763e22001Rc7E6T5DofaVOX",
+    "created": 1790572903970,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "delta": " The user asked me"
+    }
+  },
+  {
+    "id": "evt_0e6763e98001umrbOJWVyTKrpD",
+    "created": 1790572904089,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "delta": " to reply with exactly the output I saw, so I should"
+    }
+  },
+  {
+    "id": "evt_0e6763f3e001bpyXwke3anXfMO",
+    "created": 1790572904254,
+    "type": "session.reasoning.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "delta": " return just that.\n"
+    }
+  },
+  {
+    "id": "evt_0e6763fdb001jCmRCRLOd4KxU3",
+    "created": 1790572904411,
+    "type": "session.text.started",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 18,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6763fe0001cuocpmzmGSpqvu",
+    "created": 1790572904416,
+    "type": "session.reasoning.ended",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "text": "\nThe command output was `hello-tool-42`. The user asked me to reply with exactly the output I saw, so I should return just that.\n",
+      "state": {
+        "reasoningField": "reasoning_content"
+      }
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 19,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6763fe40011fOv2rylAYgfrt",
+    "created": 1790572904420,
+    "type": "session.text.delta",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "delta": "hello-tool-42"
+    }
+  },
+  {
+    "id": "evt_0e6763fe4002dkp5VCOi7Nhq49",
+    "created": 1790572904420,
+    "type": "session.text.ended",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "ordinal": 0,
+      "text": "hello-tool-42"
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 20,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6763fe8001vyFpXnxuYG2JxP",
+    "created": 1790572904424,
+    "type": "session.step.streamed",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r"
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 21,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6763fea001G1EpuOuBmZjbIL",
+    "created": 1790572904427,
+    "type": "session.step.ended",
+    "location": {
+      "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+    },
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "assistantMessageID": "msg_0e6763299001KtQikCZ4j8n92r",
+      "finish": "stop",
+      "rawFinish": "stop",
+      "cost": 0,
+      "tokens": {
+        "input": 5321,
+        "output": 8,
+        "reasoning": 32,
+        "cache": {
+          "read": 1280,
+          "write": 0
+        }
+      }
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 22,
+      "version": 1
+    }
+  },
+  {
+    "id": "evt_0e6763fee001bKTMVbyzNm5ktE",
+    "created": 1790572904430,
+    "type": "session.usage.updated",
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "cost": 0,
+      "tokens": {
+        "input": 10569,
+        "output": 36,
+        "reasoning": 178,
+        "cache": {
+          "read": 3072,
+          "write": 0
+        }
+      }
+    }
+  },
+  {
+    "id": "evt_0e6763ff0001bII2EODFGs0TF0",
+    "created": 1790572904432,
+    "type": "session.execution.succeeded",
+    "data": {
+      "sessionID": "ses_f1989e5d3ffetbnXuT2gIOnH04"
+    },
+    "durable": {
+      "aggregateID": "ses_f1989e5d3ffetbnXuT2gIOnH04",
+      "seq": 23,
+      "version": 1
+    }
+  }
+]

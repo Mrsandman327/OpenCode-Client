@@ -16,7 +16,7 @@ import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta
 import { scheduleSubtaskExtraction } from './sidepanel.js';
 import { buildTree } from './tree.js';
 import { showPermissionRequest, closePermissionModal } from './permission.js';
-import { adaptEvent } from '../core/v2compat.js';
+import { adaptEvent, normalizeStatuses } from '../core/v2compat.js';
 
 // ============================
 // SSE 事件处理
@@ -159,7 +159,9 @@ export function handleOcEvent(event) {
         return;
     }
     if (type === 'session.status' && sid) {
-        store.sessionStatuses[sid] = props.status || props;
+        // v1 的 status 是字符串（'busy'/'idle'）；v2 可能是 {type:'running'}，
+        // 统一交给 normalizeStatuses 归一，避免 isSessionBusy 认不出 running。
+        store.sessionStatuses[sid] = normalizeStatuses({ [sid]: props.status || props })[sid];
         if (sid === store.currentSessionId) {
             updateSendButton();
             const status = props.status || props;
@@ -241,11 +243,11 @@ export function handleOcEvent(event) {
 }
 
 /** 加载所有会话的运行状态（busy/idle/error）
- *  v1 为 GET /session/status（裸对象），v2 改为 GET /api/session/active（{data:...} 信封）。 */
+ *  v1 为 GET /session/status，v2 改为 GET /api/session/active。
+ *  v2 的值是 {type:'running'} 且只列出活跃会话，由 normalizeStatuses 转成 v1 契约。 */
 export async function loadSessionStatuses() {
     try {
-        const res = await api.OpenCodeCall('GET', '/api/session/active') || {};
-        return res.data || res || {};
+        return normalizeStatuses(await api.OpenCodeCall('GET', '/api/session/active'));
     } catch {
         return {};
     }
