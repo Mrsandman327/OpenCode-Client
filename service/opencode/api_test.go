@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"oc-manager/model"
 )
 
 // ============ HTML 兜底拦截 ============
@@ -190,6 +192,105 @@ func TestProjectDisplayName(t *testing.T) {
 		if got := projectDisplayName(c.project); got != c.want {
 			t.Errorf("%s: projectDisplayName = %q, 期望 %q", c.name, got, c.want)
 		}
+	}
+}
+
+// ============ 会话树：父子（子代理）关系 ============
+
+// TestTreeSessionIsRoot 覆盖 v2 的 parentID 过滤。
+// 背景：v1 用 roots=true 只取根会话；v2 改为 parentID=null。
+// 不加该参数时子代理会话会混入（本机实测 500 条里 444 条是子会话）。
+func TestTreeSessionIsRoot(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"无 parentID 字段（v1 形态）", `{"id":"ses_1"}`, true},
+		{"parentID 为空串", `{"id":"ses_1","parentID":""}`, true},
+		{"parentID 为 null", `{"id":"ses_1","parentID":null}`, true},
+		{"有父会话", `{"id":"ses_1","parentID":"ses_0"}`, false},
+	}
+	for _, c := range cases {
+		var s treeSession
+		if err := json.Unmarshal([]byte(c.body), &s); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if got := s.IsRoot(); got != c.want {
+			t.Errorf("%s: IsRoot() = %v, 期望 %v", c.name, got, c.want)
+		}
+	}
+}
+
+// TestUnmarshalSessionListKeepsParentID 确认解析后仍能识别子会话。
+func TestUnmarshalSessionListKeepsParentID(t *testing.T) {
+	body := `{"data":[
+		{"id":"ses_root","title":"主会话"},
+		{"id":"ses_kid","title":"子代理会话","parentID":"ses_root"},
+		{"id":"ses_grand","title":"孙会话","parentID":"ses_kid"}
+	]}`
+	list, err := unmarshalSessionList([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 3 {
+		t.Fatalf("长度 = %d, 期望 3", len(list))
+	}
+	roots := 0
+	for _, s := range list {
+		if s.IsRoot() {
+			roots++
+		}
+	}
+	if roots != 1 {
+		t.Errorf("根会话数 = %d, 期望 1（其余为子会话，不应进树）", roots)
+	}
+	// 父 id 链应完整可回溯
+	byID := map[string]treeSession{}
+	for _, s := range list {
+		byID[s.ID] = s
+	}
+	if p, ok := byID[list[1].ParentID]; !ok || p.ID != "ses_root" {
+		t.Errorf("子会话的 parentID 应指向存在的根会话，实际 %q", list[1].ParentID)
+	}
+}
+
+// TestBuildTreeJSONExcludesChildSessions 子会话不得进入会话树。
+func TestBuildTreeJSONExcludesChildSessions(t *testing.T) {
+	projects := []ProjectInfo{{ID: "p1", Canonical: "/w"}}
+	sessions := []treeSession{
+		{ID: "ses_root", ProjectID: "p1", Location: &struct {
+			Directory string `json:"directory"`
+		}{Directory: "/w"}, Title: "主会话"},
+		{ID: "ses_kid", ProjectID: "p1", ParentID: "ses_root", Location: &struct {
+			Directory string `json:"directory"`
+		}{Directory: "/w"}, Title: "子代理会话"},
+	}
+	out := buildTreeJSON(projects, sessions)
+
+	var nodes []model.TreeNode
+	if err := json.Unmarshal([]byte(out), &nodes); err != nil {
+		t.Fatalf("输出不是合法 JSON: %v", err)
+	}
+	// 收集所有 session 节点
+	var titles []string
+	var walk func(n model.TreeNode)
+	walk = func(n model.TreeNode) {
+		if n.Type == "session" {
+			titles = append(titles, n.Title)
+		}
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	for _, n := range nodes {
+		walk(n)
+	}
+	if len(titles) != 1 {
+		t.Fatalf("会话树中应只有 1 个 session 节点，实际 %d 个: %v", len(titles), titles)
+	}
+	if titles[0] != "主会话" {
+		t.Errorf("保留的应是根会话，实际 %q", titles[0])
 	}
 }
 

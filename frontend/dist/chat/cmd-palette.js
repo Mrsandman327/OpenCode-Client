@@ -10,7 +10,7 @@ import { escapeHtml, showToast, getCachedMessages, messageText } from '../core/u
 import { loadMessages, loadOlderMessages, isSessionLoadedAll } from './session.js';
 import { openSessionTab } from './tabs.js';
 import { buildTree } from './tree.js';
-import { unwrapList } from '../core/v2compat.js';
+import { unwrap, unwrapList } from '../core/v2compat.js';
 
 let cmdPaletteItems = [];
 let cmdPaletteLoaded = false;
@@ -315,12 +315,14 @@ async function forkFromMessage(messageID) {
     try {
         showToast('正在分叉...', 'info');
         // 直接走 OpenCodeAPI，便于诊断非 JSON 响应（HTML/错误页）
-        raw = await api.OpenCodeAPI('POST', `/session/${encodeURIComponent(sid)}/fork`, JSON.stringify({ messageID }));
+        // v2：路径收拢到 /api；分叉点参数由 v1 的 messageID 改为 before（在该消息之前分叉）；
+        // 响应是 {data: Session.Info} 信封。
+        raw = await api.OpenCodeAPI('POST', `/api/session/${encodeURIComponent(sid)}/fork`, JSON.stringify({ before: messageID }));
         if (!raw || !raw.success) {
             throw new Error((raw && (raw.error || `HTTP ${raw.status}`)) || '未知错误');
         }
         if (!raw.body) throw new Error('空响应');
-        const result = JSON.parse(raw.body);
+        const result = unwrap(JSON.parse(raw.body));
         if (result && result.id) {
             openSessionTab(result.id, result.title || result.id);
             await buildTree();
@@ -330,7 +332,7 @@ async function forkFromMessage(messageID) {
         }
     } catch (e) {
         // 诊断：追加请求路径、响应状态码与 body 片段，便于定位 HTML/错误页响应
-        const reqPath = `/session/${sid}/fork`;
+        const reqPath = `/api/session/${sid}/fork`;
         const status = raw ? ` [status=${raw.status}]` : '';
         const snippet = raw && raw.body && typeof raw.body === 'string'
             ? ` body=${raw.body.slice(0, 120)}`

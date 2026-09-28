@@ -21,6 +21,13 @@ queueMicrotask(() => setRenderTodosHandler(renderTodos));
 // 代办事项 — 从消息中提取并渲染
 // ============================
 
+// 代办事项所用的工具名。
+// v1 有内置的 todowrite 工具；v2 的官方工具清单里已无该工具
+// （Files / Commands / Web / Interaction / Automation / Browser 都没有），
+// 故 v2 下本面板无数据来源。此处仍兼容识别，以便混合版本或
+// 用户自定义同名工具时仍能工作。
+const TODO_TOOL_NAMES = ['todowrite', 'todo_write', 'todo'];
+
 /** 从当前会话的缓存消息中提取代办事项列表 */
 export function extractTodos() {
     const items = getCachedMessages(store.currentSessionId);
@@ -32,9 +39,13 @@ export function extractTodos() {
         for (let j = parts.length - 1; j >= 0; j--) {
             const part = parts[j];
             if (part.type !== 'tool') continue;
-            if (part.tool !== 'todowrite' && part.name !== 'todowrite') continue;
+            const toolName = part.tool || part.name || '';
+            if (!TODO_TOOL_NAMES.includes(toolName)) continue;
             const state = part.state || {};
-            const todos = (state.input && state.input.todos) || state.todos;
+            // v1 放在 state.input.todos；兼容 state.todos 与 v2 的 content 形态
+            const todos = (state.input && state.input.todos)
+                || state.todos
+                || (Array.isArray(state.content) ? state.content : null);
             if (Array.isArray(todos)) return todos;
         }
     }
@@ -122,7 +133,10 @@ export function extractSubtaskSummaries(sessionID) {
         if (mid) msgById.set(mid, msg);
         const parts = msg.parts || [];
         for (const part of parts) {
-            if (part.type !== 'tool' || part.tool !== 'task') continue;
+            // v1 的子任务工具名为 task，v2 改名为 subagent（见 V2 工具文档「Automation → Subagent」）
+            const toolName = part.tool || part.name || '';
+            if (part.type !== 'tool') continue;
+            if (toolName !== 'subagent' && toolName !== 'task') continue;
             const st = part.state || {};
             const meta = st.metadata || part.metadata || {};
             const modelMeta = meta.model || {};
@@ -132,11 +146,18 @@ export function extractSubtaskSummaries(sessionID) {
             let status = st.status || 'pending';
             if (status === 'error' && meta.interrupted) status = 'interrupt';
 
+            // v2 把 agent / description / prompt 放在 state.input，
+            // state.metadata 只有 {sessionID, status, truncated}，两者都读以兼容 v1
+            const inp = st.input || {};
+            const childSessionId = meta.sessionID || meta.sessionId || null;
+            const description = inp.description || meta.description || st.title || '';
+            const agent = inp.agent || meta.agent || 'unknown';
+
             summaries.push({
-                childSessionId: meta.sessionId || null,
-                title: st.title || meta.description || st.input?.description || part.tool || '未知任务',
-                description: meta.description || st.title || '',
-                agent: meta.agent || 'unknown',
+                childSessionId: childSessionId,
+                title: st.title || description || toolName || '未知任务',
+                description: description,
+                agent: agent,
                 model: modelMeta.providerID && modelMeta.modelID
                     ? modelDisplayLabel(modelMeta.providerID + '/' + modelMeta.modelID)
                     : (partMessageModel(part, msgById) || 'unknown'),
@@ -146,7 +167,7 @@ export function extractSubtaskSummaries(sessionID) {
                 startedAt: hasStart ? st.time.start : null,
                 endedAt: hasEnd ? st.time.end : null,
                 outputPreview: (st.output || '').slice(0, 200),
-                promptPreview: (meta.prompt || st.input?.prompt || '').slice(0, 200),
+                promptPreview: (inp.prompt || meta.prompt || '').slice(0, 200),
                 parentMessageId: msg.info?.id || msg.id || '',
                 taskPartId: part.id || '',
             });
