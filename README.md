@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" />
-  <img src="https://img.shields.io/badge/Wails-v2.12-DF0000?logo=wails" />
+  <img src="https://img.shields.io/badge/Wails-v3.0.0--beta.23-DF0000?logo=wails" />
   <img src="https://img.shields.io/badge/三端-Windows%20|%20Web%20|%20Mobile-0066cc" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
 </p>
@@ -98,13 +98,17 @@ agent / category 粒度的模型映射，方案**导出·导入·入库·应用*
 
 | 🚀 功能 | 💡 说明 |
 |----------|---------|
+| **全局快捷键** | `Shift+X` 一键隐藏 / 显示主界面（与托盘行为一致）|
+| **系统托盘** | 点按托盘图标切换显示 / 隐藏，右键菜单快捷操作，关闭窗口即驻留托盘 |
+| **单实例运行** | 二次启动自动激活已有窗口，不重复开进程 |
+| **独立文件浏览器** | 桌面端原生多窗口 / Web 端新标签页打开，复用同一前端资源 |
 | **实时 SSE 事件流** | OpenCode 状态实时推送，服务健康一目了然 |
 | **多会话 Tab** | 桌面端支持同时打开多个会话，Tab 切换零卡顿，各会话独立渲染、独立滚动，关闭即释放内存 |
 | **版本检测** | 服务状态栏支持一键检查 OpenCode 是否有新版本，结果以 Toast 提示 |
 | **子任务面板** | 自动提取 task 工具触发的子任务，卡片式展示，点击查看详情 |
 | **代办事项** | 从会话中智能提取 TODO，进行中 / 已完成分组 |
 | **固定目录状态栏** | 右侧当前目录独立固定在底部，避免被上方卡片内容遮挡 |
-| **文件变更 Diff** | 目录树展示，左右对照式 diff 渲染，暂存/未暂存一目了然 |
+| **文件变更 Diff** | 可折叠目录树 + 左右对照 diff（语法高亮、右侧可编辑保存、滚动条 minimap 定位改动）|
 | **命令面板** | 常用 CLI/TUI 命令参考，支持搜索，`/` 键唤起 |
 | **知识库 @ 引用** | 备注、步骤、提示词集中沉淀，对话中输入 `@` 直接引用为独立上下文 |
 | **网络代理** | 代理配置一处搞定，Git 推送拉取自动走代理 |
@@ -153,19 +157,38 @@ agent / category 粒度的模型映射，方案**导出·导入·入库·应用*
 </p>
 </details>
 
+<details>
+<summary><b>知识库</b></summary>
+<p align="center">
+  <img src="./doc/image/知识库.png" width="48%" />
+  <img src="./doc/image/知识库-编辑.png" width="48%" />
+  <img src="./doc/image/知识库-调用.png" width="48%" />
+  <img src="./doc/image/知识库-转化.png" width="48%" />
+</p>
+</details>
+
+<details>
+<summary><b>三端 · Web / 手机</b></summary>
+<p align="center">
+  <img src="./doc/image/Web服务.png" width="48%" />
+  <img src="./doc/image/多会话并行.png" width="48%" />
+  <img src="./doc/image/手机-暗.png" width="28%" />
+  <img src="./doc/image/手机-浅.png" width="28%" />
+</p>
+</details>
+
 ---
 
 ## 🛠 构建
 
 ```bash
-wails dev          # 开发模式，热重载
-wails build        # 生产构建 → build/bin/oc-manager.exe（Linux 为 build/bin/oc-manager）
-go build ./...     # 仅编译 Go 后端
-go test ./...      # 运行测试
-go vet ./...       # 静态检查
+wails3 dev          # 开发模式（热重载）
+wails3 build        # 生产构建 → bin/oc-manager(.exe)
+go build .          # 仅编译 Go 后端（构建走 wails3；build/ 下为 wails 模板，故勿用 ./...）
+go vet ./internal/... ./model/... ./service/... ./config/...   # 静态检查（同上，避开 build/ 模板）
 ```
 
-> **前置条件**：Go 1.21+ · Wails CLI · Windows WebView2 / Linux WebKitGTK（`sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config gcc`）
+> **前置条件**：Go 1.25+ · wails3 CLI · Windows WebView2 / Linux WebKitGTK（`sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config gcc`）
 
 ---
 
