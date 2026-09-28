@@ -137,7 +137,13 @@ func apiPost(urlstr, password string, payload []byte) model.APIResult {
 	return model.APIResult{Success: resp.StatusCode >= 200 && resp.StatusCode < 300, Status: resp.StatusCode, Body: string(data)}
 }
 
-// readAPIResponse 读取响应体，并对 v2 的 HTML 兜底与 401 做显式处理。
+// readAPIResponse 读取响应体，并对 v2 的 HTML 兜底、401 与所有非 2xx 做显式处理。
+//
+// 非 2xx 必须在这里转成 error，而不是把响应体当正常数据返回。原因是 v2 的错误体
+// 形如 {"_tag":"SessionNotFoundError","message":"..."}——**没有 error 键**，
+// 调用方若按「响应里有没有 error 字段」判失败，永远判不出来，
+// 404 的错误体会被当成正常数据继续解析，错误因此被推迟到更远、更难定位的地方。
+// 曾经就踩过：导出会话失败时返回的是错误 JSON，被原样当作导出内容交给前端。
 func readAPIResponse(resp *http.Response, urlstr string) ([]byte, error) {
 	if isHTMLResponse(resp.Header.Get("Content-Type")) {
 		return nil, fmt.Errorf("OpenCode v2 未提供该 API 路径（%s 返回了网页内容而非 JSON）", urlstr)
@@ -149,7 +155,45 @@ func readAPIResponse(resp *http.Response, urlstr string) ([]byte, error) {
 	if resp.StatusCode == http.StatusUnauthorized {
 		return nil, fmt.Errorf("OpenCode 服务需要口令（401），请重启服务或检查服务地址")
 	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("OpenCode 返回 %d: %s", resp.StatusCode, describeV2Error(data))
+	}
 	return data, nil
+}
+
+// describeV2Error 从 v2 错误体里取出可读信息。
+// 已知形态：{"_tag":"XxxError","message":"..."}，message 可能缺省。
+func describeV2Error(body []byte) string {
+	var payload struct {
+		Tag     string `json:"_tag"`
+		Message string `json:"message"`
+		Kind    string `json:"kind"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		// 不是 JSON 就原样给出一段截断文本，总比空消息好定位
+		text := strings.TrimSpace(string(body))
+		if len(text) > 200 {
+			text = text[:200] + "…"
+		}
+		if text == "" {
+			return "(无错误详情)"
+		}
+		return text
+	}
+	parts := make([]string, 0, 2)
+	if payload.Tag != "" {
+		parts = append(parts, payload.Tag)
+	}
+	if payload.Message != "" {
+		parts = append(parts, payload.Message)
+	}
+	if payload.Kind != "" {
+		parts = append(parts, "kind="+payload.Kind)
+	}
+	if len(parts) == 0 {
+		return "(无错误详情)"
+	}
+	return strings.Join(parts, ": ")
 }
 
 // sessionGet 取回单个会话对象（已拆开 v2 的 {data:...} 信封）。
@@ -306,17 +350,17 @@ type sessionTime struct {
 // treeSession 会话列表项。
 // v2 把 v1 的 directory 移到了 location.directory，故两者都声明，按需回退读取。
 type treeSession struct {
-	ID        string      `json:"id"`
-	Title     string      `json:"title"`
-	ProjectID string      `json:"projectID"`
-	Directory string      `json:"directory"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	ProjectID string `json:"projectID"`
+	Directory string `json:"directory"`
 	Location  *struct {
 		Directory string `json:"directory"`
 	} `json:"location"`
 	// ParentID 是 v2 引入的父子关系：子代理（subagent）会话指向其宿主会话。
 	// v1 用 roots=true 让服务端只返回根会话；v2 改为 parentID=null 过滤，
 	// 不加该参数时子会话会一并返回，必须在客户端剔除（见 IsRoot）。
-	ParentID string `json:"parentID"`
+	ParentID string      `json:"parentID"`
 	Time     sessionTime `json:"time"`
 }
 
