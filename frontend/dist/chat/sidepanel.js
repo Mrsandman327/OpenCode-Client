@@ -93,6 +93,19 @@ export function renderTodos() {
 // ============================================================
 
 /** 从缓存消息中提取子任务摘要列表 */
+/** 从消息索引中取某 part 所属消息的模型标识，取不到返回空串。
+ *  v2 的 task 工具 state.metadata 里通常不含 model，
+ *  但消息本身带 model（适配层已拍平成 v1 的 providerID/modelID 形态）。 */
+function partMessageModel(part, msgById) {
+    const msg = msgById && part?.messageID ? msgById.get(part.messageID) : null;
+    if (!msg) return '';
+    const info = msg.info || msg;
+    if (info.providerID && info.modelID) return info.providerID + '/' + info.modelID;
+    const ref = info.model;
+    if (ref && (ref.providerID || ref.id)) return (ref.providerID || '') + '/' + (ref.id || '');
+    return '';
+}
+
 export function extractSubtaskSummaries(sessionID) {
     const items = getCachedMessages(sessionID);
     if (!items || !items.length) {
@@ -100,8 +113,13 @@ export function extractSubtaskSummaries(sessionID) {
         return;
     }
     const summaries = [];
+    // 建立 messageID → 消息 索引：v2 的 task 工具 metadata 里没有 model，
+    // 需要回查到消息自身的模型（见 partMessageModel）。
+    const msgById = new Map();
     const scanItems = items.length > 200 ? items.slice(-200) : items;
     for (const msg of scanItems) {
+        const mid = (msg.info || msg || {}).id;
+        if (mid) msgById.set(mid, msg);
         const parts = msg.parts || [];
         for (const part of parts) {
             if (part.type !== 'tool' || part.tool !== 'task') continue;
@@ -121,7 +139,7 @@ export function extractSubtaskSummaries(sessionID) {
                 agent: meta.agent || 'unknown',
                 model: modelMeta.providerID && modelMeta.modelID
                     ? modelDisplayLabel(modelMeta.providerID + '/' + modelMeta.modelID)
-                    : 'unknown',
+                    : (partMessageModel(part, msgById) || 'unknown'),
                 status: status,
                 durationMs: (hasEnd && hasStart) ? (st.time.end - st.time.start) : null,
                 interrupted: !!meta.interrupted,

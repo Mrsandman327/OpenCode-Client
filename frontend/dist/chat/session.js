@@ -27,7 +27,7 @@ import { openFileBrowserModal, openFileBrowserStandaloneFor } from '../filebrows
 // 该模块不识 session.js，无循环依赖。
 import { collectKnowledgeRefs, clearKnowledgeRefs, hasKnowledgeRefs } from './knowledge-ref.js';
 // OpenCode v2 适配层：拆 {data:...} 信封、把 v2 扁平消息还原为 v1 的 {info,parts}、转换 prompt 请求体。
-import { unwrap, unwrapList, toModelOptions, adaptMessages, prevCursor, toPromptBody, toModelRef } from '../core/v2compat.js';
+import { unwrap, unwrapList, toModelOptions, adaptMessages, prevCursor, toPromptBody, toModelRef, locationQuery } from '../core/v2compat.js';
 
 // ============================
 // 全局 Agent/Model 选择器
@@ -285,6 +285,9 @@ export async function selectSession(id) {
     store.lastMessageCount = 0;
     store.messageLoadSeq++;
     store.questionCustomInput = ''; // 清除 question 自定义输入
+    // 会话目录可能变了：v2 的 agent/model 列表按目录取项目级配置，目录不同则重载
+    // （loadAgentModelSelectors 内部按目录去重，同目录不会重复请求）
+    loadAgentModelSelectors(info?.directory || '');
     document.getElementById('ocChatTitle').textContent = info?.title || id;
     const dirEl = document.getElementById('ocSideDirPath');
     if (dirEl) {
@@ -979,10 +982,11 @@ export async function abortSession() {
         updateSendButton();
         await loadMessages();
         loadSessionStatuses().then(statuses => {
-            // abort 后快照只认可 idle：服务端 abort 可能有延迟，若返回 busy
-            // 说明是未同步的旧状态，忽略（否则按钮变回「停止」，用户点发送实际执行 abort）。
-            // 服务端确认 idle 则保留权威状态。
-            if (statuses && typeof statuses === 'object' && statuses[sessionID] === 'idle') {
+            // v2 的 /api/session/active **只列出活跃会话**：键不存在即为空闲。
+            // 服务端 abort 可能有延迟，若仍报 busy 说明是未同步的旧状态，
+            // 此时保持本地已写入的 idle，避免按钮闪回「停止」。
+            const st = statuses ? statuses[sessionID] : undefined;
+            if (st === undefined || st === 'idle' || st?.type === 'idle') {
                 store.sessionStatuses[sessionID] = 'idle';
             }
             updateSendButton();

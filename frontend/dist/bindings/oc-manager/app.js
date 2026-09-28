@@ -79,6 +79,8 @@ export function ApplySkillScheme(name) {
 
 /**
  * CheckOpenCodeVersion 检测 opencode 最新版本。
+ * 实现在 app_version.go：v2 的发布渠道与 v1 不同（npm @opencode/cli），
+ * 且需按语义化版本比较而非字符串相等。
  * @param {string} currentVersion
  * @returns {$CancellablePromise<model$0.VersionCheckResult>}
  */

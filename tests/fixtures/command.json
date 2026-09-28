@@ -1,0 +1,15 @@
+{
+  "location": {
+    "directory": "C:\\Users\\swordkee\\AppData\\Local\\Temp\\opencode\\oc-capture"
+  },
+  "data": [
+    {
+      "name": "init",
+      "description": "guided AGENTS.md setup"
+    },
+    {
+      "name": "review",
+      "description": "review changes [commit|branch|pr], defaults to uncommitted"
+    }
+  ]
+}
