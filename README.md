@@ -190,6 +190,17 @@ go vet ./internal/... ./model/... ./service/... ./config/...   # 静态检查（
 
 > **前置条件**：Go 1.25+ · wails3 CLI · Windows WebView2 / Linux WebKitGTK（`sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config gcc`）
 
+### 测试
+
+```bash
+go test . ./service/...                    # Go 单元测试
+node tests/v2compat.test.mjs               # 前端适配层测试
+```
+
+前端为纯静态 ES Modules（无打包步骤），故测试同样不引入框架：用 Node 内置
+`assert` 手写，fixture 为 OpenCode 服务端的真实响应与事件流载荷（见
+`tests/fixtures/`），无需网络或运行中的服务。
+
 ---
 
 ## 📖 使用指南
