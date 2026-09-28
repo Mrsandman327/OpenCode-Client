@@ -2,13 +2,135 @@ package opencode
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"oc-manager/model"
 )
+
+// TestDescribeV2Error 覆盖 v2 错误体的解析。
+//
+// 关键背景：v2 的错误体是 {"_tag":"XxxError","message":"..."}，
+// **没有 error 键**。因此调用方不能靠「响应里有没有 error 字段」判失败，
+// 必须由本层在收到非 2xx 时就转成 error。
+func TestDescribeV2Error(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "tag + message",
+			body: `{"_tag":"SessionNotFoundError","message":"Session not found: ses_x"}`,
+			want: "SessionNotFoundError: Session not found: ses_x",
+		},
+		{
+			name: "仅 tag",
+			body: `{"_tag":"UnknownError"}`,
+			want: "UnknownError",
+		},
+		{
+			name: "仅 message",
+			body: `{"message":"boom"}`,
+			want: "boom",
+		},
+		{
+			// 实测 view 缺 idle 的响应
+			name: "带 kind 的 payload 错误",
+			body: `{"_tag":"InvalidRequestError","message":"Missing key\n at [\"idle\"]","kind":"Payload"}`,
+			want: "InvalidRequestError: Missing key\n at [\"idle\"]: kind=Payload",
+		},
+		{
+			name: "空对象",
+			body: `{}`,
+			want: "(无错误详情)",
+		},
+		{
+			name: "非 JSON 原样截断",
+			body: "plain text failure",
+			want: "plain text failure",
+		},
+		{
+			name: "非 JSON 超长截断",
+			body: strings.Repeat("x", 500),
+			want: strings.Repeat("x", 200) + "…",
+		},
+	}
+	for _, c := range cases {
+		if got := describeV2Error([]byte(c.body)); got != c.want {
+			t.Errorf("%s: describeV2Error(%s) = %q, 期望 %q", c.name, c.body, got, c.want)
+		}
+	}
+}
+
+// TestReadAPIResponse非2xx转错误 确认 4xx/5xx 的 JSON 错误体不会被当成功数据返回。
+// 这是实测发现的问题：原先只拦 HTML 与 401，404 的错误体会被原样返回，
+// 调用方随后把 {"_tag":...} 当正常数据解析。
+func TestReadAPIResponse非2xx转错误(t *testing.T) {
+	cases := []struct {
+		status int
+		body   string
+		want   string
+	}{
+		{http.StatusBadRequest, `{"_tag":"InvalidRequestError","message":"Missing key"}`, "400"},
+		{http.StatusNotFound, `{"_tag":"SessionNotFoundError","message":"nope"}`, "404"},
+		{http.StatusConflict, `{"_tag":"ConflictError","message":"parent missing"}`, "409"},
+		{http.StatusInternalServerError, `{"_tag":"UnknownError","message":"boom"}`, "500"},
+	}
+	for _, c := range cases {
+		resp := &http.Response{
+			StatusCode: c.status,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(c.body)),
+		}
+		data, err := readAPIResponse(resp, "http://x/api/test")
+		if err == nil {
+			t.Errorf("状态 %d 应转成 error，实际返回了数据 %q", c.status, string(data))
+			continue
+		}
+		if !strings.Contains(err.Error(), c.want) {
+			t.Errorf("状态 %d 的错误信息应含 %q，实际 %q", c.status, c.want, err.Error())
+		}
+		if !strings.Contains(err.Error(), "_tag") && c.status != http.StatusInternalServerError {
+			t.Logf("提示：错误信息未带出 _tag —— %q", err.Error())
+		}
+	}
+}
+
+// TestReadAPIResponse2xx放行 确认正常响应不被误判为错误。
+func TestReadAPIResponse2xx放行(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusNoContent, http.StatusCreated, 299} {
+		resp := &http.Response{
+			StatusCode: status,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"data":[]}`)),
+		}
+		data, err := readAPIResponse(resp, "http://x/api/test")
+		if err != nil {
+			t.Errorf("状态 %d 不应报错，实际 %v", status, err)
+		}
+		if len(data) == 0 {
+			t.Errorf("状态 %d 应返回数据体", status)
+		}
+	}
+}
+
+// TestReadAPIResponse401 特判 401 给出可操作的口令提示。
+func TestReadAPIResponse401(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"_tag":"UnauthorizedError"}`)),
+	}
+	_, err := readAPIResponse(resp, "http://x/api/test")
+	if err == nil || !strings.Contains(err.Error(), "口令") {
+		t.Errorf("401 应给出口令相关提示，实际 %v", err)
+	}
+}
 
 // ============ HTML 兜底拦截 ============
 
