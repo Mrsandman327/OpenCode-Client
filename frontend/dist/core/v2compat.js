@@ -62,6 +62,11 @@ export function toPromptBody(v1body) {
     if (files.length) out.files = files;
     // v2 的 agents 是 [{name}]（Prompt.AgentAttachment），不是字符串数组
     if (body.agent) out.agents = [{ name: body.agent }];
+    // v2 把「客户端指定消息 id」放在顶层 id（v1 是 messageID）。
+    // 必须透传：发送后本地会先乐观插入一条 user 消息，只有 id 与服务端一致，
+    // 服务端回执（session.inbox.enqueued 的 inboxID）才能按 id 命中并合并，
+    // 否则同一条输入会显示两遍。服务端会原样采纳该 id（已实测）。
+    if (body.messageID) out.id = body.messageID;
     return out;
 }
 
@@ -196,6 +201,15 @@ function adaptMessage(msg, sessionID) {
         info.role = 'assistant';
         info.agent = msg.agent;
         info.model = msg.model;
+        // v2 把模型收在 model 里（Model.Ref = {id, providerID, variant}），
+        // 而 v1 是顶层 providerID / modelID，variant 也在顶层。
+        // render.js、sidepanel.js 按 v1 形态读取，这里拍平，否则模型徽章不显示、
+        // 模型选择器也无法从历史同步。model 字段一并保留，兼容已适配 v2 的读法。
+        if (msg.model) {
+            if (msg.model.providerID) info.providerID = msg.model.providerID;
+            if (msg.model.id) info.modelID = msg.model.id;
+            if (msg.model.variant) info.variant = msg.model.variant;
+        }
         info.cost = msg.cost;
         info.tokens = msg.tokens;
         info.finish = msg.finish;

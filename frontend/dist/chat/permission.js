@@ -72,6 +72,9 @@ const ACTION_LABEL = {
     edit: '编辑文件',
     write: '写入文件',
     bash: '执行命令',
+    // v2 权限动作改名：bash→shell、task→subagent（旧的保留，兼容混合版本）
+    shell: '执行命令',
+    subagent: '运行子任务',
     webfetch: '发起网络请求',
     websearch: '发起网络搜索',
     lsp: '调用语言服务',
