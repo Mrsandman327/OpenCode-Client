@@ -10,6 +10,7 @@ import { toggleTheme } from './core/theme.js';
 import { isBrowserRuntimeForMain, showToast, isDesktopRuntime, loadWailsRuntime } from './core/utils.js';
 import { api } from './core/apicall.js';
 import { store } from './core/state.js';
+import { toModelOptions } from './core/v2compat.js';
 import {
     isMobileTreeMode, toggleMobileTree, closeMobileTree,
     toggleSessions, toggleSidepanel,
@@ -325,8 +326,9 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.disabled = true;
         btn.textContent = '⏳ 刷新中...';
         try {
-            const newModels = await api.OpenCodeCall('GET', '/provider');
-            if (newModels) store.availableModels = newModels;
+            // v2：模型列表走 /api/model（v2 的 /api/provider 不再内嵌 models），并归一化为 {value,label}
+            const newModels = toModelOptions(await api.OpenCodeCall('GET', '/api/model'));
+            if (newModels.length) store.availableModels = newModels;
             await loadModelConfig();
             showToast(`获取到 ${store.availableModels.length} 个可用模型`, 'success');
         } catch (err) {

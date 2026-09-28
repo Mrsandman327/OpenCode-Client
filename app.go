@@ -549,6 +549,14 @@ func (a *App) GetWebStatus(hostname string, port int) model.WebResult {
 	return opencode.GetWebStatus(hostname, port)
 }
 
+// SetServerPassword 设置外部 opencode 服务的访问口令。
+// OpenCode v2 起 serve 默认开启 Basic 认证；当连接的不是本进程拉起的服务
+// （如用户自行启动的 opencode）时，其口令无法自动获得，需由用户从
+// 启动日志里复制过来填入。
+func (a *App) SetServerPassword(password string) {
+	opencode.SetServerPassword(password)
+}
+
 // OpenCodeAPI 代理访问本机 opencode serve API。
 func (a *App) OpenCodeAPI(method, path, body string) model.APIResult {
 	return opencode.OpenCodeAPI(method, path, body)

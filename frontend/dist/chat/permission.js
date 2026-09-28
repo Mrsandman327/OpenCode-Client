@@ -1,16 +1,18 @@
 // ============================================================
 // 权限请求处理
-// 收到 OpenCode 的 permission.asked / permission.v2.asked 事件时弹窗，
+// 收到 OpenCode 的 permission.asked 事件时弹窗，
 // 提供 允许一次 / 始终允许 / 拒绝 三种响应。
 // 子任务（subagent）运行在独立子会话中，其权限事件的 sessionID 是子会话 ID，
 // 需回溯 parentID 链确认属于当前会话后才弹窗（标注「子任务权限」）。
-// 响应：全局 POST /permission/{id}/reply  { reply: once|always|reject }（无需 sessionID）
-// 兜底：POST /session/{sid}/permissions/{id}  { response: ... }（旧接口）
+// 响应（OpenCode v2）：POST /api/session/{sid}/permission/{id}/reply
+//   { decision: once|always|reject }
+// v1 的全局 /permission/{id}/reply 与 /session/{sid}/permissions/{id} 均已移除。
 // ============================================================
 
 import { store } from '../core/state.js';
 import { api } from '../core/apicall.js';
 import { escapeHtml, showToast } from '../core/utils.js';
+import { unwrap } from '../core/v2compat.js';
 
 /** 待处理的权限请求队列 */
 let pendingQueue = [];
@@ -50,7 +52,8 @@ async function isDescendantOfCurrent(sessionID) {
             return mid.ok;
         }
         try {
-            const info = await api.OpenCodeCall('GET', `/session/${encodeURIComponent(sid)}`);
+            const res = await api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(sid)}`);
+            const info = unwrap(res);
             const parent = info && info.parentID;
             if (!parent) break; // 无父级 → 已到链头，非当前会话后代
             sid = parent;
@@ -144,21 +147,21 @@ export async function respondPermission(reply) {
     const p = currentPermission;
     if (!p) return;
     try {
-        // 全局 reply 端点（无需 sessionID）：子任务子会话的权限也能直接响应
-        await api.OpenCodeCall('POST', `/permission/${encodeURIComponent(p.id)}/reply`, { reply });
+        // v2 只提供按会话的回复端点（v1 的全局 /permission/{id}/reply 已移除）：
+        // POST /api/session/{id}/permission/{requestID}/reply，请求体字段为 decision 而非 reply。
+        // 枚举值 once / always / reject 与 v2 的 Permission.Reply 一致，无需转换。
+        await api.OpenCodeCall(
+            'POST',
+            `/api/session/${encodeURIComponent(p.sessionID)}/permission/${encodeURIComponent(p.id)}/reply`,
+            { decision: reply }
+        );
         pendingQueue = pendingQueue.filter(r => r.id !== p.id);
         showNextPermission();
         showToast(reply === 'always' ? '已始终允许' : (reply === 'reject' ? '已拒绝' : '已允许一次'), 'success');
     } catch (e) {
-        // 全局端点失败时兜底尝试旧接口（按会话）
-        try {
-            await api.OpenCodeCall('POST', `/session/${encodeURIComponent(p.sessionID)}/permissions/${encodeURIComponent(p.id)}`, { response: reply });
-            pendingQueue = pendingQueue.filter(r => r.id !== p.id);
-            showNextPermission();
-            showToast('已响应权限请求', 'success');
-        } catch (e2) {
-            showToast('权限响应失败: ' + (e2.message || e2), 'error');
-        }
+        pendingQueue = pendingQueue.filter(r => r.id !== p.id);
+        showNextPermission();
+        showToast('权限响应失败: ' + (e.message || e), 'error');
     }
 }
 

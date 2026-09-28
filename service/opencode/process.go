@@ -26,6 +26,9 @@ type webSession struct {
 	cmd      *exec.Cmd
 	port     int
 	hostname string
+	// password 是 v2 Basic 认证口令。本进程启动的服务从 stdout 解析得到；
+	// 外部启动 / 主动发现的服务从 V2 服务注册文件读取。v1 服务无认证，为空即可。
+	password string
 	// external=true 表示服务不是本进程启动的（外部命令行启动 / 主动发现），
 	// OC Manager 只负责连接使用，停止时不杀进程（用户自行管理其生命周期）。
 	external bool
@@ -60,11 +63,14 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 	if WebSess != nil {
 		p := WebSess.port
 		h := WebSess.hostname
+		pwd := WebSess.password
 		WebSessMu.Unlock()
 		if p != port || h != hostname {
 			return model.WebResult{Error: "OpenCode 服务已启动；修改地址或端口前请先停止服务"}
 		}
-		health, version, _ := getOpenCodeHealth(h, p)
+		// 用会话自带的口令（本进程 spawn 时从 stdout 解析而来），
+		// 不能退回 discoverServerPassword——外部注册表里未必有该服务，会误判为「需口令」。
+		health, version, _ := getOpenCodeHealthWithAuth(h, p, pwd)
 		return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", h, p), Health: health, Version: version}
 	}
 	WebSessMu.Unlock()
@@ -123,6 +129,14 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 		LastCfgPort = port
 	}
 
+	// v2 起 serve 默认开启 Basic 认证，密码打印在 stdout。
+	// 固定端口模式下端口立即可知，但仍需等待密码行输出，故与就绪探测并行等待。
+	password, err := waitForPasswordFromOutput(&outBuf, 10*time.Second)
+	if err != nil {
+		killProcTree(cmd.Process.Pid)
+		return model.WebResult{Error: fmt.Sprintf("未能获取 opencode 服务口令: %v", err)}
+	}
+
 	// 就绪等待：固定端口探测指定端口；随机端口探测解析出的实际端口
 	if err := waitPortReady(hostname, port, 12*time.Second); err != nil {
 		killProcTree(cmd.Process.Pid)
@@ -133,7 +147,7 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 		return model.WebResult{Error: fmt.Sprintf("%s%s", err.Error(), detail)}
 	}
 
-	sess := &webSession{cmd: cmd, port: port, hostname: hostname}
+	sess := &webSession{cmd: cmd, port: port, hostname: hostname, password: password}
 
 	WebSessMu.Lock()
 	WebSess = sess
@@ -148,7 +162,7 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 		WebSessMu.Unlock()
 	}()
 
-	health, version, _ := getOpenCodeHealth(hostname, port)
+	health, version, _ := getOpenCodeHealthWithAuth(hostname, port, password)
 	return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", hostname, port), Health: health, Version: version}
 }
 
@@ -166,6 +180,19 @@ func waitForPortFromOutput(out *bytes.Buffer, timeout time.Duration) int {
 		time.Sleep(250 * time.Millisecond)
 	}
 	return 0
+}
+
+// waitForPasswordFromOutput 轮询命令输出，解析 v2 serve 打印的服务口令。
+// 超时未解析到时返回错误——没有口令就无法访问 /api/*，不如尽早失败。
+func waitForPasswordFromOutput(out *bytes.Buffer, timeout time.Duration) (string, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if m := startPasswordRe.FindStringSubmatch(out.String()); m != nil {
+			return strings.TrimSpace(m[1]), nil
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
+	return "", fmt.Errorf("%v 内未检测到 `server password` 输出，请确认 opencode 版本为 v2", timeout)
 }
 
 // waitPortReady 轮询探测端口可连接，直到超时。
@@ -210,13 +237,13 @@ func StopOpenCodeWeb() model.WebResult {
 }
 
 // discoverOpenCodeServer 主动发现本机运行中的 opencode 服务：
-// 枚举 opencode.exe 进程 → 查其监听端口 → 并行探测 /global/health 确认。
+// 枚举 opencode.exe 进程 → 查其监听端口 → 并行探测 /api/info 确认。
 // 适用于随机端口（--port 0）及外部命令行启动、端口未知的场景。
-// 返回 (hostname, port, ok)。
-func discoverOpenCodeServer() (string, int, bool) {
+// 返回 (hostname, port, password, ok)。
+func discoverOpenCodeServer() (string, int, string, bool) {
 	pids := listOpenCodePids()
 	if len(pids) == 0 {
-		return "", 0, false
+		return "", 0, "", false
 	}
 	pidSet := make(map[int]bool, len(pids))
 	for _, p := range pids {
@@ -224,9 +251,9 @@ func discoverOpenCodeServer() (string, int, bool) {
 	}
 	ports := netstatListeningPorts(pidSet)
 	if len(ports) == 0 {
-		return "", 0, false
+		return "", 0, "", false
 	}
-	// 并行探测候选端口（严格 2xx：健康端点只响应真正的主服务端口，
+	// 并行探测候选端口（严格 2xx：信息端点只响应真正的主服务端口，
 	// 内部端口/其他 HTTP 服务返回 404 会被排除）
 	type probeResult struct {
 		port int
@@ -235,24 +262,30 @@ func discoverOpenCodeServer() (string, int, bool) {
 	ch := make(chan probeResult, len(ports))
 	for _, p := range ports {
 		go func(port int) {
-			ch <- probeResult{port, probeOpenCodeHealth(defaultHostname, port)}
+			pwd := discoverServerPassword(defaultHostname, port)
+			ch <- probeResult{port, probeOpenCodeHealth(defaultHostname, port, pwd)}
 		}(p)
 	}
 	for range ports {
 		r := <-ch
 		if r.ok {
-			return defaultHostname, r.port, true
+			return defaultHostname, r.port, discoverServerPassword(defaultHostname, r.port), true
 		}
 	}
-	return "", 0, false
+	return "", 0, "", false
 }
 
 // probeOpenCodeHealth 严格探测 opencode 健康端点：仅 2xx 视为存活。
-// 与 getOpenCodeHealth 不同——后者把 <500（含 404）也当作"在线"，
+// 与 getOpenCodeHealth 不同——后者把 <500（含 401）也当作"在线"，
 // 用于 discover 会误把内部端口/其他 HTTP 服务判为主服务。
-func probeOpenCodeHealth(hostname string, port int) bool {
+func probeOpenCodeHealth(hostname string, port int, password string) bool {
 	client := http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(fmt.Sprintf("http://%s:%d/global/health", hostname, port))
+	req, err := http.NewRequest(http.MethodGet, serverInfoURL(hostname, port), nil)
+	if err != nil {
+		return false
+	}
+	applyAuth(req, password)
+	resp, err := client.Do(req)
 	if err != nil {
 		return false
 	}
@@ -278,8 +311,10 @@ func GetWebStatus(hostname string, port int) model.WebResult {
 	if WebSess != nil {
 		p := WebSess.port
 		h := WebSess.hostname
+		pwd := WebSess.password
 		defer WebSessMu.Unlock()
-		health, version, _ := getOpenCodeHealth(h, p)
+		// 同上：已有会话时必须用会话自带口令，否则会把在线服务误报为「需口令」
+		health, version, _ := getOpenCodeHealthWithAuth(h, p, pwd)
 		return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", h, p), Health: health, Version: version}
 	}
 	WebSessMu.Unlock()
@@ -287,20 +322,21 @@ func GetWebStatus(hostname string, port int) model.WebResult {
 	// 固定端口模式：先探测配置端口（随机模式跳过，避免误探默认端口）
 	if !randomMode && isOpenCodeServerRunning(hostname, port) {
 		log.Printf("[STATUS] GetWebStatus(%s:%d) detected running", hostname, port)
+		pwd := discoverServerPassword(hostname, port)
 		WebSessMu.Lock()
-		WebSess = &webSession{port: port, hostname: hostname, external: true}
+		WebSess = &webSession{port: port, hostname: hostname, password: pwd, external: true}
 		WebSessMu.Unlock()
-		health, version, _ := getOpenCodeHealth(hostname, port)
+		health, version, _ := getOpenCodeHealthWithAuth(hostname, port, pwd)
 		return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", hostname, port), Health: health, Version: version}
 	}
 
 	// 配置端口未命中（含随机模式 / 外部命令行随机端口启动）：主动发现本机 opencode 进程端口
-	if h, p, ok := discoverOpenCodeServer(); ok {
+	if h, p, pwd, ok := discoverOpenCodeServer(); ok {
 		log.Printf("[STATUS] GetWebStatus discovered opencode at %s:%d", h, p)
 		WebSessMu.Lock()
-		WebSess = &webSession{port: p, hostname: h, external: true}
+		WebSess = &webSession{port: p, hostname: h, password: pwd, external: true}
 		WebSessMu.Unlock()
-		health, version, _ := getOpenCodeHealth(h, p)
+		health, version, _ := getOpenCodeHealthWithAuth(h, p, pwd)
 		return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", h, p), Health: health, Version: version}
 	}
 
@@ -318,15 +354,15 @@ func getWebSession() *webSession {
 	}
 	if isOpenCodeServerRunning(LastCfgHost, LastCfgPort) {
 		log.Printf("[STATUS] auto-detected serve at %s:%d", LastCfgHost, LastCfgPort)
-		sess = &webSession{port: LastCfgPort, hostname: LastCfgHost, external: true}
+		sess = &webSession{port: LastCfgPort, hostname: LastCfgHost, password: discoverServerPassword(LastCfgHost, LastCfgPort), external: true}
 		WebSessMu.Lock()
 		WebSess = sess
 		WebSessMu.Unlock()
 		return sess
 	}
-	if h, p, ok := discoverOpenCodeServer(); ok {
+	if h, p, pwd, ok := discoverOpenCodeServer(); ok {
 		log.Printf("[STATUS] auto-discovered opencode at %s:%d", h, p)
-		sess = &webSession{port: p, hostname: h, external: true}
+		sess = &webSession{port: p, hostname: h, password: pwd, external: true}
 		WebSessMu.Lock()
 		WebSess = sess
 		WebSessMu.Unlock()
@@ -374,9 +410,20 @@ func isPortInUse(hostname string, port int) bool {
 }
 
 func getOpenCodeHealth(hostname string, port int) (string, string, bool) {
+	return getOpenCodeHealthWithAuth(hostname, port, discoverServerPassword(hostname, port))
+}
+
+// getOpenCodeHealthWithAuth 探测 v2 的 /api/info 取版本号与存活状态。
+// v1 的 /global/health 在 v2 中不存在，v2 未注册的路径会回落到 SPA 首页并
+// 返回 200 + text/html，因此必须改用 /api/info 这种真实端点来判定。
+func getOpenCodeHealthWithAuth(hostname string, port int, password string) (string, string, bool) {
 	client := http.Client{Timeout: 2 * time.Second}
-	url := fmt.Sprintf("http://%s:%d/global/health", hostname, port)
-	resp, err := client.Get(url)
+	req, err := http.NewRequest(http.MethodGet, serverInfoURL(hostname, port), nil)
+	if err != nil {
+		return "离线", "", false
+	}
+	applyAuth(req, password)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "离线", "", false
 	}
@@ -397,13 +444,22 @@ func getOpenCodeHealth(hostname string, port int) (string, string, bool) {
 		}
 	}
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
+		// 服务在线但缺口令：提示用户，而不是伪装成"未知"
+		return "需口令", version, true
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 		return "在线", version, true
-	}
-	if resp.StatusCode < 500 {
+	case resp.StatusCode < 500:
 		return "未知", version, true
+	default:
+		return "异常", version, false
 	}
-	return "异常", version, false
+}
+
+// serverInfoURL 返回 v2 的服务信息端点（v1 为 /global/health，v2 已改为 /api/info）。
+func serverInfoURL(hostname string, port int) string {
+	return fmt.Sprintf("http://%s:%d/api/info", hostname, port)
 }
 
 func stringValue(value interface{}) string {
