@@ -500,8 +500,108 @@ func Test凭据参数校验(t *testing.T) {
 	if RenameCredential("cred_1", "  ").Error == "" {
 		t.Error("空白名称应报错")
 	}
+	if AddCredential("", "sk-x", "L").Error == "" {
+		t.Error("缺集成 ID 应报错")
+	}
+	if AddCredential("deepseek", "   ", "L").Error == "" {
+		t.Error("空白 API Key 应报错")
+	}
+	if DeleteCredential("").Error == "" {
+		t.Error("缺凭据 ID 应报错")
+	}
 	if ts.count() != 0 {
 		t.Errorf("参数不合法时不应发请求，实际 %d 次", ts.count())
+	}
+}
+
+// TestAddCredential 覆盖实测契约：POST /api/integration/{id}/connect/key。
+// 这是「一个供应商多把 key」的**唯一写入入口**——v2 没有 GET /api/credential
+// （实测 404），凭据只能从 /api/integration 的 connections 读出来。
+func TestAddCredential(t *testing.T) {
+	ts := newTestServer(t, nil)
+	res := AddCredential("deepseek", "sk-abc", "备用号")
+	if !res.Success {
+		t.Fatalf("期望成功，实际 %+v", res)
+	}
+	c := ts.last()
+	if c.Method != http.MethodPost {
+		t.Errorf("方法 = %s，期望 POST", c.Method)
+	}
+	if c.Path != "/api/integration/deepseek/connect/key" {
+		t.Errorf("路径 = %s", c.Path)
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(c.Body), &body); err != nil {
+		t.Fatalf("请求体不是 JSON: %v (%q)", err, c.Body)
+	}
+	if body["key"] != "sk-abc" {
+		t.Errorf("key = %v", body["key"])
+	}
+	if body["label"] != "备用号" {
+		t.Errorf("label = %v", body["label"])
+	}
+}
+
+// TestAddCredential空label不发空串 传空 label 可能被服务端当成「显式清空」，
+// 反而把凭据名覆盖成空，故只在非空时携带该字段。
+func TestAddCredential空label不发空串(t *testing.T) {
+	ts := newTestServer(t, nil)
+	AddCredential("deepseek", "sk-abc", "   ")
+	c := ts.last()
+	var body map[string]any
+	_ = json.Unmarshal([]byte(c.Body), &body)
+	if _, ok := body["label"]; ok {
+		t.Errorf("空白 label 不应出现在请求体，实际 %v", body)
+	}
+	if body["key"] != "sk-abc" {
+		t.Errorf("key 不应受影响，实际 %v", body["key"])
+	}
+}
+
+// TestAddCredential成功时响应体为空 实测该端点成功时 Content-Length: 0。
+// 若按 JSON 解析返回值，会得到 "unexpected end of JSON input"，
+// 把一次成功的写入误报成失败——这条守住「只取状态码、不碰 body」。
+func TestAddCredential成功时响应体为空(t *testing.T) {
+	newTestServer(t, func(c captured) (int, string) {
+		// 成功、但响应体就是空的
+		return http.StatusNoContent, ""
+	})
+	res := AddCredential("deepseek", "sk-abc", "")
+	if !res.Success {
+		t.Fatalf("空响应体不应被判为失败，实际 %+v", res)
+	}
+	if res.Error != "" {
+		t.Errorf("空响应体不应产生 error，实际 %q", res.Error)
+	}
+}
+
+// TestDeleteCredential 覆盖实测契约：DELETE /api/credential/{id}，204 无内容。
+func TestDeleteCredential(t *testing.T) {
+	ts := newTestServer(t, nil)
+	res := DeleteCredential("cred_1")
+	if !res.Success {
+		t.Fatalf("期望成功，实际 %+v", res)
+	}
+	c := ts.last()
+	if c.Method != http.MethodDelete {
+		t.Errorf("方法 = %s，期望 DELETE", c.Method)
+	}
+	if c.Path != "/api/credential/cred_1" {
+		t.Errorf("路径 = %s", c.Path)
+	}
+	if c.Body != "" {
+		t.Errorf("DELETE 不应带请求体，实际 %q", c.Body)
+	}
+}
+
+// TestDeleteCredentialID被转义 凭据 id 来自服务端，拼接前必须转义。
+func TestDeleteCredentialID被转义(t *testing.T) {
+	ts := newTestServer(t, nil)
+	DeleteCredential("cred_1/../admin")
+	c := ts.last()
+	if c.Path != "/api/credential/cred_1%2F..%2Fadmin" &&
+		c.Path != "/api/credential/cred_1/../admin" {
+		t.Errorf("路径未按原样转义: %s", c.Path)
 	}
 }
 

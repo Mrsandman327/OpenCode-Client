@@ -33,6 +33,20 @@ export function ActivateCredential(credentialID) {
 }
 
 /**
+ * AddCredential 给集成新增一把 API key（v2 的 connect/key）。
+ * 新增的那把会直接成为当前生效的凭据，调用方需重新拉列表。
+ * @param {string} integrationID
+ * @param {string} key
+ * @param {string} label
+ * @returns {$CancellablePromise<model$0.APIResult>}
+ */
+export function AddCredential(integrationID, key, label) {
+    return $Call.ByID(1803223789, integrationID, key, label).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
+}
+
+/**
  * AddModelType 添加模型配置类型分组。
  * @param {string} entryType
  * @returns {$CancellablePromise<model$0.SaveResult>}
@@ -136,6 +150,17 @@ export function CreateProjectEntry(rootDir, category, name) {
 export function DeleteBrowserEntry(rootDir, path) {
     return $Call.ByID(1505422302, rootDir, path).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
+    }));
+}
+
+/**
+ * DeleteCredential 删除一把凭据（仅 credential 型，env 型不在凭据库里）。
+ * @param {string} credentialID
+ * @returns {$CancellablePromise<model$0.APIResult>}
+ */
+export function DeleteCredential(credentialID) {
+    return $Call.ByID(2865671487, credentialID).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
     }));
 }
 
