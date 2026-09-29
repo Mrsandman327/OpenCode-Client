@@ -20,7 +20,7 @@ type FrontendWebBridge interface {
 	OpenCodeAPI(string, string, string) model.APIResult
 	StartOpenCodeEvents() model.APIResult
 	StopOpenCodeEvents() model.APIResult
-	StartOpenCodeWeb(int, string, model.ProxyConfig) model.WebResult
+	StartOpenCodeWeb(int, string, string, model.ProxyConfig) model.WebResult
 	GetWebStatus(string, int) model.WebResult
 	StopOpenCodeWeb() model.WebResult
 	AppCall(string, []json.RawMessage) (interface{}, error)

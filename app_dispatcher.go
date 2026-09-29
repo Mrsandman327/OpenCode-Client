@@ -331,11 +331,12 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 	case "StartOpenCodeWeb":
 		var port int
 		var hostname string
+		var password string
 		var proxy model.ProxyConfig
-		if err := decodeArgs(args, &port, &hostname, &proxy); err != nil {
+		if err := decodeArgs(args, &port, &hostname, &password, &proxy); err != nil {
 			return nil, err
 		}
-		return a.StartOpenCodeWeb(port, hostname, proxy), nil
+		return a.StartOpenCodeWeb(port, hostname, password, proxy), nil
 	case "StopOpenCodeWeb":
 		return a.StopOpenCodeWeb(), nil
 	case "GetWebStatus":

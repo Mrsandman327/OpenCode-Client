@@ -5164,6 +5164,17 @@ input::placeholder, textarea::placeholder {
     color: var(--accent);
     background: var(--bg-card-hover);
 }
+/* 网络配置：服务口令输入行（输入框 + 显示明文按钮，复用 .btn-eye） */
+.modal-field .pwd-row {
+    display: flex;
+    gap: 0;
+}
+.modal-field .pwd-row input {
+    flex: 1;
+    width: auto;
+    border-right: none;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
 /* 添加卡片虚线占位 */
 .provider-card-add {
     border: 1px dashed var(--border-light) !important;

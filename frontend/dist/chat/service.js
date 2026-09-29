@@ -23,10 +23,10 @@ import { unwrap } from '../core/v2compat.js';
 // Web 状态检测
 // ============================
 
-/** 解析服务端口配置：'0' 表示随机端口（--port 0），应传 0 让后端主动发现实际端口 */
+/** 解析服务端口配置：OpenCode v2 共享服务端口（默认 49374），不再支持随机端口 */
 function resolveServicePort() {
     const cfg = getNetworkConfig();
-    return cfg.servicePort === '0' ? 0 : (parseInt(cfg.servicePort, 10) || 4096);
+    return parseInt(cfg.servicePort, 10) || 49374;
 }
 
 /** 检测 OpenCode 服务运行状态 */
@@ -143,7 +143,7 @@ function extractPluginList(cfg) {
 /** 将服务器状态对象标准化为统一格式 */
 export function normalizeServerStatus(status) {
     const config = getNetworkConfig();
-    const fallbackURL = `http://${config.serviceHost || '127.0.0.1'}:${config.servicePort || '4096'}`;
+    const fallbackURL = `http://${config.serviceHost || '127.0.0.1'}:${config.servicePort || '49374'}`;
     if (!status) {
         return { url: store.webURL || fallbackURL, health: store.webRunning ? '未知' : '离线', version: '' };
     }
@@ -290,12 +290,11 @@ export function renderServiceStatus() {
 /** 启动 OpenCode Web 服务 */
 export async function startWeb() {
     const config = getNetworkConfig();
-    const portText = (config.servicePort || '').trim();
-    // '0' 表示随机端口（--port 0），由 OpenCode 分配
-    const port = portText === '0' ? 0 : (parseInt(portText) || 4096);
+    const port = parseInt((config.servicePort || '').trim(), 10) || 49374;
     const hostname = config.serviceHost || '127.0.0.1';
+    const password = (config.servicePassword || '').trim();
     try {
-        const result = await api.StartOpenCodeWeb(port, hostname, getNetworkConfig());
+        const result = await api.StartOpenCodeWeb(port, hostname, password, getNetworkConfig());
         if (result.running) {
             store.webRunning = true;
             store.webURL = result.url || `http://${hostname}:${port}`;

@@ -19,19 +19,16 @@ export function getNetworkConfig() {
         const saved = JSON.parse(localStorage.getItem(NETWORK_CONFIG_KEY) || '{}');
         return {
             serviceHost: (saved.serviceHost || '127.0.0.1').trim(),
-            servicePort: (saved.servicePort || '4096').toString().trim(),
-            // servicePassword：OpenCode v2 起 serve 默认开启 Basic 认证。
-            // 由 OC Manager 自己拉起的服务不需要填（口令从启动输出自动解析）；
-            // 只有连接用户自行启动的外部服务时才需要——那种服务的口令只在
-            // 它自己的启动日志里，需手动复制过来（也可用 `opencode service` 管理的服务，
-            // 其口令会自动从注册文件读取）。
-            servicePassword: (saved.servicePassword || '').trim(),
+            servicePort: (saved.servicePort || '49374').toString().trim(),
+            // servicePassword：OpenCode v2 服务强制 Basic 认证。启动服务时会用此口令
+            // 执行 `opencode service set password`。默认 12345678。
+            servicePassword: (saved.servicePassword || '12345678').trim(),
             proxyEnabled: !!saved.proxyEnabled,
             proxyHost: (saved.proxyHost || '127.0.0.1').trim(),
             proxyPort: (saved.proxyPort || '7897').toString().trim(),
         };
     } catch (_) {
-        return { serviceHost: '127.0.0.1', servicePort: '4096', servicePassword: '', proxyEnabled: false, proxyHost: '127.0.0.1', proxyPort: '7897' };
+        return { serviceHost: '127.0.0.1', servicePort: '49374', servicePassword: '12345678', proxyEnabled: false, proxyHost: '127.0.0.1', proxyPort: '7897' };
     }
 }
 
@@ -39,8 +36,8 @@ export function getNetworkConfig() {
 export function saveNetworkConfig(config) {
     const next = {
         serviceHost: (config.serviceHost || '127.0.0.1').trim(),
-        servicePort: (config.servicePort || '4096').toString().trim(),
-        servicePassword: (config.servicePassword || '').trim(),
+        servicePort: (config.servicePort || '49374').toString().trim(),
+        servicePassword: (config.servicePassword || '12345678').trim(),
         proxyEnabled: !!config.proxyEnabled,
         proxyHost: (config.proxyHost || '127.0.0.1').trim(),
         proxyPort: (config.proxyPort || '7897').toString().trim(),
@@ -125,13 +122,11 @@ export function updateProxyPreview() {
     const proxyHost = document.getElementById('proxyHost')?.value.trim() || '127.0.0.1';
     const proxyPort = document.getElementById('proxyPort')?.value.trim() || '7897';
     const serviceHost = document.getElementById('serviceHost')?.value.trim() || '127.0.0.1';
-    const randomEl = document.getElementById('servicePortRandom');
-    const randomPort = randomEl ? randomEl.checked : false;
-    const servicePort = randomPort ? '0' : (document.getElementById('servicePort')?.value.trim() || '4096');
+    const servicePort = document.getElementById('servicePort')?.value.trim() || '49374';
     const preview = document.getElementById('proxyPreview');
     if (!preview) return;
     const parts = [];
-    parts.push(randomPort ? `服务地址: ${serviceHost}:随机端口` : `服务地址: ${serviceHost}:${servicePort}`);
+    parts.push(`服务地址: ${serviceHost}:${servicePort}`);
     if (proxyEnabled) {
         const url = `http://${proxyHost}:${proxyPort}`;
         parts.push(`代理: HTTP_PROXY、HTTPS_PROXY、ALL_PROXY = ${url}；NO_PROXY = localhost,127.0.0.1`);
@@ -162,31 +157,28 @@ export function showProxyModal() {
     const saveBtn = document.getElementById('btnSaveProxy');
     const cancelBtn = document.getElementById('btnCancelProxy');
     serviceHostEl.value = config.serviceHost;
-    const randomEl = document.getElementById('servicePortRandom');
-    const isRandom = config.servicePort === '0';
-    servicePortEl.value = isRandom ? '' : config.servicePort;
-    if (randomEl) randomEl.checked = isRandom;
+    servicePortEl.value = config.servicePort;
     if (servicePwdEl) servicePwdEl.value = config.servicePassword || '';
     proxyEnabledEl.checked = config.proxyEnabled;
     proxyHostEl.value = config.proxyHost;
     proxyPortEl.value = config.proxyPort;
     const readonly = store.webRunning;
     serviceHostEl.readOnly = readonly;
+    servicePortEl.readOnly = readonly;
     // 口令始终可改：服务运行中也可能需要更正（它不影响服务本身的启停）
     if (servicePwdEl) servicePwdEl.readOnly = false;
-    if (randomEl) {
-        randomEl.disabled = readonly;
-        servicePortEl.disabled = isRandom || readonly;
-        if (!randomEl.dataset.bound) {
-            randomEl.dataset.bound = '1';
-            randomEl.addEventListener('change', function() {
-                const portInput = document.getElementById('servicePort');
-                if (portInput) portInput.disabled = randomEl.checked || !!store.webRunning;
-                updateProxyPreview();
-            });
-        }
-    } else {
-        servicePortEl.readOnly = readonly;
+    // 显示明文按钮（复用 provider 的 .btn-eye 交互）
+    const pwdToggleEl = document.getElementById('btnToggleServicePwd');
+    if (pwdToggleEl && !pwdToggleEl.dataset.bound) {
+        pwdToggleEl.dataset.bound = '1';
+        pwdToggleEl.addEventListener('click', function() {
+            const input = document.getElementById('servicePassword');
+            if (!input) return;
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            pwdToggleEl.textContent = show ? '🙈' : '👁';
+            pwdToggleEl.title = show ? '隐藏明文' : '显示明文';
+        });
     }
     proxyEnabledEl.disabled = readonly;
     proxyHostEl.readOnly = readonly;
@@ -216,17 +208,14 @@ export function hideProxyModal() {
 /** 应用网络配置 */
 export function applyProxyConfig() {
     const serviceHost = document.getElementById('serviceHost').value.trim() || '127.0.0.1';
-    const randomEl = document.getElementById('servicePortRandom');
-    const randomPort = randomEl ? randomEl.checked : false;
-    // 随机端口（--port 0）：servicePort 存 '0'，由 OpenCode 分配
-    const servicePort = randomPort ? '0' : (document.getElementById('servicePort').value.trim() || '4096');
+    const servicePort = document.getElementById('servicePort').value.trim() || '49374';
     const proxyEnabled = document.getElementById('proxyEnabled').checked;
     const proxyHost = document.getElementById('proxyHost').value.trim() || '127.0.0.1';
     const proxyPort = document.getElementById('proxyPort').value.trim() || '7897';
-    // 外部服务的访问口令（OpenCode v2 引入 Basic 认证后才需要）
+    // 服务访问口令（OpenCode v2 服务强制 Basic 认证）
     const pwdEl = document.getElementById('servicePassword');
     const servicePassword = pwdEl ? pwdEl.value.trim() : '';
-    if (!randomPort && !/^\d{1,5}$/.test(servicePort)) {
+    if (!/^\d{1,5}$/.test(servicePort)) {
         showToast('服务端口必须是数字', 'error');
         return;
     }

@@ -478,20 +478,13 @@
             </div>
             <div class="modal-field">
                 <label for="servicePort">服务端口</label>
-                <div style="display:flex;align-items:center;gap:8px">
-                        <input id="servicePort" inputmode="numeric" placeholder="4096" style="flex:1" />
-                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;white-space:nowrap;color:var(--text-secondary)">
-                            <input type="checkbox" id="servicePortRandom" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer" /> 随机
-                        </label>
-                    </div>
+                <input id="servicePort" inputmode="numeric" placeholder="49374" />
             </div>
             <div class="modal-field">
-                <label for="servicePassword">服务访问口令（可选）</label>
-                <input id="servicePassword" type="password" placeholder="连接外部已启动的 opencode 时填写" autocomplete="off" />
-                <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.5">
-                    OpenCode v2 起服务默认开启 Basic 认证。由 OC Manager 启动的服务会自动识别，<b>无需填写</b>；
-                    仅当连接的是你自己在别处启动的 opencode 时，才需要把其启动日志里的
-                    <code>server password</code> 复制到这里。
+                <label for="servicePassword">服务访问口令</label>
+                <div class="pwd-row">
+                    <input id="servicePassword" type="password" placeholder="12345678" autocomplete="off" />
+                    <button class="btn-eye" type="button" id="btnToggleServicePwd" title="显示明文">👁</button>
                 </div>
             </div>
             <hr class="proxy-separator" />

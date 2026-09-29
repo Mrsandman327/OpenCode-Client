@@ -148,3 +148,49 @@ func applyAuth(req *http.Request, password string) {
 		req.Header.Set("Authorization", v)
 	}
 }
+
+// ============================================================================
+// V2 服务配置（$XDG_CONFIG_HOME/opencode/service.json）
+//
+// 由 `opencode service set <key> <value>` 维护，记录共享服务的 hostname/port/
+// password/cors/env。OC Manager 在启动服务前读取它，判断是否需要 set。
+// ============================================================================
+
+// serviceConfig 对应 V2 服务配置文件结构。
+type serviceConfig struct {
+	Hostname string            `json:"hostname"`
+	Port     int               `json:"port"`
+	Password string            `json:"password"`
+	Cors     []string          `json:"cors"`
+	Env      map[string]string `json:"env"`
+}
+
+// serviceConfigPath 返回 V2 服务配置文件路径（config 侧）。
+// 与 @opencode/client 的 ServiceConfig 一致：XDG_CONFIG_HOME 下的 opencode/service.json。
+func serviceConfigPath() string {
+	if dir := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); dir != "" {
+		return filepath.Join(dir, "opencode", "service.json")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "opencode", "service.json")
+}
+
+// readServiceConfig 读取服务配置文件，文件不存在或损坏时返回 nil。
+func readServiceConfig() *serviceConfig {
+	path := serviceConfigPath()
+	if path == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var cfg serviceConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil
+	}
+	return &cfg
+}

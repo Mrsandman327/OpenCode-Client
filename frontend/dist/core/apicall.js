@@ -181,8 +181,8 @@ const mockApi = (() => {
         TerminalWrite: async (data) => { console.log('mock term write:', data); },
         unOpenCode: async (sid, cont) => { console.log('mock launch:', sid, cont); },
         // web 管理
-        StartOpenCodeWeb: async (port, hostname, proxy) => {
-            store.webURL = `http://${hostname || '127.0.0.1'}:${port || 4096}`;
+        StartOpenCodeWeb: async (port, hostname, password, proxy) => {
+            store.webURL = `http://${hostname || '127.0.0.1'}:${port || 49374}`;
             store.webRunning = true;
             store.serverStatus = { url: store.webURL, health: '在线', version: 'mock' };
             // 不再直接调用业务层 updateWebUI，由调用方（service.startWeb）负责 UI 刷新
@@ -195,7 +195,7 @@ const mockApi = (() => {
             return { success: true };
         },
         GetWebStatus: async (hostname, port) => {
-            return { running: store.webRunning, url: store.webURL || `http://${hostname || '127.0.0.1'}:${port || 4096}`, health: store.webRunning ? '在线' : '离线', version: store.webRunning ? 'mock' : '' };
+            return { running: store.webRunning, url: store.webURL || `http://${hostname || '127.0.0.1'}:${port || 49374}`, health: store.webRunning ? '在线' : '离线', version: store.webRunning ? 'mock' : '' };
         },
         LaunchWindowsTerminal: async (mode, url, dir) => {
             console.log('mock launch wt:', mode, url, dir);

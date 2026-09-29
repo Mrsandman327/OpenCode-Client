@@ -531,9 +531,9 @@ func (a *App) ExportConfigEntries(dir, filename string, entries []model.ModelEnt
 
 // ========== Web 服务（委托到 service 包）==========
 
-// StartOpenCodeWeb 启动 opencode serve。
-func (a *App) StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.WebResult {
-	return opencode.StartOpenCodeWeb(port, hostname, proxy)
+// StartOpenCodeWeb 启动（或连接）OpenCode v2 共享后台服务。
+func (a *App) StartOpenCodeWeb(port int, hostname string, password string, proxy model.ProxyConfig) model.WebResult {
+	return opencode.StartOpenCodeWeb(port, hostname, password, proxy)
 }
 
 // StopOpenCodeWeb 停止 opencode web 服务。
