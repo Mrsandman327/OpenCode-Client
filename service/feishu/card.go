@@ -89,8 +89,27 @@ type Element struct {
 	// div 的键值对字段
 	Fields []Field `json:"fields,omitempty"`
 
-	// note 的子元素
+	// note / form 的子元素
 	Elements []Element `json:"elements,omitempty"`
+
+	// form
+	Name            string `json:"name,omitempty"`
+	VerticalSpacing string `json:"vertical_spacing,omitempty"`
+
+	// select_static / multi_select_static / input
+	// 这些字段与 button 共用部分键：type 复用 ButtonType、width 复用 Width，
+	// 因为两者的 JSON 键名本来就相同（"type" / "width"），不存在语义冲突。
+	Placeholder *PlainText     `json:"placeholder,omitempty"`
+	Options     []SelectOption `json:"options,omitempty"`
+	Required    bool           `json:"required,omitempty"`
+	// FormActionType 在提交按钮上取 "submit"。
+	FormActionType string `json:"form_action_type,omitempty"`
+}
+
+// SelectOption 是下拉/多选候选项。
+type SelectOption struct {
+	Text  PlainText `json:"text"`
+	Value string    `json:"value"`
 }
 
 // ButtonBehavior 描述按钮点击后的行为。
