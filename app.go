@@ -67,7 +67,10 @@ func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOpt
 	// 「没配过」不是错误，因此只有配置存在时才尝试。
 	if cfg := LoadFeishuConfig(); cfg.Enabled && cfg.AppID != "" && cfg.AppSecret != "" {
 		if err := a.StartFeishu(ctx, cfg); err != nil {
-			fmt.Println("飞书通道启动失败（不影响其它功能）: " + err.Error())
+			// ⚠️ 走 logger 而不是 fmt.Println：GUI 构建带 -H windowsgui
+			// （无控制台），Println 的输出无处可去 —— 飞书通道启动失败会
+			// 完全静默，用户只会看到「机器人没反应」。
+			logger.Printf("[feishu] 启动失败（不影响其它功能）: %v", err)
 		}
 	}
 	return nil

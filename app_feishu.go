@@ -9,7 +9,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/larksuite/oapi-sdk-go/v3/channel/types"
 
+	"oc-manager/internal/logger"
 	"oc-manager/service/feishu"
 )
 
@@ -138,45 +138,73 @@ func (a *App) GetFeishuStatus() FeishuStatus {
 //
 // 幂等：已在运行时先停再起。配置不完整或未启用时返回 nil（不算错误）——
 // 用户没配飞书是正常状态，不该在启动路径上报错。
-func (a *App) StartFeishu(ctx context.Context, cfg FeishuConfig) error {
+// setFeishuStatus 在短临界区内更新状态。
+//
+// 单独抽出来是为了强调一条铁律：**绝不持锁跨越任何外部调用**。
+// 曾因违反它把整个 GUI 卡死——见 StartFeishu 的注释。
+func setFeishuStatus(fn func(s *FeishuStatus)) {
 	feishuRT.mu.Lock()
 	defer feishuRT.mu.Unlock()
+	fn(&feishuRT.status)
+}
 
-	// 先停掉旧的：重复 Start 会造成两个长连接同时收消息，
+func (a *App) StartFeishu(ctx context.Context, cfg FeishuConfig) error {
+	// ⚠️ 本函数**不在**任何全局锁下执行外部调用。
+	//
+	// 曾经的写法是「全程持锁 + defer Unlock」，而 client.StartAsync
+	// 里的 c.setState(StateConnecting) 会**同 goroutine 同步**回调 OnState，
+	// 回调里又取同一把锁 —— sync.Mutex 不可重入，直接自死锁。
+	// 后果是 ServiceStartup 永不返回 → app.Run() 不完成 → 主窗口不显示，
+	// 进程表现为「Not Responding、CPU 0 秒」。
+	//
+	// 教训：状态回调是**外部代码**，它随时可能回调回来拿你的锁。
+
+	// 先摘出旧的（短临界区）：重复 Start 会造成两个长连接同时收消息，
 	// 同一条消息被处理两次
-	if feishuRT.client != nil {
-		_ = feishuRT.client.Stop(context.Background())
-		feishuRT.client = nil
-		feishuRT.bridge = nil
+	feishuRT.mu.Lock()
+	old := feishuRT.client
+	feishuRT.client = nil
+	feishuRT.bridge = nil
+	feishuRT.mu.Unlock()
+	if old != nil {
+		_ = old.Stop(context.Background())
 	}
 
-	feishuRT.status = FeishuStatus{
-		Enabled:    cfg.Enabled,
-		Configured: cfg.AppID != "" && cfg.AppSecret != "",
-		OpenAccess: cfg.AllowAllUsers,
-	}
+	setFeishuStatus(func(s *FeishuStatus) {
+		*s = FeishuStatus{
+			Enabled:    cfg.Enabled,
+			Configured: cfg.AppID != "" && cfg.AppSecret != "",
+			OpenAccess: cfg.AllowAllUsers,
+		}
+	})
 
 	if !cfg.Enabled {
-		feishuRT.status.State = string(feishu.StateIdle)
+		setFeishuStatus(func(s *FeishuStatus) { s.State = string(feishu.StateIdle) })
 		return nil
 	}
 	if cfg.AppID == "" || cfg.AppSecret == "" {
-		feishuRT.status.State = string(feishu.StateIdle)
-		feishuRT.status.LastError = "未配置 app_id / app_secret，通道未启动"
+		setFeishuStatus(func(s *FeishuStatus) {
+			s.State = string(feishu.StateIdle)
+			s.LastError = "未配置 app_id / app_secret，通道未启动"
+		})
 		return nil
 	}
 
 	client, err := feishu.New(feishu.Config{AppID: cfg.AppID, AppSecret: cfg.AppSecret})
 	if err != nil {
-		feishuRT.status.State = string(feishu.StateFailed)
-		feishuRT.status.LastError = err.Error()
+		setFeishuStatus(func(s *FeishuStatus) {
+			s.State = string(feishu.StateFailed)
+			s.LastError = err.Error()
+		})
 		return err
 	}
 
 	// 启动时打安全告警：放行态是最容易漏看的安全配置，
 	// 而漏看的后果是任何人都能在服务器上执行工具
 	if feishu.ShouldWarnOpenAccess(feishu.AccessPolicy{AllowAllUsers: cfg.AllowAllUsers}) {
-		fmt.Println("⚠️ " + feishu.OpenAccessWarning(len(cfg.AdminUserIDs)))
+		// 走 logger 而非 fmt.Println：GUI 构建无控制台（-H windowsgui），
+		// Println 的输出无处可去。安全告警丢不得。
+		logger.Printf("[feishu] ⚠️ %s", feishu.OpenAccessWarning(len(cfg.AdminUserIDs)))
 	}
 
 	dataDir := feishuDataDir()
@@ -217,26 +245,35 @@ func (a *App) StartFeishu(ctx context.Context, cfg FeishuConfig) error {
 			FormName:  ev.Action.Name,
 		})
 	})
+	// 回调由 SDK 在 StartAsync 内部**同 goroutine 同步**触发，
+	// 因此这里绝不能依赖调用方持锁 —— 调用方已经不持锁了，但这条
+	// 约束要保留：任何在 StartFeishu 里新增的持锁区都可能重蹈覆辙。
 	client.OnState(func(state feishu.State) {
-		feishuRT.mu.Lock()
-		feishuRT.status.State = string(state)
-		feishuRT.status.Running = state == feishu.StateReady
-		feishuRT.mu.Unlock()
+		setFeishuStatus(func(s *FeishuStatus) {
+			s.State = string(state)
+			s.Running = state == feishu.StateReady
+		})
 		a.emitFeishuStatus()
 	})
 
 	// 启动失败不阻断应用：飞书是可选通道，opencode 本体照常用。
 	// 但必须把错误记进状态，否则用户只会看到「没反应」。
+	// 注意：这里**不持锁**。StartAsync 会同步触发 OnState，
+	// 持锁调用就是自死锁（见函数头注释）。
 	if err := client.StartAsync(ctx); err != nil {
-		feishuRT.status.State = string(feishu.StateFailed)
-		feishuRT.status.LastError = err.Error()
+		setFeishuStatus(func(s *FeishuStatus) {
+			s.State = string(feishu.StateFailed)
+			s.LastError = err.Error()
+		})
 		return err
 	}
 
+	feishuRT.mu.Lock()
 	feishuRT.client = client
 	feishuRT.bridge = bridge
 	feishuRT.status.LastError = ""
 	feishuRT.status.WhitelistCount = whitelist.Len()
+	feishuRT.mu.Unlock()
 	return nil
 }
 

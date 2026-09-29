@@ -1067,10 +1067,6 @@ export function StageFile(rootDir, path) {
 }
 
 /**
- * StartFeishu 按配置启动飞书通道。
- * 
- * 幂等：已在运行时先停再起。配置不完整或未启用时返回 nil（不算错误）——
- * 用户没配飞书是正常状态，不该在启动路径上报错。
  * @param {$models.FeishuConfig} cfg
  * @returns {$CancellablePromise<void>}
  */

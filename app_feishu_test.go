@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/larksuite/oapi-sdk-go/v3/channel/types"
 )
@@ -258,5 +260,70 @@ func Test启用但缺凭据给明确提示(t *testing.T) {
 	}
 	if st.Configured {
 		t.Error("缺凭据时 Configured 应为 false")
+	}
+}
+
+// ============ 死锁回归 ============
+
+// Test启动飞书不会死锁 曾经的真实事故：
+//
+//   StartFeishu 全程持 feishuRT.mu + defer Unlock
+//     └─ client.StartAsync(ctx)
+//          └─ c.setState(StateConnecting)   // 同 goroutine 同步回调
+//               └─ OnState 回调
+//                    └─ feishuRT.mu.Lock()  // sync.Mutex 不可重入 → 自死锁
+
+// 后果不是「偶发卡顿」而是 100% 必挂：ServiceStartup 永不返回 →
+// app.Run() 不完成 → 主窗口不显示，进程表现为 Not Responding、CPU 0 秒。
+//
+// 这条测试用**看门狗**而非直接调用：死锁时 go test 会整体挂住，
+// 必须靠超时把它转成失败信号。
+func Test启动飞书不会死锁(t *testing.T) {
+	withTempConfigDir(t)
+	a := NewApp()
+
+	done := make(chan error, 1)
+	go func() {
+		// 凭据是假的：同步路径只走到 setState(Connecting)，
+		// 真正的网络连接在后台 goroutine 里，不影响本测试。
+		done <- a.StartFeishu(context.Background(), FeishuConfig{
+			Enabled: true, AppID: "cli_fake", AppSecret: "fake",
+		})
+	}()
+
+	select {
+	case err := <-done:
+		// 假凭据导致连接失败是预期的，只要**返回了**就说明没死锁
+		_ = err
+		_ = a.StopFeishu()
+	case <-time.After(20 * time.Second):
+		// 死锁：StartFeishu 永不返回
+		t.Fatal("StartFeishu 死锁：状态回调在持锁期间重入同一把锁")
+	}
+}
+
+// Test重复启动不累积连接 幂等性：重复 Start 不能留下多个长连接。
+func Test重复启动不累积连接(t *testing.T) {
+	withTempConfigDir(t)
+	a := NewApp()
+	cfg := FeishuConfig{Enabled: true, AppID: "cli_fake", AppSecret: "fake"}
+
+	for i := 0; i < 3; i++ {
+		done := make(chan struct{})
+		go func() {
+			_ = a.StartFeishu(context.Background(), cfg)
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(20 * time.Second):
+			t.Fatalf("第 %d 次启动死锁", i+1)
+		}
+	}
+	_ = a.StopFeishu()
+
+	st := a.GetFeishuStatus()
+	if st.Running {
+		t.Error("停止后不应仍显示运行中")
 	}
 }
