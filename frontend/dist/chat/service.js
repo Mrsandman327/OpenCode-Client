@@ -96,7 +96,7 @@ export async function loadServiceStatus() {
         // v2 的 /api/mcp 返回 {location, data:[...]} 信封
         store.mcpStatus = unwrap(mcp) ?? null;
         // v2 无 /api/lsp 端点（不运行语言服务器），故 lspStatus 恒为 null、
-        // lspSupported 为 false，服务面板据此显式说明而非渲染恒空分组。
+        // lspSupported 为 false，服务面板据此**整段不渲染** LSP 分组。
         store.lspStatus = null;
         store.lspSupported = false;
         // 插件信息：只取 /config 的 plugin 数组（服务按此加载的插件），
@@ -219,20 +219,11 @@ export function renderServiceStatus() {
 
     // ── LSP 服务 ──
     // OpenCode v2 不再运行语言服务器、不暴露 LSP 工具，也没有 /api/lsp 端点，
-    // 因此 v2 下拿不到任何 LSP 状态。与其渲染一个恒空的分组（用户会以为坏了），
-    // 不如显式说明当前服务端不再提供该能力。
-    if (!store.lspSupported) {
-        const lspSec = document.createElement('div');
-        lspSec.className = 'oc-service-group';
-        lspSec.innerHTML = '<div class="oc-service-group-title">' +
-            '<span class="oc-service-dot off"></span>LSP 服务（当前服务端不支持）' +
-        '</div>' +
-        '<div class="oc-service-body"><div class="oc-service-item">' +
-        '<span class="oc-service-dot off"></span>OpenCode v2 不再运行语言服务器、不提供 LSP 诊断，请改用项目的 lint / 类型检查命令' +
-        '</div></div>';
-        box.appendChild(lspSec);
-    }
-
+    // 因此 v2 下拿不到任何 LSP 状态。
+    //
+    // 服务端不支持时**整段不渲染**，而不是渲染一个「不支持」的占位分组：
+    // 占位分组会长期占着侧栏位置、看起来像个坏了的功能，而它永远不会有内容。
+    // 若将来接上支持 LSP 的服务端，lspSupported 转 true，下面的分支自然恢复。
     if (store.lspStatus) {
         const entries = Array.isArray(store.lspStatus) ? store.lspStatus : Object.values(store.lspStatus || {});
         const anyRunning = entries.some(info => info?.status === 'connected' || info?.status === 'running' || info?.running || info?.connected);
