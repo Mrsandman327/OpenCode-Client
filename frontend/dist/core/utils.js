@@ -273,6 +273,24 @@ export function updateModelInfo(items) {
 }
 
 // ============================================================
+// 服务状态面板刷新（打破 service.js ↔ session.js 循环依赖）
+// 实现在 service.js（loadServiceStatus），由它注册；session.js 打开会话时调用。
+// 目的：MCP/插件状态需要 location[directory]，服务启动时还没会话→无目录→不查询；
+// 打开会话拿到目录后，需要重新拉取并渲染。
+// ============================================================
+let refreshServiceStatusHandler = null;
+
+/** 由 service.js 模块加载时注册实现 */
+export function setRefreshServiceStatusHandler(fn) {
+    refreshServiceStatusHandler = typeof fn === 'function' ? fn : null;
+}
+
+/** 请求刷新服务状态面板（core 层入口，供 session.js 调用） */
+export function refreshServiceStatus() {
+    if (refreshServiceStatusHandler) refreshServiceStatusHandler();
+}
+
+// ============================================================
 // 项目树当前会话高亮同步
 // 只依赖 store + DOM，不依赖 chat 层任何模块；
 // tabs.js / session.js / tree.js 均从 core 层 import，避免模块环。

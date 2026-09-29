@@ -13,7 +13,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId } from '../core/utils.js';
+import { showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, refreshServiceStatus } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
@@ -34,17 +34,28 @@ import { unwrap, unwrapList, toModelOptions, adaptMessages, prevCursor, toPrompt
 // ============================
 
 /** 加载 Agent/Model 下拉选择器（从 API 获取可用列表） */
-export async function loadAgentModelSelectors() {
-    if (store.agentModelSelectorsLoaded) return;
+export async function loadAgentModelSelectors(dir) {
+    const directory = (dir || '').trim();
+    // 无目录时不请求：v2 的 /api/agent、/api/model 需要 location[directory]，
+    // 缺省会退回服务端 CWD（共享服务为 home），把 home 误登记为项目。
+    if (!directory) {
+        store.agentList = [];
+        store.modelList = [];
+        return;
+    }
+    // 同目录已加载则跳过；目录变了才重新拉取（v2 的 agent/model 是项目级配置）
+    if (store.agentModelSelectorsLoaded && store.agentModelSelectorsDir === directory) return;
     try {
         // v2：/api/agent、/api/model 返回 {location, data:[...]} 信封，需拆包。
         // 注意模型列表必须用 /api/model——v2 的 /api/provider 不再内嵌 models 字段。
         const [agentsRes, modelsRes] = await Promise.all([
-            api.OpenCodeCall('GET', '/api/agent').catch(() => []),
-            api.OpenCodeCall('GET', '/api/model').catch(() => []),
+            api.OpenCodeCall('GET', '/api/agent', null, directory).catch(() => []),
+            api.OpenCodeCall('GET', '/api/model', null, directory).catch(() => []),
         ]);
         store.agentList = unwrapList(agentsRes);
         store.modelList = toModelOptions(modelsRes);
+        store.agentModelSelectorsLoaded = true;
+        store.agentModelSelectorsDir = directory;
     } catch (_) {
         store.agentList = [];
         store.modelList = [];
@@ -295,6 +306,8 @@ export async function selectSession(id) {
     openSessionTab(id, info?.title);
     store.currentSessionId = id;
     store.activeTabId = id;
+    // 会话目录已确定：刷新服务状态面板的 MCP/插件（它们按 location[directory] 作用域）
+    refreshServiceStatus();
     // 同步项目树高亮
     updateTreeActiveSession();
     // 重新渲染 Tab 栏，确保新 tab 呈激活态（openSessionTab 内部已渲染一次，但此时 activeTabId 还未更新）
@@ -1059,6 +1072,8 @@ export async function sendPrompt() {
                 document.getElementById('ocSideDirPath').textContent = sessionDir;
                 store.currentSessionId = session.id || session.ID;
                 store.activeTabId = store.currentSessionId;
+                // 新会话目录已确定：刷新服务状态面板的 MCP/插件
+                refreshServiceStatus();
                 // 新建会话自动打开 Tab
                 var newTitle = (window._sessionMap && window._sessionMap[store.currentSessionId] && window._sessionMap[store.currentSessionId].title) || store.currentSessionId;
                 openSessionTab(store.currentSessionId, newTitle);

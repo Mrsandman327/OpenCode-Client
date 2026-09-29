@@ -85,7 +85,6 @@
                             <div class="oc-tree-context-menu-item" data-action="export">📤 导出会话</div>
                             <div class="oc-tree-context-menu-item" data-action="move">📦 移动到…</div>
                             <div class="oc-tree-context-menu-item" data-action="import">📥 导入会话…</div>
-                            <div class="oc-tree-context-menu-item" data-action="project-rename">✏️ 重命名项目</div>
                         </div>
                         <div class="oc-sessions-footer">
                             <button type="button" class="btn btn-primary" id="btnNewSession" disabled>＋ 新建会话</button>
@@ -188,17 +187,6 @@
                             <div class="oc-panel-body">
                                 <div class="oc-services" id="ocServices">
                                     <div class="oc-empty">启动服务后查看</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="oc-panel-section" id="credPanelSection">
-                            <div class="oc-panel-head" role="button" tabindex="0">
-                                <span class="oc-panel-arrow">▼</span><span>🔑 凭据</span>
-                                <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshCreds" disabled>刷新</button>
-                            </div>
-                            <div class="oc-panel-body">
-                                <div class="oc-credentials" id="ocCredentials">
-                                    <div class="oc-empty">启动服务后查看已配置的凭据</div>
                                 </div>
                             </div>
                         </div>
@@ -879,7 +867,7 @@
                     </div>
                 </div>
 
-                <!-- 目标项目：仅作用域 = 项目时显示；选项来自 api.GetProjectTree()，默认选中当前会话所在项目 -->
+                <!-- 目标项目：仅作用域 = 项目时显示；选项来自 api.GetProjectTree() 两级树的顶层目录，默认选中当前会话所在目录 -->
                 <div class="kb-form-row" id="kbConvProjectRow">
                     <div class="kb-form-label">目标项目</div>
                     <div class="kb-form-main">

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"oc-manager/model"
@@ -331,17 +330,6 @@ func RejectQuestion(sessionID string) model.APIResult {
 	return model.APIResult{Error: "OpenCode v2 的表单 API 未提供取消端点；请直接回答，或在提交时跳过该题"}
 }
 
-// ProjectInfo 项目树中的项目信息。
-// v2 把 v1 的 worktree 改名为 canonical，并取消了 name 字段；
-// vcs 也从对象变成了字符串。故 name/root 需在解析后另行推导。
-type ProjectInfo struct {
-	ID        string      `json:"id"`
-	Name      string      `json:"name"`
-	Canonical string      `json:"canonical"`
-	VCS       string      `json:"vcs"`
-	Time      sessionTime `json:"time"`
-}
-
 type sessionTime struct {
 	Created int64 `json:"created"`
 	Updated int64 `json:"updated"`
@@ -398,18 +386,26 @@ func unmarshalSessionList(body []byte) ([]treeSession, error) {
 	return bare, nil
 }
 
-// fetchSessionList 查询某目录下的会话。
+// fetchSessionList 查询会话列表。
 //
 // v1 是 ?directory=&roots=true，roots=true 表示「只要根会话」。
 // v2 取消了 roots，改为 ?parentID=null（官方文档：Use null to return only root sessions）。
 // 不加该参数时，子代理（subagent）会话会混在结果里——实测占比极高
 // （本机 500 条会话里 444 条是子会话），若直接渲染会让会话树被子会话淹没。
 //
+// directory 为空串时**不拼 directory 参数**：实测 v2 在不传 directory 时返回全部根会话
+// （本机 50 条、横跨 17 个目录，约 437ms），目录分组交给调用方在本地按 location.directory 完成。
+// 不要依赖服务端的 directory= 过滤：它对路径格式敏感（会话里存的是 Windows 反斜杠，
+// 用正斜杠查询会返回 0 条）；更不能用空 directory=（空路径会被按 CWD 解析）。
+//
 // 这里显式传 parentID=null 只取根会话，与 v1 的 roots=true 语义保持一致；
 // 同时仍在客户端二次过滤，以防服务端忽略该参数。
 func fetchSessionList(base, directory, password string, limit int) []treeSession {
-	urlstr := fmt.Sprintf("%s/api/session?directory=%s&parentID=null&limit=%d",
-		base, url.QueryEscape(directory), limit)
+	urlstr := fmt.Sprintf("%s/api/session?parentID=null&limit=%d", base, limit)
+	if directory != "" {
+		urlstr = fmt.Sprintf("%s/api/session?directory=%s&parentID=null&limit=%d",
+			base, url.QueryEscape(directory), limit)
+	}
 	body, err := apiGet(urlstr, password)
 	if err != nil {
 		return nil
@@ -428,8 +424,18 @@ func fetchSessionList(base, directory, password string, limit int) []treeSession
 	return roots
 }
 
-// GetProjectTree 获取项目→目录→会话的树形结构 JSON。
-// knownDirs 是前端记录的所有建过会话的目录（JSON 字符串数组），用于查询 global 项目会话。
+// GetProjectTree 获取「目录 → 会话」两层树形结构 JSON。
+//
+// 数据来源：GET /api/session?parentID=null&limit=1000（**不传 directory**）。
+// 实测 v2 在不传 directory 时返回全部根会话（本机 50 条、横跨 17 个目录，约 437ms），
+// 目录分组在本函数返回前由 buildTreeJSON 按 location.directory 在本地完成。
+//
+// 不再调用 /api/project：它的 location 中间件在不带 location 时以进程 CWD（共享服务的
+// CWD 是 home）解析，会把 home 登记成一个多余项目；且 v2 的 projectID 是无含义哈希、
+// 没有项目名字段，项目层对用户没有可展示的信息。
+//
+// knownDirs 参数为兼容既有绑定签名（app.go / app_dispatcher.go / 前端）而保留，
+// v2 下 Go 侧已忽略它（会话目录从全量会话的 location.directory 自动发现）。
 func GetProjectTree(knownDirs string) string {
 	base, err := getWebSessionBase()
 	if err != nil {
@@ -440,184 +446,67 @@ func GetProjectTree(knownDirs string) string {
 		password = sess.password
 	}
 
-	var projects []ProjectInfo
-	var extraDirs []string
-	if knownDirs != "" {
-		json.Unmarshal([]byte(knownDirs), &extraDirs)
-	}
-
-	// 获取项目列表（v2：/api/project，v1：/project）
-	if body, err := apiGet(base+"/api/project", password); err == nil {
-		json.Unmarshal(body, &projects)
-	} else {
-		projects = []ProjectInfo{{ID: "global", Name: "全局项目", Canonical: "/"}}
-	}
-
-	var allSessions []treeSession
-	seen := map[string]bool{}
-
-	for _, project := range projects {
-		extraDirs = append(extraDirs, project.Canonical)
-	}
-
-	// 自动发现所有会话目录：从全量会话列表提取目录。
-	// 必要性：Web 端浏览器的 localStorage 与桌面 WebView2 隔离，knownDirs 为空；
-	// 若不自动发现，未注册为 opencode 项目、但建过会话的目录（如当前工作目录）的会话将丢失。
-	for _, s := range fetchSessionList(base, "", password, 1000) {
-		if dir := s.Dir(); dir != "" {
-			extraDirs = append(extraDirs, dir)
-		}
-	}
-	//去重
-	deduplicateInPlace := func(s []string) []string {
-		if len(s) == 0 {
-			return s
-		}
-		seen := make(map[string]struct{}, len(s)) // 预分配容量，避免 map 扩容
-		j := 0
-		for i := 0; i < len(s); i++ {
-			v := s[i]
-			if _, ok := seen[v]; !ok {
-				seen[v] = struct{}{}
-				s[j] = v
-				j++
-			}
-		}
-		return s[:j]
-	}
-	extraDirs = deduplicateInPlace(extraDirs)
-
-	// 并发查询已知 global 目录下的会话
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	for _, dir := range extraDirs {
-		dir := strings.TrimSpace(dir)
-		if dir == "" {
-			continue
-		}
-		wg.Add(1)
-		go func(d string) {
-			defer wg.Done()
-			batch := fetchSessionList(base, d, password, 200)
-			mu.Lock()
-			for _, s := range batch {
-				if !seen[s.ID] {
-					seen[s.ID] = true
-					allSessions = append(allSessions, s)
-				}
-			}
-			mu.Unlock()
-		}(dir)
-	}
-	wg.Wait()
-
-	return buildTreeJSON(projects, allSessions)
+	sessions := fetchSessionList(base, "", password, 1000)
+	return buildTreeJSON(sessions)
 }
 
-// projectDisplayName 从 canonical 路径推导可读的项目名。
-// v2 的 Project 不含 name 字段，直接显示哈希 ID 对用户毫无意义。
-func projectDisplayName(p ProjectInfo) string {
-	canonical := strings.TrimRight(strings.ReplaceAll(p.Canonical, "\\", "/"), "/")
-	if canonical == "" {
-		if p.ID == "global" {
-			return "全局项目"
-		}
-		return p.ID
-	}
-	if idx := strings.LastIndex(canonical, "/"); idx >= 0 && idx+1 < len(canonical) {
-		return canonical[idx+1:]
-	}
-	return canonical
-}
-
-func buildTreeJSON(projects []ProjectInfo, sessions []treeSession) string {
-	projectMap := make(map[string]*model.TreeNode)
-	dirMap := make(map[string]*model.TreeNode) // key: projectID+"|"+directory
-
-	for _, p := range projects {
-		name := p.Name
-		if name == "" {
-			// v2 不再返回 name，改用 canonical 路径的末段作为可读名
-			name = projectDisplayName(p)
-		}
-		if name == "global" {
-			name = "全局项目"
-		}
-		// 项目时间：updated 优先，其次 created
-		var projectTime string
-		if p.Time.Updated > 0 {
-			projectTime = time.UnixMilli(p.Time.Updated).Format("2006-01-02 15:04")
-		} else if p.Time.Created > 0 {
-			projectTime = time.UnixMilli(p.Time.Created).Format("2006-01-02 15:04")
-		}
-		node := &model.TreeNode{ID: p.ID, Title: name, Type: "project", UpdatedAt: projectTime}
-		projectMap[p.ID] = node
-	}
+// buildTreeJSON 把根会话列表构建成「目录 → 会话」两层树 JSON。
+//
+// 顶层节点即目录：ID/Title 均为 location.directory 原值，Type 为 "directory"；
+// 每个目录的子节点是会话：ID 为会话 id、Title 取 title（缺省回退 id）、
+// Type 为 "session"、UpdatedAt 为 time.updated（缺省回退 time.created）的
+// "2006-01-02 15:04" 格式、Directory 冗余一份目录路径供前端取用。
+//
+// 跳过条件：非根会话（子代理会话由侧栏的子任务面板单独呈现）、目录为空的会话。
+// 输出顺序用「首次出现」保序切片固定，不能用 map 直接遍历——map 顺序随机，
+// 会导致每次刷新树的位置跳动。
+func buildTreeJSON(sessions []treeSession) string {
+	dirMap := make(map[string]*model.TreeNode) // key: 目录路径，value: 该目录的两层树节点
+	var dirOrder []string                      // 目录首次出现的顺序（保序输出用）
 
 	for _, s := range sessions {
-		// 兜底：子代理会话只在侧栏「子任务面板」呈现，不进会话树
+		// 子代理会话只在侧栏「子任务面板」呈现，不进会话树
 		if !s.IsRoot() {
 			continue
-		}
-		pid := s.ProjectID
-		if pid == "" {
-			pid = "global"
 		}
 		dir := s.Dir()
 		if dir == "" {
 			continue
 		}
-		dirKey := pid + "|" + dir
 
-		// 确保 project 存在
-		proj, ok := projectMap[pid]
+		node, ok := dirMap[dir]
 		if !ok {
-			name := pid
-			if pid == "global" {
-				name = "全局项目"
-			}
-			proj = &model.TreeNode{ID: pid, Title: name, Type: "project"}
-			projectMap[pid] = proj
+			node = &model.TreeNode{ID: dir, Title: dir, Type: "directory"}
+			dirMap[dir] = node
+			dirOrder = append(dirOrder, dir)
 		}
 
-		// 确保 directory 节点存在
-		dirNode, ok := dirMap[dirKey]
-		if !ok {
-			dirNode = &model.TreeNode{ID: dirKey, Title: dir, Type: "directory"}
-			dirMap[dirKey] = dirNode
-			proj.Children = append(proj.Children, *dirNode)
-		}
-
-		// 找到刚添加的 directory 节点引用
 		title := s.Title
 		if title == "" {
 			title = s.ID
 		}
 
 		// 取第一个可用的时间字段（updated 优先，其次 created）
-		var sessionTime string
+		var updatedAt string
 		if s.Time.Updated > 0 {
-			sessionTime = time.UnixMilli(s.Time.Updated).Format("2006-01-02 15:04")
+			updatedAt = time.UnixMilli(s.Time.Updated).Format("2006-01-02 15:04")
 		} else if s.Time.Created > 0 {
-			sessionTime = time.UnixMilli(s.Time.Created).Format("2006-01-02 15:04")
+			updatedAt = time.UnixMilli(s.Time.Created).Format("2006-01-02 15:04")
 		}
-		for i := range proj.Children {
-			if proj.Children[i].ID == dirKey {
-				proj.Children[i].Children = append(proj.Children[i].Children, model.TreeNode{
-					ID:        s.ID,
-					Title:     title,
-					Type:      "session",
-					UpdatedAt: sessionTime,
-					Directory: dir,
-				})
-			}
-		}
+
+		node.Children = append(node.Children, model.TreeNode{
+			ID:        s.ID,
+			Title:     title,
+			Type:      "session",
+			UpdatedAt: updatedAt,
+			Directory: dir,
+		})
 	}
 
-	// 转为数组
-	tree := make([]model.TreeNode, 0, len(projectMap))
-	for _, p := range projectMap {
-		tree = append(tree, *p)
+	// 按目录首次出现顺序输出，避免 map 随机序导致树的位置每次刷新都变
+	tree := make([]model.TreeNode, 0, len(dirOrder))
+	for _, dir := range dirOrder {
+		tree = append(tree, *dirMap[dir])
 	}
 
 	data, _ := json.Marshal(tree)

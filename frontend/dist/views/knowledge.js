@@ -1039,7 +1039,7 @@ function kbCurrentProjectDir() {
     return /[\\/]/.test(dir) ? dir : '';
 }
 
-/** 惰性加载项目根目录候选（api.GetProjectTree 的目录层），失败返回空数组 */
+/** 惰性加载项目根目录候选（api.GetProjectTree 两层树的顶层即目录节点），失败返回空数组 */
 async function kbLoadConvertProjects() {
     if (kbConv.projects) return kbConv.projects;
     var dirs = [];
@@ -1047,11 +1047,10 @@ async function kbLoadConvertProjects() {
         var knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
         var raw = await api.GetProjectTree(JSON.stringify(knownDirs));
         var tree = raw ? JSON.parse(raw) : [];
-        (tree || []).forEach(function (proj) {
-            (proj.children || []).forEach(function (dir) {
-                var path = String(dir.title || '').trim();
-                if (path && dirs.indexOf(path) === -1) dirs.push(path);
-            });
+        // 两层树：顶层节点就是目录，直接用其 title 作为候选
+        (tree || []).forEach(function (dir) {
+            var path = String(dir.title || '').trim();
+            if (path && dirs.indexOf(path) === -1) dirs.push(path);
         });
     } catch (err) {
         console.warn('[知识库] 加载项目列表失败：', err);

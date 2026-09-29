@@ -10,7 +10,7 @@
 // ============================================================
 
 import { store } from '../core/state.js';
-import { escapeHtml, getTabMessagesEl, ensureTabMessagesEl, getCachedMessages, updateModelInfo } from '../core/utils.js';
+import { escapeHtml, getTabMessagesEl, ensureTabMessagesEl, getCachedMessages, updateModelInfo, refreshServiceStatus } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { updateScrollBottomButton, updateSendButton } from './render.js';
 import { loadSessionStatuses } from './events.js';
@@ -135,6 +135,8 @@ export function switchTab(sessionID) {
     if (!sessionID) return;
     store.activeTabId = sessionID;
     store.currentSessionId = sessionID;
+    // 切到该会话目录：刷新服务状态面板的 MCP/插件（按 location[directory] 作用域）
+    refreshServiceStatus();
     activateTabContainer(sessionID);
     // 同步项目树高亮（树节点与当前 tab 一致）
     updateTreeActiveSession();

@@ -27,15 +27,24 @@ export const api = new Proxy({}, {
             //     const result = await api.OpenCodeAPI(method, path, data ? JSON.stringify(data) : '');
             return async (...args) => {
                 const requestMethod = args[0];
-                const requestPath = args[1];
+                const origPath = args[1];
+                let requestPath = origPath;
                 const requestData = args[2];
+                // 可选第 4 参：项目目录 → 附加 location[directory]（v2 的 deepObject 作用域）。
+                // 不传则不加。注意：需要 location 的端点，调用方在拿不到目录时必须**跳过请求**，
+                // 否则会回落到服务端 CWD（共享服务为 home）并被登记成项目。
+                const dir = args[3];
+                if (dir) {
+                    requestPath += (requestPath.indexOf('?') >= 0 ? '&' : '?') +
+                        'location%5Bdirectory%5D=' + encodeURIComponent(dir);
+                }
                 const requestBody = requestData  ? JSON.stringify(requestData) : '';
                 const result = await api.OpenCodeAPI(requestMethod,requestPath,requestBody);
                 if (!result.success) {
                     throw new Error(result.error || result.body || `HTTP ${result.status}`);
                 }
                 if (!result.body) return null;
-                if(requestPath === '/provider'){
+                if(origPath === '/provider'){
                     var data = JSON.parse(result.body);
                     var models = [];
                     (data.all || []).forEach(function(provider) {
@@ -253,11 +262,10 @@ const mockApi = (() => {
             if (path.includes('/unrevert')) return { success: true, status: 200, body: 'true' };
             return { success: true, status: 200, body: '{}' };
         },
+        // mock：与后端一致的两层树（顶层目录 → 会话）
         GetProjectTree: async () => JSON.stringify([
-            { id: 'global', title: '全局项目', type: 'project', children: [
-                { id: 'global|/home/user/test', title: '/home/user/test', type: 'directory', children: [
-                    { id: 'ses_abc', title: '开发 Skill 桌面管理工具', type: 'session' },
-                ]},
+            { id: '/home/user/test', title: '/home/user/test', type: 'directory', children: [
+                { id: 'ses_abc', title: '开发 Skill 桌面管理工具', type: 'session', updatedAt: '2026-09-29 10:00', directory: '/home/user/test' },
             ]},
         ]),
         StartOpenCodeEvents: async () => ({ success: true }),

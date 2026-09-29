@@ -1,5 +1,5 @@
 ﻿// ============================================================
-// chat-tree.js — 项目树 & 目录浏览器
+// chat-tree.js — 会话树 & 目录浏览器
 // 依赖：core/state.js（webRunning, currentSessionId, pendingWorkDir 等）、core/apicall.js（api）、
 //       core/utils.js（escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo）、
 //       chat/mobile.js（isMobileTreeMode, closeMobileTree）、chat/events.js（switchSession）、
@@ -9,7 +9,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { store } from '../core/state.js';
+import { store, currentDir } from '../core/state.js';
 import { escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo, updateTreeActiveSession } from '../core/utils.js';
 import { isMobileTreeMode, closeMobileTree } from './mobile.js';
 import { switchSession } from './events.js';
@@ -45,7 +45,7 @@ export function wasSessionDeletedLocally(id) {
     return recentlyDeleted.has(id);
 }
 
-/** 构建项目树（从后端获取项目→目录→会话三层结构）
+/** 构建会话树（从后端获取「目录 → 会话」两层结构）
  *
  *  并发请求会被闸门合并：执行期间再来的请求只补跑一次，且所有调用方
  *  await 到的是同一个结果。**所有入口都必须走这里**，不要直接调
@@ -58,8 +58,13 @@ export async function buildTree() {
 /** 单次重建：拉全量树 + 整树渲染。不对外。 */
 async function buildTreeOnce() {
     try {
+        // dirs 仍按既有绑定签名传给 Go（GetProjectTree(string)），但 v2 侧已忽略该参数：
+        // 后端不传 directory 直接返回全部根会话，再在本地按 location.directory 分组。
         const knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
-        const json = await api.GetProjectTree(JSON.stringify(knownDirs));
+        const dirs = Array.isArray(knownDirs) ? knownDirs.slice() : [];
+        const cur = currentDir();
+        if (cur && !dirs.includes(cur)) dirs.unshift(cur);
+        const json = await api.GetProjectTree(JSON.stringify(dirs));
         if (json && json !== '[]') {
             const tree = JSON.parse(json);
             window._lastProjectTree = tree;
@@ -67,7 +72,7 @@ async function buildTreeOnce() {
             return true;
         } else {
             window._lastProjectTree = [];
-            document.getElementById('ocTree').innerHTML = '<div class="oc-empty">暂无项目，新建会话后将自动出现</div>';
+            document.getElementById('ocTree').innerHTML = '<div class="oc-empty">暂无会话，新建会话后将自动出现</div>';
             return false;
         }
     } catch (_) {
@@ -77,17 +82,29 @@ async function buildTreeOnce() {
     }
 }
 
-/** 手动刷新项目树 */
+/** 手动刷新会话树 */
 export async function refreshTree() {
     const ok = await buildTree();
     showToast(ok ? '刷新成功' : '刷新失败', ok ? 'success' : 'error');
 }
 
-/** 渲染项目树 DOM */
+/** 渲染会话树 DOM（「目录 → 会话」两层：顶层即目录节点） */
 export function renderTree(tree) {
     const container = document.getElementById('ocTree');
+    /** 绑定「添加工作目录」按钮（空树与非空树分支共用） */
+    const bindAddDirButton = () => {
+        container.querySelectorAll('.oc-tree-add-dir').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await addDirectoryToProject();
+            });
+        });
+    };
+
     if (!tree || tree.length === 0) {
-        container.innerHTML = '<div class="oc-empty">暂无项目</div>';
+        container.innerHTML = '<div class="oc-tree-add-dir-row"><button class="oc-tree-add-dir" title="添加工作目录">＋ 添加工作目录</button></div>'
+            + '<div class="oc-empty">暂无会话</div>';
+        bindAddDirButton();
         updateTreeSearchStatus(0, 0);
         return;
     }
@@ -103,21 +120,18 @@ export function renderTree(tree) {
     });
     var savedScrollTop = container.scrollTop;
 
-    // 稳定排序：global 项目永远置顶，其余项目按标题排序；目录按标题、会话按更新时间
+    // 排序：顶层目录按标题排序（会话排序在目录内单独处理）
     tree.sort(function(a, b) {
-        var aGlobal = a.id === 'global' ? 0 : 1;
-        var bGlobal = b.id === 'global' ? 0 : 1;
-        if (aGlobal !== bGlobal) return aGlobal - bGlobal;
         return (a.title || '').localeCompare(b.title || '');
-    });
-    tree.forEach(function(proj) {
-        var dirs = proj.children || [];
-        dirs.sort(function(a, b) { return (a.title || '').localeCompare(b.title || ''); });
     });
 
     window._sessionMap = {};
     let html = '';
     const toggleIcon = (expanded) => expanded ? '▼' : '⯈';
+
+    // 树容器顶部：独立的「添加工作目录」操作行。
+    // 原实现在 global 项目行上挂 ＋ 按钮，项目层取消后改为常驻操作行，保证入口仍可用。
+    html += `<div class="oc-tree-add-dir-row"><button class="oc-tree-add-dir" title="添加工作目录">＋ 添加工作目录</button></div>`;
 
     /** 把 "YYYY-MM-DD HH:MM" 转成相对时间（如 "3分钟前"/"昨天"），无法解析时原样返回 */
     const formatRelativeTime = (t) => {
@@ -138,40 +152,29 @@ export function renderTree(tree) {
         return t.slice(0, 10);
     };
 
-    for (const proj of tree) {
-        html += `<div class="oc-tree-node oc-tree-project" data-id="${escapeHtml(proj.id)}">`;
-        // 项目行：Apple 分组标题风格（弱化，仅作最外层分组标签）
-        // 仅 global 项目显示"添加工作目录"按钮
-        var addDirBtn = proj.id === 'global'
-            ? `<button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button>`
-            : '';
-        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.id + (proj.updatedAt ? '\n⏰ ' + proj.updatedAt : ''))}">${escapeHtml(proj.title)}</span>${addDirBtn}</div>`;
+    for (const dir of tree) {
+        // 目录行：分组标题 + 会话计数徽章（沿用原目录行标记与类名）
+        const dirSesCount = (dir.children || []).length;
+        html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
+        html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
         html += `<div class="oc-tree-children">`;
-        for (const dir of (proj.children || [])) {
-            // 目录行：次级分组标题 + 会话计数徽章
-            const dirSesCount = (dir.children || []).length;
-            html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
-            html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
-            html += `<div class="oc-tree-children">`;
-            // 按更新时间稳定排序，保持会话位置固定
-            var sesList = (dir.children || []).slice();
-            sesList.sort(function(a, b) {
-                return (b.updatedAt || '').localeCompare(a.updatedAt || '');
-            });
-            for (const ses of sesList) {
-                const fullTitle = ses.title;
-                const updatedAt = ses.updatedAt || '';
-                const sesDir = ses.directory || dir.title;
-                window._sessionMap[ses.id] = { title: ses.title, directory: sesDir, updatedAt: updatedAt };
-                // 会话卡片：图标 + 标题 + 相对时间 + 删除按钮；active 由 updateTreeActiveSession 维护
-                html += `<div class="oc-tree-node oc-tree-session" data-session-id="${escapeHtml(ses.id)}">`;
-                html += `<div class="oc-tree-indent"></div><span class="oc-tree-session-icon">💬</span><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n📂 '+sesDir+'\n⏰ '+updatedAt)}">${escapeHtml(ses.title)}</span>`;
-                if (updatedAt) html += `<span class="oc-tree-session-time">${escapeHtml(formatRelativeTime(updatedAt))}</span>`;
-                html += `<div class="oc-tree-tooltip"><div class="oc-tree-tooltip-title">${escapeHtml(ses.title)}</div><div class="oc-tree-tooltip-row">📂 ${escapeHtml(sesDir)}</div><div class="oc-tree-tooltip-row">⏰ ${escapeHtml(updatedAt)}</div></div>`;
-                html += `<button class="oc-tree-del" data-del-id="${escapeHtml(ses.id)}" title="删除会话">✕</button>`;
-                html += `</div>`;
-            }
-            html += `</div></div>`;
+        // 目录内会话按更新时间倒序，保持会话位置固定
+        var sesList = (dir.children || []).slice();
+        sesList.sort(function(a, b) {
+            return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+        });
+        for (const ses of sesList) {
+            const fullTitle = ses.title;
+            const updatedAt = ses.updatedAt || '';
+            const sesDir = ses.directory || dir.title;
+            window._sessionMap[ses.id] = { title: ses.title, directory: sesDir, updatedAt: updatedAt };
+            // 会话卡片：图标 + 标题 + 相对时间 + 删除按钮；active 由 updateTreeActiveSession 维护
+            html += `<div class="oc-tree-node oc-tree-session" data-session-id="${escapeHtml(ses.id)}">`;
+            html += `<div class="oc-tree-indent"></div><span class="oc-tree-session-icon">💬</span><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n📂 '+sesDir+'\n⏰ '+updatedAt)}">${escapeHtml(ses.title)}</span>`;
+            if (updatedAt) html += `<span class="oc-tree-session-time">${escapeHtml(formatRelativeTime(updatedAt))}</span>`;
+            html += `<div class="oc-tree-tooltip"><div class="oc-tree-tooltip-title">${escapeHtml(ses.title)}</div><div class="oc-tree-tooltip-row">📂 ${escapeHtml(sesDir)}</div><div class="oc-tree-tooltip-row">⏰ ${escapeHtml(updatedAt)}</div></div>`;
+            html += `<button class="oc-tree-del" data-del-id="${escapeHtml(ses.id)}" title="删除会话">✕</button>`;
+            html += `</div>`;
         }
         html += `</div></div>`;
     }
@@ -193,8 +196,8 @@ export function renderTree(tree) {
     }
     container.scrollTop = savedScrollTop;
 
-    // 点击项目行/目录行（非按钮区域）触发展开/折叠
-    container.querySelectorAll('.oc-tree-project-row, .oc-tree-dir-row').forEach(row => {
+    // 点击目录行（非按钮区域）触发展开/折叠（项目层已取消，只剩目录行）
+    container.querySelectorAll('.oc-tree-dir-row').forEach(row => {
         row.addEventListener('click', (e) => {
             // 排除按钮点击（添加目录、项目配置、删除）
             if (e.target.closest('button')) return;
@@ -239,12 +242,7 @@ export function renderTree(tree) {
             }
         });
     });
-    container.querySelectorAll('.oc-tree-add-dir').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            await addDirectoryToProject(btn.dataset.projectId || '');
-        });
-    });
+    bindAddDirButton();
     container.querySelectorAll('.oc-tree-del').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -436,21 +434,19 @@ export function rememberKnownDir(dir) {
     } catch (_) {}
 }
 
-/** 检测指定目录下项目树中是否有会话记录 */
+/** 检测指定目录下会话树中是否有会话记录（两层：顶层即目录节点） */
 export function treeHasSessionsForDir(tree, dir) {
     const target = String(dir || '').replace(/\\+$/).toLowerCase();
-    for (const proj of (tree || [])) {
-        for (const child of (proj.children || [])) {
-            const title = String(child.title || '').replace(/\\+$/).toLowerCase();
-            if (title === target && (child.children || []).length > 0) {
-                return true;
-            }
+    for (const node of (tree || [])) {
+        const title = String(node.title || '').replace(/\\+$/).toLowerCase();
+        if (title === target && (node.children || []).length > 0) {
+            return true;
         }
     }
     return false;
 }
 
-/** 向全局项目中添加工作目录：无会话记录时仅 toast 提示，不引导新建会话 */
+/** 添加工作目录：选择已有会话的目录并加载；无会话记录时仅 toast 提示，不引导新建会话 */
 export async function addDirectoryToProject() {
     if (!store.webRunning) return;
     try {
@@ -575,7 +571,7 @@ export async function createNewSession(dir) {
     }
 }
 
-// ===== 项目树右键菜单 =====
+// ===== 会话树右键菜单 =====
 
 /** 当前右键菜单关联的数据 */
 var treeContextData = null;
@@ -590,12 +586,11 @@ export function showTreeContextMenu(e, type, data) {
     menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
         var action = item.dataset.action;
         if (type === 'dir') {
-            item.style.display = (action === 'new-session' || action === 'project-config') ? '' : 'none';
+            // 「导入会话」是全局动作，挂在目录行上保持入口可达
+            item.style.display = (action === 'new-session' || action === 'project-config' || action === 'import') ? '' : 'none';
         } else if (type === 'session') {
             item.style.display = (action === 'rename' || action === 'delete'
                 || action === 'export' || action === 'move') ? '' : 'none';
-        } else if (type === 'project') {
-            item.style.display = (action === 'project-rename' || action === 'import') ? '' : 'none';
         } else {
             item.style.display = 'none';
         }
@@ -636,14 +631,6 @@ export function initTreeContextMenu() {
             showTreeContextMenu(e, 'session', { sid: sid });
             return;
         }
-        var projRow = e.target.closest('.oc-tree-project-row');
-        if (projRow) {
-            var projNode = projRow.closest('.oc-tree-node.oc-tree-project');
-            var pid = projNode ? projNode.dataset.id : '';
-            if (!pid) return;
-            showTreeContextMenu(e, 'project', { projectId: pid });
-            return;
-        }
     });
 
     var menu = document.getElementById('ocTreeContextMenu');
@@ -669,8 +656,6 @@ export function initTreeContextMenu() {
                 moveSessionDialog(data.sid);
             } else if (action === 'import') {
                 importSessionDialog();
-            } else if (type === 'project' && action === 'project-rename') {
-                renameProject(data.projectId);
             }
         });
     });
@@ -820,15 +805,6 @@ export async function importSessionDialog() {
     } catch (e) {
         showToast('导入失败: ' + (e.message || e), 'error');
     }
-}
-
-/** 重命名项目。
- *  OpenCode v2 的 Project 由目录（canonical）派生，没有 name 字段，
- *  也没有提供项目更新端点（v1 的 PATCH /project/{id} 已移除），
- *  因此此处明确提示而非发起注定失败的请求。 */
-export async function renameProject(projectId) {
-    if (!projectId) return;
-    showToast('OpenCode v2 的项目名由目录自动派生，暂不支持重命名', 'warning');
 }
 
 initTreeContextMenu();

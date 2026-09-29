@@ -74,7 +74,7 @@ export const store = {
      *  类型定义与事件流中亦无任何 todo 相关项，故 v2 下为 false。 */
     todoSupported: false,
     /** 插件列表（来自 /config 的 plugin 数组，服务实际加载的插件；空=未配置） */
-    pluginStatus: [],
+    pluginStatus: null,
 
     // ============================
     // 消息缓存
@@ -186,3 +186,20 @@ export const store = {
 // ============================
 /** 页面 Web 服务配置的 localStorage 键名 */
 export const FRONTEND_WEB_CONFIG_KEY = 'oc-frontend-web-config';
+
+/**
+ * 当前项目目录（用于 OpenCode v2 的 location[directory] 作用域）。
+ *
+ * v2 的 /api/agent、/api/model、/api/command、/api/mcp、/api/plugin、/api/config
+ * 等端点按 location 取项目级配置；**不传 location 时服务端会退回其进程 CWD**
+ * （共享服务 `serve --service` 的 CWD 是用户 home），并把该目录登记成一个「项目」。
+ * 因此这类请求必须带上当前会话目录；拿不到目录时调用方应**跳过请求**，
+ * 绝不能让它们回落到默认 CWD，否则 home 会被误登记为项目。
+ */
+export function currentDir() {
+    const sid = store.currentSessionId;
+    const map = (typeof window !== 'undefined' && window._sessionMap) || {};
+    const info = sid ? map[sid] : null;
+    const dir = (info && info.directory) || store.agentModelSelectorsDir || '';
+    return typeof dir === 'string' ? dir.trim() : '';
+}

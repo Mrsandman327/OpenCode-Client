@@ -5,7 +5,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { store } from '../core/state.js';
+import { store, currentDir } from '../core/state.js';
 import { escapeHtml, showToast, getCachedMessages, messageText } from '../core/utils.js';
 import { loadMessages, loadOlderMessages, isSessionLoadedAll } from './session.js';
 import { openSessionTab } from './tabs.js';
@@ -35,8 +35,10 @@ const cmdInputEl = document.getElementById('ocPrompt');
 export async function loadCmdPalette() {
     if (cmdPaletteLoaded) return;
     try {
-        // v2: GET /api/command 返回 {location, data:[...]} 信封
-        cmdPaletteItems = unwrapList(await api.OpenCodeCall('GET', '/api/command'));
+        // v2: GET /api/command 返回 {location, data:[...]} 信封；
+        // 需带当前目录，否则服务端会回落到其 CWD（共享服务为 home）并登记为项目。
+        const dir = currentDir();
+        cmdPaletteItems = dir ? unwrapList(await api.OpenCodeCall('GET', '/api/command', null, dir)) : [];
     } catch (_) {
         cmdPaletteItems = [];
     }

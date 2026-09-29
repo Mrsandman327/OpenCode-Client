@@ -1560,6 +1560,27 @@ input::placeholder, textarea::placeholder {
     opacity: 1;
 }
 
+/* ── 添加工作目录操作行：常驻树顶部（原挂在 global 项目行，项目层取消后独立成行） ── */
+.oc-tree-add-dir-row {
+    padding: 0 6px 6px;
+}
+.oc-tree-add-dir-row .oc-tree-add-dir {
+    display: block;
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px dashed rgba(0, 0, 0, 0.15);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+}
+.oc-tree-add-dir-row .oc-tree-add-dir:hover {
+    color: var(--text-secondary);
+    background: var(--bg-sidebar-hover);
+}
+
 /* ── 目录行：次级分组标题 + 会话计数徽章 ── */
 .oc-tree-dir-row {
     display: flex;

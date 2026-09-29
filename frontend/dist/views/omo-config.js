@@ -6,7 +6,7 @@
 // 文件内的模块级变量（非 core/state.js 的 store），保持局部。
 import { api } from '../core/apicall.js';
 import { escapeHtml, showToast } from '../core/utils.js';
-import { store } from '../core/state.js';
+import { store, currentDir } from '../core/state.js';
 import { toModelOptions } from '../core/v2compat.js';
 
 export let modelEntries = [];
@@ -71,7 +71,10 @@ export async function loadModelConfig() {
         });
 
         // v2：模型列表走 /api/model（v2 的 /api/provider 不再内嵌 models），并归一化为 {value,label}
-        api.OpenCodeCall('GET', '/api/model').then(function(res) {
+        // 需带当前目录（location[directory]），否则会回落到服务端 CWD=home
+        const dir = currentDir();
+        if (!dir) return;
+        api.OpenCodeCall('GET', '/api/model', null, dir).then(function(res) {
             const models = toModelOptions(res);
             if (models.length) {
                 store.availableModels = models;

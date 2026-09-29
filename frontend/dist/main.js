@@ -9,7 +9,7 @@
 import { toggleTheme } from './core/theme.js';
 import { isBrowserRuntimeForMain, showToast, isDesktopRuntime, loadWailsRuntime } from './core/utils.js';
 import { api } from './core/apicall.js';
-import { store } from './core/state.js';
+import { store, currentDir } from './core/state.js';
 import { toModelOptions } from './core/v2compat.js';
 import {
     isMobileTreeMode, toggleMobileTree, closeMobileTree,
@@ -327,7 +327,9 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.textContent = '⏳ 刷新中...';
         try {
             // v2：模型列表走 /api/model（v2 的 /api/provider 不再内嵌 models），并归一化为 {value,label}
-            const newModels = toModelOptions(await api.OpenCodeCall('GET', '/api/model'));
+            // 需带当前目录（location[directory]），否则会回落到服务端 CWD=home
+            const dir = currentDir();
+            const newModels = dir ? toModelOptions(await api.OpenCodeCall('GET', '/api/model', null, dir)) : [];
             if (newModels.length) store.availableModels = newModels;
             await loadModelConfig();
             showToast(`获取到 ${store.availableModels.length} 个可用模型`, 'success');

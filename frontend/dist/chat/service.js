@@ -9,15 +9,17 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { store } from '../core/state.js';
-import { showToast, escapeHtml, getActiveMessagesEl, updateModelInfo } from '../core/utils.js';
+import { store, currentDir } from '../core/state.js';
+import { showToast, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler } from '../core/utils.js';
 import { getNetworkConfig } from './config.js';
 import { startEventStream, loadSessionStatuses } from './events.js';
 import { buildTree } from './tree.js';
 import { loadAgentModelSelectors } from './session.js';
 import { initSearch, initUserNav } from './search.js';
-import { initCredentials, loadCredentials } from '../views/credentials.js';
 import { unwrap } from '../core/v2compat.js';
+
+// 注册服务状态刷新实现：session.js 打开会话（拿到目录）后会调用它重新拉取 MCP/插件状态
+setRefreshServiceStatusHandler(() => loadServiceStatus());
 
 // ============================
 // Web 状态检测
@@ -52,7 +54,7 @@ export async function checkWebStatus() {
             startEventStream();
             buildTree();
             loadServiceStatus();
-            loadAgentModelSelectors();
+            loadAgentModelSelectors(currentDir());
         } else {
             // 服务未运行（含被外部停止）：复位后端 SSE 标记，
             // 避免下次启动时被误判为已建立而不再调用 StartOpenCodeEvents
@@ -64,7 +66,7 @@ export async function checkWebStatus() {
         store.serverStatus = normalizeServerStatus(null);
         renderServiceStatus();
     }
-    setTimeout(function() { initSearch(); initUserNav(); initCredentials(); }, 500);
+    setTimeout(function() { initSearch(); initUserNav(); }, 500);
 }
 
 // ============================
@@ -81,63 +83,135 @@ export async function checkWebStatus() {
 export async function loadServiceStatus() {
     const config = getNetworkConfig();
     try {
-        // v2：/api/mcp 与 /api/config；v1 的 /lsp 已移除——
-        // OpenCode v2 不再运行语言服务器、不暴露 LSP 工具，故不再查询 lsp 状态。
-        const [web, mcp, cfg] = await Promise.all([
-            api.GetWebStatus(config.serviceHost, resolveServicePort()).catch(() => null),
-            store.webRunning ? api.OpenCodeCall('GET', '/api/mcp').catch(() => null) : Promise.resolve(null),
-            store.webRunning ? api.OpenCodeCall('GET', '/api/config').catch(() => null) : Promise.resolve(null),
-        ]);
+        // v2：/api/mcp（MCP 运行时状态）与 /api/plugin（插件运行时状态）；
+        // v1 的 /lsp 已移除——OpenCode v2 不再运行语言服务器、不暴露 LSP 工具，故不查询 lsp 状态。
+        const dir = currentDir();
+        const web = await api.GetWebStatus(config.serviceHost, resolveServicePort()).catch(() => null);
         if (web) {
             store.webRunning = !!web.running;
             store.webURL = web.url || '';
         }
         store.serverStatus = normalizeServerStatus(web);
-        // v2 的 /api/mcp 返回 {location, data:[...]} 信封
-        store.mcpStatus = unwrap(mcp) ?? null;
         // v2 无 /api/lsp 端点（不运行语言服务器），故 lspStatus 恒为 null、
         // lspSupported 为 false，服务面板据此**整段不渲染** LSP 分组。
         store.lspStatus = null;
         store.lspSupported = false;
-        // 插件信息：只取 /config 的 plugin 数组（服务按此加载的插件），
-        // 其余字段（含 provider API Key）不进入内存，避免敏感配置暴露
-        store.pluginStatus = extractPluginList(cfg);
+        // MCP/插件：需要 location[directory]，且服务端为**异步就绪**（MCP 要 spawn 子进程连接），
+        // 首次查询常常为空 —— 故先查一次，再安排有限次延迟重试。
+        const effectiveDir = store.webRunning ? dir : '';
+        await fetchMcpPlugin(effectiveDir);
         updateWebUI();
         renderServiceStatus();
-        // 凭据面板：只展示已配置凭据的集成。失败不阻断服务状态渲染——
-        // 凭据只是附加信息，取不到不该让整个面板报错。
-        loadCredentials().catch(() => {});
+        scheduleMcpPluginRefresh(effectiveDir);
     } catch (e) {
         store.serverStatus = normalizeServerStatus(null);
         store.mcpStatus = null;
         store.lspStatus = null;
-        store.pluginStatus = [];
+        store.pluginStatus = null;
         renderServiceStatus();
     }
 }
 
-/** 从 /config 响应提取插件名列表（渲染层按字符串数组消费）。
- *
- *  OpenCode v2 的 GET /api/config 返回 Config.Entry[]：
- *    [{ type:'document', path, info:{ ...plugins:[{package, options}] } }, { type:'directory', path }]
- *  且 v2 把 v1 的 `plugin` 字段改名为 `plugins`，条目形态由 [name, options] 元组
- *  变为 {package, options} 对象，故这里统一抽取为名称字符串数组。
- *  同时兼容 v1 形态（裸对象 + plugin 字符串数组）。
- */
-function extractPluginList(cfg) {
-    if (!cfg) return [];
-    let plugins = null;
-    if (Array.isArray(cfg)) {
-        // v2：取第一个 document 条目里的 info
-        const doc = cfg.find(e => e && e.type === 'document' && e.info);
-        plugins = doc ? (doc.info.plugins ?? doc.info.plugin) : null;
-    } else if (typeof cfg === 'object') {
-        plugins = cfg.plugins ?? cfg.plugin;
+/** 查询 MCP 与插件状态（需要 location[directory]；目录为空则跳过，避免回落到服务端 CWD=home）。 */
+async function fetchMcpPlugin(dir) {
+    if (!dir) {
+        store.mcpStatus = null;
+        store.pluginStatus = null;
+        store.pluginBuiltin = null;
+        return;
     }
-    if (!Array.isArray(plugins)) return [];
-    return plugins
-        .map(p => (typeof p === 'string' ? p : (p && (p.package || p.name || p[0])) || ''))
-        .filter(Boolean);
+    const [mcp, plugin] = await Promise.all([
+        api.OpenCodeCall('GET', '/api/mcp', null, dir).catch(() => null),
+        api.OpenCodeCall('GET', '/api/plugin', null, dir).catch(() => null),
+    ]);
+    // v2 的 /api/mcp 返回 {location, data: Mcp.Server[]} 信封
+    store.mcpStatus = unwrap(mcp) ?? null;
+    // 插件：extractPluginList 已剔除内置插件，内置部分单独汇总到 pluginBuiltin
+    const pluginInfo = extractPluginList(plugin);
+    store.pluginStatus = pluginInfo.list;
+    store.pluginBuiltin = pluginInfo.builtin;
+}
+
+// MCP/插件重试定时器句柄
+let mcpPluginRetryTimer = 0;
+
+/**
+ * 有限次延迟重试 MCP/插件状态。
+ * OpenCode v2 的 MCP 服务器是**异步连接**的（stdio 需 spawn 子进程，通常耗时数秒），
+ * 服务刚启动时 /api/mcp 往往返回空数组；插件（尤其 package 插件）也需加载时间。
+ * 因此在拿到数据前按固定间隔重试若干次，最多约 18 秒。
+ */
+function scheduleMcpPluginRefresh(dir) {
+    if (mcpPluginRetryTimer) { clearTimeout(mcpPluginRetryTimer); mcpPluginRetryTimer = 0; }
+    if (!dir || !store.webRunning) return;
+    let attempt = 0;
+    const tick = async () => {
+        attempt += 1;
+        const mcpEmpty = !Array.isArray(store.mcpStatus) || store.mcpStatus.length === 0;
+        const pluginEmpty = !(store.pluginStatus || []).length;
+        if ((!mcpEmpty && !pluginEmpty) || attempt > 6) return; // 拿到数据或超时即止
+        await fetchMcpPlugin(dir);
+        renderServiceStatus();
+        mcpPluginRetryTimer = setTimeout(tick, 3000);
+    };
+    mcpPluginRetryTimer = setTimeout(tick, 3000);
+}
+
+/** 从 /api/plugin 响应提取插件信息。
+ *
+ *  OpenCode v2 的 GET /api/plugin 返回 { location, data: Plugin.Info[] }，其中
+ *  Plugin.Info = { id?, source:{type,target,version?,outdated?,updating?}, features, state:{status:'active'|'failed', error?} }。
+ *  兼容裸数组与 v1 的 {plugins:[...]} / 字符串数组形态。
+ *
+ *  说明：v2 会把约 85 个内置插件（source.type === 'builtin'，id 形如 opencode.tool.read /
+ *  opencode.provider.openai）一并返回。它们是内建子系统、对用户没有操作价值，
+ *  因此这里**只返回用户插件**（local/package 等）；内置插件单独汇总成计数与状态。
+ *
+ *  @returns {{ list: Array, builtin: {count:number, active:number, failed:number}|null }}
+ */
+function extractPluginList(res) {
+    if (!res) return { list: [], builtin: null };
+    // 解开 {location, data} 信封
+    let list = (res && !Array.isArray(res) && res.data !== undefined) ? res.data : res;
+    // v1 兼容：{ plugins:[...] } 或 { plugin:[...] }
+    if (list && !Array.isArray(list) && typeof list === 'object') {
+        list = list.plugins ?? list.plugin ?? null;
+    }
+    if (!Array.isArray(list)) return { list: [], builtin: null };
+
+    const user = [];
+    let builtinCount = 0;
+    let builtinActive = 0;
+    let builtinFailed = 0;
+    list.forEach(p => {
+        if (typeof p === 'string') {
+            user.push({ name: p, state: '', version: '', outdated: false, error: '' });
+            return;
+        }
+        const src = p.source || {};
+        // 内置插件：只统计，不逐条展示
+        if (src.type === 'builtin') {
+            builtinCount++;
+            const st = (p.state && p.state.status) || '';
+            if (st === 'active') builtinActive++;
+            else if (st === 'failed') builtinFailed++;
+            return;
+        }
+        // 用户插件（local/package 等）：归一化为 { name, state, version, outdated, error } 便于渲染
+        const item = {
+            name: p.id || src.target || src.path || '?',
+            state: (p.state && p.state.status) || '',
+            version: src.version || '',
+            outdated: !!src.outdated,
+            error: (p.state && p.state.error) || '',
+        };
+        if (item.name) user.push(item);
+    });
+
+    const builtin = builtinCount > 0
+        ? { count: builtinCount, active: builtinActive, failed: builtinFailed }
+        : null;
+    return { list: user, builtin: builtin };
 }
 
 /** 将服务器状态对象标准化为统一格式 */
@@ -188,25 +262,41 @@ export function renderServiceStatus() {
     renderVersionCheck(version);
 
     // ── MCP 服务 — 点击展开/折叠 ──
+    // v2 的 GET /api/mcp 返回 {location, data: Mcp.Server[]}，
+    // 每项 { name, status:{status:'connected'|'pending'|'disabled'|'failed'|'needs_auth', error?}, integrationID? }
+    const mcpState = (info) => {
+        if (!info) return '';
+        const s = info.status;
+        return (s && typeof s === 'object') ? (s.status || '') : (s || '');
+    };
     if (store.mcpStatus) {
-        const entries = typeof store.mcpStatus === 'object' ? Object.entries(store.mcpStatus) : [];
-        const anyRunning = entries.some(([, info]) => info?.status === 'connected' || info?.connected || info?.running);
-        const anyFailed = entries.some(([, info]) => info?.status === 'error');
-        const dotClass = entries.length === 0 ? 'off' : (anyFailed ? 'off' : (anyRunning ? 'on' : 'off'));
-        const collapsed = entries.length > 0 ? ' collapsed' : '';
+        const list = Array.isArray(store.mcpStatus) ? store.mcpStatus : Object.values(store.mcpStatus || {});
+        const anyRunning = list.some(i => mcpState(i) === 'connected');
+        const anyFailed = list.some(i => { const s = mcpState(i); return s === 'failed' || s === 'needs_auth'; });
+        const dotClass = list.length === 0 ? 'off' : (anyFailed ? 'off' : (anyRunning ? 'on' : 'off'));
+        const collapsed = list.length > 0 ? ' collapsed' : '';
 
         const sec = document.createElement('div');
         sec.className = 'oc-service-group' + collapsed;
         sec.innerHTML = '<div class="oc-service-group-title clickable">' +
             '<span class="oc-service-dot ' + dotClass + '"></span>MCP 服务' +
         '</div>';
-        if (entries.length === 0) {
+        if (list.length === 0) {
             sec.innerHTML += '<div class="oc-service-body"><div class="oc-service-item"><span class="oc-service-dot off"></span>无已配置的 MCP 服务</div></div>';
         } else {
             let body = '<div class="oc-service-body">';
-            entries.forEach(([name, info]) => {
-                const running = info?.status === 'connected' || info?.connected || info?.running;
-                body += '<div class="oc-service-item"><span class="oc-service-dot ' + (running ? 'on' : 'off') + '"></span>' + escapeHtml(name) + ' <span class="oc-service-state">' + (running ? '已连接' : '未连接') + '</span></div>';
+            list.forEach(info => {
+                const name = (info && (info.name || info.id)) || '?';
+                const st = mcpState(info);
+                const running = st === 'connected';
+                const failed = st === 'failed' || st === 'needs_auth';
+                const stateText = running ? '已连接'
+                    : st === 'disabled' ? '已禁用'
+                    : failed ? '异常'
+                    : st === 'pending' ? '连接中'
+                    : '未连接';
+                const detail = (info && info.status && info.status.error) ? '（' + escapeHtml(info.status.error) + '）' : '';
+                body += '<div class="oc-service-item"><span class="oc-service-dot ' + (running ? 'on' : 'off') + '"></span>' + escapeHtml(name) + ' <span class="oc-service-state">' + stateText + detail + '</span></div>';
             });
             body += '</div>';
             sec.innerHTML += body;
@@ -257,25 +347,51 @@ export function renderServiceStatus() {
         box.appendChild(sec);
     }
 
-    // ── 插件 — 服务实际加载的插件（来自 /config 的 plugin 数组）──
-    if (store.pluginStatus.length) {
+    // ── 插件 — 来自 GET /api/plugin（Plugin.Info[]，含运行时状态）──
+    // 与 MCP 一致：仅在已按当前会话目录查询过（pluginStatus !== null）时渲染；
+    // 无会话/无目录时 pluginStatus 为 null，整块不渲染。
+    if (store.pluginStatus) {
+        const plugins = store.pluginStatus || [];
+        const builtin = store.pluginBuiltin || null;
+        const anyActive = plugins.some(p => p.state === 'active');
+        const anyFailed = plugins.some(p => p.state === 'failed') || (builtin ? builtin.failed > 0 : false);
+        const pluginDot = (!plugins.length && !builtin) ? 'off' : (anyFailed ? 'off' : ((anyActive || builtin) ? 'on' : 'off'));
         const pluginSec = document.createElement('div');
         pluginSec.className = 'oc-service-group collapsed';
-        const plugins = store.pluginStatus || [];
-        const pluginDot = plugins.length ? 'on' : 'off';
+        // 标题只计用户插件数（内置插件另行汇总，避免出现「88 个插件」之类的噪音）
         pluginSec.innerHTML = '<div class="oc-service-group-title clickable">' +
             '<span class="oc-service-dot ' + pluginDot + '"></span>插件' +
+            (plugins.length ? ' <span class="oc-service-state">' + plugins.length + '</span>' : '') +
         '</div>';
-        if (!plugins.length) {
-            pluginSec.innerHTML += '<div class="oc-service-body"><div class="oc-service-item"><span class="oc-service-dot off"></span>未配置插件</div></div>';
-        } else {
-            let body = '<div class="oc-service-body">';
-            plugins.forEach(name => {
-                body += '<div class="oc-service-item"><span class="oc-service-dot on"></span>' + escapeHtml(name) + '</div>';
-            });
-            body += '</div>';
-            pluginSec.innerHTML += body;
+        let body = '<div class="oc-service-body">';
+        // 内置插件：仅展示一行汇总（数量 + 状态），不逐条列出
+        if (builtin) {
+            const parts = [];
+            if (builtin.active) parts.push(builtin.active + ' 正常');
+            if (builtin.failed) parts.push(builtin.failed + ' 失败');
+            const detail = parts.length ? '（' + parts.join('、') + '）' : '';
+            body += '<div class="oc-service-item"><span class="oc-service-dot ' + (builtin.failed ? 'off' : 'on') + '"></span>内置插件 ' +
+                builtin.count + ' 个' + detail + '</div>';
         }
+        if (!plugins.length) {
+            // 无用户插件且无内置插件时，才提示「未加载插件」
+            if (!builtin) {
+                body += '<div class="oc-service-item"><span class="oc-service-dot off"></span>未加载插件</div>';
+            }
+        } else {
+            plugins.forEach(p => {
+                const ok = p.state === 'active';
+                const failed = p.state === 'failed';
+                const stateText = ok ? '已加载' : failed ? '失败' : '';
+                const suffix = p.outdated ? '（可更新）' : '';
+                const detail = (failed && p.error) ? '（' + escapeHtml(p.error) + '）' : suffix;
+                const label = p.version ? escapeHtml(p.name) + ' <span class="oc-service-state">v' + escapeHtml(p.version) + '</span>' : escapeHtml(p.name);
+                body += '<div class="oc-service-item"><span class="oc-service-dot ' + (ok ? 'on' : 'off') + '"></span>' + label +
+                    (stateText ? ' <span class="oc-service-state">' + stateText + '</span>' : '') + detail + '</div>';
+            });
+        }
+        body += '</div>';
+        pluginSec.innerHTML += body;
         pluginSec.querySelector('.oc-service-group-title.clickable').addEventListener('click', function() {
             pluginSec.classList.toggle('collapsed');
         });
@@ -307,7 +423,7 @@ export async function startWeb() {
                 await buildTree();
             }
             loadServiceStatus();
-            loadAgentModelSelectors();
+            loadAgentModelSelectors(currentDir());
             showToast('OpenCode Web 已启动', 'success');
         } else if (result.error) {
             showToast('启动失败: ' + result.error, 'error');
@@ -356,6 +472,9 @@ export async function stopWeb() {
         store.serverStatus = normalizeServerStatus(null);
         store.mcpStatus = null;
         store.lspStatus = null;
+        // 插件区块也要随之隐藏：此前漏清 pluginStatus，导致停止服务后 MCP 隐藏而插件仍显示
+        store.pluginStatus = null;
+        store.pluginBuiltin = null;
         // 清理 Agent/Model 选择器：清空列表与选中值，并重置加载守卫，
         // 使下次启动时 loadAgentModelSelectors 重新获取列表。
         // 注意：不清空下拉框的 <option>——ocVariantSelect 的选项是 index.html
