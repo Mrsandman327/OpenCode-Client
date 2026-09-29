@@ -34,11 +34,18 @@ func truncate(text string, max int) string {
 // ── 权限审批 ──
 
 // PermissionRequest 是一个待审批的请求。
+//
+// 字段对应 V2 的 Permission.Request（spec 实测）：
+// 必填 id/sessionID/action/resources；可选 save/metadata/source/message。
+//
+// ⚠️ **没有 title 字段**。V2 里承载说明文字的是 message——
+// 按 title 读会恒为空，卡片上「请求标题」整段静默消失。
 type PermissionRequest struct {
 	ID        string
 	Action    string
 	Resources []string
-	Title     string
+	// Message 是请求自带的说明文字，可能为空。
+	Message string
 	// Save 是「始终允许」在本会话内会永久放行的资源清单。
 	// 为空时按 Resources 处理——服务端在 reply 时会自行采用请求里的 save。
 	Save []string
@@ -48,8 +55,8 @@ type PermissionRequest struct {
 func PermissionCard(req PermissionRequest) *Card {
 	c := NewCard().WithHeader("🔐 需要确认", TemplateOrange)
 
-	if req.Title != "" {
-		c.Markdown("**"+req.Title+"**", "normal")
+	if req.Message != "" {
+		c.Markdown("**"+req.Message+"**", "normal")
 	}
 
 	// 资源列表最多 5 条，超出明示余量
