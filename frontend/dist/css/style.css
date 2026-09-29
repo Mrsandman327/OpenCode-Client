@@ -2579,6 +2579,98 @@ input::placeholder, textarea::placeholder {
     padding: 2px 8px;
 }
 
+/* 删除凭据：与「切到此凭据」同级的破坏性操作，故缩到最小并用 del 样式 */
+.oc-cred-del {
+    flex-shrink: 0;
+    font-size: 10px;
+    padding: 2px 6px;
+    opacity: 0.75;
+}
+.oc-cred-del:hover {
+    opacity: 1;
+}
+
+/* 接入新供应商区：搜索 + 下拉 + 选中后的填 key 表单 */
+.oc-cred-connect {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    padding: 6px 8px;
+    margin-bottom: 6px;
+}
+.oc-cred-connect-head {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+}
+.oc-cred-connect-search,
+.oc-cred-connect-pick {
+    width: 100%;
+    font-size: 11px;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input, var(--bg-card));
+    color: var(--text-primary);
+}
+.oc-cred-connect-pick {
+    margin-top: 5px;
+}
+.oc-cred-connect-empty,
+.oc-cred-connect-note {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 5px;
+    line-height: 1.5;
+}
+.oc-cred-connect-form {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+}
+.oc-cred-connect-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+/* 表单内的 .oc-cred-add 已有自己的上边框，这里去掉以免双线 */
+.oc-cred-connect-form .oc-cred-add {
+    border-top: none;
+    padding-left: 0;
+    padding-right: 0;
+    margin-top: 0;
+}
+
+/* 新增一把 key：折叠区底部常驻，保证「多 key」的入口一眼可见 */
+.oc-cred-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px 4px;
+    margin-top: 2px;
+    border-top: 1px dashed var(--border);
+}
+.oc-cred-add input {
+    flex: 1;
+    min-width: 0;
+    font-size: 11px;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input, var(--bg-card));
+    color: var(--text-primary);
+}
+.oc-cred-add input:disabled {
+    opacity: 0.6;
+}
+.oc-cred-add-save {
+    flex-shrink: 0;
+    font-size: 10px;
+    padding: 3px 10px;
+}
+
 .oc-service-field {
     display: flex;
     align-items: flex-start;

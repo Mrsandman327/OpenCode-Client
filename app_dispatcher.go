@@ -415,6 +415,18 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.RenameCredential(credentialID, label), nil
+	case "AddCredential":
+		var integrationID, key, label string
+		if err := decodeArgs(args, &integrationID, &key, &label); err != nil {
+			return nil, err
+		}
+		return a.AddCredential(integrationID, key, label), nil
+	case "DeleteCredential":
+		var credentialID string
+		if err := decodeArgs(args, &credentialID); err != nil {
+			return nil, err
+		}
+		return a.DeleteCredential(credentialID), nil
 	case "ListWorktrees":
 		var projectID string
 		if err := decodeArgs(args, &projectID); err != nil {

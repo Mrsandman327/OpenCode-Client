@@ -60,6 +60,17 @@ func (a *App) RenameCredential(credentialID, label string) model.APIResult {
 	return opencode.RenameCredential(credentialID, label)
 }
 
+// AddCredential 给集成新增一把 API key（v2 的 connect/key）。
+// 新增的那把会直接成为当前生效的凭据，调用方需重新拉列表。
+func (a *App) AddCredential(integrationID, key, label string) model.APIResult {
+	return opencode.AddCredential(integrationID, key, label)
+}
+
+// DeleteCredential 删除一把凭据（仅 credential 型，env 型不在凭据库里）。
+func (a *App) DeleteCredential(credentialID string) model.APIResult {
+	return opencode.DeleteCredential(credentialID)
+}
+
 // ── 工作树 / 分支 / 终端 ────────────────────────────────────────────────
 
 // ListWorktrees 列出项目的工作树（端点以 projectID 定位，返回裸数组）。

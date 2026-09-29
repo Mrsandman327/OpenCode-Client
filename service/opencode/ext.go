@@ -326,6 +326,59 @@ func ActivateCredential(credentialID string) model.APIResult {
 	return apiPostNoBody(base+"/api/credential/"+url.QueryEscape(credentialID)+"/activate", password)
 }
 
+// AddCredential 给集成新增一把 API key。
+//
+// 走 POST /api/integration/{id}/connect/key（v2 的 "Connect with key"，
+// 官方描述：Run a key authentication method and store the resulting credential）。
+// 这正是「一个供应商多把 key」的存储入口——v2 没有独立的 /api/credential 列表端点
+// （GET /api/credential 实测 404），凭据只能通过 /api/integration 的 connections
+// 读出来，而写入只能走这个 connect/key。
+//
+// 两个实测契约，勿凭直觉简化：
+//  1. **成功时响应体是空的**（Content-Length: 0），不是 {data:...}。
+//     拿返回值去 json.Unmarshal 会得到 "unexpected end of JSON input"，
+//     把一次成功的写入误报成失败。因此这里只取状态码，不碰 body。
+//  2. 新增的凭据会**直接成为当前生效的那把**（实测：加完 connections[0] 就是它）。
+//     所以调用方必须重新拉列表，不要自己乐观地改本地状态。
+func AddCredential(integrationID, key, label string) model.APIResult {
+	if strings.TrimSpace(integrationID) == "" {
+		return model.APIResult{Error: "缺少集成 ID"}
+	}
+	if strings.TrimSpace(key) == "" {
+		return model.APIResult{Error: "API Key 不能为空"}
+	}
+	base, password, fail := sessionScoped()
+	if fail.Error != "" {
+		return fail
+	}
+	payload := map[string]any{"key": key}
+	if trimmed := strings.TrimSpace(label); trimmed != "" {
+		// label 缺省时服务端会自己生成一个；传空串反而可能覆盖成空名，故只在非空时带
+		payload["label"] = trimmed
+	}
+	body, _ := json.Marshal(payload)
+	target := base + "/api/integration/" + url.QueryEscape(integrationID) + "/connect/key"
+	return apiPost(target, password, body)
+}
+
+// DeleteCredential 删除一把凭据。
+//
+// 走 DELETE /api/credential/{id}，实测返回 204 无内容。
+// 只有 credential 型连接能删——env 型是进程环境变量，压根不在凭据库里。
+//
+// 调用方须自行保证「删完这个供应商还剩至少一把凭据」：面板侧的守卫在
+// credential-model.js 的 connectionRows().canDelete，本函数只做 id 非空校验。
+func DeleteCredential(credentialID string) model.APIResult {
+	if strings.TrimSpace(credentialID) == "" {
+		return model.APIResult{Error: "缺少凭据 ID"}
+	}
+	base, password, fail := sessionScoped()
+	if fail.Error != "" {
+		return fail
+	}
+	return apiDelete(base+"/api/credential/"+url.QueryEscape(credentialID), password)
+}
+
 // RenameCredential 修改凭据的显示名。
 // v2 的凭据 PATCH 只能改 label，无法改动凭据内容——换 key 请在 opencode 侧操作。
 func RenameCredential(credentialID, label string) model.APIResult {
@@ -490,6 +543,28 @@ func apiPatch(urlstr, password string, payload []byte) model.APIResult {
 		return model.APIResult{Error: err.Error()}
 	}
 	req.Header.Set("Content-Type", "application/json")
+	applyAuth(req, password)
+	resp, err := apiClient.Do(req)
+	if err != nil {
+		return model.APIResult{Error: err.Error()}
+	}
+	defer resp.Body.Close()
+	data, err := readAPIResponse(resp, urlstr)
+	if err != nil {
+		return model.APIResult{Status: resp.StatusCode, Error: err.Error()}
+	}
+	return model.APIResult{Success: resp.StatusCode >= 200 && resp.StatusCode < 300, Status: resp.StatusCode, Body: string(data)}
+}
+
+// apiDelete 发起 DELETE（v2 的凭据删除用它，实测返回 204 无内容）。
+//
+// 不带请求体，也不设 Content-Type——该端点没有请求体契约，多写一个空对象
+// 与 apiPost 的做法一样属于不贴合契约。
+func apiDelete(urlstr, password string) model.APIResult {
+	req, err := http.NewRequest(http.MethodDelete, urlstr, nil)
+	if err != nil {
+		return model.APIResult{Error: err.Error()}
+	}
 	applyAuth(req, password)
 	resp, err := apiClient.Do(req)
 	if err != nil {
