@@ -3,6 +3,10 @@
 // 每个飞书会话（私聊或群）绑定一个 OpenCode 会话，绑定关系需持久化：
 // 重启后继续上次对话是基本预期，否则每次重启都要重新 `/new`。
 //
+// 「当前项目」与「绑定会话」是**两件独立的事**：
+// `/clear` 与 `/switch_project` 都会解除会话绑定，但用户切换过的项目
+// 应当保留——否则 `/new_session` 会退回默认项目，让用户以为切换没生效。
+//
 // 并发安全：飞书事件与卡片回调在不同 goroutine 触发，同一 chat 的
 // 绑定可能被并发读写。
 package feishu
@@ -82,14 +86,47 @@ func (m *SessionMap) Bind(chatID, sessionID, projectPath, model string) {
 }
 
 // Unbind 解除绑定（`/clear` 语义：只断绑定，不删服务端会话）。
+//
+// **保留 ProjectPath**：解绑的是会话，不是「我正在这个项目工作」这件事。
+// 丢掉它会让 `/new_session` 退回默认项目，用户切过的项目白切。
 func (m *SessionMap) Unbind(chatID string) {
 	m.mu.Lock()
-	delete(m.items, chatID)
+	s, ok := m.items[chatID]
+	if ok {
+		keep := *s
+		keep.SessionID = ""
+		m.items[chatID] = &keep
+	} else {
+		m.items[chatID] = &ChatSession{}
+	}
 	m.mu.Unlock()
 	m.save()
 }
 
-// Len 当前绑定数。
+// SetProject 记录当前项目，**不**影响会话绑定。
+//
+// `/switch_project` 用它：换项目即换工作目录，此时不该继续用旧会话
+// （agent 会在旧目录读写而用户以为已切过去），但项目本身要记住。
+func (m *SessionMap) SetProject(chatID, projectPath string) {
+	m.mu.Lock()
+	s, ok := m.items[chatID]
+	var cur ChatSession
+	if ok {
+		cur = *s
+	}
+	cur.ProjectPath = projectPath
+	cur.UpdatedAt = time.Now().UnixMilli()
+	m.items[chatID] = &cur
+	m.mu.Unlock()
+	m.save()
+}
+
+// Project 返回该 chat 记住的项目路径（可能为空）。
+func (m *SessionMap) Project(chatID string) string {
+	return m.Get(chatID).ProjectPath
+}
+
+// Len 当前记录数（含已解绑但记住了项目的）。
 func (m *SessionMap) Len() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -19,12 +19,15 @@ type Command struct {
 
 // commands 是全部命令。顺序即 `/help` 的展示顺序。
 //
-// 刻意与 bot 侧的核心命令保持一致：用户不需要记两套。
+// 与 bot 侧保持一致，用户不需要记两套。bot 的 doc_read / doc_create
+// 不移植——飞书文档/表格属于周边能力，不在本次范围内。
 var commands = []Command{
 	{Name: "help", Usage: "/help", Description: "显示可用命令"},
 	{Name: "status", Usage: "/status", Description: "显示当前会话状态"},
-	{Name: "new", Usage: "/new [项目路径]", Description: "新建会话"},
-	{Name: "sessions", Usage: "/sessions", Description: "列出历史会话（按主/子分层）"},
+	{Name: "new", Usage: "/new [项目路径]", Description: "在指定项目创建会话（省略路径则沿用当前项目）"},
+	{Name: "new_session", Usage: "/new_session", Description: "在当前项目新建会话"},
+	{Name: "switch_project", Usage: "/switch_project <项目路径>", Description: "切换工作项目目录"},
+	{Name: "sessions", Usage: "/sessions [关键词]", Description: "列出历史会话（按主/子分层）"},
 	{Name: "use", Usage: "/use <会话ID或序号>", Description: "切换到指定会话"},
 	{Name: "title", Usage: "/title <名称>", Description: "重命名当前会话"},
 	{Name: "abort", Usage: "/abort", Description: "中止当前运行的任务"},
@@ -33,6 +36,12 @@ var commands = []Command{
 	{Name: "diff", Usage: "/diff", Description: "查看本次会话的代码改动"},
 	{Name: "clear", Usage: "/clear", Description: "解除当前会话绑定（不删服务端会话）"},
 	{Name: "permissions", Usage: "/permissions", Description: "列出待审批的权限请求"},
+	{Name: "model", Usage: "/model <provider/model>", Description: "切换会话使用的 AI 模型"},
+	{Name: "fork", Usage: "/fork [消息ID]", Description: "分叉当前会话（可在指定消息前分叉）"},
+	{Name: "export", Usage: "/export", Description: "导出会话为 JSON"},
+	{Name: "delete", Usage: "/delete", Description: "删除当前会话（不可恢复，需二次确认）"},
+	{Name: "revert", Usage: "/revert [序号|confirm|cancel]", Description: "回滚会话到指定消息"},
+	{Name: "server_status", Usage: "/server_status", Description: "查看 OpenCode 服务端状态"},
 	{
 		Name: "whitelist_add", Usage: "/whitelist_add <用户ID>",
 		Description: "将用户加入白名单", AdminOnly: true,
@@ -45,6 +54,15 @@ var commands = []Command{
 		Name: "whitelist_list", Usage: "/whitelist_list",
 		Description: "列出白名单用户", AdminOnly: true,
 	},
+}
+
+// DestructiveCommands 是需要二次确认的破坏性命令。
+//
+// 列出而非在各处硬编码：新加破坏性命令时容易漏掉确认，
+// 而漏掉的代价是「一条消息删掉整个会话」。
+var DestructiveCommands = map[string]bool{
+	"delete": true,
+	"revert": true, // revert 会丢弃该消息之后的改动
 }
 
 // lookupCommand 按名称或别名查命令。
@@ -117,4 +135,22 @@ func IsAdmin(userID string, adminUserIDs []string) bool {
 		}
 	}
 	return false
+}
+
+// HelpText 生成 /help 的内容。
+//
+// 破坏性命令带 ⚠️ 标注：/delete 与 /revert 会丢弃数据，
+// 在列表里混在普通命令中间容易被顺手点掉。
+func HelpText(isAdmin bool) string {
+	var sb strings.Builder
+	sb.WriteString("**可用命令**\n\n")
+	for _, c := range CommandsFor(isAdmin) {
+		mark := ""
+		if DestructiveCommands[c.Name] {
+			mark = " ⚠️"
+		}
+		sb.WriteString("• `" + c.Usage + "` — " + c.Description + mark + "\n")
+	}
+	sb.WriteString("\n直接发消息即可推进当前会话。")
+	return sb.String()
 }

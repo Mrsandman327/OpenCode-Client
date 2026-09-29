@@ -53,6 +53,42 @@ type OpenCode interface {
 
 	// SetModel 切换会话模型。model 形如 "provider/model"。
 	SetModel(sessionID, model string) error
+
+	// ── 以下为远程管理能力 ──
+
+	// ExportSession 导出会话为 JSON 原文。
+	ExportSession(sessionID string) (string, error)
+
+	// ServerInfo 取服务端信息。
+	ServerInfo() (ServerInfo, error)
+
+	// ListRevertTargets 列出可回滚的位置（最近的若干条已完成回复）。
+	ListRevertTargets(sessionID string, limit int) ([]RevertTarget, error)
+
+	// StageRevert 暂存一次回滚（尚不生效）。
+	//
+	// 暂存与提交分两步：回滚会丢弃该位置之后的对话与改动，
+	// 一步到位意味着用户没有反悔的机会。
+	StageRevert(sessionID, messageID string, revertFiles bool) error
+
+	// CommitRevert 提交已暂存的回滚。
+	CommitRevert(sessionID string) error
+
+	// ClearRevert 清除已暂存但未提交的回滚。
+	ClearRevert(sessionID string) error
+}
+
+// ServerInfo 是 OpenCode 服务端信息。
+type ServerInfo struct {
+	Version string
+	Address string
+	PID     int
+}
+
+// RevertTarget 是一个可回滚的位置。
+type RevertTarget struct {
+	MessageID string
+	Label     string
 }
 
 // SessionSummary 是一个会话的概要信息。
