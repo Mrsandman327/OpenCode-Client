@@ -43,25 +43,25 @@ func TestButton带值自动挂Callback(t *testing.T) {
 	if el.Tag != "button" {
 		t.Fatalf("tag = %q", el.Tag)
 	}
-	if el.Behavior == nil {
+	if el.Behaviors == nil {
 		t.Fatal("有 value 却未挂 behaviors —— 按钮点击会无响应")
 	}
-	if el.Behavior.Type != "Callback" {
-		t.Errorf("behavior.type = %q, 期望 Callback", el.Behavior.Type)
+	if el.Behaviors[0].Type != BehaviorCallback {
+		t.Errorf("behavior.type = %q, 期望 callback", el.Behaviors[0].Type)
 	}
-	if el.Behavior.Value["action"] != "x" {
-		t.Errorf("value 未透传: %+v", el.Behavior.Value)
+	if el.Behaviors[0].Value["action"] != "x" {
+		t.Errorf("value 未透传: %+v", el.Behaviors[0].Value)
 	}
 }
 
 func TestButton带URL自动挂OpenURL(t *testing.T) {
 	c := NewCard().Button("打开", "", nil, "https://example.com")
 	el := c.Body.Elements[0]
-	if el.Behavior == nil || el.Behavior.Type != "OpenURL" {
-		t.Fatalf("应挂 OpenURL 行为，实际 %+v", el.Behavior)
+	if el.Behaviors == nil || el.Behaviors[0].Type != BehaviorOpenURL {
+		t.Fatalf("应挂 OpenURL 行为，实际 %+v", el.Behaviors)
 	}
-	if el.Behavior.DefaultURL != "https://example.com" {
-		t.Errorf("url = %q", el.Behavior.DefaultURL)
+	if el.Behaviors[0].DefaultURL != "https://example.com" {
+		t.Errorf("url = %q", el.Behaviors[0].DefaultURL)
 	}
 }
 
@@ -70,8 +70,8 @@ func TestButton带URL自动挂OpenURL(t *testing.T) {
 func TestButton既无值也无URL不挂行为(t *testing.T) {
 	c := NewCard().Button("孤儿按钮", "", nil, "")
 	el := c.Body.Elements[0]
-	if el.Behavior != nil {
-		t.Errorf("无 value/url 时不应挂 behavior，实际 %+v", el.Behavior)
+	if len(el.Behaviors) != 0 {
+		t.Errorf("无 value/url 时不应挂 behavior，实际 %+v", el.Behaviors)
 	}
 	// 这不是错误，但调用方应改用 ButtonDisabled
 	if el.Disabled {
@@ -85,7 +85,7 @@ func TestButtonDisabled(t *testing.T) {
 	if !el.Disabled {
 		t.Error("ButtonDisabled 应设置 disabled")
 	}
-	if el.Behavior != nil {
+	if len(el.Behaviors) != 0 {
 		t.Error("禁用按钮不应有 behavior")
 	}
 }

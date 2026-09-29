@@ -167,8 +167,11 @@ func FormCard(form FormInfo) *Card {
 		elems = append(elems, renderField(field, i)...)
 	}
 
-	// 提交按钮单独装进 column_set：飞书的提交按钮必须 form_action_type=submit，
-	// 放在 form 的直接子级无法与其它元素区分开
+	// 提交按钮单独装进 column_set。
+	//
+	// ⚠️ schema 2.0 下表单提交走 behaviors 的 form_action，
+	// 不是 1.0 的 form_action_type —— 后者在 2.0 下不生效，
+	// 表现为按钮点了没反应。
 	elems = append(elems, Element{Tag: "hr"})
 	elems = append(elems, Element{
 		Tag:             "column_set",
@@ -179,11 +182,14 @@ func FormCard(form FormInfo) *Card {
 			Tag:   "column",
 			Width: "auto",
 			Elements: []Element{{
-				Tag:            "button",
-				ButtonType:     "primary_filled",
-				ButtonText:     &PlainText{Tag: "plain_text", Content: "提交"},
-				FormActionType: "submit",
-				Name:           "submit_btn",
+				Tag:        "button",
+				ButtonType: "primary_filled",
+				ButtonText: &PlainText{Tag: "plain_text", Content: "提交"},
+				Behaviors: []ButtonBehavior{{
+					Type:     BehaviorFormAction,
+					Behavior: "submit",
+				}},
+				Name: "submit_btn",
 			}},
 		}},
 	})

@@ -16,11 +16,11 @@ func Test快捷卡有按钮(t *testing.T) {
 		t.Fatalf("按钮数 = %d, 期望至少 5", len(btns))
 	}
 	for _, btn := range btns {
-		if btn.Behavior == nil || btn.Behavior.Value == nil {
+		if len(btn.Behaviors) == 0 || btn.Behaviors[0].Value == nil {
 			t.Fatal("每个按钮都必须带 callback，否则点了没反应")
 		}
-		if _, ok := btn.Behavior.Value["action"]; !ok {
-			t.Errorf("按钮缺 action: %+v", btn.Behavior.Value)
+		if _, ok := btn.Behaviors[0].Value["action"]; !ok {
+			t.Errorf("按钮缺 action: %+v", btn.Behaviors[0].Value)
 		}
 	}
 }
@@ -30,7 +30,7 @@ func Test快捷卡有按钮(t *testing.T) {
 func Test快捷卡不挂无实现的按钮(t *testing.T) {
 	c := QuickActionsCard()
 	for _, btn := range buttonsOf(t, c) {
-		act, _ := btn.Behavior.Value["action"].(string)
+		act, _ := btn.Behaviors[0].Value["action"].(string)
 		if _, _, ok := ResolveQuickAction(act); !ok {
 			t.Errorf("按钮 %q 没有对应命令实现", act)
 		}
@@ -71,7 +71,7 @@ func Test破坏性操作不进快捷区(t *testing.T) {
 func Test中止按钮为danger样式(t *testing.T) {
 	c := QuickActionsCard()
 	for _, btn := range buttonsOf(t, c) {
-		act, _ := btn.Behavior.Value["action"].(string)
+		act, _ := btn.Behaviors[0].Value["action"].(string)
 		if act == ActionQuickAbort && btn.ButtonType != "danger" {
 			t.Errorf("中止按钮 type = %q, 期望 danger", btn.ButtonType)
 		}

@@ -9,6 +9,7 @@ package feishu
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Card 是飞书 schema 2.0 卡片的顶层结构。
@@ -74,11 +75,15 @@ type Element struct {
 	ElementID string `json:"element_id,omitempty"`
 
 	// button
-	ButtonType string          `json:"type,omitempty"`  // primary_filled | default | danger
-	Width      string          `json:"width,omitempty"` // fill | default
-	Disabled   bool            `json:"disabled,omitempty"`
-	Behavior   *ButtonBehavior `json:"behaviors,omitempty"`
-	ButtonText *PlainText      `json:"text,omitempty"`
+	ButtonType string `json:"type,omitempty"`  // primary_filled | default | danger
+	Width      string `json:"width,omitempty"` // fill | default
+	Disabled   bool   `json:"disabled,omitempty"`
+	// ⚠️ behaviors 必须是**数组**。写成单个对象时飞书报
+	// `expected slice for behaviors, but: map[...]`（ErrCode 200621），
+	// 整张卡片被拒——而本地所有测试都会通过，因为它们只验 JSON 合法，
+	// 不验飞书的 schema。
+	Behaviors  []ButtonBehavior `json:"behaviors,omitempty"`
+	ButtonText *PlainText       `json:"text,omitempty"`
 
 	// column_set
 	FlexMode        string   `json:"flex_mode,omitempty"` // flow | stretch | flow_both
@@ -102,8 +107,6 @@ type Element struct {
 	Placeholder *PlainText     `json:"placeholder,omitempty"`
 	Options     []SelectOption `json:"options,omitempty"`
 	Required    bool           `json:"required,omitempty"`
-	// FormActionType 在提交按钮上取 "submit"。
-	FormActionType string `json:"form_action_type,omitempty"`
 }
 
 // SelectOption 是下拉/多选候选项。
@@ -114,15 +117,26 @@ type SelectOption struct {
 
 // ButtonBehavior 描述按钮点击后的行为。
 //
-// 两类：
-// - Callback：把 Value 回传给我们（用于会话选择、权限审批等）
-// - OpenURL：直接打开链接
+// 两类（**取值必须小写**，飞书 schema 2.0 是大小写敏感的）：
+// - callback：把 Value 回传给我们（用于会话选择、权限审批等）
+// - open_url：直接打开链接，default_url 为**必填**的兜底地址
+//
 // 不设行为则点击无响应——这是最常见的「按钮点了没反应」原因。
+//
+// ⚠️ 两次踩坑都只在真机发卡时暴露（ErrCode 200621）：
+//  1. Behaviors 写成单个对象 → `expected slice for behaviors`
+//  2. type 写成 "Callback"   → `unknown behavior type`
+//
+// 两次本地测试全绿：json.Marshal 只验「合法 JSON」，不验飞书 schema。
+// 因此 Validate() 把这些约束固化成了断言。
 type ButtonBehavior struct {
-	Type         string         `json:"type"` // Callback | OpenURL
-	BehaviorsURL string         `json:"url,omitempty"`
-	DefaultURL   string         `json:"default_url,omitempty"`
-	Value        map[string]any `json:"value,omitempty"`
+	Type string `json:"type"` // callback | open_url | form_action
+	// DefaultURL 是 open_url 的兜底跳转地址（该类型下必填）。
+	DefaultURL string `json:"default_url,omitempty"`
+	// Behavior 是 form_action 类型下的动作（submit / cancel）。
+	Behavior string `json:"behavior,omitempty"`
+	// Value 是回传给我们的数据，callback 类型使用。
+	Value map[string]any `json:"value,omitempty"`
 }
 
 // Column 是 column_set 中的一列。
@@ -153,6 +167,21 @@ const (
 	TemplatePurple    = "purple"
 	TemplateIndigo    = "indigo"
 	TemplateGrey      = "grey"
+)
+
+// 按钮行为类型的固定值。
+//
+// ⚠️ **必须小写**：飞书 schema 2.0 对这些取值大小写敏感。
+// 写成 "Callback" / "OpenURL" 会在真机发卡时报
+// ErrCode 200621「unknown behavior type」——而本地 json.Marshal
+// 照样产出合法 JSON，测试全绿。
+const (
+	// BehaviorCallback 把 Value 回传到服务端。
+	BehaviorCallback = "callback"
+	// BehaviorOpenURL 打开链接，default_url 必填。
+	BehaviorOpenURL = "open_url"
+	// BehaviorFormAction 表单事件（submit/cancel）。
+	BehaviorFormAction = "form_action"
 )
 
 // NewCard 建一张空白纵向卡片。
@@ -222,9 +251,9 @@ func (c *Card) Button(label, buttonType string, value map[string]any, url string
 	}
 	switch {
 	case url != "":
-		el.Behavior = &ButtonBehavior{Type: "OpenURL", DefaultURL: url}
+		el.Behaviors = []ButtonBehavior{{Type: BehaviorOpenURL, DefaultURL: url}}
 	case value != nil:
-		el.Behavior = &ButtonBehavior{Type: "Callback", Value: value}
+		el.Behaviors = []ButtonBehavior{{Type: BehaviorCallback, Value: value}}
 	}
 	return c.Add(el)
 }
@@ -267,6 +296,116 @@ func (c *Card) JSON() (string, error) {
 		return "", fmt.Errorf("序列化卡片失败: %w", err)
 	}
 	return string(b), nil
+}
+
+// Validate 按飞书卡片 schema 检查已知易错点。
+//
+// 存在的理由：json.Marshal 只保证「是合法 JSON」，不保证「飞书接受」。
+// 真实踩过的坑——behaviors 写成单个对象而不是数组，飞书返回
+// ErrCode 200621「expected slice for behaviors」，整张卡片被拒，
+// 而本地所有测试都通过。这类「本地产出合法、远端拒收」的契约
+// 只能靠把已知约束固化成断言来防。
+func (c *Card) Validate() []string {
+	var problems []string
+	raw, err := c.JSON()
+	if err != nil {
+		return []string{"序列化失败: " + err.Error()}
+	}
+	var probe map[string]any
+	if err := json.Unmarshal([]byte(raw), &probe); err != nil {
+		return []string{"不是合法 JSON: " + err.Error()}
+	}
+
+	var walk func(elements []any, path string)
+	walk = func(elements []any, path string) {
+		for i, raw := range elements {
+			el, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			here := fmt.Sprintf("%s[%d]", path, i)
+			// behaviors 必须是数组，且类型取值必须合法
+			if b, exists := el["behaviors"]; exists {
+				list, isSlice := b.([]any)
+				if !isSlice {
+					problems = append(problems, fmt.Sprintf(
+						"%s 的 behaviors 必须是数组，实际是 %T（飞书 ErrCode 200621）", here, b))
+				}
+				for _, item := range list {
+					behavior, ok := item.(map[string]any)
+					if !ok {
+						problems = append(problems, here+" 的 behaviors 项必须是对象")
+						continue
+					}
+					typ, _ := behavior["type"].(string)
+					switch typ {
+					case BehaviorCallback:
+						// value 是必填的
+						if _, ok := behavior["value"]; !ok {
+							problems = append(problems, here+" 的 callback behavior 缺 value")
+						}
+					case BehaviorOpenURL:
+						// default_url 是必填的
+						if _, ok := behavior["default_url"]; !ok {
+							problems = append(problems, here+" 的 open_url behavior 缺 default_url")
+						}
+					case BehaviorFormAction:
+						if _, ok := behavior["behavior"]; !ok {
+							problems = append(problems, here+" 的 form_action behavior 缺 behavior 字段")
+						}
+					case "":
+						problems = append(problems, here+" 的 behavior 缺 type")
+					default:
+						// 飞书对取值大小写敏感：写 "Callback" 会报 unknown behavior type
+						problems = append(problems, fmt.Sprintf(
+							"%s 的 behavior type = %q 不合法，应为 %s / %s / %s（飞书 ErrCode 200621）",
+							here, typ, BehaviorCallback, BehaviorOpenURL, BehaviorFormAction))
+					}
+				}
+			}
+			// button 必须有文字，否则渲染成空白块
+			if tag, _ := el["tag"].(string); tag == "button" {
+				if _, hasText := el["text"]; !hasText {
+					problems = append(problems, here+" 的 button 缺 text")
+				}
+			}
+			// 递归子元素
+			if child, ok := el["elements"].([]any); ok {
+				walk(child, here+".elements")
+			}
+			if cols, ok := el["columns"].([]any); ok {
+				for ci, c := range cols {
+					col, ok := c.(map[string]any)
+					if !ok {
+						continue
+					}
+					if ce, ok := col["elements"].([]any); ok {
+						walk(ce, fmt.Sprintf("%s.columns[%d].elements", here, ci))
+					}
+				}
+			}
+		}
+	}
+
+	body, ok := probe["body"].(map[string]any)
+	if !ok {
+		return []string{"缺 body"}
+	}
+	elems, ok := body["elements"].([]any)
+	if !ok {
+		return []string{"body.elements 必须是数组"}
+	}
+	walk(elems, "body.elements")
+	return problems
+}
+
+// MustValidate 返回校验问题的合并文本；无问题时返回空串。
+func (c *Card) MustValidate() string {
+	p := c.Validate()
+	if len(p) == 0 {
+		return ""
+	}
+	return strings.Join(p, "; ")
 }
 
 // MustJSON 序列化，失败时返回空串。仅用于确定不会失败的场景（如测试）。

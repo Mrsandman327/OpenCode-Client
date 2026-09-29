@@ -19,6 +19,7 @@ import (
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	"github.com/larksuite/oapi-sdk-go/v3/channel"
 	"github.com/larksuite/oapi-sdk-go/v3/channel/types"
+	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
 	larkimv1 "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 )
@@ -46,6 +47,13 @@ type MessageHandler func(ctx context.Context, msg *types.NormalizedMessage)
 
 // CardActionHandler 处理卡片按钮点击。
 type CardActionHandler func(ctx context.Context, event *types.CardActionEvent)
+
+// RejectHandler 处理被 SDK 策略丢弃的消息。
+//
+// ⚠️ 这类消息**不会**进 MessageHandler：不注册它，被丢弃的消息
+// 就是彻底消失。SDK 在派发前有三道静默过滤，其中 PolicyGate 对群聊
+// 默认要求 @机器人——不接这个回调，「群里发消息没反应」将无法诊断。
+type RejectHandler func(ctx context.Context, event *types.RejectEvent)
 
 // StateHandler 处理连接状态变化。
 type StateHandler func(state State)
@@ -83,6 +91,7 @@ type Client struct {
 	onMessage    MessageHandler
 	onCardAction CardActionHandler
 	onState      StateHandler
+	onReject     RejectHandler
 
 	// sleep 可注入，便于测试限流退避
 	sleep func(ctx context.Context, d time.Duration) error
@@ -149,7 +158,25 @@ func (c *Client) StartAsync(ctx context.Context) error {
 // build 组装 SDK 客户端与 Channel，并挂上各类回调。
 func (c *Client) build() {
 	api := lark.NewClient(c.appID, c.appSecret)
-	ws := larkws.NewClient(c.appID, c.appSecret)
+
+	// ⚠️ 必须显式创建 dispatcher 并用 WithEventHandler 注入。
+	//
+	// larkws.NewClient 不传 option 时 eventHandler 为 nil，而
+	// EventHandler() 只是原样返回它。于是 channel 的
+	// ensureMessageHandler 里 `if dispatcher != nil` 判定失败，
+	// **OnMessage 处理器永远不会被注册**——连接能建立、能鉴权、
+	// 状态一切正常，但所有进来的事件都因找不到处理器被丢弃。
+	// 症状是「日志干净、一条消息都收不到」，且没有任何报错指向这里。
+	//
+	// （SDK 自己的 channel_lifecycle_test.go 也没传 WithEventHandler，
+	//  但那个测试只验 OnReady/OnDisconnected，不验消息派发，
+	//  所以这条路径在 SDK 内部从未被覆盖。）
+	//
+	// 卡片回调同理：它走 dispatcher 的 callback 通道，
+	// 没有 dispatcher 就一并失效。
+	eventDispatcher := dispatcher.NewEventDispatcher("", "")
+	ws := larkws.NewClient(c.appID, c.appSecret,
+		larkws.WithEventHandler(eventDispatcher))
 	ch := channel.NewChannel(api, ws)
 
 	c.api = api
@@ -174,6 +201,21 @@ func (c *Client) build() {
 
 	ch.OnCardAction(func(ctx context.Context, event *types.CardActionEvent) error {
 		if h := c.cardActionHandler(); h != nil {
+			h(ctx, event)
+		}
+		return nil
+	})
+
+	// ⚠️ 这条不是可选的。SDK 在派发给 OnMessage **之前**有三道静默过滤
+	// （PolicyGate / IsStale / dedupCache），任一不满足就直接丢弃、
+	// 不报错、不打日志。其中 PolicyGate 对**群聊默认要求 @机器人**
+	// （RequireMention 为 nil 时按 true 处理），所以群里发一条没 @ 的
+	// 消息会毫无征兆地消失——不接 OnReject 的话，现象就是
+	// 「连接正常、日志干净、一条消息都收不到」，且无从下手查。
+	ch.OnReject(func(ctx context.Context, event *types.RejectEvent) error {
+		logf("消息被策略丢弃 chat=%s sender=%s reason=%s msg=%s",
+			event.ChatID, event.SenderID, event.Reason, event.MessageID)
+		if h := c.rejectHandler(); h != nil {
 			h(ctx, event)
 		}
 		return nil
@@ -262,6 +304,21 @@ func (c *Client) OnState(h StateHandler) {
 	c.mu.Lock()
 	c.onState = h
 	c.mu.Unlock()
+}
+
+// OnReject 注册「被策略丢弃的消息」回调。
+//
+// 不注册不是「少个功能」，而是这类消息彻底消失且无迹可寻。
+func (c *Client) OnReject(h RejectHandler) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onReject = h
+}
+
+func (c *Client) rejectHandler() RejectHandler {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.onReject
 }
 
 // ============ 发送 ============

@@ -676,8 +676,8 @@ func Test会话卡只给主会话生成按钮(t *testing.T) {
 	if len(btns) != 1 {
 		t.Fatalf("按钮数 = %d, 期望 1（只有主会话可点）", len(btns))
 	}
-	if btns[0].Behavior.Value["session_id"] != "ses_root" {
-		t.Errorf("按钮应属主会话: %v", btns[0].Behavior.Value)
+	if btns[0].Behaviors[0].Value["session_id"] != "ses_root" {
+		t.Errorf("按钮应属主会话: %v", btns[0].Behaviors[0].Value)
 	}
 	txt := out.cardJSON(t, 0)
 	if !strings.Contains(txt, "子1") || !strings.Contains(txt, "子2") {

@@ -46,11 +46,11 @@ func TestPermissionCard三按钮且action正确(t *testing.T) {
 	}
 	want := []string{ActionPermissionAllowOnce, ActionPermissionAllowAlways, ActionPermissionReject}
 	for i, w := range want {
-		if btns[i].Behavior == nil || btns[i].Behavior.Value["action"] != w {
-			t.Errorf("第 %d 个按钮 action = %v, 期望 %s", i, btns[i].Behavior, w)
+		if len(btns[i].Behaviors) == 0 || btns[i].Behaviors[0].Value["action"] != w {
+			t.Errorf("第 %d 个按钮 action = %v, 期望 %s", i, btns[i].Behaviors, w)
 		}
 		// request_id 必须带上，否则回执无法对应到具体请求
-		if btns[i].Behavior.Value["request_id"] != "req_1" {
+		if len(btns[i].Behaviors) == 0 || btns[i].Behaviors[0].Value["request_id"] != "req_1" {
 			t.Errorf("第 %d 个按钮缺 request_id", i)
 		}
 	}
@@ -255,11 +255,11 @@ func TestSessionSelectCard一级为按钮(t *testing.T) {
 	if len(btns) != 2 {
 		t.Fatalf("按钮数 = %d, 期望 2", len(btns))
 	}
-	if btns[0].Behavior.Value["session_id"] != "ses_a" {
-		t.Errorf("按钮未带 session_id: %v", btns[0].Behavior.Value)
+	if btns[0].Behaviors[0].Value["session_id"] != "ses_a" {
+		t.Errorf("按钮未带 session_id: %v", btns[0].Behaviors[0].Value)
 	}
-	if btns[0].Behavior.Value["action"] != ActionSessionSelect {
-		t.Errorf("action = %v, 期望 %s", btns[0].Behavior.Value["action"], ActionSessionSelect)
+	if btns[0].Behaviors[0].Value["action"] != ActionSessionSelect {
+		t.Errorf("action = %v, 期望 %s", btns[0].Behaviors[0].Value["action"], ActionSessionSelect)
 	}
 }
 
@@ -295,8 +295,8 @@ func Test子会话不产生按钮(t *testing.T) {
 	if len(btns) != 1 {
 		t.Fatalf("按钮数 = %d, 期望 1（只有主会话可点）", len(btns))
 	}
-	if btns[0].Behavior.Value["session_id"] != "ses_p" {
-		t.Errorf("唯一按钮应属主会话: %v", btns[0].Behavior.Value)
+	if btns[0].Behaviors[0].Value["session_id"] != "ses_p" {
+		t.Errorf("唯一按钮应属主会话: %v", btns[0].Behaviors[0].Value)
 	}
 
 	txt := cardText(t, c)

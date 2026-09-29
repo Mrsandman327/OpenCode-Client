@@ -322,7 +322,10 @@ func TestFormCard提交按钮是submit动作(t *testing.T) {
 		if elems[i].Tag == "column_set" {
 			for _, col := range elems[i].Columns {
 				for j := range col.Elements {
-					if col.Elements[j].FormActionType == "submit" {
+					// schema 2.0 走 behaviors 的 form_action，
+					// 不是 1.0 的 form_action_type
+					if len(col.Elements[j].Behaviors) > 0 &&
+						col.Elements[j].Behaviors[0].Type == BehaviorFormAction {
 						submit = &col.Elements[j]
 					}
 				}
@@ -331,6 +334,9 @@ func TestFormCard提交按钮是submit动作(t *testing.T) {
 	}
 	if submit == nil {
 		t.Fatal("未找到提交按钮")
+	}
+	if submit.Behaviors[0].Behavior != "submit" {
+		t.Errorf("form_action 动作 = %q, 期望 submit", submit.Behaviors[0].Behavior)
 	}
 	if submit.ButtonText == nil || submit.ButtonText.Content != "提交" {
 		t.Errorf("提交按钮文案 = %+v", submit.ButtonText)
