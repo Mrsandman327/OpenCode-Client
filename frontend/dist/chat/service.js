@@ -16,6 +16,7 @@ import { startEventStream, loadSessionStatuses } from './events.js';
 import { buildTree } from './tree.js';
 import { loadAgentModelSelectors } from './session.js';
 import { initSearch, initUserNav } from './search.js';
+import { initCredentials, loadCredentials } from '../views/credentials.js';
 import { unwrap } from '../core/v2compat.js';
 
 // ============================
@@ -63,7 +64,7 @@ export async function checkWebStatus() {
         store.serverStatus = normalizeServerStatus(null);
         renderServiceStatus();
     }
-    setTimeout(function() { initSearch(); initUserNav(); }, 500);
+    setTimeout(function() { initSearch(); initUserNav(); initCredentials(); }, 500);
 }
 
 // ============================
@@ -103,6 +104,9 @@ export async function loadServiceStatus() {
         store.pluginStatus = extractPluginList(cfg);
         updateWebUI();
         renderServiceStatus();
+        // 凭据面板：只展示已配置凭据的集成。失败不阻断服务状态渲染——
+        // 凭据只是附加信息，取不到不该让整个面板报错。
+        loadCredentials().catch(() => {});
     } catch (e) {
         store.serverStatus = normalizeServerStatus(null);
         store.mcpStatus = null;

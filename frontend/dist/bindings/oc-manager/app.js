@@ -9,7 +9,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "/wails/runtime.js";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -22,13 +22,24 @@ import * as jsontext$0 from "../encoding/json/jsontext/models.js";
 import * as model$0 from "./model/models.js";
 
 /**
+ * ActivateCredential 切换当前生效的凭据。
+ * @param {string} credentialID
+ * @returns {$CancellablePromise<model$0.APIResult>}
+ */
+export function ActivateCredential(credentialID) {
+    return $Call.ByID(4156211913, credentialID).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
+}
+
+/**
  * AddModelType 添加模型配置类型分组。
  * @param {string} entryType
  * @returns {$CancellablePromise<model$0.SaveResult>}
  */
 export function AddModelType(entryType) {
     return $Call.ByID(162494865, entryType).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -40,7 +51,7 @@ export function AddModelType(entryType) {
  */
 export function AddSkillSourceDir(dir) {
     return $Call.ByID(1574206835, dir).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -52,7 +63,7 @@ export function AddSkillSourceDir(dir) {
  */
 export function AnswerQuestion(sessionID, answers) {
     return $Call.ByID(910414563, sessionID, answers).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
+        return $$createType0($result);
     }));
 }
 
@@ -99,7 +110,7 @@ export function CheckOpenCodeVersion(currentVersion) {
  */
 export function CreateBrowserDir(rootDir, path, dirName) {
     return $Call.ByID(2846340622, rootDir, path, dirName).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -124,7 +135,7 @@ export function CreateProjectEntry(rootDir, category, name) {
  */
 export function DeleteBrowserEntry(rootDir, path) {
     return $Call.ByID(1505422302, rootDir, path).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -135,7 +146,7 @@ export function DeleteBrowserEntry(rootDir, path) {
  */
 export function DeleteModelType(entryType) {
     return $Call.ByID(4233224839, entryType).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -157,7 +168,7 @@ export function DeleteProjectEntry(rootDir, category, relPath) {
  */
 export function DeleteProvider(key) {
     return $Call.ByID(3297626303, key).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -168,7 +179,7 @@ export function DeleteProvider(key) {
  */
 export function DeleteSkillScheme(name) {
     return $Call.ByID(2495426856, name).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -193,6 +204,16 @@ export function DiscardFile(rootDir, path) {
  */
 export function ExportConfigEntries(dir, filename, entries) {
     return $Call.ByID(1117269151, dir, filename, entries);
+}
+
+/**
+ * ExportSession 导出会话为 JSON 字符串。
+ * @param {string} sessionID
+ * @param {boolean} sanitize
+ * @returns {$CancellablePromise<string>}
+ */
+export function ExportSession(sessionID, sanitize) {
+    return $Call.ByID(1104172485, sessionID, sanitize);
 }
 
 /**
@@ -413,6 +434,16 @@ export function GetSchemeDir() {
 }
 
 /**
+ * GetSessionContext 取回活跃上下文（上次压缩之后的全部消息摘要）。
+ * 注意：这不是 token 占用，token/cost 已在会话对象的 tokens/cost 字段上。
+ * @param {string} sessionID
+ * @returns {$CancellablePromise<string>}
+ */
+export function GetSessionContext(sessionID) {
+    return $Call.ByID(1834123040, sessionID);
+}
+
+/**
  * GetSkillConfig 返回技能管理页面需要的完整聚合数据（统一接口）。
  * @returns {$CancellablePromise<model$0.SkillConfigResult>}
  */
@@ -505,6 +536,17 @@ export function GitPull(rootDir, proxy) {
 export function GitPush(rootDir, proxy) {
     return $Call.ByID(4036251239, rootDir, proxy).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType5($result);
+    }));
+}
+
+/**
+ * ImportSession 从导出的 JSON 导入会话。
+ * @param {string} exportJSON
+ * @returns {$CancellablePromise<model$0.APIResult>}
+ */
+export function ImportSession(exportJSON) {
+    return $Call.ByID(1730004392, exportJSON).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
     }));
 }
 
@@ -611,6 +653,17 @@ export function LaunchWindowsTerminal(mode, webURL, dir) {
 }
 
 /**
+ * ListBranches 列出本地与远端分支名（v2 返回扁平字符串数组）。
+ * @param {string} directory
+ * @param {string} search
+ * @param {number} limit
+ * @returns {$CancellablePromise<string>}
+ */
+export function ListBranches(directory, search, limit) {
+    return $Call.ByID(3649264093, directory, search, limit);
+}
+
+/**
  * ListBrowsableDirs 返回目录浏览器当前层的目录列表。
  * @param {string} path
  * @returns {$CancellablePromise<model$0.DirectoryEntry[]>}
@@ -634,6 +687,17 @@ export function ListBrowserFiles(rootDir, path) {
 }
 
 /**
+ * ListIntegrations 列出已配置凭据的集成。
+ * includeEmpty 为 true 时返回全部集成（v2 约两百个条目，多数无凭据）。
+ * @param {string} directory
+ * @param {boolean} includeEmpty
+ * @returns {$CancellablePromise<string>}
+ */
+export function ListIntegrations(directory, includeEmpty) {
+    return $Call.ByID(509450342, directory, includeEmpty);
+}
+
+/**
  * ListProjectConfigDir 列出项目配置目录下的文件列表。
  * @param {string} rootDir
  * @param {string} category
@@ -644,6 +708,15 @@ export function ListProjectConfigDir(rootDir, category, relPath) {
     return $Call.ByID(1219602019, rootDir, category, relPath).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType38($result);
     }));
+}
+
+/**
+ * ListPtys 列出持久终端。
+ * @param {string} directory
+ * @returns {$CancellablePromise<string>}
+ */
+export function ListPtys(directory) {
+    return $Call.ByID(127028653, directory);
 }
 
 /**
@@ -667,6 +740,42 @@ export function ListSkillSchemes() {
 }
 
 /**
+ * ListWorktrees 列出项目的工作树（端点以 projectID 定位，返回裸数组）。
+ * @param {string} projectID
+ * @returns {$CancellablePromise<string>}
+ */
+export function ListWorktrees(projectID) {
+    return $Call.ByID(3490360453, projectID);
+}
+
+/**
+ * MarkSessionViewed 标记该会话的 idle 转换已被客户端观察到。
+ * idle 必须是会话 time.idle 的原值。
+ * @param {string} sessionID
+ * @param {number} idle
+ * @returns {$CancellablePromise<model$0.APIResult>}
+ */
+export function MarkSessionViewed(sessionID, idle) {
+    return $Call.ByID(3076125012, sessionID, idle).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
+}
+
+/**
+ * MoveSession 把会话移动到另一个项目目录。
+ * delivery 取值 "steer"（插队）或 "queue"（排队），空串表示服务端默认。
+ * @param {string} sessionID
+ * @param {string} directory
+ * @param {string} delivery
+ * @returns {$CancellablePromise<model$0.APIResult>}
+ */
+export function MoveSession(sessionID, directory, delivery) {
+    return $Call.ByID(1812429304, sessionID, directory, delivery).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
+}
+
+/**
  * OpenCodeAPI 代理访问本机 opencode serve API。
  * @param {string} method
  * @param {string} path
@@ -675,7 +784,7 @@ export function ListSkillSchemes() {
  */
 export function OpenCodeAPI(method, path, body) {
     return $Call.ByID(4008055560, method, path, body).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
+        return $$createType0($result);
     }));
 }
 
@@ -799,7 +908,7 @@ export function Refresh() {
  */
 export function RejectQuestion(sessionID) {
     return $Call.ByID(4071089598, sessionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
+        return $$createType0($result);
     }));
 }
 
@@ -811,6 +920,18 @@ export function RejectQuestion(sessionID) {
  */
 export function RemoveSkillSourceDir(dir) {
     return $Call.ByID(1546532666, dir).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
+
+/**
+ * RenameCredential 修改凭据显示名（v2 只能改 label，改不了凭据内容）。
+ * @param {string} credentialID
+ * @param {string} label
+ * @returns {$CancellablePromise<model$0.APIResult>}
+ */
+export function RenameCredential(credentialID, label) {
+    return $Call.ByID(1175409410, credentialID, label).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -824,7 +945,7 @@ export function RemoveSkillSourceDir(dir) {
  */
 export function SaveBrowserFile(rootDir, path, content) {
     return $Call.ByID(3745120270, rootDir, path, content).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -849,7 +970,7 @@ export function SaveProjectConfigFile(rootDir, category, relPath, content) {
  */
 export function SaveProvider(ps) {
     return $Call.ByID(1885182733, ps).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -871,7 +992,7 @@ export function SaveSchemeEntries(name, entries) {
  */
 export function SaveSkillScheme(name) {
     return $Call.ByID(1652296650, name).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -928,7 +1049,7 @@ export function StartFrontendWeb(port, hostname) {
  */
 export function StartOpenCodeEvents() {
     return $Call.ByID(3535731511).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
+        return $$createType0($result);
     }));
 }
 
@@ -973,7 +1094,7 @@ export function StopFrontendWeb() {
  */
 export function StopOpenCodeEvents() {
     return $Call.ByID(2369516441).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
+        return $$createType0($result);
     }));
 }
 
@@ -1019,7 +1140,7 @@ export function UnstageFile(rootDir, path) {
  */
 export function UpdateModels(entries) {
     return $Call.ByID(1719430574, entries).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType1($result);
     }));
 }
 
@@ -1039,8 +1160,8 @@ export function UploadBrowserFile(rootDir, path, fileName, base64Data, overwrite
 }
 
 // Private type creation functions
-const $$createType0 = model$0.SaveResult.createFrom;
-const $$createType1 = model$0.APIResult.createFrom;
+const $$createType0 = model$0.APIResult.createFrom;
+const $$createType1 = model$0.SaveResult.createFrom;
 const $$createType2 = model$0.SchemeApplyResult.createFrom;
 const $$createType3 = model$0.VersionCheckResult.createFrom;
 const $$createType4 = model$0.ProjectConfigFileEntry.createFrom;

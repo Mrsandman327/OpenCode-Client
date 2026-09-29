@@ -2480,6 +2480,105 @@ input::placeholder, textarea::placeholder {
 .oc-service-card .oc-service-item {
     border-bottom: 1px solid var(--border);
 }
+/* ===== 凭据与集成面板（v2 /api/integration + /api/credential） ===== */
+
+.oc-credentials {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.oc-cred-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 2px 4px;
+}
+
+/* 过滤说明：只显示已配置凭据的集成，避免用户误以为这是全量 */
+.oc-cred-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    overflow: hidden;
+}
+
+.oc-cred-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    cursor: pointer;
+    user-select: none;
+}
+.oc-cred-head:hover {
+    background: var(--bg-hover);
+}
+
+.oc-cred-name {
+    font-size: 12px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oc-cred-count {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.oc-cred-arrow {
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.oc-cred-body {
+    border-top: 1px solid var(--border);
+    padding: 4px 0;
+}
+
+.oc-cred-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+}
+.oc-cred-row.current {
+    background: var(--bg-hover);
+}
+
+/* 当前生效的连接即 connections[0]，给一个明确标识而不是靠位置暗示 */
+.oc-cred-row.current .oc-cred-label {
+    font-weight: 600;
+}
+
+.oc-cred-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+.oc-cred-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--text-on-accent, #fff);
+    flex-shrink: 0;
+}
+
+.oc-cred-switch {
+    flex-shrink: 0;
+    font-size: 10px;
+    padding: 2px 8px;
+}
+
 .oc-service-field {
     display: flex;
     align-items: flex-start;

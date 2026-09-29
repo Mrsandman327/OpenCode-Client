@@ -563,9 +563,10 @@ export function showTreeContextMenu(e, type, data) {
         if (type === 'dir') {
             item.style.display = (action === 'new-session' || action === 'project-config') ? '' : 'none';
         } else if (type === 'session') {
-            item.style.display = (action === 'rename' || action === 'delete') ? '' : 'none';
+            item.style.display = (action === 'rename' || action === 'delete'
+                || action === 'export' || action === 'move') ? '' : 'none';
         } else if (type === 'project') {
-            item.style.display = (action === 'project-rename') ? '' : 'none';
+            item.style.display = (action === 'project-rename' || action === 'import') ? '' : 'none';
         } else {
             item.style.display = 'none';
         }
@@ -633,6 +634,12 @@ export function initTreeContextMenu() {
                 renameSession(data.sid);
             } else if (type === 'session' && action === 'delete') {
                 deleteSession(data.sid);
+            } else if (type === 'session' && action === 'export') {
+                exportSession(data.sid);
+            } else if (type === 'session' && action === 'move') {
+                moveSessionDialog(data.sid);
+            } else if (action === 'import') {
+                importSessionDialog();
             } else if (type === 'project' && action === 'project-rename') {
                 renameProject(data.projectId);
             }
@@ -668,6 +675,121 @@ export async function renameSession(sid) {
         await buildTree();
     } catch (e) {
         showToast('重命名失败: ' + (e.message || e), 'error');
+    }
+}
+
+/** 导出会话为 JSON 文件。
+ *
+ *  v2 的导出端点在 /api/experimental 下（服务端自标 experimental，路径可能变）。
+ *  导出体积可能很大（含全部消息），因此落盘而不是塞进前端状态。
+ *  服务端返回失败时统一是 {error: "..."}，必须先判这个再解析，
+ *  否则会把错误 JSON 当导出内容写进文件。 */
+export async function exportSession(sid) {
+    if (!sid) return;
+    try {
+        var raw = await api.ExportSession(sid, false);
+        if (typeof raw !== 'string' || !raw) {
+            showToast('导出失败：服务端未返回内容', 'error');
+            return;
+        }
+        var parsed;
+        try {
+            parsed = JSON.parse(raw);
+        } catch (e) {
+            showToast('导出内容不是合法 JSON', 'error');
+            return;
+        }
+        if (parsed && parsed.error) {
+            showToast('导出失败：' + parsed.error, 'error');
+            return;
+        }
+        var info = (parsed && parsed.data && parsed.data.info) || {};
+        var title = (info.title || sid).replace(/[\\/:*?"<>|]/g, '_').slice(0, 60);
+        var blob = new Blob([raw], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = title + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('已导出 ' + title + '.json', 'success');
+    } catch (e) {
+        showToast('导出失败: ' + (e.message || e), 'error');
+    }
+}
+
+/** 移动会话到另一个项目目录。
+ *
+ *  v2 的 move 目标是**项目目录**，不是目录树里的子路径。
+ *  会话若正在运行，服务端可能拒绝（实测未验证 move 在运行态的行为，
+ *  失败时如实回传服务端原因，不做静默重试）。 */
+export async function moveSessionDialog(sid) {
+    if (!sid) return;
+    var target = prompt('请输入目标项目目录（绝对路径）：\n会话将被移动到该目录所属项目。', '');
+    if (target === null) return;
+    target = target.trim();
+    if (!target) return;
+    try {
+        var res = await api.MoveSession(sid, target, '');
+        if (res && res.error) {
+            showToast('移动失败：' + res.error, 'error');
+            return;
+        }
+        if (res && res.success === false) {
+            showToast('移动失败：HTTP ' + res.status, 'error');
+            return;
+        }
+        showToast('会话已移动', 'success');
+        await buildTree();
+    } catch (e) {
+        showToast('移动失败: ' + (e.message || e), 'error');
+    }
+}
+
+/** 导入会话（从导出的 JSON 文件）。
+ *
+ *  v2 的导入端点在 /api/experimental 下，服务端要求 info 与 messages 都存在；
+ *  若导出数据带 parentID 而父会话不存在，服务端返回 409——后端已在本地
+ *  拦下这种情况并给出可操作提示（先导父会话），这里只负责把错误如实展示。
+ *
+ *  导入后刷新会话树，让新会话立即可见。 */
+export async function importSessionDialog() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    var file = await new Promise(function(resolve) {
+        input.onchange = function() { resolve(input.files && input.files[0]); };
+        // 用户取消时 change 不会触发；用 focus 兜底避免 input 永久残留
+        window.addEventListener('focus', function once() {
+            window.removeEventListener('focus', once);
+            setTimeout(function() { if (!input.files || !input.files.length) resolve(null); }, 800);
+        }, { once: true });
+        input.click();
+    });
+
+    document.body.removeChild(input);
+    if (!file) return;
+
+    try {
+        var text = await file.text();
+        var res = await api.ImportSession(text);
+        if (res && res.error) {
+            showToast('导入失败：' + res.error, 'error');
+            return;
+        }
+        if (res && res.success === false) {
+            showToast('导入失败：HTTP ' + res.status, 'error');
+            return;
+        }
+        showToast('导入成功', 'success');
+        await buildTree();
+    } catch (e) {
+        showToast('导入失败: ' + (e.message || e), 'error');
     }
 }
 

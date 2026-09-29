@@ -228,6 +228,39 @@ func TestUnwrapSessionData(t *testing.T) {
 }
 
 // TestUnmarshalSessionList 覆盖 v2 列表信封与裸数组两种形态。
+// TestUnmarshalSessionListKeepsIdle 锁定 time.idle 必须透出。
+//
+// POST /api/session/{id}/view 的 body 里 idle 必填，且必须是该值原值——
+// 它是服务端判定「viewer 已观察到这次 idle 转换」的对账凭据。实测缺 idle
+// 返回 400 Missing key ["idle"]。前端要调该端点就得从这里拿到 idle，
+// 因此这里锁住「idle 会被解析并透出」，避免有人精简结构时把它删掉。
+func TestUnmarshalSessionListKeepsIdle(t *testing.T) {
+	body := `{"data":[{"id":"ses_1","time":{"created":1000,"updated":2000,"idle":1790605979558}}]}`
+	got, err := unmarshalSessionList([]byte(body))
+	if err != nil {
+		t.Fatalf("解析失败: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("长度 = %d, 期望 1", len(got))
+	}
+	if got[0].Time.Idle != 1790605979558 {
+		t.Errorf("Time.Idle = %d, 期望 1790605979558（idle 丢失会导致 view 端点 400）", got[0].Time.Idle)
+	}
+}
+
+// TestUnmarshalSessionListIdleOmitted 缺 idle 时应为 0 而非报错：
+// 从未空闲过的会话本来就没有 idle 值。
+func TestUnmarshalSessionListIdleOmitted(t *testing.T) {
+	body := `{"data":[{"id":"ses_1","time":{"created":1000,"updated":2000}}]}`
+	got, err := unmarshalSessionList([]byte(body))
+	if err != nil {
+		t.Fatalf("解析失败: %v", err)
+	}
+	if got[0].Time.Idle != 0 {
+		t.Errorf("Time.Idle = %d, 缺省应为 0", got[0].Time.Idle)
+	}
+}
+
 func TestUnmarshalSessionList(t *testing.T) {
 	cases := []struct {
 		name string

@@ -82,6 +82,9 @@
                             <div class="oc-tree-context-menu-item" data-action="project-config">⚙️ 项目配置</div>
                             <div class="oc-tree-context-menu-item" data-action="rename">✏️ 重命名</div>
                             <div class="oc-tree-context-menu-item" data-action="delete">🗑️ 删除会话</div>
+                            <div class="oc-tree-context-menu-item" data-action="export">📤 导出会话</div>
+                            <div class="oc-tree-context-menu-item" data-action="move">📦 移动到…</div>
+                            <div class="oc-tree-context-menu-item" data-action="import">📥 导入会话…</div>
                             <div class="oc-tree-context-menu-item" data-action="project-rename">✏️ 重命名项目</div>
                         </div>
                         <div class="oc-sessions-footer">
@@ -185,6 +188,17 @@
                             <div class="oc-panel-body">
                                 <div class="oc-services" id="ocServices">
                                     <div class="oc-empty">启动服务后查看</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="oc-panel-section" id="credPanelSection">
+                            <div class="oc-panel-head" role="button" tabindex="0">
+                                <span class="oc-panel-arrow">▼</span><span>🔑 凭据</span>
+                                <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshCreds" disabled>刷新</button>
+                            </div>
+                            <div class="oc-panel-body">
+                                <div class="oc-credentials" id="ocCredentials">
+                                    <div class="oc-empty">启动服务后查看已配置的凭据</div>
                                 </div>
                             </div>
                         </div>
