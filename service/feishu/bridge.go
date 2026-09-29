@@ -169,6 +169,8 @@ func (b *Bridge) handleCommand(ctx context.Context, msg IncomingMessage, cmd Com
 	switch cmd.Name {
 	case "help":
 		b.replyText(ctx, msg.ChatID, HelpText(isAdmin))
+	case "menu":
+		b.sendCard(ctx, msg.ChatID, QuickActionsCard())
 	case "status":
 		b.cmdStatus(ctx, msg.ChatID)
 	case "new":

@@ -23,6 +23,7 @@ type Command struct {
 // 不移植——飞书文档/表格属于周边能力，不在本次范围内。
 var commands = []Command{
 	{Name: "help", Usage: "/help", Description: "显示可用命令"},
+	{Name: "menu", Usage: "/menu", Description: "显示快捷操作卡片"},
 	{Name: "status", Usage: "/status", Description: "显示当前会话状态"},
 	{Name: "new", Usage: "/new [项目路径]", Description: "在指定项目创建会话（省略路径则沿用当前项目）"},
 	{Name: "new_session", Usage: "/new_session", Description: "在当前项目新建会话"},
