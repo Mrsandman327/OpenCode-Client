@@ -23,3 +23,7 @@ skmgr-tray.log
 tmp_*
 my/
 assets/
+.omo/
+.task/
+log/
+bin/
