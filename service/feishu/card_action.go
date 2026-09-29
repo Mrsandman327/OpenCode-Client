@@ -24,6 +24,12 @@ type CardAction struct {
 	MessageID string
 	// Value 是按钮回调携带的值（我们自己的 action / request_id 等）。
 	Value map[string]any
+	// Option 是**下拉框选中项的值**。
+	//
+	// ⚠️ 必须单独取：`select_static` 的选中值只在这里，不在 Value 里。
+	// 缺了它，菜单下拉会「收得到点击、拿不到用户选了什么」，表现为选了没反应
+	// ——与表单的 form_value 完全同一类问题。
+	Option string
 	// FormValue 是表单提交时各控件的值。
 	FormValue map[string]any
 	// FormName 是表单容器的名字，用于把控件值映射回字段。
@@ -49,22 +55,28 @@ func (b *Bridge) HandleCardAction(ctx context.Context, a CardAction) {
 		return
 	}
 
-	switch act := a.valueStr("action"); act {
-	case ActionSessionSelect:
+	act := a.valueStr("action")
+	switch {
+	case act == ActionSessionSelect:
 		b.handleSessionSelect(ctx, a)
-	case ActionPermissionAllowOnce, ActionPermissionAllowAlways, ActionPermissionReject:
+	case act == ActionPermissionAllowOnce || act == ActionPermissionAllowAlways || act == ActionPermissionReject:
 		b.handlePermissionReply(ctx, a)
-	case ActionFormSubmit:
+	case act == ActionFormSubmit:
 		b.handleFormSubmit(ctx, a)
-	case ActionFormCancel:
+	case act == ActionFormCancel:
 		b.replyText(ctx, a.ChatID, "已取消该提问。")
+	case act == ActionSwitchModel || act == ActionSwitchProjectInChat:
+		b.handleMenuSelect(ctx, a, act)
 	default:
 		// 快捷按钮复用命令分发：同一个动作出现两份实现，
-		// 必然出现「改了命令忘了改按钮」的不一致
-		if cmd, args, ok := ResolveQuickAction(act); ok {
-			b.handleCommand(ctx, IncomingMessage{
-				ChatID: a.ChatID, UserID: a.UserID,
-			}, Command{Name: cmd}, args)
+		// 必然出现「改了命令忘了改按钮」的不一致。
+		//
+		// 判定只看前缀——前缀本身就是「这是个命令」的契约，
+		// 拿到命令名后还要过一次命令表校验，避免「进了分支但命令不存在」
+		// 这种只回「未实现」的死路。
+		if IsQuickCommandAction(act) {
+			cmd := QuickCommandOf(act)
+			b.handleQuickCommand(ctx, a, cmd)
 			return
 		}
 		// 未知 action 通常来自旧版本卡片。明确回一句，
@@ -286,4 +298,58 @@ func stringifyFormValue(v any) string {
 	default:
 		return fmt.Sprintf("%v", t)
 	}
+}
+
+// handleQuickCommand 执行卡片上的快捷命令按钮。
+//
+// 命令名在动作里（`opencode_quick_cmd:/status`），参数为空。
+// 查一次命令表：卡片是**发送时**固化的，用户可能拿着几天前的卡片，
+// 期间命令被改名/删除——直接执行会走到「未实现」的死路。
+func (b *Bridge) handleQuickCommand(ctx context.Context, a CardAction, rawCmd string) {
+	name := strings.TrimPrefix(strings.TrimSpace(rawCmd), "/")
+	if name == "" {
+		b.replyText(ctx, a.ChatID, "这个按钮缺少命令名，请重新获取卡片。")
+		return
+	}
+	cmd, ok := lookupCommand(name)
+	if !ok {
+		b.replyText(ctx, a.ChatID, fmt.Sprintf(
+			"命令 `/%s` 已不存在（这张卡片可能较旧）。\n\n用 `/help` 查看当前可用的命令。", name))
+		return
+	}
+	b.handleCommand(ctx, IncomingMessage{ChatID: a.ChatID, UserID: a.UserID}, cmd, "")
+}
+
+// handleMenuSelect 处理项目/模型下拉。
+//
+// ⚠️ 选中值在 CardAction.Option，**不在** Value 里——
+// select_static 的回调把选项值放在 option 字段。
+// 取不到就会落进「什么都没发生」的分支，用户体验是「选了没反应」。
+func (b *Bridge) handleMenuSelect(ctx context.Context, a CardAction, action string) {
+	selected := strings.TrimSpace(a.Option)
+	if selected == "" {
+		b.replyText(ctx, a.ChatID,
+			"没有收到选择的值，请改用命令：`/model <provider/model>` 或 `/switch_project <路径>`。")
+		return
+	}
+
+	var cmd string
+	switch action {
+	case ActionSwitchModel:
+		cmd = "model"
+	case ActionSwitchProjectInChat:
+		cmd = "switch_project"
+	default:
+		b.replyText(ctx, a.ChatID, "未知菜单动作。")
+		return
+	}
+
+	c, ok := lookupCommand(cmd)
+	if !ok {
+		b.replyText(ctx, a.ChatID, fmt.Sprintf("命令 `/%s` 不存在。", cmd))
+		return
+	}
+	// 参数整体透传：项目路径可能含空格，按命令解析后会被重新拼回，
+	// handler 侧用 join(' ') 还原，与文本入口行为一致。
+	b.handleCommand(ctx, IncomingMessage{ChatID: a.ChatID, UserID: a.UserID}, c, selected)
 }

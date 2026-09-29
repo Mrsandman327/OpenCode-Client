@@ -382,3 +382,114 @@ func Test卡片回调不panic(t *testing.T) {
 		}()
 	}
 }
+
+// ============ 快捷命令按钮 ============
+
+func Test快捷按钮执行对应命令(t *testing.T) {
+	oc := &fakeOC{}
+	b, _, _, _ := newTestBridge(t, oc, BridgeConfig{DefaultProject: "/proj"})
+	b.HandleMessage(context.Background(), msg("/new"))
+	oc.compacts = nil
+
+	b.HandleCardAction(context.Background(), CardAction{
+		ChatID: "oc_chat", UserID: "ou_user",
+		Value: map[string]any{"action": QuickCommandAction("compact")},
+	})
+	if len(oc.compacts) != 1 {
+		t.Errorf("应执行 compact，实际 %d 次", len(oc.compacts))
+	}
+}
+
+// Test快捷按钮指向已删除的命令时给提示 卡片是发送时固化的，
+// 用户可能拿着几天前的卡片。
+func Test快捷按钮指向已删除的命令时给提示(t *testing.T) {
+	oc := &fakeOC{}
+	b, out, _, _ := newTestBridge(t, oc, BridgeConfig{})
+	b.HandleCardAction(context.Background(), CardAction{
+		ChatID: "oc_chat", UserID: "ou_user",
+		Value: map[string]any{"action": QuickCommandAction("nonexistent")},
+	})
+	if !strings.Contains(out.lastText(), "不存在") {
+		t.Errorf("应说明命令已不存在: %s", out.lastText())
+	}
+}
+
+func Test快捷按钮缺命令名(t *testing.T) {
+	oc := &fakeOC{}
+	b, out, _, _ := newTestBridge(t, oc, BridgeConfig{})
+	b.HandleCardAction(context.Background(), CardAction{
+		ChatID: "oc_chat", UserID: "ou_user",
+		Value: map[string]any{"action": ActionQuickCmdPrefix},
+	})
+	if !strings.Contains(out.lastText(), "缺少命令名") {
+		t.Errorf("应提示缺命令名: %s", out.lastText())
+	}
+}
+
+// ============ 菜单下拉 ============
+
+func Test模型下拉切换模型(t *testing.T) {
+	oc := &fakeOC{}
+	b, _, sm, _ := newTestBridge(t, oc, BridgeConfig{DefaultProject: "/proj"})
+	b.HandleMessage(context.Background(), msg("/new"))
+	oc.modelSet = nil
+
+	b.HandleCardAction(context.Background(), CardAction{
+		ChatID: "oc_chat", UserID: "ou_user",
+		Value:  map[string]any{"action": ActionSwitchModel},
+		Option: "opencode-go/space-bunny-free",
+	})
+	if len(oc.modelSet) != 1 || oc.modelSet[0] != "opencode-go/space-bunny-free" {
+		t.Errorf("应切换模型，实际 %v", oc.modelSet)
+	}
+	_ = sm
+}
+
+func Test项目下拉切换项目(t *testing.T) {
+	oc := &fakeOC{}
+	b, _, _, _ := newTestBridge(t, oc, BridgeConfig{DefaultProject: "/projA"})
+	b.HandleMessage(context.Background(), msg("/new"))
+	oc.created = nil
+
+	b.HandleCardAction(context.Background(), CardAction{
+		ChatID: "oc_chat", UserID: "ou_user",
+		Value:  map[string]any{"action": ActionSwitchProjectInChat},
+		Option: "/projB",
+	})
+	// 换项目会解除绑定并要求重新开会话
+	if len(oc.created) != 0 {
+		t.Error("切换项目本身不应新建会话")
+	}
+}
+
+// Test下拉缺选中值给命令替代 选中值在 Option 而非 Value，
+// 取不到会落进「什么都没发生」。
+func Test下拉缺选中值给命令替代(t *testing.T) {
+	oc := &fakeOC{}
+	b, out, _, _ := newTestBridge(t, oc, BridgeConfig{})
+	b.HandleCardAction(context.Background(), CardAction{
+		ChatID: "oc_chat", UserID: "ou_user",
+		Value: map[string]any{"action": ActionSwitchModel},
+	})
+	if !strings.Contains(out.lastText(), "/model") {
+		t.Errorf("应给出命令替代: %s", out.lastText())
+	}
+	if len(oc.modelSet) != 0 {
+		t.Error("缺选中值时不应设置模型")
+	}
+}
+
+// Test下拉也过门禁 未授权用户不应能通过卡片切换模型/项目。
+func Test下拉也过门禁(t *testing.T) {
+	oc := &fakeOC{}
+	b, _, sm, _ := newGatedBridge(t, oc, BridgeConfig{})
+	sm.Bind("oc_chat", "ses_1", "/p", "")
+	b.HandleCardAction(context.Background(), CardAction{
+		ChatID: "oc_chat", UserID: "ou_stranger",
+		Value:  map[string]any{"action": ActionSwitchModel},
+		Option: "a/b",
+	})
+	if len(oc.modelSet) != 0 {
+		t.Error("未授权用户不应能切换模型")
+	}
+}

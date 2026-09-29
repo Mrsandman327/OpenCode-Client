@@ -39,6 +39,10 @@ type FeishuConfig struct {
 	DefaultProject string `json:"defaultProject"`
 	// DefaultModel 是新建会话时的默认模型。
 	DefaultModel string `json:"defaultModel"`
+	// Projects 是菜单下拉里可切换的项目目录；为空则不渲染该下拉。
+	Projects []string `json:"projects"`
+	// Models 是菜单下拉里可切换的模型（provider/model 形态）。
+	Models []string `json:"models"`
 }
 
 // FeishuStatus 是给前端看的通道状态。
@@ -189,6 +193,8 @@ func (a *App) StartFeishu(ctx context.Context, cfg FeishuConfig) error {
 			AdminUserIDs:   cfg.AdminUserIDs,
 			DefaultProject: cfg.DefaultProject,
 			DefaultModel:   cfg.DefaultModel,
+			Projects:       cfg.Projects,
+			Models:         cfg.Models,
 		},
 	)
 
@@ -206,6 +212,7 @@ func (a *App) StartFeishu(ctx context.Context, cfg FeishuConfig) error {
 			UserID:    ev.Operator.OpenID,
 			MessageID: ev.MessageID,
 			Value:     ev.Action.Value,
+			Option:    ev.Action.Option,
 			FormValue: ev.Action.FormValue,
 			FormName:  ev.Action.Name,
 		})

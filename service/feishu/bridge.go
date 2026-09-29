@@ -33,6 +33,10 @@ type BridgeConfig struct {
 	DefaultProject string
 	// DefaultModel 是新建会话时使用的模型。
 	DefaultModel string
+	// Projects 是可在菜单下拉里切换的项目目录；为空则不渲染该下拉。
+	Projects []string
+	// Models 是可在菜单下拉里切换的模型（provider/model 形态）。
+	Models []string
 }
 
 // Bridge 是飞书与 OpenCode 之间的桥。
@@ -170,7 +174,11 @@ func (b *Bridge) handleCommand(ctx context.Context, msg IncomingMessage, cmd Com
 	case "help":
 		b.replyText(ctx, msg.ChatID, HelpText(isAdmin))
 	case "menu":
-		b.sendCard(ctx, msg.ChatID, QuickActionsCard())
+		b.sendCard(ctx, msg.ChatID, QuickActionsCard(MenuOptions{
+			Projects:     b.cfg.Projects,
+			Models:       b.cfg.Models,
+			CurrentModel: b.cfg.DefaultModel,
+		}))
 	case "status":
 		b.cmdStatus(ctx, msg.ChatID)
 	case "new":

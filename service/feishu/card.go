@@ -107,6 +107,9 @@ type Element struct {
 	Placeholder *PlainText     `json:"placeholder,omitempty"`
 	Options     []SelectOption `json:"options,omitempty"`
 	Required    bool           `json:"required,omitempty"`
+	// InitialOption 标出下拉当前选中项。
+	// 少了它用户看不出自己现在用的是哪个模型/项目。
+	InitialOption string `json:"initial_option,omitempty"`
 }
 
 // SelectOption 是下拉/多选候选项。

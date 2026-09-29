@@ -73,6 +73,22 @@ export class FeishuConfig {
              */
             this["defaultModel"] = "";
         }
+        if (!("projects" in $$source)) {
+            /**
+             * Projects 是菜单下拉里可切换的项目目录；为空则不渲染该下拉。
+             * @member
+             * @type {string[]}
+             */
+            this["projects"] = [];
+        }
+        if (!("models" in $$source)) {
+            /**
+             * Models 是菜单下拉里可切换的模型（provider/model 形态）。
+             * @member
+             * @type {string[]}
+             */
+            this["models"] = [];
+        }
 
         Object.assign(this, $$source);
     }
@@ -84,9 +100,17 @@ export class FeishuConfig {
      */
     static createFrom($$source = {}) {
         const $$createField4_0 = $$createType0;
+        const $$createField7_0 = $$createType0;
+        const $$createField8_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("adminUserIDs" in $$parsedSource) {
             $$parsedSource["adminUserIDs"] = $$createField4_0($$parsedSource["adminUserIDs"]);
+        }
+        if ("projects" in $$parsedSource) {
+            $$parsedSource["projects"] = $$createField7_0($$parsedSource["projects"]);
+        }
+        if ("models" in $$parsedSource) {
+            $$parsedSource["models"] = $$createField8_0($$parsedSource["models"]);
         }
         return new FeishuConfig(/** @type {Partial<FeishuConfig>} */($$parsedSource));
     }

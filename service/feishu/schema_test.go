@@ -58,7 +58,7 @@ func Test所有卡片通过飞书Schema(t *testing.T) {
 				Custom:  true,
 			}},
 		}),
-		"快捷操作": QuickActionsCard(),
+		"快捷操作": QuickActionsCard(MenuOptions{}),
 	}
 
 	for name, c := range cards {
@@ -156,7 +156,7 @@ func Test校验能抓出违规元素(t *testing.T) {
 
 // Test按钮必须带行为 点了没反应是最常见的「卡片坏了」。
 func Test按钮必须带行为(t *testing.T) {
-	c := QuickActionsCard()
+	c := QuickActionsCard(MenuOptions{})
 	for _, btn := range buttonsOf(t, c) {
 		if len(btn.Behaviors) == 0 {
 			t.Errorf("按钮 %q 未挂 behaviors，点击不会有任何反应", btn.ButtonText.Content)
@@ -191,7 +191,7 @@ func Test行为类型必须小写(t *testing.T) {
 		{"会话选择", SessionSelectCard(SessionSelectOptions{
 			Nodes: []SessionNode{{ID: "ses_a", Title: "A"}},
 		})},
-		{"快捷操作", QuickActionsCard()},
+		{"快捷操作", QuickActionsCard(MenuOptions{})},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
