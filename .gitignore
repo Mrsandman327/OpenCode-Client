@@ -29,3 +29,5 @@ skmgr-tray.log
 tmp_*
 my/
 assets/
+# Git worktree（worktree 一律建在本仓 .worktrees/ 下，不污染 git status）
+.worktrees/
