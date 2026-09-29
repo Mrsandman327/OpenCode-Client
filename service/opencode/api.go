@@ -345,6 +345,11 @@ type ProjectInfo struct {
 type sessionTime struct {
 	Created int64 `json:"created"`
 	Updated int64 `json:"updated"`
+	// Idle 是该会话最后一次转为空闲的时刻。
+	// POST /api/session/{id}/view 的 body 里 idle 必填，且必须是这个原值——
+	// 它是服务端判定「viewer 已观察到这次 idle 转换」的对账凭据，
+	// 填 0 或当前时间戳都会被判为无效。故必须随会话数据一起透给前端。
+	Idle int64 `json:"idle,omitempty"`
 }
 
 // treeSession 会话列表项。

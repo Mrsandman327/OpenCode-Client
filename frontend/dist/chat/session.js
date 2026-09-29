@@ -263,6 +263,25 @@ export async function refreshCurrentSession() {
     }
 }
 
+/**
+ * 标记会话已读。
+ *
+ * v2 的 POST /api/session/{id}/view 要求 body 里带 idle，且必须是该会话
+ * Session.Info.time.idle 的**原值**——服务端拿它对账「viewer 是否观察到了
+ * 这次 idle 转换」。填 0 或当前时间戳都会被判无效（实测缺 idle 直接 400
+ * Missing key ["idle"]），所以 idle 由后端随会话列表一起透出。
+ *
+ * 从未空闲过的会话没有 idle 值，此时跳过而不是发一个注定失败的请求。
+ */
+async function markSessionViewed(sessionId, idle) {
+    if (!sessionId || !idle) return;
+    try {
+        await api.MarkSessionViewed(sessionId, Number(idle));
+    } catch (e) {
+        console.warn('标记会话已读失败:', e);
+    }
+}
+
 /** 选择/切换会话：更新标题、目录路径，加载消息和子任务 */
 export async function selectSession(id) {
     if (!id) return;
@@ -288,6 +307,9 @@ export async function selectSession(id) {
     // 会话目录可能变了：v2 的 agent/model 列表按目录取项目级配置，目录不同则重载
     // （loadAgentModelSelectors 内部按目录去重，同目录不会重复请求）
     loadAgentModelSelectors(info?.directory || '');
+    // 标记已读：v2 的 /api/session/{id}/view 用 time.idle 原值做对账凭据，
+    // 缺了返回 400。失败只记日志，不阻断会话打开——已读是附加语义。
+    markSessionViewed(id, info?.idle);
     document.getElementById('ocChatTitle').textContent = info?.title || id;
     const dirEl = document.getElementById('ocSideDirPath');
     if (dirEl) {
