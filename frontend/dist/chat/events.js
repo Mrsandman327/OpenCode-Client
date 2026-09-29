@@ -4,7 +4,7 @@
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getCachedMessages, safeText）、core/apicall.js（api）、
 //       chat/session.js（loadMessages, refreshSessionTitle, selectSession）、
 //       chat/render.js（updateSendButton）、chat/cache.js（scheduleRenderCachedMessages, upsertMessage 等）、
-//       chat/sidepanel.js（scheduleSubtaskExtraction）、chat/tree.js（buildTree）
+//       chat/sidepanel.js（scheduleSubtaskExtraction）、chat/tree.js（buildTree, wasSessionDeletedLocally）
 // ============================================================
 
 import { store } from '../core/state.js';
@@ -14,7 +14,7 @@ import { loadMessages, refreshSessionTitle, selectSession } from './session.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
-import { buildTree } from './tree.js';
+import { buildTree, wasSessionDeletedLocally } from './tree.js';
 import { showPermissionRequest, closePermissionModal } from './permission.js';
 import { adaptEvent, normalizeStatuses } from '../core/v2compat.js';
 
@@ -230,11 +230,15 @@ export function handleOcEvent(event) {
         return;
     }
     if (type === 'session.deleted') {
-        if (window._skipSessionDeletedRebuild) {
-            window._skipSessionDeletedRebuild = false;
-        } else {
-            buildTree();
+        // 严格取「被删的那个会话」的 ID，不能用上面那个 sid：
+        // sid 的兜底是 store.currentSessionId，删的不是当前会话时会得到一个
+        // 毫不相干的 ID。拿它去查「是否刚被本地删过」会误判，吞掉本该发生的重建。
+        const deletedId = props.sessionID || props.sessionId || props.info?.sessionID || props.part?.sessionID || '';
+        if (deletedId && wasSessionDeletedLocally(deletedId)) {
+            // 树里该节点已被 deleteSession 直接摘掉，重建只会闪一下
+            return;
         }
+        buildTree();
         return;
     }
     if (type === 'session.updated') {

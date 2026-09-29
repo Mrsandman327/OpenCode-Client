@@ -17,6 +17,7 @@ import { closeSessionTab, renderTabsBar } from './tabs.js';
 import { resetUserNav } from './search.js';
 import { openProjectConfig } from '../views/project-config.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
+import { createBuildGate, createRecentlyDeleted, RECENTLY_DELETED_TTL_MS } from './tree-guard.js';
 
 // ============================
 // 项目树 — 构建、渲染、操作
@@ -26,9 +27,36 @@ let treeSearchQuery = '';
 let treeSearchDebounceTimer = null;
 let treeSearchSnapshotTaken = false;
 
-/** 构建项目树（从后端获取项目→目录→会话三层结构） */
+// 重建并发闸门 + 「本地已删会话」记账。
+// 动机与设计见 tree-guard.js 顶部：删除会话时多条 session.deleted 会引发
+// 多次整树重建（肉眼连续闪烁），且 async 重建可能乱序返回把渲染覆盖回去。
+const treeGate = createBuildGate();
+const recentlyDeleted = createRecentlyDeleted(RECENTLY_DELETED_TTL_MS, null);
+
+/** 记下「这个会话已被本地删除」，让随之而来的 session.deleted 事件跳过整树重建。
+ *
+ *  节点此时已被 deleteSession 直接从 DOM 摘掉，重建只会闪一下。 */
+export function markSessionDeletedLocally(id) {
+    return recentlyDeleted.mark(id);
+}
+
+/** 该会话是否刚被本地删除（供 chat/events.js 判定是否跳过重建） */
+export function wasSessionDeletedLocally(id) {
+    return recentlyDeleted.has(id);
+}
+
+/** 构建项目树（从后端获取项目→目录→会话三层结构）
+ *
+ *  并发请求会被闸门合并：执行期间再来的请求只补跑一次，且所有调用方
+ *  await 到的是同一个结果。**所有入口都必须走这里**，不要直接调
+ *  buildTreeOnce —— 绕过闸门等于把并发重建又放回来。 */
 export async function buildTree() {
-    if (!store.webRunning) return;
+    if (!store.webRunning) return false;
+    return treeGate(buildTreeOnce);
+}
+
+/** 单次重建：拉全量树 + 整树渲染。不对外。 */
+async function buildTreeOnce() {
     try {
         const knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
         const json = await api.GetProjectTree(JSON.stringify(knownDirs));
@@ -460,8 +488,9 @@ export async function deleteSession(id) {
     if (!id) return;
     if (!confirm('确定要删除该会话吗？此操作不可撤销。')) return;
     try {
-        window._skipSessionDeletedRebuild = true;
-        setTimeout(function() { window._skipSessionDeletedRebuild = false; }, 2000);
+        // 记一笔，让随之而来的 session.deleted 事件跳过整树重建。
+        // 节点下方已直接从 DOM 摘掉，重建只会闪一下。
+        markSessionDeletedLocally(id);
         await api.OpenCodeCall('DELETE', `/api/session/${encodeURIComponent(id)}`);
         showToast('已删除', 'success');
         if (id === store.currentSessionId) {
