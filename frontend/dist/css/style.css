@@ -4903,7 +4903,8 @@ input::placeholder, textarea::placeholder {
     appearance: none;
 }
 .mod-chip:has(.mod-input:checked),
-.mod-chip:has(.mod-output:checked) {
+.mod-chip:has(.mod-output:checked),
+.mod-chip:has(.mod-tools:checked) {
     border: 1px solid var(--accent);
     padding: 2px 8px;
     color: var(--accent);

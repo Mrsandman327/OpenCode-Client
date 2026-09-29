@@ -28,7 +28,7 @@ type SkillInfo struct {
 
 // SkillConfigResult 前端技能页面加载所需的完整数据。
 type SkillConfigResult struct {
-	SourceDirs []string   `json:"sourceDirs"`
+	SourceDirs []string    `json:"sourceDirs"`
 	Skills     []SkillInfo `json:"skills"`
 	Stats      Stats       `json:"stats"`
 }
@@ -78,14 +78,19 @@ type ModelEntry struct {
 
 // ========== 供应商配置相关 ==========
 
-// OpenCodeConfig opencode.jsonc 顶层结构。
+// OpenCodeConfig 是 opencode.json(c) 的顶层结构，采用 OpenCode v2 原生格式。
+// 供应商写在 providers（v2 复数键）；读取时兼容 v1 的 provider 单数键。
 type OpenCodeConfig struct {
-	Schema           string                    `json:"$schema,omitempty"`
-	Plugin           []string                  `json:"plugin,omitempty"`
-	Provider         map[string]*ProviderEntry `json:"provider,omitempty"`
-	EnabledProviders []string                  `json:"enabled_providers,omitempty"`
-	Server           map[string]interface{}    `json:"server,omitempty"`
-	// Extra 保留未建模的顶层键（如 permission、agent、models 等用户手动添加的配置），
+	Schema    string                    `json:"$schema,omitempty"`
+	Plugin    []string                  `json:"plugin,omitempty"`
+	Providers map[string]*ProviderEntry `json:"providers,omitempty"`
+	// EnabledProviders / DisabledProviders 仅用于读取兼容旧的 provider 过滤写法：
+	// 写入时一律不再输出，启用状态改由 experimental.policies 的 provider.use 表达。
+	EnabledProviders  []string `json:"enabled_providers,omitempty"`
+	DisabledProviders []string `json:"disabled_providers,omitempty"`
+	// 注意：v1 的 server 在 v2 属于「accepted but unsupported」（被忽略并告警），
+	// 因此不再显式建模，交由 Extra 原样透传（读保留、写输出，不丢用户配置）。
+	// Extra 保留未建模的顶层键（如 experimental、permission、agents 等用户配置），
 	// 避免结构化重建时丢失；json 序列化由自定义 MarshalJSON/UnmarshalJSON 处理。
 	Extra map[string]json.RawMessage `json:"-"`
 }
@@ -108,10 +113,20 @@ func (c *OpenCodeConfig) UnmarshalJSON(data []byte) error {
 		}
 		delete(raw, "plugin")
 	}
-	if v, ok := raw["provider"]; ok {
-		if err := json.Unmarshal(v, &c.Provider); err != nil {
+	// providers（v2 原生）优先；缺失或为空时回退读取 v1 的 provider 单数键。
+	if v, ok := raw["providers"]; ok {
+		if err := json.Unmarshal(v, &c.Providers); err != nil {
 			return err
 		}
+		delete(raw, "providers")
+	}
+	if v, ok := raw["provider"]; ok {
+		if len(c.Providers) == 0 {
+			if err := json.Unmarshal(v, &c.Providers); err != nil {
+				return err
+			}
+		}
+		// 无论是否回退，都清理旧键：保存时不再写回 v1 结构。
 		delete(raw, "provider")
 	}
 	if v, ok := raw["enabled_providers"]; ok {
@@ -120,19 +135,20 @@ func (c *OpenCodeConfig) UnmarshalJSON(data []byte) error {
 		}
 		delete(raw, "enabled_providers")
 	}
-	if v, ok := raw["server"]; ok {
-		if err := json.Unmarshal(v, &c.Server); err != nil {
+	if v, ok := raw["disabled_providers"]; ok {
+		if err := json.Unmarshal(v, &c.DisabledProviders); err != nil {
 			return err
 		}
-		delete(raw, "server")
+		delete(raw, "disabled_providers")
 	}
+	// 未列出的顶层键（含 v2 已不支持的 server）原样保留到 Extra。
 	c.Extra = raw
 	return nil
 }
 
 // MarshalJSON 自定义序列化：已知字段与保留的未知顶层键（Extra）合并输出。
 func (c OpenCodeConfig) MarshalJSON() ([]byte, error) {
-	out := make(map[string]json.RawMessage, len(c.Extra)+6)
+	out := make(map[string]json.RawMessage, len(c.Extra)+5)
 	for k, v := range c.Extra {
 		out[k] = v
 	}
@@ -150,48 +166,172 @@ func (c OpenCodeConfig) MarshalJSON() ([]byte, error) {
 		}
 		out["plugin"] = b
 	}
-	if c.Provider != nil {
-		b, err := json.Marshal(c.Provider)
+	// 只写 v2 的 providers；enabled_providers / disabled_providers 不再输出，
+	// 启用状态由 config/provider 重写为 experimental.policies 的 provider.use。
+	if c.Providers != nil {
+		b, err := json.Marshal(c.Providers)
 		if err != nil {
 			return nil, err
 		}
-		out["provider"] = b
-	}
-	if c.EnabledProviders != nil {
-		b, err := json.Marshal(c.EnabledProviders)
-		if err != nil {
-			return nil, err
-		}
-		out["enabled_providers"] = b
-	}
-	if c.Server != nil {
-		b, err := json.Marshal(c.Server)
-		if err != nil {
-			return nil, err
-		}
-		out["server"] = b
+		out["providers"] = b
 	}
 	return json.Marshal(out)
 }
 
-// ProviderEntry 单个供应商配置。
+// ProviderEntry 单个供应商配置（OpenCode v2 的 providers.<id>）。
+// 未建模的供应商级字段（env / canonical / headers / body 等）由 Extra 原样透传。
 type ProviderEntry struct {
-	Npm     string                 `json:"npm,omitempty"`
-	Name    string                 `json:"name,omitempty"`
-	Options map[string]interface{} `json:"options,omitempty"`
-	Models  map[string]*ModelDef   `json:"models,omitempty"`
+	Name     string                     `json:"name,omitempty"`
+	Package  string                     `json:"package,omitempty"`
+	Settings map[string]interface{}     `json:"settings,omitempty"`
+	Models   map[string]*ModelDef       `json:"models,omitempty"`
+	Extra    map[string]json.RawMessage `json:"-"`
 }
 
-// Modalities 模型输入/输出能力（对应 opencode.jsonc 的 modalities 字段）
-type Modalities struct {
+// UnmarshalJSON 自定义反序列化：分离已知字段，未知键原样保留到 Extra。
+func (e *ProviderEntry) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if v, ok := raw["name"]; ok {
+		if err := json.Unmarshal(v, &e.Name); err != nil {
+			return err
+		}
+		delete(raw, "name")
+	}
+	if v, ok := raw["package"]; ok {
+		if err := json.Unmarshal(v, &e.Package); err != nil {
+			return err
+		}
+		delete(raw, "package")
+	}
+	if v, ok := raw["settings"]; ok {
+		if err := json.Unmarshal(v, &e.Settings); err != nil {
+			return err
+		}
+		delete(raw, "settings")
+	}
+	if v, ok := raw["models"]; ok {
+		if err := json.Unmarshal(v, &e.Models); err != nil {
+			return err
+		}
+		delete(raw, "models")
+	}
+	e.Extra = raw
+	return nil
+}
+
+// MarshalJSON 自定义序列化：已知字段与保留的未建模键（Extra）合并输出。
+func (e ProviderEntry) MarshalJSON() ([]byte, error) {
+	out := make(map[string]json.RawMessage, len(e.Extra)+4)
+	for k, v := range e.Extra {
+		out[k] = v
+	}
+	if e.Name != "" {
+		b, err := json.Marshal(e.Name)
+		if err != nil {
+			return nil, err
+		}
+		out["name"] = b
+	}
+	if e.Package != "" {
+		b, err := json.Marshal(e.Package)
+		if err != nil {
+			return nil, err
+		}
+		out["package"] = b
+	}
+	if e.Settings != nil {
+		b, err := json.Marshal(e.Settings)
+		if err != nil {
+			return nil, err
+		}
+		out["settings"] = b
+	}
+	if e.Models != nil {
+		b, err := json.Marshal(e.Models)
+		if err != nil {
+			return nil, err
+		}
+		out["models"] = b
+	}
+	return json.Marshal(out)
+}
+
+// Capabilities 模型能力（对应 OpenCode v2 的 models.<id>.capabilities）。
+// 取代 v1 的 modalities 与 tool_call。
+type Capabilities struct {
+	Tools  *bool    `json:"tools,omitempty"`
 	Input  []string `json:"input,omitempty"`
 	Output []string `json:"output,omitempty"`
 }
 
-// ModelDef 模型定义。
+// ModelDef 模型定义（OpenCode v2 的 models.<id>）。
+// 未建模字段（cost / limit / variants / disabled 等）由 Extra 原样透传。
 type ModelDef struct {
-	Name       string      `json:"name"`
-	Modalities *Modalities `json:"modalities,omitempty"`
+	Name         string                     `json:"name,omitempty"`
+	ModelID      string                     `json:"modelID,omitempty"`
+	Capabilities *Capabilities              `json:"capabilities,omitempty"`
+	Extra        map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON 自定义反序列化：分离已知字段，未知键原样保留到 Extra。
+func (m *ModelDef) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if v, ok := raw["name"]; ok {
+		if err := json.Unmarshal(v, &m.Name); err != nil {
+			return err
+		}
+		delete(raw, "name")
+	}
+	if v, ok := raw["modelID"]; ok {
+		if err := json.Unmarshal(v, &m.ModelID); err != nil {
+			return err
+		}
+		delete(raw, "modelID")
+	}
+	if v, ok := raw["capabilities"]; ok {
+		if err := json.Unmarshal(v, &m.Capabilities); err != nil {
+			return err
+		}
+		delete(raw, "capabilities")
+	}
+	m.Extra = raw
+	return nil
+}
+
+// MarshalJSON 自定义序列化：已知字段与保留的未建模键（Extra）合并输出。
+func (m ModelDef) MarshalJSON() ([]byte, error) {
+	out := make(map[string]json.RawMessage, len(m.Extra)+3)
+	for k, v := range m.Extra {
+		out[k] = v
+	}
+	if m.Name != "" {
+		b, err := json.Marshal(m.Name)
+		if err != nil {
+			return nil, err
+		}
+		out["name"] = b
+	}
+	if m.ModelID != "" {
+		b, err := json.Marshal(m.ModelID)
+		if err != nil {
+			return nil, err
+		}
+		out["modelID"] = b
+	}
+	if m.Capabilities != nil {
+		b, err := json.Marshal(m.Capabilities)
+		if err != nil {
+			return nil, err
+		}
+		out["capabilities"] = b
+	}
+	return json.Marshal(out)
 }
 
 // ProviderInfo 前端展示用供应商信息。
@@ -200,16 +340,17 @@ type ProviderInfo struct {
 	Name    string      `json:"name"`
 	BaseURL string      `json:"baseURL"`
 	ApiKey  string      `json:"apiKey"`
-	Npm     string      `json:"npm"`
+	Package string      `json:"package"`
 	Enabled bool        `json:"enabled"`
 	Models  []ModelInfo `json:"models"`
 }
 
 // ModelInfo 前端展示用模型信息。
 type ModelInfo struct {
-	ID         string      `json:"id"`
-	Name       string      `json:"name"`
-	Modalities *Modalities `json:"modalities,omitempty"`
+	ID           string        `json:"id"`
+	Name         string        `json:"name"`
+	ModelID      string        `json:"modelID,omitempty"`
+	Capabilities *Capabilities `json:"capabilities,omitempty"`
 }
 
 // ProviderSave 前端提交的供应商保存数据。
@@ -218,7 +359,7 @@ type ProviderSave struct {
 	Name    string      `json:"name"`
 	BaseURL string      `json:"baseURL"`
 	ApiKey  string      `json:"apiKey"`
-	Npm     string      `json:"npm"`
+	Package string      `json:"package"`
 	Enabled bool        `json:"enabled"`
 	Models  []ModelInfo `json:"models"`
 }

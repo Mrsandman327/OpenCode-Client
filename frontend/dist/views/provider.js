@@ -30,38 +30,52 @@ export async function openProviderConfigDirInBrowser() {
     }
 }
 
+// v2 供应商「接口格式」选项（对应 opencode v2 的 package 字段）：
+// 值统一为 "aisdk:" 前缀 + AI SDK 包名；v1 的无前缀 @ai-sdk/* 写法已废弃。
+// 常量名保留 NPM 字样以免波及外部引用；但对外读写/提交的字段名一律为 package。
 export const PROVIDER_NPM_OPTIONS = [
-    { label: 'OpenAI Responses', value: '@ai-sdk/openai' },
-    { label: 'OpenAI Compatible', value: '@ai-sdk/openai-compatible' },
-    { label: 'Anthropic', value: '@ai-sdk/anthropic' },
-    { label: 'Amazon Bedrock', value: '@ai-sdk/amazon-bedrock' },
-    { label: 'Google (Gemini)', value: '@ai-sdk/google' },
+    { label: 'OpenAI Responses', value: 'aisdk:@ai-sdk/openai' },
+    { label: 'OpenAI Compatible', value: 'aisdk:@ai-sdk/openai-compatible' },
+    { label: 'Anthropic', value: 'aisdk:@ai-sdk/anthropic' },
+    { label: 'Amazon Bedrock', value: 'aisdk:@ai-sdk/amazon-bedrock' },
+    { label: 'Google (Gemini)', value: 'aisdk:@ai-sdk/google' },
 ];
 
+// 未匹配保留的哨兵值：后端返回的 package 不在上方列表时，
+// 下拉展示「未匹配保留」并维持原样提交（原值挂在 select 的 data-raw-npm 上）
 export const PROVIDER_NPM_UNMATCHED = '__unmatched__';
 
-// 模态能力选项
+// 能力（capabilities）芯片选项：
+// input / output 沿用原模态列表；tools（工具调用）为单个布尔勾选框，不在此列表中
 export const MODALITY_INPUT  = ['text', 'image', 'pdf', 'audio', 'video'];
 export const MODALITY_OUTPUT = ['text', 'image', 'audio', 'video'];
 
-// 渲染模型能力芯片（按 modalities 回填勾选状态）
-function modelAbilitiesHtml(modalities) {
-    const input  = modalities?.input  || [];
-    const output = modalities?.output || [];
+// 渲染模型能力芯片（按 capabilities 回填勾选状态）
+// capabilities 形如 { tools?: boolean, input?: string[], output?: string[] }
+function modelAbilitiesHtml(capabilities) {
+    const caps   = capabilities || {};
+    const input  = caps.input  || [];
+    const output = caps.output || [];
     const boxes = (list, cls, selected) => list.map(m =>
         `<label class="mod-chip"><input type="checkbox" class="${cls}" value="${m}" ${selected.includes(m) ? 'checked' : ''}><span class="mod-chip-text">${m}</span></label>`
     ).join('');
+    // 工具调用（v2 capabilities.tools）：单个布尔勾选框，可选项，默认不勾选；
+    // .mod-tools 类名与输入/输出区隔开，便于 saveProviderFromDom 单独收集勾选态
+    const toolsChecked = caps.tools === true ? 'checked' : '';
     return `<div class="model-abilities">
         <div class="mod-row"><span class="mod-label">输入</span><div class="mod-chip-list">${boxes(MODALITY_INPUT, 'mod-input', input)}</div></div>
         <div class="mod-row"><span class="mod-label">输出</span><div class="mod-chip-list">${boxes(MODALITY_OUTPUT, 'mod-output', output)}</div></div>
+        <div class="mod-row"><span class="mod-label">工具</span><div class="mod-chip-list"><label class="mod-chip"><input type="checkbox" class="mod-tools" ${toolsChecked}><span class="mod-chip-text">工具调用</span></label></div></div>
     </div>`;
 }
 
 // 计算能力摘要：取输入/输出中非 text 的能力，去重，最多显示 2 个 + 超出计数
-function abilitiesSummary(modalities) {
+// （tools 是布尔开关，不参与摘要，保持与迁移前摘要行为一致）
+function abilitiesSummary(capabilities) {
+    const caps = capabilities || {};
     const set = new Set([
-        ...(modalities?.input || []),
-        ...(modalities?.output || []),
+        ...(caps.input || []),
+        ...(caps.output || []),
     ].filter(m => m && m !== 'text'));
     const list = [...set];
     if (!list.length) return '';
@@ -76,11 +90,11 @@ function abilitiesSummary(modalities) {
 // 1. .btn-del-model 必须保持为 .model-subcard 的直接子元素——
 //    bindProviderEvents 里通过 btn.parentElement.remove() 删除整行；
 // 2. 能力区隐藏采用 display:none（CSS 折叠），不影响 saveProviderFromDom
-//    用 .mod-input:checked / .mod-output:checked 收集勾选值。
-function modelSubcardHtml(model, modalities) {
+//    用 .mod-input:checked / .mod-output:checked / .mod-tools:checked 收集勾选值。
+function modelSubcardHtml(model, capabilities) {
     const m = model || {};
     const readonlyAttr = m.readonlyId ? 'readonly' : '';
-    const summary = abilitiesSummary(modalities);
+    const summary = abilitiesSummary(capabilities);
     return `
         <div class="model-subcard">
             <div class="model-subcard-fields">
@@ -90,7 +104,7 @@ function modelSubcardHtml(model, modalities) {
                     <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0;padding-left:20px;">名称</span>
                     <input class="model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" style="flex:1;width:50%" />
                 </div>
-                ${modelAbilitiesHtml(modalities)}
+                ${modelAbilitiesHtml(capabilities)}
             </div>
             <button class="btn-toggle-abilities" type="button" aria-expanded="false" title="展开/收起模型模态设置">
                 <span class="btn-toggle-abilities-text">多模态</span>
@@ -130,7 +144,8 @@ export async function loadProviders() {
 })();
 
 export function emptyProvider() {
-    return { key: '', name: '', baseURL: '', apiKey: '', npm: '@ai-sdk/openai-compatible', npmRaw: '@ai-sdk/openai-compatible', enabled: true, models: [], _new: true };
+    // v2 字段迁移：package/packageRaw 取代 v1 的 npm/npmRaw，默认 package 带 aisdk: 前缀
+    return { key: '', name: '', baseURL: '', apiKey: '', package: 'aisdk:@ai-sdk/openai-compatible', packageRaw: 'aisdk:@ai-sdk/openai-compatible', enabled: true, models: [], _new: true };
 }
 
 export function renderProviders(providers) {
@@ -149,16 +164,19 @@ export function renderProviders(providers) {
 
 export function providerCardHtml(p) {
     const isNew = p._new;
-    const npmValue = p.npm || p.npmRaw || '@ai-sdk/openai-compatible';
-    const matchedOption = PROVIDER_NPM_OPTIONS.find(item => item.value === (p.npm || ''));
-    const selectedNpmValue = matchedOption ? matchedOption.value : PROVIDER_NPM_UNMATCHED;
-    const npmOptionsHtml = [
-        ...PROVIDER_NPM_OPTIONS.map(item => `<option value="${escapeHtml(item.value)}" ${selectedNpmValue === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`),
-        !matchedOption && npmValue ? `<option value="${PROVIDER_NPM_UNMATCHED}" selected>未匹配保留</option>` : ''
+    // v2：接口格式字段为 package（不再读 v1 的 npm）；packageRaw 作为新增卡片/兜底时的原始值
+    const packageValue = p.package || p.packageRaw || 'aisdk:@ai-sdk/openai-compatible';
+    const matchedOption = PROVIDER_NPM_OPTIONS.find(item => item.value === (p.package || ''));
+    const selectedPackageValue = matchedOption ? matchedOption.value : PROVIDER_NPM_UNMATCHED;
+    const packageOptionsHtml = [
+        ...PROVIDER_NPM_OPTIONS.map(item => `<option value="${escapeHtml(item.value)}" ${selectedPackageValue === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`),
+        !matchedOption && packageValue ? `<option value="${PROVIDER_NPM_UNMATCHED}" selected>未匹配保留</option>` : ''
     ].join('');
     const modelsHtml = (p.models || []).length
-        ? (p.models || []).map(m => modelSubcardHtml({ id: m.id, name: m.name || '' }, m.modalities)).join('')
+        ? (p.models || []).map(m => modelSubcardHtml({ id: m.id, name: m.name || '' }, m.capabilities)).join('')
         : '<div class="prov-empty">暂无模型，点击「手动添加」或「 获取模型列表」</div>';
+    // 说明：接口格式下拉的类名 .prov-edit-npm 与 data-raw-npm 保留 v1 命名（CSS/事件绑定依赖），
+    // 其承载的对外字段已是 v2 的 package
     return `
         <div class="provider-card" data-key="${escapeHtml(p.key)}">
             <div class="provider-card-header">
@@ -191,8 +209,8 @@ export function providerCardHtml(p) {
                     </label>
                     <label class="provider-conn-col">
                         <span class="prov-field-label">接口格式</span>
-                        <select class="prov-edit-npm" data-raw-npm="${escapeHtml(p.npm || '')}" aria-label="interface format">
-                            ${npmOptionsHtml}
+                        <select class="prov-edit-npm" data-raw-npm="${escapeHtml(p.package || '')}" aria-label="interface format">
+                            ${packageOptionsHtml}
                         </select>
                     </label>
                 </div>
@@ -232,7 +250,7 @@ export function bindProviderEvents(providers) {
             const emptyEl = list.querySelector('.prov-empty');
             if (emptyEl) emptyEl.remove();
             // 用共享的 modelSubcardHtml 生成子卡片（结构/折叠行为与静态渲染一致），
-            // 默认不勾选任何能力（保存时全空则不写 modalities 字段）
+            // 默认不勾选任何能力（保存时全空则不写 capabilities 字段）
             const temp = document.createElement('div');
             temp.innerHTML = modelSubcardHtml({ id: '', name: '' }).trim();
             const row = temp.firstElementChild;
@@ -303,16 +321,18 @@ export function saveProviderFromDom(key) {
     const card = document.querySelector(`.provider-card[data-key="${CSS.escape(key)}"]`);
     if (!card) return;
 
-    const npmSelect = card.querySelector('.prov-edit-npm');
-    const selectedNpm = npmSelect?.value || '';
-    const rawNpm = npmSelect?.dataset.rawNpm || '';
+    // 下拉的类名/数据属性保留 v1 命名（.prov-edit-npm / data-raw-npm），提交字段已迁移为 v2 的 package
+    const packageSelect = card.querySelector('.prov-edit-npm');
+    const selectedPackage = packageSelect?.value || '';
+    const rawPackage = packageSelect?.dataset.rawNpm || '';
 
     const data = {
         key: card.querySelector('.prov-edit-key').value.trim(),
         name: card.querySelector('.prov-edit-name').value.trim(),
         baseURL: card.querySelector('.prov-edit-url').value.trim(),
         apiKey: card.querySelector('.prov-edit-apikey').value.trim(),
-        npm: selectedNpm === PROVIDER_NPM_UNMATCHED ? rawNpm : selectedNpm,
+        // 选中「未匹配保留」哨兵值时，回退提交渲染时挂在 data-raw-npm 上的原始 package
+        package: selectedPackage === PROVIDER_NPM_UNMATCHED ? rawPackage : selectedPackage,
         enabled: card.querySelector('.prov-edit-enabled').checked,
         models: []
     };
@@ -323,12 +343,16 @@ export function saveProviderFromDom(key) {
         const id = row.querySelector('.model-edit-id')?.value?.trim();
         const name = row.querySelector('.model-edit-name')?.value?.trim();
         if (!id) return;
+        const tools  = !!row.querySelector('.mod-tools')?.checked;
         const input  = [...row.querySelectorAll('.mod-input:checked')].map(c => c.value);
         const output = [...row.querySelectorAll('.mod-output:checked')].map(c => c.value);
-        const model = { id, name: name || id };
-        // 仅当设置了任意能力时才写 modalities；全空则省略字段，交给 OpenCode 走 models.dev 兜底
-        if (input.length || output.length) {
-            model.modalities = { input, output };
+        // v2 保存契约要求 id 与 modelID 两个字段：当前 UI 只有单一「模型ID」输入，
+        // 两者同源写入该输入值（后端以二者标识同一个模型）
+        const model = { id, name: name || id, modelID: id };
+        // 仅当设置了任意能力（工具/输入/输出任一非空）时才写 capabilities；
+        // 全空则省略字段，交给 OpenCode 走 models.dev 兜底
+        if (tools || input.length || output.length) {
+            model.capabilities = { tools, input, output };
         }
         data.models.push(model);
     });
@@ -433,15 +457,15 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
 
             if (action === 'add') {
                 // 移除空态占位（若有）
-                var emptyEl = list.querySelector('.prov-empty');
+                const emptyEl = list.querySelector('.prov-empty');
                 if (emptyEl) emptyEl.remove();
                 // 与「手动添加」走同一套 modelSubcardHtml 结构（能力区默认折叠）；
-                // 弹窗拉取的模型 ID 固定 readonly，默认不勾选任何能力（全空则不写 modalities）
-                var temp = document.createElement('div');
+                // 弹窗拉取的模型 ID 固定 readonly，默认不勾选任何能力（全空则不写 capabilities）
+                const temp = document.createElement('div');
                 temp.innerHTML = modelSubcardHtml(
                     { id: modelId, name: modelId, readonlyId: true }
                 ).trim();
-                var row = temp.firstElementChild;
+                const row = temp.firstElementChild;
                 row.querySelector('.btn-del-model').addEventListener('click', function() { row.remove(); });
                 list.appendChild(row);
                 this.textContent = '删除';
