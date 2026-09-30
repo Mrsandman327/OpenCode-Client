@@ -42,22 +42,29 @@ export function normalizeSelectorName(name) {
 }
 
 /** 判断 agent 名是否在当前 /agent 列表中（精确相等或规范化后相等）。
- *  API 列表尚未加载时返回 true，避免误拦正常发送。 */
+ *  发送前校验的严格语义：列表尚未加载（空）时返回 false——「必须存在于当前列表」
+ *  才允许发送，否则调用方回退默认（不带 agent）。此前的「列表空返回 true」会让
+ *  历史残留的失效名（如插件改名前的「Sisyphus - Ultraworker」）在列表未就绪时
+ *  蒙混过关被发出，服务端报 Agent not found。 */
 export function isKnownAgentName(name) {
     if (!name) return false;
     const list = store.agentList || [];
-    if (!list.length) return true;
+    if (!list.length) return false;
     return list.some(function (a) {
-        return normalizeSelectorName(a && a.name) === normalizeSelectorName(name);
+        // 以 agent **id** 为准（v2 服务端只认 id；传显示名会在执行期报 Agent not found）。
+        // 仅在条目缺少 id 时才退回 name 兜底。
+        const key = (a && (a.id || a.name)) || '';
+        return normalizeSelectorName(key) === normalizeSelectorName(name);
     });
 }
 
 /** 判断 model 标识（providerID/modelID）是否在当前 /provider 列表中（精确相等或规范化后相等）。
- *  API 列表尚未加载时返回 true，避免误拦正常发送。 */
+ *  发送前校验的严格语义：列表尚未加载（空）时返回 false——「必须存在于当前列表」
+ *  才允许发送，否则调用方回退默认（不切换模型）。 */
 export function isKnownModelId(id) {
     if (!id) return false;
     const list = store.modelList || [];
-    if (!list.length) return true;
+    if (!list.length) return false;
     return list.some(function (m) {
         return normalizeSelectorName(m && m.value) === normalizeSelectorName(id);
     });
@@ -78,6 +85,60 @@ export function resolveKnownValue(list, value, valueGetter) {
         if (candidate && normalizeSelectorName(candidate) === target) return candidate;
     }
     return '';
+}
+
+// ============================
+// Agent / Model 手动选择标记（per-session）
+// ============================
+// 背景（真机 bug）：老会话消息历史里残留的失效 agent 名（插件改名前的
+// 「Sisyphus - Ultraworker」）会在打开会话时被同步回填到选择器；用户随后手动改选
+// 有效项（如 build），但只要发生「切走再切回 / 点击已打开的会话 / 事件驱动重建」，
+// 历史同步就会再次覆盖手动选择，发送出去的是旧名，服务端报 Agent not found。
+// 这里为每个会话记录用户的手动选择：本会话内任何历史同步不得覆盖，
+// 切换会话时按各会话自己的标记恢复。
+
+/** 记录「用户在当前会话手动选择了某类选择器」。
+ *  只能由选择器 change 监听调用；value 允许空串（选「默认」也是有效的手动选择）。
+ *  @param {'agent'|'model'|'variant'} kind
+ *  @param {string} value 手动选择的值 */
+export function markManualSelection(kind, value) {
+    const sid = store.currentSessionId || '';
+    if (!sid) return; // 未打开会话时的手动选择不挂到任何会话上（新建会话发送时仍会生效）
+    if (!store.manualSelectionBySession[sid]) store.manualSelectionBySession[sid] = {};
+    store.manualSelectionBySession[sid][kind] = value == null ? '' : String(value);
+}
+
+/** 当前会话在指定选择器上是否存在手动选择标记。
+ *  发送端「手选优先」判定用：当 /agent、/model 列表数据不可用（尚未就绪或
+ *  被异步清空）时，手选值不得被严格校验误判回退——以用户最后操作为准照发；
+ *  而无标记（历史回填）的值仍走保守回退，防止失效旧名漏出。 */
+export function hasManualSessionSelection(kind) {
+    const sid = store.currentSessionId || '';
+    if (!sid) return false;
+    const manual = (store.manualSelectionBySession || {})[sid] || null;
+    return !!(manual && Object.prototype.hasOwnProperty.call(manual, kind));
+}
+
+/** 切换会话时恢复该会话的选择上下文到 store 与下拉框：
+ *  - 该会话有手动选择标记 → 恢复标记值（手动选择优先于历史回填）；
+ *  - 无标记 → 清空，等待该会话历史同步（render.js 的 doUpdateModelInfo）回填。
+ *  三个选择器（agent / model / variant）口径一致，保证「显示 = 即将发送的值」。
+ *  @param {string} sessionID 目标会话 ID */
+export function restoreSessionSelection(sessionID) {
+    const sid = sessionID || '';
+    const manual = sid ? ((store.manualSelectionBySession || {})[sid] || null) : null;
+    const pick = function (kind) {
+        return (manual && Object.prototype.hasOwnProperty.call(manual, kind)) ? manual[kind] : '';
+    };
+    store.selectedAgent = pick('agent');
+    store.selectedModel = pick('model');
+    store.selectedVariant = pick('variant');
+    const agentSel = document.getElementById('ocAgentSelect');
+    const modelSel = document.getElementById('ocModelSelect');
+    const variantSel = document.getElementById('ocVariantSelect');
+    if (agentSel) agentSel.value = store.selectedAgent;
+    if (modelSel) modelSel.value = store.selectedModel;
+    if (variantSel) variantSel.value = store.selectedVariant;
 }
 
 /** 模型 ID（providerID/modelID）→ 显示名（providerID/name）；查不到时原样返回。

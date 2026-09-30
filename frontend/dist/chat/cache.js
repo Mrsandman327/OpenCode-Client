@@ -106,6 +106,18 @@ export function mergeMessage(existing, incoming) {
 export function mergePart(existing, incoming) {
     if (!existing) return incoming;
     const merged = { ...existing, ...incoming };
+    // state 需要浅合并而不是整体替换：适配层把一次工具调用拆成多次 part 更新
+    // （input.started 给 time.start、called 给 input、success 给 time.end/output），
+    // 整体替换会把先到的字段抹掉（表现为工具卡片没有用时、输入消失）。
+    // time 再深一层：start 与 end 分别来自不同事件。
+    if (existing.state && incoming.state &&
+        typeof existing.state === 'object' && typeof incoming.state === 'object') {
+        const state = { ...existing.state, ...incoming.state };
+        if (existing.state.time || incoming.state.time) {
+            state.time = { ...(existing.state.time || {}), ...(incoming.state.time || {}) };
+        }
+        merged.state = state;
+    }
     for (const field of ['text', 'content']) {
         const oldText = typeof existing[field] === 'string' ? existing[field] : '';
         const newText = typeof incoming[field] === 'string' ? incoming[field] : '';

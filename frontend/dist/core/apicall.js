@@ -41,7 +41,14 @@ export const api = new Proxy({}, {
                 const requestBody = requestData  ? JSON.stringify(requestData) : '';
                 const result = await api.OpenCodeAPI(requestMethod,requestPath,requestBody);
                 if (!result.success) {
-                    throw new Error(result.error || result.body || `HTTP ${result.status}`);
+                    // 抛错时带上状态码与响应体（附加属性，向后兼容）：
+                    // 调用方（如 sendPrompt）需要把 HTTP 错误码与 v2 错误体
+                    // （{"kind":"Payload","message":"..."}）解析成人话展示给用户，
+                    // 否则「发送失败」只有一句无法定位原因的文本。
+                    const err = new Error(result.error || result.body || `HTTP ${result.status}`);
+                    err.status = result.status;
+                    err.body = result.body;
+                    throw err;
                 }
                 if (!result.body) return null;
                 if(origPath === '/provider'){

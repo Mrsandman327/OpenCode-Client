@@ -512,6 +512,9 @@ export async function stopWeb() {
         store.selectedVariant = '';
         store.agentModelSelectorsLoaded = false;
         store.agentModelSyncedSession = '';
+        // 各会话的手动选择标记随服务停止一并清空：会话列表/选择器都已被重置，
+        // 标记若残留会在下次连接后把旧值恢复到选择器里（旧服务的数据不应跨实例继承）。
+        store.manualSelectionBySession = {};
         ['ocAgentSelect', 'ocModelSelect', 'ocVariantSelect'].forEach(function(id) {
             var sel = document.getElementById(id);
             if (sel) sel.value = '';

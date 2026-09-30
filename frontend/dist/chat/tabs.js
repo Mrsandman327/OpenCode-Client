@@ -10,7 +10,7 @@
 // ============================================================
 
 import { store } from '../core/state.js';
-import { escapeHtml, getTabMessagesEl, ensureTabMessagesEl, getCachedMessages, updateModelInfo, refreshServiceStatus } from '../core/utils.js';
+import { escapeHtml, getTabMessagesEl, ensureTabMessagesEl, getCachedMessages, updateModelInfo, restoreSessionSelection, refreshServiceStatus } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { updateScrollBottomButton, updateSendButton } from './render.js';
 import { loadSessionStatuses } from './events.js';
@@ -142,7 +142,11 @@ export function switchTab(sessionID) {
     updateTreeActiveSession();
 
     // activateTabContainer 会触发加载，由 renderMessages → doUpdateModelInfo 完成同步。
+    // 切会话流程：先恢复该会话自己的选择上下文（有手动选择的会话恢复手选值；
+    // 无手动选择的会话清空，随后由本会话历史同步一次）。历史同步（doUpdateModelInfo）
+    // 不会覆盖 manualSelectionBySession 里已标记的项。
     store.agentModelSyncedSession = '';
+    restoreSessionSelection(sessionID);
     updateModelInfo(getCachedMessages(sessionID));
 
     // 标题、目录路径更新

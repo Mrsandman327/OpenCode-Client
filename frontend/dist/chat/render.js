@@ -11,6 +11,9 @@
 
 import { store } from '../core/state.js';
 import { escapeHtml, getActiveMessagesEl, showToast, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler, modelDisplayLabel, resolveKnownValue } from '../core/utils.js';
+// isInternalInstructionMessage：识别服务端注入的内部指令/合成消息（如 "Instructions updated:" 的
+// Code Mode 目录），只在渲染层跳过（数据仍保留在缓存），判定依据见 v2compat.js 的函数注释。
+import { isInternalInstructionMessage } from '../core/v2compat.js';
 import { api } from '../core/apicall.js';
 import { updateUserNav } from './search.js';
 
@@ -138,7 +141,11 @@ export function buildMessageNode(item) {
     body.className = 'oc-message-parts';
     // 渲染前按 part 自身顺序修正：不依赖 SSE 事件到达顺序（Web 端可能乱序）
     const partList = sortParts(Array.isArray(parts) ? parts : [parts]);
-    const messageErrorText = info.error?.message || info.error?.data?.message || '';
+    // 兼容两种 error 形态：v2 适配层把消息 error 规范为字符串（errorText），
+    // 而旧数据可能是 {message} 对象——字符串必须能读出，否则服务端已记录的错误不可见。
+    const messageErrorText = typeof info.error === 'string'
+        ? info.error
+        : (info.error?.message || info.error?.data?.message || '');
     if (role === 'assistant' && messageErrorText) {
         const errEl = document.createElement('div');
         errEl.className = 'oc-part error-msg';
@@ -203,7 +210,11 @@ export function buildMessageNode(item) {
  */
 export function renderMessages(items, targetBox) {
     const box = targetBox || getActiveMessagesEl();
-    const sourceList = (items || []).map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
+    const sourceList = (items || []).map(normalizeMessageItem)
+        .filter(item => !isInternalUserMessage(item))
+        // 内部指令/合成消息：只在渲染层跳过（原始数据保留在缓存/接口，便于排查），
+        // 判定条件见 v2compat.js 的 isInternalInstructionMessage 注释。
+        .filter(item => !isInternalInstructionMessage(item));
     const list = sourceList; // 分页加载：已加载消息全量渲染（不再本地截断）
 
     if (store.userScrolling) {
@@ -213,7 +224,13 @@ export function renderMessages(items, targetBox) {
 
     const scrollState = captureScrollState(box);
     if (!list.length) {
-        box.innerHTML = '<div class="oc-empty">该会话暂无消息</div>';
+        // 空列表也要给「执行失败」留宿主：若该会话有 sessionErrors（如 execution.failed
+        // 早于任何 step、服务端未落 assistant 卡片），先渲染错误行，再回退空态提示。
+        box.innerHTML = '';
+        appendSessionErrorRowIfNeeded(box, list);
+        if (!box.childElementCount) {
+            box.innerHTML = '<div class="oc-empty">该会话暂无消息</div>';
+        }
         store.lastMessageCount = 0;
         store.lastSourceMessageCount = 0;
         doUpdateModelInfo(null);
@@ -263,6 +280,8 @@ export function renderMessages(items, targetBox) {
     list.forEach(item => {
         box.appendChild(buildMessageNode(item));
     });
+    // 执行失败的兜底错误行（详见 appendSessionErrorRowIfNeeded 注释）
+    appendSessionErrorRowIfNeeded(box, list);
 
     doUpdateModelInfo(items);
     restoreScroll(box, scrollState, false);
@@ -272,10 +291,42 @@ export function renderMessages(items, targetBox) {
 
 }
 
+/**
+ * 会话执行失败的兜底错误行。
+ *
+ * 背景：session.error（execution.failed / step.failed 等）会写入 store.sessionErrors；
+ * 若服务端尚未落 assistant 卡片（失败早于任何 step），消息列表末尾就是用户消息，
+ * 错误在消息区没有宿主——buildMessageNode 的 sessionErrors 分支只在「已有 assistant
+ * 空卡片」时才生效。这里在列表末尾追加一条错误行，保证失败在消息区可见。
+ * 列表末尾是 assistant 卡片时跳过（错误由卡片自身分支展示，避免重复）。
+ */
+function appendSessionErrorRowIfNeeded(box, list) {
+    const sid = (box && box.dataset && box.dataset.tab) || store.currentSessionId;
+    if (!sid || !hasSessionError(sid)) return;
+    const last = list && list.length ? list[list.length - 1] : null;
+    const lastRole = last ? ((last.info || last).role || '') : '';
+    if (lastRole === 'assistant') return;
+    const node = document.createElement('div');
+    node.className = 'oc-message assistant';
+    const body = document.createElement('div');
+    body.className = 'oc-message-parts';
+    const errEl = document.createElement('div');
+    errEl.className = 'oc-part error-msg';
+    errEl.textContent = '模型调用失败：' + (store.sessionErrors[sid] || '未知错误，请检查 opencode 提供商配置');
+    body.appendChild(errEl);
+    node.appendChild(body);
+    box.appendChild(node);
+}
+
 
 /** 从消息历史中同步最新 assistant 使用的 Agent/Model 到下拉框。
  *  原为 export，现改内部实现并由 core/utils.js 的 setUpdateModelInfoHandler 注册暴露，
- *  service.js / tree.js 从 core 层调用（打破 service/tree ↔ render 循环依赖）。 */
+ *  service.js / tree.js 从 core 层调用（打破 service/tree ↔ render 循环依赖）。
+ *
+ *  覆盖规则（真机 bug 修复）：
+ *  - 用户在**本会话**内手动选择过的项（store.manualSelectionBySession[sessionID]）
+ *    绝不被历史覆盖——包括「切走再切回 / 点击已打开会话」触发的重新同步；
+ *  - 未手动选择过的项，按该会话历史同步一次（agentModelSyncedSession 守卫防重复）。 */
 function doUpdateModelInfo(items) {
     const agentSel = document.getElementById('ocAgentSelect');
     const modelSel = document.getElementById('ocModelSelect');
@@ -302,6 +353,13 @@ function doUpdateModelInfo(items) {
     // 历史里没有可用信息：保持现状，等后续渲染再尝试同步
     if (!agent && !model) return;
 
+    // 该会话的手动选择标记：被标记的项不允许被历史覆盖
+    // （切换会话时由 restoreSessionSelection 决定是否带上标记；无标记项照常同步）
+    const manual = sessionID ? ((store.manualSelectionBySession || {})[sessionID] || null) : null;
+    const isManual = function (kind) {
+        return !!(manual && Object.prototype.hasOwnProperty.call(manual, kind));
+    };
+
     // API 列表未加载时无法校验，退化为沿用历史值（保留原「API 加载失败时降级」语义）
     const agentApiLoaded = (store.agentList || []).length > 0;
     const modelApiLoaded = (store.modelList || []).length > 0;
@@ -310,17 +368,26 @@ function doUpdateModelInfo(items) {
 
     // DOM 与 store 同时更新：校验不通过时回退「默认」（空串），绝不让失效名进入请求
     if (agent) {
-        if (nextAgent) ensureSelectOption(agentSel, nextAgent, nextAgent);
-        agentSel.value = nextAgent;
-        store.selectedAgent = nextAgent;
+        if (isManual('agent')) {
+            // 手选优先：不覆盖，仅把下拉对齐回手动值（防重建后显示漂移）
+            agentSel.value = store.selectedAgent || '';
+        } else {
+            if (nextAgent) ensureSelectOption(agentSel, nextAgent, nextAgent);
+            agentSel.value = nextAgent;
+            store.selectedAgent = nextAgent;
+        }
     }
     if (model) {
-        if (nextModel) ensureSelectOption(modelSel, nextModel, nextModel);
-        modelSel.value = nextModel;
-        store.selectedModel = nextModel;
+        if (isManual('model')) {
+            modelSel.value = store.selectedModel || '';
+        } else {
+            if (nextModel) ensureSelectOption(modelSel, nextModel, nextModel);
+            modelSel.value = nextModel;
+            store.selectedModel = nextModel;
+        }
     }
     const variantSel = document.getElementById('ocVariantSelect');
-    if (variant && variantSel) {
+    if (variant && variantSel && !isManual('variant')) {
         variantSel.value = variant;
         // 与 agent / model 同理：variant 选项是 index.html 静态定义的，若历史值与之不匹配，
         // 浏览器会把 select.value 置为空串；此处同步回 store，避免「显示 ≠ 发送」。
@@ -330,9 +397,9 @@ function doUpdateModelInfo(items) {
     if (sessionID) store.agentModelSyncedSession = sessionID;
 }
 
-/** 取 agent 候选项的匹配键（/agent 返回对象的 name 字段） */
+/** 取 agent 候选项的匹配键（以 /agent 返回对象的 **id** 为准，缺 id 才退回 name） */
 function agentValueOf(item) {
-    return item && item.name;
+    return item && (item.id || item.name);
 }
 
 /** 取 model 候选项的匹配键（/provider 展开后的 value，形如 providerID/modelID） */
@@ -441,7 +508,12 @@ export function hasSessionError(id) {
 export function getSessionPendingText(id) {
     const status = store.sessionStatuses[id];
     if (status?.type === 'retry') {
-        return `模型连接失败，正在第 ${status.attempt || 1} 次重试：${status.message || '等待下一次重试'}`;
+        // retry 的 message 是服务端现成的可读文案；补 error 字段兜底
+        // （session.retry.scheduled 合成的事件只保证有 message，防御其它形态只给 error）。
+        const detail = status.message || (status.error
+            ? (typeof status.error === 'string' ? status.error : (status.error.message || ''))
+            : '');
+        return `模型连接失败，正在第 ${status.attempt || 1} 次重试：${detail || '等待下一次重试'}`;
     }
     return '正在等待模型回复...';
 }

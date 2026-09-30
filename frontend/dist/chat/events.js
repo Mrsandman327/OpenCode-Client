@@ -10,7 +10,7 @@
 import { store, currentDir } from '../core/state.js';
 import { api } from '../core/apicall.js';
 import { showToast, escapeHtml, getCachedMessages, safeText, isDesktopRuntime, loadWailsRuntime } from '../core/utils.js';
-import { loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors } from './session.js';
+import { loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity } from './session.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
@@ -32,6 +32,19 @@ let reconnectAttempts = 0;
 function dispatchV2Event(v2event) {
     const v1events = adaptEvent(v2event);
     for (const e of v1events) handleOcEvent(e);
+    // 任何模型/agent 活动都说明本次发送没有石沉大海：刷新无响应看门狗的基线
+    // （基线由 session.js 的发送流程维护，只认本次发送会话的事件，超时后才会提示）。
+    if (isPromptActivityEvent(v2event && v2event.type)) {
+        notePromptActivity(v2event && v2event.data && v2event.data.sessionID);
+    }
+}
+
+/** v2 事件是否代表「模型/agent 有活动」——用于取消发送后的无响应看门狗。
+ *  含 text/reasoning/tool/step/execution 全系与重试计划；
+ *  不含 inbox.enqueued（只证明服务端收下了消息，不证明模型可用）。 */
+function isPromptActivityEvent(type) {
+    if (type === 'session.inbox.delivered') return true;
+    return /^session\.(text|reasoning|tool|step|execution|retry|usage)\./.test(type || '');
 }
 
 /** 同类提示节流窗口（毫秒）：避免断开/重连提示在短时间内反复弹出刷屏 */
@@ -166,7 +179,12 @@ export function handleOcEvent(event) {
     }
 
     if (type === 'session.error' && sid && props.error) {
-        store.sessionErrors[sid] = typeof props.error === 'string' ? props.error : (props.error.message || safeText(props.error));
+        const message = typeof props.error === 'string' ? props.error : (props.error.message || safeText(props.error));
+        store.sessionErrors[sid] = message;
+        // 让失败立刻可见：消息区的错误卡片可能因「服务端尚未落 assistant 卡片」而没有宿主
+        // （例如 execution.failed 早于任何 step），且自动重试会连续触发失败事件。
+        // 用节流 toast 保证第一时刻有提示、又不刷屏；持久错误行由 render.js 兜底渲染。
+        showThrottledToast('session-error-' + sid, '执行失败: ' + String(message).replace(/\s+/g, ' ').slice(0, 200), 'error');
         if (sid === store.currentSessionId) loadMessages();
         return;
     }

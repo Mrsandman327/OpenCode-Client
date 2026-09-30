@@ -145,6 +145,13 @@ export const store = {
      *  打开会话后只在首次同步时从消息历史回填选择器；用户在当前会话内手动选择后
      *  同样写入本字段，避免后续重渲染（SSE 刷新 / 滚动回填）覆盖用户的选择。 */
     agentModelSyncedSession: '',
+    /** 每个会话的手动 Agent/Model 选择标记：{ [sessionID]: { agent?: string, model?: string } }。
+     *  键存在 = 用户在该会话内手动改过对应选择器，此后该会话内**任何**历史同步/事件回填
+     *  都不得覆盖该项（见 render.js 的 doUpdateModelInfo）；切换会话时按各会话自己的
+     *  标记恢复选择（见 core/utils.js 的 restoreSessionSelection），切走再切回不丢失。
+     *  与 agentModelSyncedSession 的区别：后者是「本会话是否已同步过」的一次性守卫，
+     *  本字段记录「手动选择本身」，跨 Tab 切换持久保留，直到服务停止时清空。 */
+    manualSelectionBySession: {},
 
     // ============================
     // 子任务面板
