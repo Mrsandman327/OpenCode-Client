@@ -7,10 +7,10 @@
 //       chat/sidepanel.js（scheduleSubtaskExtraction）、chat/tree.js（buildTree, wasSessionDeletedLocally）
 // ============================================================
 
-import { store } from '../core/state.js';
+import { store, currentDir } from '../core/state.js';
 import { api } from '../core/apicall.js';
 import { showToast, escapeHtml, getCachedMessages, safeText, isDesktopRuntime, loadWailsRuntime } from '../core/utils.js';
-import { loadMessages, refreshSessionTitle, selectSession } from './session.js';
+import { loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors } from './session.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
@@ -140,6 +140,18 @@ export function handleOcEvent(event) {
     const sid = props.sessionID || props.sessionId || props.info?.sessionID || props.part?.sessionID || store.currentSessionId;
 
     if (type === 'server.connected' || type === 'server.heartbeat') return;
+
+    // 模型/供应商目录变化：官方客户端在收到这些事件时会「invalidate + 重新 sync」
+    // （见 opencode v2 源码 packages/client/src/solid/data.ts，model.updated / provider.updated /
+    //  credential.* / integration.updated 分支）。这里做同样的重拉——这是获取模型列表的
+    // 官方机制：初次拉取可能早于插件初始化完成（/api/model 官方描述即 "snapshot may precede
+    //  initial plugin settlement"），靠事件驱动补齐；重拉只更新、不清空已有列表。
+    if (type === 'model.updated' || type === 'provider.updated' ||
+        type === 'credential.updated' || type === 'credential.switched' ||
+        type === 'integration.updated') {
+        loadAgentModelSelectors(currentDir(), true);
+        return;
+    }
 
     if (type.includes('permission')) {
         if (type.includes('asked')) {

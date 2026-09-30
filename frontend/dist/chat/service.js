@@ -85,7 +85,10 @@ export async function loadServiceStatus() {
     try {
         // v2：/api/mcp（MCP 运行时状态）与 /api/plugin（插件运行时状态）；
         // v1 的 /lsp 已移除——OpenCode v2 不再运行语言服务器、不暴露 LSP 工具，故不查询 lsp 状态。
-        const dir = currentDir();
+        // 目录来源：不再依赖「当前会话」，改为**服务端默认 location**
+        // （GET /api/location 不带 location 参数，即官方文档的 "the server default location"）。
+        // 这样启动/连接服务后即可取模型与 MCP/插件状态，与是否打开会话解耦。
+        const dir = await resolveServiceDefaultDir();
         const web = await api.GetWebStatus(config.serviceHost, resolveServicePort()).catch(() => null);
         if (web) {
             store.webRunning = !!web.running;
@@ -100,6 +103,8 @@ export async function loadServiceStatus() {
         // 首次查询常常为空 —— 故先查一次，再安排有限次延迟重试。
         const effectiveDir = store.webRunning ? dir : '';
         await fetchMcpPlugin(effectiveDir);
+        // agent/model 与 MCP 同一时机：启动/连接服务时取一次（force 跳过同目录守卫）
+        loadAgentModelSelectors(effectiveDir, true);
         updateWebUI();
         renderServiceStatus();
         scheduleMcpPluginRefresh(effectiveDir);
@@ -110,6 +115,26 @@ export async function loadServiceStatus() {
         store.pluginStatus = null;
         renderServiceStatus();
     }
+}
+
+// 服务端默认 location（GET /api/location，不带 location 参数），启动/连接服务时解析并缓存。
+// 为什么用它：v2 的 agent / model / mcp / plugin 都要求 location[directory]；用「默认 location」
+// 而不是「当前会话目录」，可以让这些状态在**服务启动/连接后立即取到**，且与是否打开会话解耦。
+// 停止服务时清空，下次启动重新解析。
+let serviceDefaultDir = '';
+
+async function resolveServiceDefaultDir() {
+    if (serviceDefaultDir) return serviceDefaultDir;
+    try {
+        const res = await api.OpenCodeCall('GET', '/api/location', null, '');
+        const obj = unwrap(res) || res || {};
+        const nested = (obj.data && obj.data.directory) || '';
+        const dir = obj.directory || (obj.location && obj.location.directory) || nested || '';
+        serviceDefaultDir = typeof dir === 'string' ? dir.trim() : '';
+    } catch (_) {
+        serviceDefaultDir = '';
+    }
+    return serviceDefaultDir;
 }
 
 /** 查询 MCP 与插件状态（需要 location[directory]；目录为空则跳过，避免回落到服务端 CWD=home）。 */
@@ -481,6 +506,7 @@ export async function stopWeb() {
         // 静态定义的（Minimal/Low/...），清空后无法恢复；只重置选中值即可。
         store.agentList = [];
         store.modelList = [];
+        serviceDefaultDir = '';
         store.selectedAgent = '';
         store.selectedModel = '';
         store.selectedVariant = '';

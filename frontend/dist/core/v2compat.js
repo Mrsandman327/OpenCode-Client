@@ -109,7 +109,9 @@ export function toModelOptions(res) {
         const value = providerID && modelID ? providerID + '/' + modelID : '';
         return {
             value,
-            label: m.name || modelID,
+            // label 带「供应商/」前缀：不同供应商常有同名模型（如各家都有 glm-5.2 / deepseek-v4-pro），
+            // 只显示模型名无法区分，故统一显示为 provider/model 形式（与 value 同构、便于核对）。
+            label: providerID + '/' + (m.name || modelID),
             variants: Array.isArray(m.variants) ? m.variants.map(v => v.id) : [],
             enabled: m.enabled !== false,
         };

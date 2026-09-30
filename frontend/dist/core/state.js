@@ -200,6 +200,9 @@ export function currentDir() {
     const sid = store.currentSessionId;
     const map = (typeof window !== 'undefined' && window._sessionMap) || {};
     const info = sid ? map[sid] : null;
+    // 仅返回「当前会话」或「上次加载选择器所用」的目录；无会话时为空串。
+    // 调用方（agent/model/MCP/插件等需要 location[directory] 的接口）在目录为空时
+    // 会跳过请求——这与 MCP 的既有行为一致，避免回落到服务端 CWD=home 被登记成项目。
     const dir = (info && info.directory) || store.agentModelSelectorsDir || '';
     return typeof dir === 'string' ? dir.trim() : '';
 }

@@ -6,7 +6,7 @@
 //       chat/sidepanel.js（extractSubtaskSummaries, renderSubtaskPanel）、chat/events.js（loadSessionStatuses）、
 //       chat/render.js（isSessionBusy, smartScroll, updateSendButton, renderMessages）、chat/tree.js（rememberKnownDir）、
 //       chat/search.js（resetUserNav）、chat/cache.js（cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages）
-//       filebrowser/browser.js（openFileBrowserModal）——尚未改造，保留全局守卫调用
+//       filebrowser/browser.js（openFileBrowserStandaloneFor）——保留全局守卫调用
 // 解环说明：updateSendButton 已移入 chat/render.js；pendingWorkDir 已移入 core/state.js 的 store；
 //           通过 setTabActivationHandler 向 tabs.js 注入会话激活加载回调，避免 tabs↔session 循环依赖。
 // ============================================================
@@ -22,7 +22,7 @@ import { isSessionBusy, smartScroll, updateSendButton, renderMessages } from './
 import { rememberKnownDir } from './tree.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
 import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
-import { openFileBrowserModal, openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
+import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 // 知识库 @ 引用：collectKnowledgeRefs 取引用全文注入发送 parts，clearKnowledgeRefs 在发送成功后清空引用区。
 // 该模块不识 session.js，无循环依赖。
 import { collectKnowledgeRefs, clearKnowledgeRefs, hasKnowledgeRefs } from './knowledge-ref.js';
@@ -33,8 +33,19 @@ import { unwrap, unwrapList, toModelOptions, adaptMessages, prevCursor, toPrompt
 // 全局 Agent/Model 选择器
 // ============================
 
-/** 加载 Agent/Model 下拉选择器（从 API 获取可用列表） */
-export async function loadAgentModelSelectors(dir) {
+// agent/model 冷启动重试：v2 的 /api/agent、/api/model 按 location **逐步就绪**——
+// 首次可能为空、或只返回「已加载完的部分供应商」，稍后才补齐（实测同一目录先 29 条、
+// 紧接着 0 条、随后又 29 条）。故不能把首次结果当成完整结果缓存。
+// 这里用「数量是否仍在增长」判断未就绪：为空或仍在增长就短延迟复查，稳定后停止。
+let agentModelRetryAttempt = 0;
+let agentModelRetryTimer = 0;
+let agentModelLastCounts = { agents: -1, models: -1 };
+
+/** 加载 Agent/Model 下拉选择器（从 API 获取可用列表）
+ *  @param {string} dir  目录（v2 的 agent 列表按 location 取）
+ *  @param {boolean} [force] 为 true 时忽略「同目录已加载」守卫强制重拉
+ *         （用于 model.updated / provider.updated 等事件驱动的刷新） */
+export async function loadAgentModelSelectors(dir, force) {
     const directory = (dir || '').trim();
     // 无目录时不请求：v2 的 /api/agent、/api/model 需要 location[directory]，
     // 缺省会退回服务端 CWD（共享服务为 home），把 home 误登记为项目。
@@ -43,8 +54,15 @@ export async function loadAgentModelSelectors(dir) {
         store.modelList = [];
         return;
     }
+    // 目录变化：取消旧目录的重试定时器并复位计数，避免旧目录的延迟回调覆盖新目录数据
+    if (store.agentModelSelectorsDir && store.agentModelSelectorsDir !== directory) {
+        clearTimeout(agentModelRetryTimer);
+        agentModelRetryAttempt = 0;
+        agentModelLastCounts = { agents: -1, models: -1 };
+    }
     // 同目录已加载则跳过；目录变了才重新拉取（v2 的 agent/model 是项目级配置）
-    if (store.agentModelSelectorsLoaded && store.agentModelSelectorsDir === directory) return;
+    // force=true 时忽略该守卫（事件驱动的强制刷新）
+    if (!force && store.agentModelSelectorsLoaded && store.agentModelSelectorsDir === directory) return;
     try {
         // v2：/api/agent、/api/model 返回 {location, data:[...]} 信封，需拆包。
         // 注意模型列表必须用 /api/model——v2 的 /api/provider 不再内嵌 models 字段。
@@ -52,10 +70,27 @@ export async function loadAgentModelSelectors(dir) {
             api.OpenCodeCall('GET', '/api/agent', null, directory).catch(() => []),
             api.OpenCodeCall('GET', '/api/model', null, directory).catch(() => []),
         ]);
-        store.agentList = unwrapList(agentsRes);
-        store.modelList = toModelOptions(modelsRes);
+        const agents = unwrapList(agentsRes);
+        const models = toModelOptions(modelsRes);
+        store.agentList = agents;
+        store.modelList = models;
         store.agentModelSelectorsLoaded = true;
         store.agentModelSelectorsDir = directory;
+        // 懒加载冷启动：为空、或数量相比上次仍在增长（说明其余供应商尚未就绪）时复查，
+        // 直到连续一轮不再增长（视为已齐全）或达到上限，避免下拉停在「部分模型」状态。
+        const grew = agents.length > agentModelLastCounts.agents || models.length > agentModelLastCounts.models;
+        const empty = !agents.length || !models.length;
+        agentModelLastCounts = { agents: agents.length, models: models.length };
+        if ((empty || grew) && agentModelRetryAttempt < 8) {
+            agentModelRetryAttempt++;
+            clearTimeout(agentModelRetryTimer);
+            agentModelRetryTimer = setTimeout(() => {
+                store.agentModelSelectorsLoaded = false; // 复位守卫，允许同目录重新拉取
+                loadAgentModelSelectors(directory);
+            }, 2500);
+        } else {
+            agentModelRetryAttempt = 0;
+        }
     } catch (_) {
         store.agentList = [];
         store.modelList = [];
@@ -306,8 +341,6 @@ export async function selectSession(id) {
     openSessionTab(id, info?.title);
     store.currentSessionId = id;
     store.activeTabId = id;
-    // 会话目录已确定：刷新服务状态面板的 MCP/插件（它们按 location[directory] 作用域）
-    refreshServiceStatus();
     // 同步项目树高亮
     updateTreeActiveSession();
     // 重新渲染 Tab 栏，确保新 tab 呈激活态（openSessionTab 内部已渲染一次，但此时 activeTabId 还未更新）
@@ -317,9 +350,6 @@ export async function selectSession(id) {
     store.lastMessageCount = 0;
     store.messageLoadSeq++;
     store.questionCustomInput = ''; // 清除 question 自定义输入
-    // 会话目录可能变了：v2 的 agent/model 列表按目录取项目级配置，目录不同则重载
-    // （loadAgentModelSelectors 内部按目录去重，同目录不会重复请求）
-    loadAgentModelSelectors(info?.directory || '');
     // 标记已读：v2 的 /api/session/{id}/view 用 time.idle 原值做对账凭据，
     // 缺了返回 400。失败只记日志，不阻断会话打开——已读是附加语义。
     markSessionViewed(id, info?.idle);
@@ -1072,8 +1102,6 @@ export async function sendPrompt() {
                 document.getElementById('ocSideDirPath').textContent = sessionDir;
                 store.currentSessionId = session.id || session.ID;
                 store.activeTabId = store.currentSessionId;
-                // 新会话目录已确定：刷新服务状态面板的 MCP/插件
-                refreshServiceStatus();
                 // 新建会话自动打开 Tab
                 var newTitle = (window._sessionMap && window._sessionMap[store.currentSessionId] && window._sessionMap[store.currentSessionId].title) || store.currentSessionId;
                 openSessionTab(store.currentSessionId, newTitle);

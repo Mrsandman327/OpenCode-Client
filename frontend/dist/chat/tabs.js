@@ -4,7 +4,7 @@
 //       chat/mobile.js（isMobileTreeMode）、chat/render.js（updateScrollBottomButton, updateSendButton）、
 //       chat/events.js（loadSessionStatuses）、chat/sidepanel.js（extractSubtaskSummaries, renderSubtaskPanel）、
 //       chat/search.js（resetUserNav, updateUserNav）
-//       filebrowser/browser.js（openFileBrowserModal）——尚未改造，保留全局守卫调用
+//       filebrowser/browser.js（openFileBrowserStandaloneFor）——保留全局守卫调用
 // 解环说明：本文件不得 import chat/session.js。原 activateTabContainer 中 loadMessages() 调用
 //           改为回调注入 tabActivationHandler，由 session.js 在模块加载时通过 setTabActivationHandler 注入。
 // ============================================================
@@ -16,7 +16,7 @@ import { updateScrollBottomButton, updateSendButton } from './render.js';
 import { loadSessionStatuses } from './events.js';
 import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
 import { resetUserNav, updateUserNav } from './search.js';
-import { openFileBrowserModal, openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
+import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { updateTreeActiveSession } from '../core/utils.js';
 
 /**
