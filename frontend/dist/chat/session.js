@@ -606,15 +606,38 @@ export async function loadMessages(sessionID) {
         // desc 顺序下 cursor.next 指向更早（cursor.previous 指向更新，不能用于加载历史）
         if (!sessionPaging[targetId]) sessionPaging[targetId] = {};
         sessionPaging[targetId].cursor = nextCursor(res);
-        // 校正缓存：缓存里可能已含向上分页加载的更早历史，直接整体覆盖会把它们抹掉，
-        // 并使“加载更多”因 loadedAll 残留而永久失效。因此以 API 首条消息为锚点，
-        // 只替换「锚点及之后」的最新一段，保留锚点之前的更早历史；
-        // 缓存为空 / 无历史（锚点就是首条）/ 找不到锚点时，整体覆盖即可（等价一次全量刷新）。
-        const firstId = String(incoming[0]?.info?.id || incoming[0]?.id || '');
-        const anchorIdx = firstId
-            ? existing.findIndex(item => String(item.info?.id || item.id || '') === firstId)
-            : -1;
-        cacheMessages(targetId, anchorIdx > 0 ? existing.slice(0, anchorIdx).concat(incoming) : incoming);
+        // 校正缓存：缓存里可能已含向上分页加载的更早历史，直接整体覆盖会把它们抹掉
+        // （并使“加载更多”因 loadedAll 残留而永久失效）。以 API 首条消息为锚点：
+        //  - 找得到（anchorIdx>0）→ 保留锚点之前的更早历史 + 新页；
+        //  - 锚点就是缓存首条（=0）→ 无更早历史，直接整体覆盖；
+        //  - 找不到（窗口已被新消息错开，例如期间新增 ≥20 条）→ **按时间合并**：
+        //    保留缓存中早于新页首条的全部条目，再拼新页，按 id 去重并保持旧→新，
+        //    避免"刷新把已滚动加载出来的历史吞掉"。
+        const idOf = (it) => String(it?.info?.id || it?.id || '');
+        const createdOf = (it) => Number(it?.info?.time?.created ?? it?.time?.created ?? 0);
+        const firstId = idOf(incoming[0]);
+        const anchorIdx = firstId ? existing.findIndex(it => idOf(it) === firstId) : -1;
+        let merged;
+        if (anchorIdx > 0) {
+            merged = existing.slice(0, anchorIdx).concat(incoming);
+        } else if (anchorIdx === 0) {
+            merged = incoming;
+        } else {
+            const firstTime = incoming.length ? createdOf(incoming[0]) : 0;
+            const older = firstTime ? existing.filter(it => createdOf(it) < firstTime) : [];
+            const seen = new Set();
+            merged = older
+                .concat(incoming)
+                .sort((a, b) => createdOf(a) - createdOf(b))
+                .filter(it => {
+                    const k = idOf(it);
+                    if (!k || seen.has(k)) return false;
+                    seen.add(k);
+                    return true;
+                });
+        }
+        // 新页为空（极端情况）时保持缓存不动，避免把已加载历史清空
+        if (incoming.length) cacheMessages(targetId, merged);
         // 仅在"全新加载"路径判断是否已全部加载，避免覆盖有分页历史会话的分页状态。
         // 判据只看**服务端是否签发续翻游标**：服务端只要页非空就会签发 next（到顶的空页会在
         // loadOlderMessages 里被识别）；不能再用解析后的条数（解析层会丢弃 idle 等边界消息）。
