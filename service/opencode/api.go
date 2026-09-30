@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -297,18 +298,46 @@ func AnswerQuestion(sessionID string, answers [][]string) model.APIResult {
 		return model.APIResult{Error: err.Error()}
 	}
 
-	// 按字段顺序把二维答案数组映射为 {fieldKey: [选中的值]}
+	// 按字段类型构造答案：v2 的 Form.Value = string | number | boolean | string[]，
+	// 其中**只有 multiselect 字段接受数组**；string/number/integer/boolean/external 都必须是标量。
+	// 此前无条件提交 []string，导致单选类字段被判 FormInvalidAnswerError —— 也就是"提问无法提交"。
+	// 跳过（前端传空数组）的字段：multiselect 提交空数组，其余类型**省略该键**（交给服务端按
+	// required 语义校验，避免送出类型非法的空值）。
 	answer := make(map[string]any, len(form.Fields))
 	for i, field := range form.Fields {
 		key, _ := field["key"].(string)
 		if key == "" {
 			continue
 		}
-		if i < len(answers) && len(answers[i]) > 0 {
-			answer[key] = answers[i]
-		} else if i < len(answers) {
-			// 跳过的题提交空数组（v2 的 Form.Value 允许 string[]）
-			answer[key] = []string{}
+		ftype, _ := field["type"].(string)
+		var vals []string
+		if i < len(answers) {
+			vals = answers[i]
+		}
+		if ftype == "multiselect" {
+			if vals == nil {
+				vals = []string{}
+			}
+			answer[key] = vals
+			continue
+		}
+		if len(vals) == 0 {
+			continue // 跳过该题
+		}
+		first := vals[0]
+		switch ftype {
+		case "number", "integer":
+			if n, err := strconv.Atoi(first); err == nil {
+				answer[key] = n
+			} else if f, err := strconv.ParseFloat(first, 64); err == nil {
+				answer[key] = f
+			} else {
+				answer[key] = first
+			}
+		case "boolean":
+			answer[key] = (first == "true" || first == "1")
+		default:
+			answer[key] = first
 		}
 	}
 

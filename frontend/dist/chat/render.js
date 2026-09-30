@@ -848,20 +848,24 @@ export function renderQuestionTool(part) {
                 btn.className = 'oc-question-option-btn';
                 const label = (opt.label || '');
                 const desc = opt.description || '';
+                // v2 的选项是 {value,label,description}：**提交必须用 value**（label 仅供展示）。
+                // 老数据/工具形态可能只有 label，此时兜底用 label。
+                const optValue = String(opt.value !== undefined && opt.value !== null ? opt.value : label);
                 // 已选该选项时高亮
                 const answered = part.__pendingAnswers[qi];
-                if (answered && answered.indexOf(label) >= 0) btn.classList.add('selected');
+                if (answered && answered.indexOf(optValue) >= 0) btn.classList.add('selected');
                 let btnHtml = `<span class="oc-option-label">${escapeHtml(label)}</span>`;
                 if (desc) btnHtml += `<span class="oc-option-desc">${escapeHtml(desc)}</span>`;
                 btn.innerHTML = btnHtml;
                 // 点击只 toggle 选中状态，不提交、不关闭；直接更新当前 DOM
                 btn.addEventListener('click', () => {
-                    const isMulti = !!q.multiple;
+                    // 多选判据：v2 表单字段用 type === 'multiselect'（老数据可能是 multiple 布尔）
+                    const isMulti = !!(q.multiple || q.type === 'multiselect');
                     let cur = part.__pendingAnswers[qi] || [];
                     if (isMulti) {
-                        cur = cur.indexOf(label) >= 0 ? cur.filter(x => x !== label) : cur.concat([label]);
+                        cur = cur.indexOf(optValue) >= 0 ? cur.filter(x => x !== optValue) : cur.concat([optValue]);
                     } else {
-                        cur = [label];
+                        cur = [optValue];
                         // 单选：清除该问题其他选项的高亮
                         optsDiv.querySelectorAll('.oc-question-option-btn').forEach(function(b) {
                             b.classList.remove('selected');
@@ -869,7 +873,7 @@ export function renderQuestionTool(part) {
                     }
                     part.__pendingAnswers[qi] = cur;
                     // 当前按钮高亮
-                    btn.classList.toggle('selected', cur.indexOf(label) >= 0);
+                    btn.classList.toggle('selected', cur.indexOf(optValue) >= 0);
                     // 更新该问题"已答"提示
                     const answeredHint = qBlock.querySelector('.oc-question-answered-hint');
                     if (cur.length) {
