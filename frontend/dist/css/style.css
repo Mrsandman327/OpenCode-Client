@@ -1921,6 +1921,15 @@ input::placeholder, textarea::placeholder {
     border: 1px solid var(--border);
     border-bottom-left-radius: var(--radius-xs);
 }
+/* 系统消息（压缩标记 / 技能激活 / 合成说明等）：与助手卡片完全一致（靠左）。
+   注意：.oc-message 基类本身没有背景与边框，若不单独给 system 定义，
+   它会显示成一行没有卡片的裸文本。 */
+.oc-message.system {
+    align-self: flex-start;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: var(--radius-xs);
+}
 .oc-message-role {
     font-size: 10px;
     color: var(--text-muted);
