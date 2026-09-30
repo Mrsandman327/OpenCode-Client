@@ -264,6 +264,12 @@ export function serviceHealthClass(health) {
 /** 渲染服务状态面板（包含 Server / MCP / LSP 三栏） */
 export function renderServiceStatus() {
     const box = document.getElementById('ocServices');
+    // 重渲染前记录各分组的展开状态（按下标）。
+    // 本函数会被"MCP/插件重试"等流程反复调用（每 3 秒一次，最多 6 次），
+    // 若每次都按默认 collapsed 重建，用户手动展开的分组就会被复位——
+    // 表现就是"刚展开，过一会儿自己折叠了"。这里保存并在渲染后恢复。
+    const expandedBefore = Array.from(box.querySelectorAll('.oc-service-group'))
+        .map(g => !g.classList.contains('collapsed'));
     box.innerHTML = '';
 
     // ── 服务器 — 始终展开 ──
@@ -422,6 +428,10 @@ export function renderServiceStatus() {
         });
         box.appendChild(pluginSec);
     }
+    // 恢复重渲染前的展开状态（新出现的分组保持默认折叠）
+    box.querySelectorAll('.oc-service-group').forEach(function(g, i) {
+        if (expandedBefore[i]) g.classList.remove('collapsed');
+    });
 }
 
 // ============================

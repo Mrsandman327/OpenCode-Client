@@ -201,11 +201,17 @@ export function buildMessageNode(item) {
     var usageText = '';
     if (role === 'assistant' && info.tokens) {
         var tk2 = info.tokens || {};
-        var inTok2 = Number(tk2.input) || 0;
+        var cacheRead = Number(tk2.cache && tk2.cache.read) || 0;
+        // v2 的 input 只计"未命中缓存"的部分，cache.read 才是命中部分；
+        // 两者相加才是这次请求真实的输入规模。否则同一会话里数字会因缓存命中与否忽大忽小。
+        var inTok2 = (Number(tk2.input) || 0) + cacheRead;
         var outTok2 = Number(tk2.output) || 0;
         var totalTok2 = inTok2 + outTok2 + (Number(tk2.reasoning) || 0);
         if (totalTok2 > 0) {
-            usageText = '输入:' + formatNumber(inTok2) + ' 输出:' + formatNumber(outTok2) + ' 统计:' + formatNumber(totalTok2) + ' tokens';
+            usageText = '输入:' + formatNumber(inTok2)
+                + (cacheRead > 0 ? '(缓存 ' + formatNumber(cacheRead) + ')' : '')
+                + ' 输出:' + formatNumber(outTok2)
+                + ' 统计:' + formatNumber(totalTok2) + ' tokens';
         }
     }
     if ((msgTime || usageText) && (role === 'user' || role === 'assistant')) {
