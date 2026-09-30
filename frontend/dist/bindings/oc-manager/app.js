@@ -21,6 +21,10 @@ import * as jsontext$0 from "../encoding/json/jsontext/models.js";
 // @ts-ignore: Unused imports
 import * as model$0 from "./model/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
  * ActivateCredential 切换当前生效的凭据。
  * @param {string} credentialID
@@ -89,6 +93,17 @@ export function AnswerQuestion(sessionID, answers) {
  */
 export function AppCall(method, args) {
     return $Call.ByID(786695140, method, args);
+}
+
+/**
+ * ApplyFeishuConfig 保存配置并按新配置重启通道。
+ * 
+ * 保存与重启必须一起做：只保存不重启，用户会以为配置已生效。
+ * @param {$models.FeishuConfig} cfg
+ * @returns {$CancellablePromise<void>}
+ */
+export function ApplyFeishuConfig(cfg) {
+    return $Call.ByID(2037265891, cfg);
 }
 
 /**
@@ -297,6 +312,26 @@ export function GetDirEnabledSkills(dir) {
 }
 
 /**
+ * GetFeishuConfig 返回当前配置（供前端展示与编辑）。
+ * @returns {$CancellablePromise<$models.FeishuConfig>}
+ */
+export function GetFeishuConfig() {
+    return $Call.ByID(1399954583).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType12($result);
+    }));
+}
+
+/**
+ * GetFeishuStatus 返回通道状态。
+ * @returns {$CancellablePromise<$models.FeishuStatus>}
+ */
+export function GetFeishuStatus() {
+    return $Call.ByID(959398687).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType13($result);
+    }));
+}
+
+/**
  * GetFrontendWebStatus 返回页面访问服务状态。
  * @param {string} hostname
  * @param {number} port
@@ -304,7 +339,7 @@ export function GetDirEnabledSkills(dir) {
  */
 export function GetFrontendWebStatus(hostname, port) {
     return $Call.ByID(3701122253, hostname, port).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType14($result);
     }));
 }
 
@@ -317,7 +352,7 @@ export function GetFrontendWebStatus(hostname, port) {
  */
 export function GetGitHistory(rootDir, offset, limit) {
     return $Call.ByID(1604680175, rootDir, offset, limit).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType13($result);
+        return $$createType15($result);
     }));
 }
 
@@ -329,7 +364,7 @@ export function GetGitHistory(rootDir, offset, limit) {
  */
 export function GetGitHistoryFiles(rootDir, commitHash) {
     return $Call.ByID(2965185174, rootDir, commitHash).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType14($result);
+        return $$createType16($result);
     }));
 }
 
@@ -342,7 +377,7 @@ export function GetGitHistoryFiles(rootDir, commitHash) {
  */
 export function GetGitHistoryPreview(rootDir, commitHash, path) {
     return $Call.ByID(3997727865, rootDir, commitHash, path).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType15($result);
+        return $$createType17($result);
     }));
 }
 
@@ -354,7 +389,7 @@ export function GetGitHistoryPreview(rootDir, commitHash, path) {
  */
 export function GetGitPreview(rootDir, path) {
     return $Call.ByID(3217409447, rootDir, path).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType16($result);
+        return $$createType18($result);
     }));
 }
 
@@ -365,7 +400,7 @@ export function GetGitPreview(rootDir, path) {
  */
 export function GetGitStatus(rootDir) {
     return $Call.ByID(4123560639, rootDir).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType17($result);
+        return $$createType19($result);
     }));
 }
 
@@ -375,7 +410,7 @@ export function GetGitStatus(rootDir) {
  */
 export function GetGlobalOpenCodeConfig() {
     return $Call.ByID(240158979).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType18($result);
+        return $$createType20($result);
     }));
 }
 
@@ -386,7 +421,7 @@ export function GetGlobalOpenCodeConfig() {
  */
 export function GetImportableSkills(rootDir) {
     return $Call.ByID(1791845888, rootDir).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType20($result);
+        return $$createType22($result);
     }));
 }
 
@@ -396,7 +431,7 @@ export function GetImportableSkills(rootDir) {
  */
 export function GetModelConfig() {
     return $Call.ByID(1396865434).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType22($result);
+        return $$createType24($result);
     }));
 }
 
@@ -419,7 +454,7 @@ export function GetModelList(baseURL, apiKey) {
  */
 export function GetProjectConfigSummary(rootDir) {
     return $Call.ByID(3184254470, rootDir).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType23($result);
+        return $$createType25($result);
     }));
 }
 
@@ -446,7 +481,7 @@ export function GetProviderConfigPath() {
  */
 export function GetProviders() {
     return $Call.ByID(2525123639).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType25($result);
+        return $$createType27($result);
     }));
 }
 
@@ -474,7 +509,7 @@ export function GetSessionContext(sessionID) {
  */
 export function GetSkillConfig() {
     return $Call.ByID(1940673122).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType26($result);
+        return $$createType28($result);
     }));
 }
 
@@ -512,7 +547,7 @@ export function GetSourceDir() {
  */
 export function GetStats() {
     return $Call.ByID(2859423874).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType27($result);
+        return $$createType29($result);
     }));
 }
 
@@ -524,7 +559,7 @@ export function GetStats() {
  */
 export function GetWebStatus(hostname, port) {
     return $Call.ByID(1108731257, hostname, port).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType14($result);
     }));
 }
 
@@ -592,7 +627,7 @@ export function ImportSkill(rootDir, sourcePath, skillName) {
  */
 export function KnowledgeCategories() {
     return $Call.ByID(3574015327).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType29($result);
+        return $$createType31($result);
     }));
 }
 
@@ -612,7 +647,7 @@ export function KnowledgeConvert(req) {
  */
 export function KnowledgeConvertPreview(req) {
     return $Call.ByID(2535064914, req).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType31($result);
+        return $$createType33($result);
     }));
 }
 
@@ -632,7 +667,7 @@ export function KnowledgeDelete(id) {
  */
 export function KnowledgeGet(id) {
     return $Call.ByID(54334893, id).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType33($result);
+        return $$createType35($result);
     }));
 }
 
@@ -642,7 +677,7 @@ export function KnowledgeGet(id) {
  */
 export function KnowledgeList() {
     return $Call.ByID(4043013547).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType34($result);
+        return $$createType36($result);
     }));
 }
 
@@ -673,7 +708,7 @@ export function KnowledgeSaveCategories(cats) {
  */
 export function LaunchWindowsTerminal(mode, webURL, dir) {
     return $Call.ByID(2591073375, mode, webURL, dir).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType14($result);
     }));
 }
 
@@ -695,7 +730,7 @@ export function ListBranches(directory, search, limit) {
  */
 export function ListBrowsableDirs(path) {
     return $Call.ByID(1659078832, path).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType36($result);
+        return $$createType38($result);
     }));
 }
 
@@ -707,7 +742,7 @@ export function ListBrowsableDirs(path) {
  */
 export function ListBrowserFiles(rootDir, path) {
     return $Call.ByID(4238510186, rootDir, path).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType37($result);
+        return $$createType39($result);
     }));
 }
 
@@ -731,7 +766,7 @@ export function ListIntegrations(directory, includeEmpty) {
  */
 export function ListProjectConfigDir(rootDir, category, relPath) {
     return $Call.ByID(1219602019, rootDir, category, relPath).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType38($result);
+        return $$createType40($result);
     }));
 }
 
@@ -750,7 +785,7 @@ export function ListPtys(directory) {
  */
 export function ListSchemes() {
     return $Call.ByID(3224892887).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType40($result);
+        return $$createType42($result);
     }));
 }
 
@@ -866,7 +901,7 @@ export function OpenURL(url) {
  */
 export function ParseConfigContent(content) {
     return $Call.ByID(3729550523, content).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType22($result);
+        return $$createType24($result);
     }));
 }
 
@@ -878,7 +913,7 @@ export function ParseConfigContent(content) {
  */
 export function ReadBrowserFile(rootDir, path) {
     return $Call.ByID(4044319337, rootDir, path).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType41($result);
+        return $$createType43($result);
     }));
 }
 
@@ -890,7 +925,7 @@ export function ReadBrowserFile(rootDir, path) {
  */
 export function ReadBrowserRawBase64(rootDir, path) {
     return $Call.ByID(1199709136, rootDir, path).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType42($result);
+        return $$createType44($result);
     }));
 }
 
@@ -903,7 +938,7 @@ export function ReadBrowserRawBase64(rootDir, path) {
  */
 export function ReadProjectConfigFile(rootDir, category, relPath) {
     return $Call.ByID(46517510, rootDir, category, relPath).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType43($result);
+        return $$createType45($result);
     }));
 }
 
@@ -914,7 +949,7 @@ export function ReadProjectConfigFile(rootDir, category, relPath) {
  */
 export function ReadSchemeEntries(name) {
     return $Call.ByID(3434943730, name).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType22($result);
+        return $$createType24($result);
     }));
 }
 
@@ -984,7 +1019,7 @@ export function SaveBrowserFile(rootDir, path, content) {
  */
 export function SaveProjectConfigFile(rootDir, category, relPath, content) {
     return $Call.ByID(1764389193, rootDir, category, relPath, content).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType43($result);
+        return $$createType45($result);
     }));
 }
 
@@ -1057,6 +1092,14 @@ export function StageFile(rootDir, path) {
 }
 
 /**
+ * @param {$models.FeishuConfig} cfg
+ * @returns {$CancellablePromise<void>}
+ */
+export function StartFeishu(cfg) {
+    return $Call.ByID(4028788637, cfg);
+}
+
+/**
  * StartFrontendWeb 启动页面访问服务。
  * @param {number} port
  * @param {string} hostname
@@ -1064,7 +1107,7 @@ export function StageFile(rootDir, path) {
  */
 export function StartFrontendWeb(port, hostname) {
     return $Call.ByID(3112289795, port, hostname).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType14($result);
     }));
 }
 
@@ -1087,7 +1130,7 @@ export function StartOpenCodeEvents() {
  */
 export function StartOpenCodeWeb(port, hostname, proxy) {
     return $Call.ByID(595414420, port, hostname, proxy).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType14($result);
     }));
 }
 
@@ -1099,8 +1142,16 @@ export function StartOpenCodeWeb(port, hostname, proxy) {
  */
 export function StatBrowserFile(rootDir, path) {
     return $Call.ByID(311353955, rootDir, path).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType44($result);
+        return $$createType46($result);
     }));
+}
+
+/**
+ * StopFeishu 停止通道。可重复调用。
+ * @returns {$CancellablePromise<void>}
+ */
+export function StopFeishu() {
+    return $Call.ByID(484985251);
 }
 
 /**
@@ -1109,7 +1160,7 @@ export function StatBrowserFile(rootDir, path) {
  */
 export function StopFrontendWeb() {
     return $Call.ByID(2581302353).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType14($result);
     }));
 }
 
@@ -1129,7 +1180,7 @@ export function StopOpenCodeEvents() {
  */
 export function StopOpenCodeWeb() {
     return $Call.ByID(888045870).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType14($result);
     }));
 }
 
@@ -1142,7 +1193,7 @@ export function StopOpenCodeWeb() {
  */
 export function ToggleSkill(skillPath, skillName, enable) {
     return $Call.ByID(2106209646, skillPath, skillName, enable).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType45($result);
+        return $$createType47($result);
     }));
 }
 
@@ -1180,7 +1231,7 @@ export function UpdateModels(entries) {
  */
 export function UploadBrowserFile(rootDir, path, fileName, base64Data, overwrite) {
     return $Call.ByID(301761818, rootDir, path, fileName, base64Data, overwrite).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType46($result);
+        return $$createType48($result);
     }));
 }
 
@@ -1197,38 +1248,40 @@ const $$createType8 = $Create.Array($$createType7);
 const $$createType9 = model$0.CmdGroup.createFrom;
 const $$createType10 = $Create.Array($$createType9);
 const $$createType11 = $Create.Array($Create.Any);
-const $$createType12 = model$0.WebResult.createFrom;
-const $$createType13 = model$0.GitHistoryResult.createFrom;
-const $$createType14 = model$0.GitCommitFilesResult.createFrom;
-const $$createType15 = model$0.GitCommitFilePreviewResult.createFrom;
-const $$createType16 = model$0.GitFilePreviewResult.createFrom;
-const $$createType17 = model$0.GitStatusResult.createFrom;
-const $$createType18 = model$0.GlobalConfigInfo.createFrom;
-const $$createType19 = model$0.ImportableSkill.createFrom;
-const $$createType20 = $Create.Array($$createType19);
-const $$createType21 = model$0.ModelEntry.createFrom;
+const $$createType12 = $models.FeishuConfig.createFrom;
+const $$createType13 = $models.FeishuStatus.createFrom;
+const $$createType14 = model$0.WebResult.createFrom;
+const $$createType15 = model$0.GitHistoryResult.createFrom;
+const $$createType16 = model$0.GitCommitFilesResult.createFrom;
+const $$createType17 = model$0.GitCommitFilePreviewResult.createFrom;
+const $$createType18 = model$0.GitFilePreviewResult.createFrom;
+const $$createType19 = model$0.GitStatusResult.createFrom;
+const $$createType20 = model$0.GlobalConfigInfo.createFrom;
+const $$createType21 = model$0.ImportableSkill.createFrom;
 const $$createType22 = $Create.Array($$createType21);
-const $$createType23 = model$0.ProjectConfigSummary.createFrom;
-const $$createType24 = model$0.ProviderInfo.createFrom;
-const $$createType25 = $Create.Array($$createType24);
-const $$createType26 = model$0.SkillConfigResult.createFrom;
-const $$createType27 = model$0.Stats.createFrom;
-const $$createType28 = model$0.KnowledgeCategory.createFrom;
-const $$createType29 = $Create.Array($$createType28);
-const $$createType30 = model$0.ConvertPreview.createFrom;
-const $$createType31 = $Create.Nullable($$createType30);
-const $$createType32 = model$0.KnowledgeEntry.createFrom;
+const $$createType23 = model$0.ModelEntry.createFrom;
+const $$createType24 = $Create.Array($$createType23);
+const $$createType25 = model$0.ProjectConfigSummary.createFrom;
+const $$createType26 = model$0.ProviderInfo.createFrom;
+const $$createType27 = $Create.Array($$createType26);
+const $$createType28 = model$0.SkillConfigResult.createFrom;
+const $$createType29 = model$0.Stats.createFrom;
+const $$createType30 = model$0.KnowledgeCategory.createFrom;
+const $$createType31 = $Create.Array($$createType30);
+const $$createType32 = model$0.ConvertPreview.createFrom;
 const $$createType33 = $Create.Nullable($$createType32);
-const $$createType34 = $Create.Array($$createType32);
-const $$createType35 = model$0.DirectoryEntry.createFrom;
-const $$createType36 = $Create.Array($$createType35);
-const $$createType37 = model$0.FileBrowserListResult.createFrom;
-const $$createType38 = model$0.ProjectConfigTab.createFrom;
-const $$createType39 = model$0.SchemeInfo.createFrom;
-const $$createType40 = $Create.Array($$createType39);
-const $$createType41 = model$0.FileBrowserReadResult.createFrom;
-const $$createType42 = model$0.FileBrowserRawResult.createFrom;
-const $$createType43 = model$0.ProjectConfigFileResult.createFrom;
-const $$createType44 = model$0.FileBrowserStatResult.createFrom;
-const $$createType45 = model$0.ToggleResult.createFrom;
-const $$createType46 = model$0.FileBrowserUploadResult.createFrom;
+const $$createType34 = model$0.KnowledgeEntry.createFrom;
+const $$createType35 = $Create.Nullable($$createType34);
+const $$createType36 = $Create.Array($$createType34);
+const $$createType37 = model$0.DirectoryEntry.createFrom;
+const $$createType38 = $Create.Array($$createType37);
+const $$createType39 = model$0.FileBrowserListResult.createFrom;
+const $$createType40 = model$0.ProjectConfigTab.createFrom;
+const $$createType41 = model$0.SchemeInfo.createFrom;
+const $$createType42 = $Create.Array($$createType41);
+const $$createType43 = model$0.FileBrowserReadResult.createFrom;
+const $$createType44 = model$0.FileBrowserRawResult.createFrom;
+const $$createType45 = model$0.ProjectConfigFileResult.createFrom;
+const $$createType46 = model$0.FileBrowserStatResult.createFrom;
+const $$createType47 = model$0.ToggleResult.createFrom;
+const $$createType48 = model$0.FileBrowserUploadResult.createFrom;

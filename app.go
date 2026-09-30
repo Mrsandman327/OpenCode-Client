@@ -60,6 +60,19 @@ func (e *eventEmitter) Emit(name string, data ...any) {
 // ServiceStartup 在应用启动时调用（v3 Service 生命周期，替代 v2 的 OnStartup）。
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	a.ctx = ctx
+
+	// 飞书通道是可选的：已配置且启用时自动启动。
+	// 启动失败不阻断应用——opencode 本体照常用，
+	// 错误记进 FeishuStatus 供界面展示。
+	// 「没配过」不是错误，因此只有配置存在时才尝试。
+	if cfg := LoadFeishuConfig(); cfg.Enabled && cfg.AppID != "" && cfg.AppSecret != "" {
+		if err := a.StartFeishu(ctx, cfg); err != nil {
+			// ⚠️ 走 logger 而不是 fmt.Println：GUI 构建带 -H windowsgui
+			// （无控制台），Println 的输出无处可去 —— 飞书通道启动失败会
+			// 完全静默，用户只会看到「机器人没反应」。
+			logger.Printf("[feishu] 启动失败（不影响其它功能）: %v", err)
+		}
+	}
 	return nil
 }
 
@@ -73,6 +86,8 @@ func (a *App) emitAppReady() {
 
 // ServiceShutdown 在应用关闭时调用（v3 Service 生命周期，替代 v2 的 OnShutdown），清理资源。
 func (a *App) ServiceShutdown() error {
+	// 先停飞书：它还持有长连接，不关会在进程退出时留下悬挂连接
+	_ = a.StopFeishu()
 	a.StopOpenCodeEvents()
 	a.StopOpenCodeWeb()
 	a.StopFrontendWeb()
