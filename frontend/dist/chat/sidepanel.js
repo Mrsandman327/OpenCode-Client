@@ -7,7 +7,8 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, normalizeMessageItem, isInternalUserMessage, safeText, modelDisplayLabel } from '../core/utils.js';
+import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, safeText, modelDisplayLabel } from '../core/utils.js';
+import { adaptMessages } from '../core/v2compat.js';
 import { renderPart, setRenderTodosHandler } from './render.js';
 
 // 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（sidepanel→render 单向依赖，无环）。
@@ -20,6 +21,13 @@ queueMicrotask(() => setRenderTodosHandler(renderTodos));
 // 代办事项 — 从消息中提取并渲染
 // ============================
 
+// 代办事项所用的工具名。
+// v1 有内置的 todowrite 工具；v2 的官方工具清单里已无该工具
+// （Files / Commands / Web / Interaction / Automation / Browser 都没有），
+// 故 v2 下本面板无数据来源。此处仍兼容识别，以便混合版本或
+// 用户自定义同名工具时仍能工作。
+const TODO_TOOL_NAMES = ['todowrite', 'todo_write', 'todo'];
+
 /** 从当前会话的缓存消息中提取代办事项列表 */
 export function extractTodos() {
     const items = getCachedMessages(store.currentSessionId);
@@ -31,19 +39,38 @@ export function extractTodos() {
         for (let j = parts.length - 1; j >= 0; j--) {
             const part = parts[j];
             if (part.type !== 'tool') continue;
-            if (part.tool !== 'todowrite' && part.name !== 'todowrite') continue;
+            const toolName = part.tool || part.name || '';
+            if (!TODO_TOOL_NAMES.includes(toolName)) continue;
             const state = part.state || {};
-            const todos = (state.input && state.input.todos) || state.todos;
+            // v1 放在 state.input.todos；兼容 state.todos 与 v2 的 content 形态
+            const todos = (state.input && state.input.todos)
+                || state.todos
+                || (Array.isArray(state.content) ? state.content : null);
             if (Array.isArray(todos)) return todos;
         }
     }
     return [];
 }
 
-/** 渲染代办事项面板 */
+/** 渲染代办事项面板
+ *
+ *  服务端不支持代办时**整块分区隐藏**（含标题），而不是渲染「不支持」的占位：
+ *  OpenCode v2 的工具清单里已无 todowrite（Files / Commands / Web / Interaction /
+ *  Automation 均无），类型定义与事件流中也不存在任何 todo 相关项，本面板在 v2 下
+ *  永远不会有内容。留一个空壳标题会长期占侧栏位置，看起来像坏了。
+ *  若将来接上支持 todowrite 的服务端，todoSupported 转 true，分区自动恢复。 */
 export function renderTodos() {
     const box = document.getElementById('ocTodos');
     if (!box) return;
+
+    const section = document.getElementById('todoPanelSection');
+    if (section) {
+        section.style.display = store.todoSupported === false ? 'none' : '';
+    }
+    if (store.todoSupported === false) {
+        return;
+    }
+
     const todos = extractTodos();
     if (!todos.length) {
         box.innerHTML = '<div class="oc-empty">会话中暂无代办</div>';
@@ -92,6 +119,19 @@ export function renderTodos() {
 // ============================================================
 
 /** 从缓存消息中提取子任务摘要列表 */
+/** 从消息索引中取某 part 所属消息的模型标识，取不到返回空串。
+ *  v2 的 task 工具 state.metadata 里通常不含 model，
+ *  但消息本身带 model（适配层已拍平成 v1 的 providerID/modelID 形态）。 */
+function partMessageModel(part, msgById) {
+    const msg = msgById && part?.messageID ? msgById.get(part.messageID) : null;
+    if (!msg) return '';
+    const info = msg.info || msg;
+    if (info.providerID && info.modelID) return info.providerID + '/' + info.modelID;
+    const ref = info.model;
+    if (ref && (ref.providerID || ref.id)) return (ref.providerID || '') + '/' + (ref.id || '');
+    return '';
+}
+
 export function extractSubtaskSummaries(sessionID) {
     const items = getCachedMessages(sessionID);
     if (!items || !items.length) {
@@ -99,11 +139,19 @@ export function extractSubtaskSummaries(sessionID) {
         return;
     }
     const summaries = [];
+    // 建立 messageID → 消息 索引：v2 的 task 工具 metadata 里没有 model，
+    // 需要回查到消息自身的模型（见 partMessageModel）。
+    const msgById = new Map();
     const scanItems = items.length > 200 ? items.slice(-200) : items;
     for (const msg of scanItems) {
+        const mid = (msg.info || msg || {}).id;
+        if (mid) msgById.set(mid, msg);
         const parts = msg.parts || [];
         for (const part of parts) {
-            if (part.type !== 'tool' || part.tool !== 'task') continue;
+            // v1 的子任务工具名为 task，v2 改名为 subagent（见 V2 工具文档「Automation → Subagent」）
+            const toolName = part.tool || part.name || '';
+            if (part.type !== 'tool') continue;
+            if (toolName !== 'subagent' && toolName !== 'task') continue;
             const st = part.state || {};
             const meta = st.metadata || part.metadata || {};
             const modelMeta = meta.model || {};
@@ -113,21 +161,28 @@ export function extractSubtaskSummaries(sessionID) {
             let status = st.status || 'pending';
             if (status === 'error' && meta.interrupted) status = 'interrupt';
 
+            // v2 把 agent / description / prompt 放在 state.input，
+            // state.metadata 只有 {sessionID, status, truncated}，两者都读以兼容 v1
+            const inp = st.input || {};
+            const childSessionId = meta.sessionID || meta.sessionId || null;
+            const description = inp.description || meta.description || st.title || '';
+            const agent = inp.agent || meta.agent || 'unknown';
+
             summaries.push({
-                childSessionId: meta.sessionId || null,
-                title: st.title || meta.description || st.input?.description || part.tool || '未知任务',
-                description: meta.description || st.title || '',
-                agent: meta.agent || 'unknown',
+                childSessionId: childSessionId,
+                title: st.title || description || toolName || '未知任务',
+                description: description,
+                agent: agent,
                 model: modelMeta.providerID && modelMeta.modelID
                     ? modelDisplayLabel(modelMeta.providerID + '/' + modelMeta.modelID)
-                    : 'unknown',
+                    : (partMessageModel(part, msgById) || 'unknown'),
                 status: status,
                 durationMs: (hasEnd && hasStart) ? (st.time.end - st.time.start) : null,
                 interrupted: !!meta.interrupted,
                 startedAt: hasStart ? st.time.start : null,
                 endedAt: hasEnd ? st.time.end : null,
                 outputPreview: (st.output || '').slice(0, 200),
-                promptPreview: (meta.prompt || st.input?.prompt || '').slice(0, 200),
+                promptPreview: (inp.prompt || meta.prompt || '').slice(0, 200),
                 parentMessageId: msg.info?.id || msg.id || '',
                 taskPartId: part.id || '',
             });
@@ -379,15 +434,15 @@ export async function loadSubtaskDetailMessages(childSessionId) {
     const thisSeq = ++store.detailMessageLoadSeq;
 
     try {
-        const data = await api.OpenCodeCall('GET', '/session/' + encodeURIComponent(childSessionId) + '/message');
+        const res = await api.OpenCodeCall('GET', '/api/session/' + encodeURIComponent(childSessionId) + '/message');
         if (thisSeq !== store.detailMessageLoadSeq) return;
 
-        if (!data || !Array.isArray(data) || !data.length) {
+        // v2 返回 {data:[扁平消息], cursor}，需还原为 v1 的 [{info,parts}] 且按旧→新排列
+        const items = adaptMessages(childSessionId, res);
+        if (!items.length) {
             if (msgBox) msgBox.innerHTML = '<div class="oc-empty">子会话暂无消息</div>';
             return;
         }
-
-        const items = data.map(normalizeMessageItem).filter(item => !isInternalUserMessage(item));
         if (thisSeq !== store.detailMessageLoadSeq) return;
         renderDetailMessages(items);
     } catch (err) {

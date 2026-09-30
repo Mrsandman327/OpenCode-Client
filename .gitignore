@@ -1,5 +1,11 @@
 # 构建产物
 build/*
+# wails3 build 的输出目录（Taskfile 的 BIN_DIR），含十几 MB 的 exe，不应入库
+bin/
+# Task (go-task) 的任务校验缓存
+.task/
+# 运行期日志目录（logger.CreateSysLog 写入 ./log/）
+log/
 
 # 系统文件
 .DS_Store
@@ -24,6 +30,5 @@ tmp_*
 my/
 assets/
 .omo/
-.task/
-log/
-bin/
+# Git worktree（worktree 一律建在本仓 .worktrees/ 下，不污染 git status）
+.worktrees/

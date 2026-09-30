@@ -67,6 +67,12 @@ export const store = {
     mcpStatus: null,
     /** LSP 服务状态 */
     lspStatus: null,
+    /** 服务端是否提供 LSP 能力。OpenCode v2 已移除（不运行语言服务器、无 /api/lsp 端点），
+     *  此时服务面板显式说明该能力不可用，而不是渲染一个恒空的分组。 */
+    lspSupported: false,
+    /** 服务端是否提供内置代办（todowrite）能力。OpenCode v2 已移除该工具，
+     *  类型定义与事件流中亦无任何 todo 相关项，故 v2 下为 false。 */
+    todoSupported: false,
     /** 插件列表（来自 /config 的 plugin 数组，服务实际加载的插件；空=未配置） */
     pluginStatus: [],
 
@@ -132,6 +138,9 @@ export const store = {
     selectedVariant: '',
     /** Agent/Model 选择器是否已初始化加载 */
     agentModelSelectorsLoaded: false,
+    // agentModelSelectorsDir：当前 agent/model 列表所属的目录。
+    // v2 的 /api/agent、/api/model 支持按目录取项目级配置，切换会话时目录变了需重载。
+    agentModelSelectorsDir: '',
     /** 已完成 Agent/Model 历史同步的会话 ID（用户手动选择时也会写入）
      *  打开会话后只在首次同步时从消息历史回填选择器；用户在当前会话内手动选择后
      *  同样写入本字段，避免后续重渲染（SSE 刷新 / 滚动回填）覆盖用户的选择。 */

@@ -7,6 +7,7 @@
 import { api } from '../core/apicall.js';
 import { escapeHtml, showToast } from '../core/utils.js';
 import { store } from '../core/state.js';
+import { toModelOptions } from '../core/v2compat.js';
 
 export let modelEntries = [];
 export let modelTypes = [];
@@ -69,9 +70,10 @@ export async function loadModelConfig() {
             updateSchemeDropdown();
         });
 
-        // 后台尝试加载模型列表，不阻塞页面
-        api.OpenCodeCall('GET', '/provider').then(function(models) {
-            if (models && models.length) {
+        // v2：模型列表走 /api/model（v2 的 /api/provider 不再内嵌 models），并归一化为 {value,label}
+        api.OpenCodeCall('GET', '/api/model').then(function(res) {
+            const models = toModelOptions(res);
+            if (models.length) {
                 store.availableModels = models;
                 renderModelConfig();
             }

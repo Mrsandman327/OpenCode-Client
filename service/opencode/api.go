@@ -47,6 +47,12 @@ func OpenCodeAPI(method, path, body string) model.APIResult {
 	var reader io.Reader
 	if body != "" {
 		reader = strings.NewReader(body)
+	} else if expectsJSONBody(method) {
+		// v2 的写操作端点（如 POST /api/session）要求请求体是 JSON 对象，
+		// 空 body 会得到 400 {"kind":"Payload","message":"Expected object"}。
+		// 对无请求参数的调用（如 interrupt、revert/commit）统一补一个空对象。
+		reader = strings.NewReader("{}")
+		body = "{}"
 	}
 	req, err := http.NewRequest(method, urlstr, reader)
 	if err != nil {
@@ -55,6 +61,7 @@ func OpenCodeAPI(method, path, body string) model.APIResult {
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	applyAuth(req, sess.password)
 
 	resp, err := apiClient.Do(req)
 	if err != nil {
@@ -66,136 +73,283 @@ func OpenCodeAPI(method, path, body string) model.APIResult {
 	if err != nil {
 		return model.APIResult{Status: resp.StatusCode, Error: err.Error()}
 	}
+
+	// v2 的 SPA 兜底路由会对任何未注册的路径返回 200 + text/html（首页 HTML）。
+	// 若只看状态码，v1 时代遗留的路径会被误判为"请求成功"，随后把 HTML 交给
+	// json.Unmarshal，报出难以定位的"解析失败"。这里按 Content-Type 显式拦截。
+	if isHTMLResponse(resp.Header.Get("Content-Type")) {
+		return model.APIResult{
+			Status: resp.StatusCode,
+			Error:  fmt.Sprintf("OpenCode v2 未提供该 API 路径（%s %s 返回了网页内容而非 JSON）。请更新 OC Manager 或检查 opencode 版本", method, path),
+		}
+	}
+
 	return model.APIResult{Success: resp.StatusCode >= 200 && resp.StatusCode < 300, Status: resp.StatusCode, Body: string(data)}
 }
 
-// findSessionDirectory 根据 sessionID 反查当前会话所属工作目录。
-// question 接口是按 directory 作用域隔离的，因此必须先拿到目录再请求。
-func findSessionDirectory(base, sessionID string) (string, error) {
-	resp, err := http.Get(base + "/session/" + url.QueryEscape(sessionID))
-	if err != nil {
-		return "", fmt.Errorf("获取会话列表失败: %v", err)
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-
-	var sessions treeSession
-	if err := json.Unmarshal(body, &sessions); err != nil {
-		return "", fmt.Errorf("解析会话列表失败: %v", err)
-	}
-
-	return sessions.Directory , nil
+// isHTMLResponse 判断响应是否为 HTML（而非预期中的 JSON）。
+func isHTMLResponse(contentType string) bool {
+	ct := strings.ToLower(strings.TrimSpace(contentType))
+	return strings.HasPrefix(ct, "text/html")
 }
 
-// findQuestionID 从 /question API 查找匹配 sessionID 的待回答问题 ID。
-func findQuestionID(base, sessionID, directory string) (string, error) {
-	questionURL := base + "/question?directory=" + url.QueryEscape(directory)
-	resp, err := http.Get(questionURL)
+// expectsJSONBody 判断该方法是否需要携带 JSON 请求体。
+func expectsJSONBody(method string) bool {
+	switch strings.ToUpper(method) {
+	case http.MethodPost, http.MethodPatch, http.MethodPut:
+		return true
+	}
+	return false
+}
+
+// apiGet 发起带 v2 认证的 GET 请求并返回响应体。
+func apiGet(urlstr, password string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, urlstr, nil)
 	if err != nil {
-		return "", fmt.Errorf("获取问题列表失败: %v", err)
+		return nil, err
+	}
+	applyAuth(req, password)
+	resp, err := apiClient.Do(req)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	return readAPIResponse(resp, urlstr)
+}
 
-	type QuestionRequest struct {
-		ID        string `json:"id"`
-		SessionID string `json:"sessionID"`
+// apiPost 发起带 v2 认证的 JSON POST 请求。
+func apiPost(urlstr, password string, payload []byte) model.APIResult {
+	req, err := http.NewRequest(http.MethodPost, urlstr, strings.NewReader(string(payload)))
+	if err != nil {
+		return model.APIResult{Error: err.Error()}
 	}
-	var questions []QuestionRequest
-	if err := json.Unmarshal(body, &questions); err != nil {
-		return "", fmt.Errorf("解析问题列表失败: %v", err)
+	req.Header.Set("Content-Type", "application/json")
+	applyAuth(req, password)
+	resp, err := apiClient.Do(req)
+	if err != nil {
+		return model.APIResult{Error: err.Error()}
 	}
+	defer resp.Body.Close()
+	data, err := readAPIResponse(resp, urlstr)
+	if err != nil {
+		return model.APIResult{Status: resp.StatusCode, Error: err.Error()}
+	}
+	return model.APIResult{Success: resp.StatusCode >= 200 && resp.StatusCode < 300, Status: resp.StatusCode, Body: string(data)}
+}
 
-	for _, q := range questions {
-		if q.SessionID == sessionID {
-			return q.ID, nil
+// readAPIResponse 读取响应体，并对 v2 的 HTML 兜底、401 与所有非 2xx 做显式处理。
+//
+// 非 2xx 必须在这里转成 error，而不是把响应体当正常数据返回。原因是 v2 的错误体
+// 形如 {"_tag":"SessionNotFoundError","message":"..."}——**没有 error 键**，
+// 调用方若按「响应里有没有 error 字段」判失败，永远判不出来，
+// 404 的错误体会被当成正常数据继续解析，错误因此被推迟到更远、更难定位的地方。
+// 曾经就踩过：导出会话失败时返回的是错误 JSON，被原样当作导出内容交给前端。
+func readAPIResponse(resp *http.Response, urlstr string) ([]byte, error) {
+	if isHTMLResponse(resp.Header.Get("Content-Type")) {
+		return nil, fmt.Errorf("OpenCode v2 未提供该 API 路径（%s 返回了网页内容而非 JSON）", urlstr)
+	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("OpenCode 服务需要口令（401），请重启服务或检查服务地址")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("OpenCode 返回 %d: %s", resp.StatusCode, describeV2Error(data))
+	}
+	return data, nil
+}
+
+// describeV2Error 从 v2 错误体里取出可读信息。
+// 已知形态：{"_tag":"XxxError","message":"..."}，message 可能缺省。
+func describeV2Error(body []byte) string {
+	var payload struct {
+		Tag     string `json:"_tag"`
+		Message string `json:"message"`
+		Kind    string `json:"kind"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		// 不是 JSON 就原样给出一段截断文本，总比空消息好定位
+		text := strings.TrimSpace(string(body))
+		if len(text) > 200 {
+			text = text[:200] + "…"
+		}
+		if text == "" {
+			return "(无错误详情)"
+		}
+		return text
+	}
+	parts := make([]string, 0, 2)
+	if payload.Tag != "" {
+		parts = append(parts, payload.Tag)
+	}
+	if payload.Message != "" {
+		parts = append(parts, payload.Message)
+	}
+	if payload.Kind != "" {
+		parts = append(parts, "kind="+payload.Kind)
+	}
+	if len(parts) == 0 {
+		return "(无错误详情)"
+	}
+	return strings.Join(parts, ": ")
+}
+
+// sessionGet 取回单个会话对象（已拆开 v2 的 {data:...} 信封）。
+func sessionGet(base, path, password string) (map[string]any, error) {
+	body, err := apiGet(base+path, password)
+	if err != nil {
+		return nil, err
+	}
+	return unwrapSessionData(body), nil
+}
+
+// findSessionDirectory 根据 sessionID 反查当前会话所属工作目录。
+// v2 的会话对象把目录放在 location.directory（v1 是顶层 directory）。
+// question/form 接口按目录作用域隔离，因此必须先拿到目录再请求。
+func findSessionDirectory(base, sessionID, password string) (string, error) {
+	resp, err := sessionGet(base, "/api/session/"+url.QueryEscape(sessionID), password)
+	if err != nil {
+		return "", fmt.Errorf("获取会话目录失败: %v", err)
+	}
+	return sessionDirectory(resp), nil
+}
+
+// sessionDirectory 从 v2 会话对象中取工作目录。
+func sessionDirectory(session map[string]any) string {
+	if loc, ok := session["location"].(map[string]any); ok {
+		if dir, ok := loc["directory"].(string); ok && dir != "" {
+			return dir
 		}
 	}
-	return "", fmt.Errorf("未找到该会话的待回答问题")
+	// 兼容仍返回顶层 directory 的形态
+	if dir, ok := session["directory"].(string); ok {
+		return dir
+	}
+	return ""
 }
 
-// AnswerQuestion 回答 question 工具调用。
-// answers 为按问题顺序的二维数组（每个问题一个 string[]），支持多问题一次提交。
+// unwrapSessionData 拆开 v2 的 {data: ...} 响应信封。
+func unwrapSessionData(body []byte) map[string]any {
+	var outer map[string]any
+	if err := json.Unmarshal(body, &outer); err != nil {
+		return nil
+	}
+	if inner, ok := outer["data"].(map[string]any); ok {
+		return inner
+	}
+	return outer
+}
+
+// formInfo 描述 v2 的一个待填表单（v1 的 question 请求在 v2 中由 form 承担）。
+type formInfo struct {
+	ID        string           `json:"id"`
+	SessionID string           `json:"sessionID"`
+	Title     string           `json:"title"`
+	Fields    []map[string]any `json:"fields"`
+}
+
+// findPendingForm 查找该会话下待回答的表单。
+// v1 是 /question?directory=...（裸数组），v2 是 /api/form?location[directory]=...（{location,data} 信封）。
+// 注意 location 是 deepObject 风格参数（style=deepObject, explode=true），
+// 必须编码成 location[directory]=...，写成 location=... 会被服务端忽略。
+func findPendingForm(base, sessionID, directory, password string) (*formInfo, error) {
+	formURL := base + "/api/form?location%5Bdirectory%5D=" + url.QueryEscape(directory)
+	body, err := apiGet(formURL, password)
+	if err != nil {
+		return nil, fmt.Errorf("获取待回答表单失败: %v", err)
+	}
+
+	var payload struct {
+		Data []formInfo `json:"data"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("解析待回答表单失败: %v", err)
+	}
+
+	for i := range payload.Data {
+		if payload.Data[i].SessionID == sessionID {
+			return &payload.Data[i], nil
+		}
+	}
+	return nil, fmt.Errorf("未找到该会话的待回答表单")
+}
+
+// AnswerQuestion 回答表单（v1 形态的 question 工具）。
+// answers 为按问题顺序的二维数组（每个问题一个 string[]，支持多选与自定义输入）；
+// v2 的表单按字段 key 提交，因此这里按下标把 answers 映射到各字段的 key。
 func AnswerQuestion(sessionID string, answers [][]string) model.APIResult {
+	sess := getWebSession()
+	if sess == nil {
+		return model.APIResult{Error: "opencode 服务未启动"}
+	}
 	base, err := getWebSessionBase()
 	if err != nil {
 		return model.APIResult{Error: err.Error()}
 	}
-	directory, err := findSessionDirectory(base, sessionID)
+	directory, err := findSessionDirectory(base, sessionID, sess.password)
 	if err != nil {
 		return model.APIResult{Error: err.Error()}
 	}
 
-	requestID, err := findQuestionID(base, sessionID, directory)
+	form, err := findPendingForm(base, sessionID, directory, sess.password)
 	if err != nil {
 		return model.APIResult{Error: err.Error()}
 	}
 
-	payload, _ := json.Marshal(map[string]any{"answers": answers})
-	replyURL := fmt.Sprintf("%s/question/%s/reply?directory=%s", base, requestID, url.QueryEscape(directory))
-	replyResp, err := http.Post(
-		replyURL,
-		"application/json",
-		strings.NewReader(string(payload)),
-	)
-	if err != nil {
-		return model.APIResult{Error: fmt.Sprintf("回答问题失败: %v", err)}
+	// 按字段顺序把二维答案数组映射为 {fieldKey: [选中的值]}
+	answer := make(map[string]any, len(form.Fields))
+	for i, field := range form.Fields {
+		key, _ := field["key"].(string)
+		if key == "" {
+			continue
+		}
+		if i < len(answers) && len(answers[i]) > 0 {
+			answer[key] = answers[i]
+		} else if i < len(answers) {
+			// 跳过的题提交空数组（v2 的 Form.Value 允许 string[]）
+			answer[key] = []string{}
+		}
 	}
-	defer replyResp.Body.Close()
 
-	replyData, _ := io.ReadAll(replyResp.Body)
-	return model.APIResult{
-		Success: replyResp.StatusCode >= 200 && replyResp.StatusCode < 300,
-		Status:  replyResp.StatusCode,
-		Body:    string(replyData),
-	}
+	payload, _ := json.Marshal(map[string]any{"answer": answer})
+	// v2 的 form 回复端点只接受路径参数，不接收 location 查询参数
+	replyURL := fmt.Sprintf("%s/api/session/%s/form/%s/reply",
+		base, url.QueryEscape(sessionID), url.QueryEscape(form.ID))
+	return apiPost(replyURL, sess.password, payload)
 }
 
-// RejectQuestion 忽略 question 工具调用。
+// RejectQuestion 忽略待回答表单。
+//
+// v1 有 /question/{id}/reject 端点；v2 的表单 API 只提供 /reply，没有取消端点
+// （Form.State 虽有 cancelled 形态，但无对应写接口），故这里无法真正取消。
+//
+// 注意：前端「跳过此问题」并不调用本方法——它只在本地把该题标记为跳过，
+// 提交时按位置传空数组。因此 v2 下跳过功能本身是可用的，本方法仅作占位保留。
 func RejectQuestion(sessionID string) model.APIResult {
-	base, err := getWebSessionBase()
-	if err != nil {
-		return model.APIResult{Error: err.Error()}
-	}
-	directory, err := findSessionDirectory(base, sessionID)
-	if err != nil {
-		return model.APIResult{Error: err.Error()}
-	}
-
-	requestID, err := findQuestionID(base, sessionID, directory)
-	if err != nil {
-		return model.APIResult{Error: err.Error()}
-	}
-
-	rejectURL := fmt.Sprintf("%s/question/%s/reject?directory=%s", base, requestID, url.QueryEscape(directory))
-	req, _ := http.NewRequest(http.MethodPost,
-		rejectURL, nil)
-	rejectResp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return model.APIResult{Error: fmt.Sprintf("忽略问题失败: %v", err)}
-	}
-	defer rejectResp.Body.Close()
-
-	rejectData, _ := io.ReadAll(rejectResp.Body)
-	return model.APIResult{
-		Success: rejectResp.StatusCode >= 200 && rejectResp.StatusCode < 300,
-		Status:  rejectResp.StatusCode,
-		Body:    string(rejectData),
-	}
+	return model.APIResult{Error: "OpenCode v2 的表单 API 未提供取消端点；请直接回答，或在提交时跳过该题"}
 }
 
 // ProjectInfo 项目树中的项目信息。
+// v2 把 v1 的 worktree 改名为 canonical，并取消了 name 字段；
+// vcs 也从对象变成了字符串。故 name/root 需在解析后另行推导。
 type ProjectInfo struct {
-	ID       string      `json:"id"`
-	Name     string      `json:"name"`
-	Worktree string      `json:"worktree"`
-	VCS      string      `json:"vcs"`
-	Time     sessionTime `json:"time"`
+	ID        string      `json:"id"`
+	Name      string      `json:"name"`
+	Canonical string      `json:"canonical"`
+	VCS       string      `json:"vcs"`
+	Time      sessionTime `json:"time"`
 }
 
 type sessionTime struct {
 	Created int64 `json:"created"`
 	Updated int64 `json:"updated"`
+	// Idle 是该会话最后一次转为空闲的时刻。
+	// POST /api/session/{id}/view 的 body 里 idle 必填，且必须是这个原值——
+	// 它是服务端判定「viewer 已观察到这次 idle 转换」的对账凭据，
+	// 填 0 或当前时间戳都会被判为无效。故必须随会话数据一起透给前端。
+	Idle int64 `json:"idle,omitempty"`
 }
 
 // lastPathSegment 返回路径的最后一段（目录名）。
@@ -214,32 +368,80 @@ func lastPathSegment(path string) string {
 	return normalized
 }
 
-// projectDisplayName 返回项目的可读名称。
-// v1 的 Project 可能没有 name（为空）。此时若像旧实现那样直接回退到 id，
-// 界面上就会出现一串 40 位哈希，用户无从判断这是哪个项目；故改取 worktree
-// （工作目录）路径的最后一段，例如 E:\code\git\foo → foo。
-func projectDisplayName(p ProjectInfo) string {
-	name := p.Name
-	if name == "" {
-		// v1 项目缺 name 时用工作目录名兜底
-		name = lastPathSegment(p.Worktree)
-	}
-	// 仍然无名可读（如名称为 "global"，或连工作目录都为空）时才走最终兜底
-	if name == "" || name == "global" {
-		if p.ID == "global" {
-			return "全局项目"
-		}
-		return p.ID
-	}
-	return name
+// treeSession 会话列表项。
+// v2 把 v1 的 directory 移到了 location.directory，故两者都声明，按需回退读取。
+type treeSession struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	ProjectID string `json:"projectID"`
+	Directory string `json:"directory"`
+	Location  *struct {
+		Directory string `json:"directory"`
+	} `json:"location"`
+	// ParentID 是 v2 引入的父子关系：子代理（subagent）会话指向其宿主会话。
+	// v1 用 roots=true 让服务端只返回根会话；v2 改为 parentID=null 过滤，
+	// 不加该参数时子会话会一并返回，必须在客户端剔除（见 IsRoot）。
+	ParentID string      `json:"parentID"`
+	Time     sessionTime `json:"time"`
 }
 
-type treeSession struct {
-	ID        string      `json:"id"`
-	Title     string      `json:"title"`
-	ProjectID string      `json:"projectID"`
-	Directory string      `json:"directory"`
-	Time      sessionTime `json:"time"`
+// IsRoot 判断是否为根会话（无父会话）。
+func (s treeSession) IsRoot() bool {
+	return s.ParentID == ""
+}
+
+// Dir 返回会话所属目录：优先 v2 的 location.directory，回退到 v1 的 directory。
+func (s treeSession) Dir() string {
+	if s.Location != nil && s.Location.Directory != "" {
+		return s.Location.Directory
+	}
+	return s.Directory
+}
+
+// unmarshalSessionList 解析 v2 的会话列表：{data:[...], cursor:{...}} 信封。
+// 若 data 缺失则尝试按裸数组解析（兼容旧形态）。
+func unmarshalSessionList(body []byte) ([]treeSession, error) {
+	var envelope struct {
+		Data []treeSession `json:"data"`
+	}
+	if err := json.Unmarshal(body, &envelope); err == nil && envelope.Data != nil {
+		return envelope.Data, nil
+	}
+	var bare []treeSession
+	if err := json.Unmarshal(body, &bare); err != nil {
+		return nil, err
+	}
+	return bare, nil
+}
+
+// fetchSessionList 查询某目录下的会话。
+//
+// v1 是 ?directory=&roots=true，roots=true 表示「只要根会话」。
+// v2 取消了 roots，改为 ?parentID=null（官方文档：Use null to return only root sessions）。
+// 不加该参数时，子代理（subagent）会话会混在结果里——实测占比极高
+// （本机 500 条会话里 444 条是子会话），若直接渲染会让会话树被子会话淹没。
+//
+// 这里显式传 parentID=null 只取根会话，与 v1 的 roots=true 语义保持一致；
+// 同时仍在客户端二次过滤，以防服务端忽略该参数。
+func fetchSessionList(base, directory, password string, limit int) []treeSession {
+	urlstr := fmt.Sprintf("%s/api/session?directory=%s&parentID=null&limit=%d",
+		base, url.QueryEscape(directory), limit)
+	body, err := apiGet(urlstr, password)
+	if err != nil {
+		return nil
+	}
+	sessions, err := unmarshalSessionList(body)
+	if err != nil {
+		return nil
+	}
+	// 二次过滤：子会话（parentID 非空）不进会话树
+	roots := sessions[:0]
+	for _, s := range sessions {
+		if s.IsRoot() {
+			roots = append(roots, s)
+		}
+	}
+	return roots
 }
 
 // GetProjectTree 获取项目→目录→会话的树形结构 JSON。
@@ -249,13 +451,9 @@ func GetProjectTree(knownDirs string) string {
 	if err != nil {
 		return "[]"
 	}
-	client := http.Client{
-		Timeout: 20 * time.Second,
-		Transport: &http.Transport{
-			MaxIdleConns:        20,
-			MaxIdleConnsPerHost: 20,
-			IdleConnTimeout:     90 * time.Second,
-		},
+	password := ""
+	if sess := getWebSession(); sess != nil {
+		password = sess.password
 	}
 
 	var projects []ProjectInfo
@@ -264,36 +462,26 @@ func GetProjectTree(knownDirs string) string {
 		json.Unmarshal([]byte(knownDirs), &extraDirs)
 	}
 
-	// 获取项目列表
-	resp1, err := client.Get(base + "/project")
-	if err == nil {
-		defer resp1.Body.Close()
-		body, _ := io.ReadAll(resp1.Body)
+	// 获取项目列表（v2：/api/project，v1：/project）
+	if body, err := apiGet(base+"/api/project", password); err == nil {
 		json.Unmarshal(body, &projects)
 	} else {
-		projects = []ProjectInfo{{ID: "global", Name: "全局项目", Worktree: "/"}}
+		projects = []ProjectInfo{{ID: "global", Name: "全局项目", Canonical: "/"}}
 	}
 
 	var allSessions []treeSession
 	seen := map[string]bool{}
 
 	for _, project := range projects {
-		extraDirs = append(extraDirs, project.Worktree)
+		extraDirs = append(extraDirs, project.Canonical)
 	}
 
-	// 自动发现所有会话目录：从全量会话列表提取 directory 字段。
+	// 自动发现所有会话目录：从全量会话列表提取目录。
 	// 必要性：Web 端浏览器的 localStorage 与桌面 WebView2 隔离，knownDirs 为空；
 	// 若不自动发现，未注册为 opencode 项目、但建过会话的目录（如当前工作目录）的会话将丢失。
-	if respAll, errAll := client.Get(base + "/session?limit=1000"); errAll == nil {
-		bodyAll, _ := io.ReadAll(respAll.Body)
-		respAll.Body.Close()
-		var discovered []treeSession
-		if json.Unmarshal(bodyAll, &discovered) == nil {
-			for _, s := range discovered {
-				if s.Directory != "" {
-					extraDirs = append(extraDirs, s.Directory)
-				}
-			}
+	for _, s := range fetchSessionList(base, "", password, 1000) {
+		if dir := s.Dir(); dir != "" {
+			extraDirs = append(extraDirs, dir)
 		}
 	}
 	//去重
@@ -326,14 +514,7 @@ func GetProjectTree(knownDirs string) string {
 		wg.Add(1)
 		go func(d string) {
 			defer wg.Done()
-			resp, err := client.Get(base + "/session?directory=" + url.QueryEscape(d) + "&roots=true&limit=200")
-			if err != nil {
-				return
-			}
-			defer resp.Body.Close()
-			var batch []treeSession
-			body, _ := io.ReadAll(resp.Body)
-			json.Unmarshal(body, &batch)
+			batch := fetchSessionList(base, d, password, 200)
 			mu.Lock()
 			for _, s := range batch {
 				if !seen[s.ID] {
@@ -349,14 +530,35 @@ func GetProjectTree(knownDirs string) string {
 	return buildTreeJSON(projects, allSessions)
 }
 
+// projectDisplayName 从 canonical 路径推导可读的项目名。
+// v2 的 Project 不含 name 字段，直接显示哈希 ID 对用户毫无意义。
+func projectDisplayName(p ProjectInfo) string {
+	canonical := strings.TrimRight(strings.ReplaceAll(p.Canonical, "\\", "/"), "/")
+	if canonical == "" {
+		if p.ID == "global" {
+			return "全局项目"
+		}
+		return p.ID
+	}
+	if idx := strings.LastIndex(canonical, "/"); idx >= 0 && idx+1 < len(canonical) {
+		return canonical[idx+1:]
+	}
+	return canonical
+}
+
 func buildTreeJSON(projects []ProjectInfo, sessions []treeSession) string {
-	// 按 project 分组，再按 directory 分组
 	projectMap := make(map[string]*model.TreeNode)
 	dirMap := make(map[string]*model.TreeNode) // key: projectID+"|"+directory
 
 	for _, p := range projects {
-		// 项目名统一走 projectDisplayName：name → worktree 末段 → id，并处理 global 中文名
-		name := projectDisplayName(p)
+		name := p.Name
+		if name == "" {
+			// v2 不再返回 name，改用 canonical 路径的末段作为可读名
+			name = projectDisplayName(p)
+		}
+		if name == "global" {
+			name = "全局项目"
+		}
 		// 项目时间：updated 优先，其次 created
 		var projectTime string
 		if p.Time.Updated > 0 {
@@ -369,11 +571,15 @@ func buildTreeJSON(projects []ProjectInfo, sessions []treeSession) string {
 	}
 
 	for _, s := range sessions {
+		// 兜底：子代理会话只在侧栏「子任务面板」呈现，不进会话树
+		if !s.IsRoot() {
+			continue
+		}
 		pid := s.ProjectID
 		if pid == "" {
 			pid = "global"
 		}
-		dir := s.Directory
+		dir := s.Dir()
 		if dir == "" {
 			continue
 		}

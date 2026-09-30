@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // chat-tree.js — 项目树 & 目录浏览器
 // 依赖：core/state.js（webRunning, currentSessionId, pendingWorkDir 等）、core/apicall.js（api）、
 //       core/utils.js（escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo）、
@@ -17,6 +17,7 @@ import { closeSessionTab, renderTabsBar } from './tabs.js';
 import { resetUserNav } from './search.js';
 import { openProjectConfig } from '../views/project-config.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
+import { createBuildGate, createRecentlyDeleted, RECENTLY_DELETED_TTL_MS } from './tree-guard.js';
 
 // ============================
 // 项目树 — 构建、渲染、操作
@@ -26,9 +27,36 @@ let treeSearchQuery = '';
 let treeSearchDebounceTimer = null;
 let treeSearchSnapshotTaken = false;
 
-/** 构建项目树（从后端获取项目→目录→会话三层结构） */
+// 重建并发闸门 + 「本地已删会话」记账。
+// 动机与设计见 tree-guard.js 顶部：删除会话时多条 session.deleted 会引发
+// 多次整树重建（肉眼连续闪烁），且 async 重建可能乱序返回把渲染覆盖回去。
+const treeGate = createBuildGate();
+const recentlyDeleted = createRecentlyDeleted(RECENTLY_DELETED_TTL_MS, null);
+
+/** 记下「这个会话已被本地删除」，让随之而来的 session.deleted 事件跳过整树重建。
+ *
+ *  节点此时已被 deleteSession 直接从 DOM 摘掉，重建只会闪一下。 */
+export function markSessionDeletedLocally(id) {
+    return recentlyDeleted.mark(id);
+}
+
+/** 该会话是否刚被本地删除（供 chat/events.js 判定是否跳过重建） */
+export function wasSessionDeletedLocally(id) {
+    return recentlyDeleted.has(id);
+}
+
+/** 构建项目树（从后端获取项目→目录→会话三层结构）
+ *
+ *  并发请求会被闸门合并：执行期间再来的请求只补跑一次，且所有调用方
+ *  await 到的是同一个结果。**所有入口都必须走这里**，不要直接调
+ *  buildTreeOnce —— 绕过闸门等于把并发重建又放回来。 */
 export async function buildTree() {
-    if (!store.webRunning) return;
+    if (!store.webRunning) return false;
+    return treeGate(buildTreeOnce);
+}
+
+/** 单次重建：拉全量树 + 整树渲染。不对外。 */
+async function buildTreeOnce() {
     try {
         const knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
         const json = await api.GetProjectTree(JSON.stringify(knownDirs));
@@ -460,9 +488,10 @@ export async function deleteSession(id) {
     if (!id) return;
     if (!confirm('确定要删除该会话吗？此操作不可撤销。')) return;
     try {
-        window._skipSessionDeletedRebuild = true;
-        setTimeout(function() { window._skipSessionDeletedRebuild = false; }, 2000);
-        await api.OpenCodeCall('DELETE', `/session/${encodeURIComponent(id)}`);
+        // 记一笔，让随之而来的 session.deleted 事件跳过整树重建。
+        // 节点下方已直接从 DOM 摘掉，重建只会闪一下。
+        markSessionDeletedLocally(id);
+        await api.OpenCodeCall('DELETE', `/api/session/${encodeURIComponent(id)}`);
         showToast('已删除', 'success');
         if (id === store.currentSessionId) {
             store.currentSessionId = '';
@@ -563,9 +592,10 @@ export function showTreeContextMenu(e, type, data) {
         if (type === 'dir') {
             item.style.display = (action === 'new-session' || action === 'project-config') ? '' : 'none';
         } else if (type === 'session') {
-            item.style.display = (action === 'rename' || action === 'delete') ? '' : 'none';
+            item.style.display = (action === 'rename' || action === 'delete'
+                || action === 'export' || action === 'move') ? '' : 'none';
         } else if (type === 'project') {
-            item.style.display = (action === 'project-rename') ? '' : 'none';
+            item.style.display = (action === 'project-rename' || action === 'import') ? '' : 'none';
         } else {
             item.style.display = 'none';
         }
@@ -633,6 +663,12 @@ export function initTreeContextMenu() {
                 renameSession(data.sid);
             } else if (type === 'session' && action === 'delete') {
                 deleteSession(data.sid);
+            } else if (type === 'session' && action === 'export') {
+                exportSession(data.sid);
+            } else if (type === 'session' && action === 'move') {
+                moveSessionDialog(data.sid);
+            } else if (action === 'import') {
+                importSessionDialog();
             } else if (type === 'project' && action === 'project-rename') {
                 renameProject(data.projectId);
             }
@@ -655,7 +691,7 @@ export async function renameSession(sid) {
     if (!newTitle || newTitle.trim() === '' || newTitle.trim() === oldTitle) return;
     newTitle = newTitle.trim();
     try {
-        await api.OpenCodeCall('PATCH', '/session/' + encodeURIComponent(sid), { title: newTitle });
+        await api.OpenCodeCall('PATCH', '/api/session/' + encodeURIComponent(sid), { title: newTitle });
         showToast('已重命名', 'success');
         // 同步更新当前会话标题
         if (sid === store.currentSessionId) {
@@ -671,19 +707,128 @@ export async function renameSession(sid) {
     }
 }
 
-/** 重命名项目（PATCH /project/{id} 设置 name；name 为空时项目标题回退为工作目录名） */
+/** 导出会话为 JSON 文件。
+ *
+ *  v2 的导出端点在 /api/experimental 下（服务端自标 experimental，路径可能变）。
+ *  导出体积可能很大（含全部消息），因此落盘而不是塞进前端状态。
+ *  服务端返回失败时统一是 {error: "..."}，必须先判这个再解析，
+ *  否则会把错误 JSON 当导出内容写进文件。 */
+export async function exportSession(sid) {
+    if (!sid) return;
+    try {
+        var raw = await api.ExportSession(sid, false);
+        if (typeof raw !== 'string' || !raw) {
+            showToast('导出失败：服务端未返回内容', 'error');
+            return;
+        }
+        var parsed;
+        try {
+            parsed = JSON.parse(raw);
+        } catch (e) {
+            showToast('导出内容不是合法 JSON', 'error');
+            return;
+        }
+        if (parsed && parsed.error) {
+            showToast('导出失败：' + parsed.error, 'error');
+            return;
+        }
+        var info = (parsed && parsed.data && parsed.data.info) || {};
+        var title = (info.title || sid).replace(/[\\/:*?"<>|]/g, '_').slice(0, 60);
+        var blob = new Blob([raw], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = title + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('已导出 ' + title + '.json', 'success');
+    } catch (e) {
+        showToast('导出失败: ' + (e.message || e), 'error');
+    }
+}
+
+/** 移动会话到另一个项目目录。
+ *
+ *  v2 的 move 目标是**项目目录**，不是目录树里的子路径。
+ *  会话若正在运行，服务端可能拒绝（实测未验证 move 在运行态的行为，
+ *  失败时如实回传服务端原因，不做静默重试）。 */
+export async function moveSessionDialog(sid) {
+    if (!sid) return;
+    var target = prompt('请输入目标项目目录（绝对路径）：\n会话将被移动到该目录所属项目。', '');
+    if (target === null) return;
+    target = target.trim();
+    if (!target) return;
+    try {
+        var res = await api.MoveSession(sid, target, '');
+        if (res && res.error) {
+            showToast('移动失败：' + res.error, 'error');
+            return;
+        }
+        if (res && res.success === false) {
+            showToast('移动失败：HTTP ' + res.status, 'error');
+            return;
+        }
+        showToast('会话已移动', 'success');
+        await buildTree();
+    } catch (e) {
+        showToast('移动失败: ' + (e.message || e), 'error');
+    }
+}
+
+/** 导入会话（从导出的 JSON 文件）。
+ *
+ *  v2 的导入端点在 /api/experimental 下，服务端要求 info 与 messages 都存在；
+ *  若导出数据带 parentID 而父会话不存在，服务端返回 409——后端已在本地
+ *  拦下这种情况并给出可操作提示（先导父会话），这里只负责把错误如实展示。
+ *
+ *  导入后刷新会话树，让新会话立即可见。 */
+export async function importSessionDialog() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    var file = await new Promise(function(resolve) {
+        input.onchange = function() { resolve(input.files && input.files[0]); };
+        // 用户取消时 change 不会触发；用 focus 兜底避免 input 永久残留
+        window.addEventListener('focus', function once() {
+            window.removeEventListener('focus', once);
+            setTimeout(function() { if (!input.files || input.files.length) resolve(null); }, 800);
+        }, { once: true });
+        input.click();
+    });
+
+    document.body.removeChild(input);
+    if (!file) return;
+
+    try {
+        var text = await file.text();
+        var res = await api.ImportSession(text);
+        if (res && res.error) {
+            showToast('导入失败：' + res.error, 'error');
+            return;
+        }
+        if (res && res.success === false) {
+            showToast('导入失败：HTTP ' + res.status, 'error');
+            return;
+        }
+        showToast('导入成功', 'success');
+        await buildTree();
+    } catch (e) {
+        showToast('导入失败: ' + (e.message || e), 'error');
+    }
+}
+
+/** 重命名项目。
+ *  OpenCode v2 的 Project 由目录（canonical）派生，没有 name 字段，
+ *  也没有提供项目更新端点（v1 的 PATCH /project/{id} 已移除），
+ *  因此此处明确提示而非发起注定失败的请求。 */
 export async function renameProject(projectId) {
     if (!projectId) return;
-    const input = prompt('请输入新项目名称：');
-    if (input === null) return;
-    const name = input.trim();
-    try {
-        await api.OpenCodeCall('PATCH', '/project/' + encodeURIComponent(projectId), { name });
-        showToast(name ? '项目已重命名' : '项目名已清空（显示为工作目录名）', 'success');
-        buildTree();
-    } catch (e) {
-        showToast('重命名失败: ' + (e.message || e), 'error');
-    }
+    showToast('OpenCode v2 的项目名由目录自动派生，暂不支持重命名', 'warning');
 }
 
 initTreeContextMenu();

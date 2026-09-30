@@ -345,6 +345,13 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.GetWebStatus(hostname, port), nil
+	case "SetServerPassword":
+		var password string
+		if err := decodeArgs(args, &password); err != nil {
+			return nil, err
+		}
+		a.SetServerPassword(password)
+		return true, nil
 	case "OpenCodeAPI":
 		var method, path, body string
 		if err := decodeArgs(args, &method, &path, &body); err != nil {
@@ -357,6 +364,88 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.GetProjectTree(knownDirs), nil
+	case "MoveSession":
+		var sessionID, directory, delivery string
+		if err := decodeArgs(args, &sessionID, &directory, &delivery); err != nil {
+			return nil, err
+		}
+		return a.MoveSession(sessionID, directory, delivery), nil
+	case "MarkSessionViewed":
+		var sessionID string
+		var idle int64
+		if err := decodeArgs(args, &sessionID, &idle); err != nil {
+			return nil, err
+		}
+		return a.MarkSessionViewed(sessionID, idle), nil
+	case "GetSessionContext":
+		var sessionID string
+		if err := decodeArgs(args, &sessionID); err != nil {
+			return nil, err
+		}
+		return a.GetSessionContext(sessionID), nil
+	case "ExportSession":
+		var sessionID string
+		var sanitize bool
+		if err := decodeArgs(args, &sessionID, &sanitize); err != nil {
+			return nil, err
+		}
+		return a.ExportSession(sessionID, sanitize), nil
+	case "ImportSession":
+		var exportJSON string
+		if err := decodeArgs(args, &exportJSON); err != nil {
+			return nil, err
+		}
+		return a.ImportSession(exportJSON), nil
+	case "ListIntegrations":
+		var directory string
+		var includeEmpty bool
+		if err := decodeArgs(args, &directory, &includeEmpty); err != nil {
+			return nil, err
+		}
+		return a.ListIntegrations(directory, includeEmpty), nil
+	case "ActivateCredential":
+		var credentialID string
+		if err := decodeArgs(args, &credentialID); err != nil {
+			return nil, err
+		}
+		return a.ActivateCredential(credentialID), nil
+	case "RenameCredential":
+		var credentialID, label string
+		if err := decodeArgs(args, &credentialID, &label); err != nil {
+			return nil, err
+		}
+		return a.RenameCredential(credentialID, label), nil
+	case "AddCredential":
+		var integrationID, key, label string
+		if err := decodeArgs(args, &integrationID, &key, &label); err != nil {
+			return nil, err
+		}
+		return a.AddCredential(integrationID, key, label), nil
+	case "DeleteCredential":
+		var credentialID string
+		if err := decodeArgs(args, &credentialID); err != nil {
+			return nil, err
+		}
+		return a.DeleteCredential(credentialID), nil
+	case "ListWorktrees":
+		var projectID string
+		if err := decodeArgs(args, &projectID); err != nil {
+			return nil, err
+		}
+		return a.ListWorktrees(projectID), nil
+	case "ListBranches":
+		var directory, search string
+		var limit int
+		if err := decodeArgs(args, &directory, &search, &limit); err != nil {
+			return nil, err
+		}
+		return a.ListBranches(directory, search, limit), nil
+	case "ListPtys":
+		var directory string
+		if err := decodeArgs(args, &directory); err != nil {
+			return nil, err
+		}
+		return a.ListPtys(directory), nil
 	case "StartOpenCodeEvents":
 		return a.StartOpenCodeEvents(), nil
 	case "StopOpenCodeEvents":

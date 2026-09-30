@@ -82,6 +82,9 @@
                             <div class="oc-tree-context-menu-item" data-action="project-config">⚙️ 项目配置</div>
                             <div class="oc-tree-context-menu-item" data-action="rename">✏️ 重命名</div>
                             <div class="oc-tree-context-menu-item" data-action="delete">🗑️ 删除会话</div>
+                            <div class="oc-tree-context-menu-item" data-action="export">📤 导出会话</div>
+                            <div class="oc-tree-context-menu-item" data-action="move">📦 移动到…</div>
+                            <div class="oc-tree-context-menu-item" data-action="import">📥 导入会话…</div>
                             <div class="oc-tree-context-menu-item" data-action="project-rename">✏️ 重命名项目</div>
                         </div>
                         <div class="oc-sessions-footer">
@@ -188,6 +191,17 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="oc-panel-section" id="credPanelSection">
+                            <div class="oc-panel-head" role="button" tabindex="0">
+                                <span class="oc-panel-arrow">▼</span><span>🔑 凭据</span>
+                                <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshCreds" disabled>刷新</button>
+                            </div>
+                            <div class="oc-panel-body">
+                                <div class="oc-credentials" id="ocCredentials">
+                                    <div class="oc-empty">启动服务后查看已配置的凭据</div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="oc-panel-section" id="subtaskPanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
                                 <span class="oc-panel-arrow">▼</span><span>📋 子任务</span>
@@ -198,7 +212,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="oc-panel-section">
+                        <div class="oc-panel-section" id="todoPanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
                                 <span class="oc-panel-arrow">▼</span><span>✅ 代办事项</span>
                             </div>
@@ -463,13 +477,22 @@
                 <input id="serviceHost" placeholder="127.0.0.1" />
             </div>
             <div class="modal-field">
-                    <label for="servicePort">服务端口</label>
-                    <div style="display:flex;align-items:center;gap:8px">
+                <label for="servicePort">服务端口</label>
+                <div style="display:flex;align-items:center;gap:8px">
                         <input id="servicePort" inputmode="numeric" placeholder="4096" style="flex:1" />
                         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;white-space:nowrap;color:var(--text-secondary)">
                             <input type="checkbox" id="servicePortRandom" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer" /> 随机
                         </label>
                     </div>
+            </div>
+            <div class="modal-field">
+                <label for="servicePassword">服务访问口令（可选）</label>
+                <input id="servicePassword" type="password" placeholder="连接外部已启动的 opencode 时填写" autocomplete="off" />
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.5">
+                    OpenCode v2 起服务默认开启 Basic 认证。由 OC Manager 启动的服务会自动识别，<b>无需填写</b>；
+                    仅当连接的是你自己在别处启动的 opencode 时，才需要把其启动日志里的
+                    <code>server password</code> 复制到这里。
+                </div>
             </div>
             <hr class="proxy-separator" />
             <div class="oc-service-group-title">代理设置</div>

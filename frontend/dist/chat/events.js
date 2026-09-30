@@ -4,7 +4,7 @@
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getCachedMessages, safeText）、core/apicall.js（api）、
 //       chat/session.js（loadMessages, refreshSessionTitle, selectSession）、
 //       chat/render.js（updateSendButton）、chat/cache.js（scheduleRenderCachedMessages, upsertMessage 等）、
-//       chat/sidepanel.js（scheduleSubtaskExtraction）、chat/tree.js（buildTree）
+//       chat/sidepanel.js（scheduleSubtaskExtraction）、chat/tree.js（buildTree, wasSessionDeletedLocally）
 // ============================================================
 
 import { store } from '../core/state.js';
@@ -14,8 +14,9 @@ import { loadMessages, refreshSessionTitle, selectSession } from './session.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
-import { buildTree } from './tree.js';
+import { buildTree, wasSessionDeletedLocally } from './tree.js';
 import { showPermissionRequest, closePermissionModal } from './permission.js';
+import { adaptEvent, normalizeStatuses } from '../core/v2compat.js';
 
 // ============================
 // SSE 事件处理
@@ -23,6 +24,15 @@ import { showPermissionRequest, closePermissionModal } from './permission.js';
 
 /** EventSource 断线重连计数（浏览器模式；Wails 模式经 runtime 事件自动重连） */
 let reconnectAttempts = 0;
+
+/**
+ * v2 事件入口：把 OpenCode v2 的事件翻译成 v1 形态后逐条交给既有分发器。
+ * 一条 v2 事件可能对应多条 v1 事件（如 user 入队同时产生消息与正文 part）。
+ */
+function dispatchV2Event(v2event) {
+    const v1events = adaptEvent(v2event);
+    for (const e of v1events) handleOcEvent(e);
+}
 
 /** 同类提示节流窗口（毫秒）：避免断开/重连提示在短时间内反复弹出刷屏 */
 const TOAST_THROTTLE_MS = 10000;
@@ -38,7 +48,9 @@ function showThrottledToast(key, message, type) {
     showToast(message, type);
 }
 
-/** 解析 SSE 事件原始 JSON 载荷，解包 payload 字段 */
+/** 解析 SSE 事件原始 JSON 载荷。
+ *  v2 的事件是扁平的 {id, created, type, data, location?}，没有 v1 的 payload 包裹；
+ *  目录字段也从 v1 的顶层 directory 变为 location.directory，这里统一补回 directory。 */
 export function parseEventPayload(raw) {
     try {
         const event = JSON.parse(raw);
@@ -48,6 +60,9 @@ export function parseEventPayload(raw) {
                 directory: event.directory,
                 project: event.project,
             };
+        }
+        if (event.location?.directory && !event.directory) {
+            return { ...event, directory: event.location.directory };
         }
         return event;
     } catch { return { type: 'raw', data: raw }; }
@@ -60,7 +75,7 @@ export function startEventStream() {
         // 回调参数为 WailsEvent 对象（{ name, data, sender }），业务载荷在 ev.data。
         startEventStream.bound = true;
         loadWailsRuntime().then((rt) => {
-            rt.Events.On('oc-event', (ev) => handleOcEvent(parseEventPayload(ev.data)));
+            rt.Events.On('oc-event', (ev) => dispatchV2Event(parseEventPayload(ev.data)));
             rt.Events.On('oc-event-error', (ev) => {
                 showToast('事件流异常: ' + ev.data, 'error');
             });
@@ -73,7 +88,7 @@ export function startEventStream() {
     if (!isDesktopRuntime() && !startEventStream.eventSource) {
         const es = new EventSource('/events');
         startEventStream.eventSource = es;
-        es.addEventListener('oc-event', (event) => handleOcEvent(parseEventPayload(event.data)));
+        es.addEventListener('oc-event', (event) => dispatchV2Event(parseEventPayload(event.data)));
         es.addEventListener('oc-event-error', (event) => {
             showToast('事件流异常: ' + (event.data || '连接已断开'), 'error');
         });
@@ -144,7 +159,9 @@ export function handleOcEvent(event) {
         return;
     }
     if (type === 'session.status' && sid) {
-        store.sessionStatuses[sid] = props.status || props;
+        // v1 的 status 是字符串（'busy'/'idle'）；v2 可能是 {type:'running'}，
+        // 统一交给 normalizeStatuses 归一，避免 isSessionBusy 认不出 running。
+        store.sessionStatuses[sid] = normalizeStatuses({ [sid]: props.status || props })[sid];
         if (sid === store.currentSessionId) {
             updateSendButton();
             const status = props.status || props;
@@ -213,11 +230,15 @@ export function handleOcEvent(event) {
         return;
     }
     if (type === 'session.deleted') {
-        if (window._skipSessionDeletedRebuild) {
-            window._skipSessionDeletedRebuild = false;
-        } else {
-            buildTree();
+        // 严格取「被删的那个会话」的 ID，不能用上面那个 sid：
+        // sid 的兜底是 store.currentSessionId，删的不是当前会话时会得到一个
+        // 毫不相干的 ID。拿它去查「是否刚被本地删过」会误判，吞掉本该发生的重建。
+        const deletedId = props.sessionID || props.sessionId || props.info?.sessionID || props.part?.sessionID || '';
+        if (deletedId && wasSessionDeletedLocally(deletedId)) {
+            // 树里该节点已被 deleteSession 直接摘掉，重建只会闪一下
+            return;
         }
+        buildTree();
         return;
     }
     if (type === 'session.updated') {
@@ -225,10 +246,12 @@ export function handleOcEvent(event) {
     }
 }
 
-/** 加载所有会话的运行状态（busy/idle/error） */
+/** 加载所有会话的运行状态（busy/idle/error）
+ *  v1 为 GET /session/status，v2 改为 GET /api/session/active。
+ *  v2 的值是 {type:'running'} 且只列出活跃会话，由 normalizeStatuses 转成 v1 契约。 */
 export async function loadSessionStatuses() {
     try {
-        return await api.OpenCodeCall('GET', '/session/status') || {};
+        return normalizeStatuses(await api.OpenCodeCall('GET', '/api/session/active'));
     } catch {
         return {};
     }
