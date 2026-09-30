@@ -229,12 +229,24 @@ func ImportSession(exportJSON string) model.APIResult {
 	if trimmed == "" {
 		return model.APIResult{Error: "导入内容为空"}
 	}
-	// 先本地校验结构，避免把明显不是导出数据的东西发给服务端
+	// 解信封：导出接口返回的是 {location, data:{info,messages}}（Location 信封，与
+	// 其它带 location 的端点一致；前端导出时也是按 parsed.data.info 取标题的），
+	// 而导入端点要的负载是 SessionTransfer.Data = {info, messages}（见 v2 源码
+	// packages/schema/src/session-transfer.ts，CLI 也是先解码 Data 再补 location 提交）。
+	// 因此先解一层：有 data 用 data，否则用顶层（兼容手工整理或旧版导出的文件）。
+	payloadRaw := json.RawMessage(trimmed)
+	var envelope struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(trimmed), &envelope); err == nil && len(envelope.Data) > 0 {
+		payloadRaw = envelope.Data
+	}
+	// 再本地校验结构，避免把明显不是导出数据的东西发给服务端
 	var probe struct {
 		Info     *map[string]any   `json:"info"`
 		Messages *[]map[string]any `json:"messages"`
 	}
-	if err := json.Unmarshal([]byte(trimmed), &probe); err != nil {
+	if err := json.Unmarshal(payloadRaw, &probe); err != nil {
 		return model.APIResult{Error: "导入内容不是合法 JSON: " + err.Error()}
 	}
 	if probe.Info == nil || probe.Messages == nil {
@@ -250,11 +262,20 @@ func ImportSession(exportJSON string) model.APIResult {
 		return fail
 	}
 	var payload map[string]any
-	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
+	if err := json.Unmarshal(payloadRaw, &payload); err != nil {
 		return model.APIResult{Error: "解析导入内容失败: " + err.Error()}
 	}
 	body, _ := json.Marshal(payload)
-	return apiPost(base+"/api/experimental/session/import", password, body)
+	res := apiPost(base+"/api/experimental/session/import", password, body)
+	// 409 = 该会话 ID 已存在。这是 v2 的既定语义：导入会用 info.id 原样建会话
+	// （server/src/handlers/session.ts 的 session.import → ImportConflictError），
+	// 所以同一服务里重复导入同一条会话必然冲突（官方 CLI 亦如此）。
+	// 这里换成可操作的说明，而不是把英文原始错误丢给用户。
+	if res.Status == http.StatusConflict || strings.Contains(res.Error, "already exists") {
+		return model.APIResult{Status: res.Status, Error: "该会话已存在（ID 冲突）：导入会沿用导出文件里的会话 ID。" +
+			"若要恢复这条会话，请先删除原会话；若只是想要一份副本，请改在另一个项目目录/另一台机器导入。"}
+	}
+	return res
 }
 
 // ── 集成与凭据 ───────────────────────────────────────────────────────────
