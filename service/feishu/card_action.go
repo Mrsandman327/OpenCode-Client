@@ -56,12 +56,31 @@ func (b *Bridge) HandleCardAction(ctx context.Context, a CardAction) {
 	}
 
 	act := a.valueStr("action")
+
+	// ⚠️ 表单提交必须**先**按 FormValue 识别，落在 action 分派之前。
+	//
+	// 原因在 form_card.go：schema 2.0 下表单提交按钮走 behaviors 的
+	// form_action，它**没有 value.action**——只有 `name: "submit_btn"`。
+	// 于是 act 恒为空串，落进下面的 switch 一个分支都匹配不上，
+	// 最终掉进 default 的「该卡片没有可执行的操作」。
+	//
+	// 症状极隐蔽：卡片渲染完全正常（甚至 `form_card_test.go` 全绿），
+	// 用户点「提交」却收到一句「该卡片没有可执行的操作」。
+	// 判据用 FormValue 是否非空，而不是 action.tag——tag 也是 "button"，
+	// 与普通按钮无法区分。
+	if len(a.FormValue) > 0 {
+		b.handleFormSubmit(ctx, a)
+		return
+	}
+
 	switch {
 	case act == ActionSessionSelect:
 		b.handleSessionSelect(ctx, a)
 	case act == ActionPermissionAllowOnce || act == ActionPermissionAllowAlways || act == ActionPermissionReject:
 		b.handlePermissionReply(ctx, a)
 	case act == ActionFormSubmit:
+		// 保留这条显式分支：万一将来某张表单卡真的带了 action，
+		// 它应当被正常处理。实际生效的是上面的 FormValue 判定。
 		b.handleFormSubmit(ctx, a)
 	case act == ActionFormCancel:
 		b.replyText(ctx, a.ChatID, "已取消该提问。")

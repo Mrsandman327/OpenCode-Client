@@ -204,6 +204,9 @@ func NeedsArgument() []string {
 }
 
 // DescribeQuickActions 生成快捷操作说明（供 /help 附在命令表后面）。
+//
+// 零**生产**调用方（/help 目前没接这段），menu_test.go 用它断言
+// 「需参数的动作会出现在说明里」——`NeedsArgument` 的语义由它兜着。
 func DescribeQuickActions() string {
 	return fmt.Sprintf("也可以点卡片上的快捷按钮操作；%v 需要参数，请直接用对应命令。", NeedsArgument())
 }

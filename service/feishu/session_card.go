@@ -20,10 +20,10 @@ import (
 
 // sessionCardDefaults 对齐 bot 侧默认值。
 const (
-	defaultSessionLimit    = 10
-	buttonTextLimit        = 30
-	childTextLimit         = 24
-	defaultChildrenPerRoot = 5
+	defaultSessionLimit = 10
+	buttonTextLimit     = 30
+	// depthOfRoot 是一级会话下子会话计数行的缩进深度。
+	depthOfRoot = 1
 )
 
 // SessionNode 是会话树的一个节点。
@@ -109,10 +109,11 @@ func SessionSelectCard(o SessionSelectOptions) *Card {
 			}, "")
 		}
 
-		appendChildRows(c, node.Children, 1)
-		// 根节点自己被截断的子会话也要提示，否则这部分数据静默消失
-		if node.HiddenChildCount > 0 {
-			c.Note(fmt.Sprintf("%s⋯ 另有 %d 个更早的子会话", indent(depthOfRoot), node.HiddenChildCount))
+		// 子会话只给条数，不列明细（见 childCountLine 的注释）。
+		// 条数用 countDescendants（含 HiddenChildCount），
+		// 否则被截断的那部分会凭空消失。
+		if line := childCountLine(node); line != "" {
+			c.Note(line)
 		}
 	}
 
@@ -133,30 +134,6 @@ func SessionSelectCard(o SessionSelectOptions) *Card {
 	}
 
 	return c
-}
-
-// depthOfRoot 是一级会话下子会话行的缩进深度。
-const depthOfRoot = 1
-
-// appendChildRows 渲染子会话标注行（缩进随层级加深）。
-func appendChildRows(c *Card, children []SessionNode, depth int) {
-	for _, child := range children {
-		title := truncate(strings.TrimSpace(child.Title), childTextLimit)
-		if title == "" {
-			title = "(无标题)"
-		}
-		ts := formatSessionTime(child.Updated, time.Time{})
-		line := fmt.Sprintf("%s↳ %s  `%s`", indent(depth), title, truncate(child.ID, 14))
-		if ts != "" {
-			line += "  " + ts
-		}
-		c.Note(line)
-
-		if child.HiddenChildCount > 0 {
-			c.Note(fmt.Sprintf("%s⋯ 另有 %d 个更早的子会话", indent(depth), child.HiddenChildCount))
-		}
-		appendChildRows(c, child.Children, depth+1)
-	}
 }
 
 // indent 生成缩进。用全角空格：在飞书 markdown 下比半角稳定。
@@ -182,19 +159,42 @@ func formatSessionTime(t, now time.Time) string {
 func countChildren(roots []SessionNode) int {
 	total := 0
 	for _, r := range roots {
-		total += len(r.Children)
-		for _, child := range r.Children {
-			total += countDescendants(child)
-		}
+		total += countDescendants(r)
 	}
 	return total
 }
 
-// countDescendants 统计某个节点之下（不含自身）的全部后代。
+// countDescendants 统计某个节点之下的子会话总数，
+// **含各级因截断而未展开的部分**（HiddenChildCount）。
+//
+// ⚠️ 为什么必须算 HiddenChildCount：它是「因 maxChildrenPerRoot 截断而
+// 未展示的**直接**子会话数」。只走 Children 会漏掉它——
+// 一个实际有 12 个子会话的父会话，展示 5 个时会被报成「5 个子会话」，
+// 差了一倍多。UI 把这个数字当作子会话的**唯一**呈现时（只给条数不列明细），
+// 漏算就是直接说谎。
 func countDescendants(n SessionNode) int {
-	total := len(n.Children)
+	total := n.HiddenChildCount
 	for _, child := range n.Children {
-		total += countDescendants(child)
+		total += 1 + countDescendants(child)
 	}
 	return total
+}
+
+// childCountLine 是主会话下方的子会话计数行。
+//
+// 为什么只给条数、不列明细（2026-09-30 改）：
+// 子会话体量远大于主会话——实测最近 50 条里 39 条（78%）是子会话。
+// 逐条列出时主会话被彻底淹没，卡片高度也撑爆，一屏看不到几个可切的目标。
+//
+// 而子会话本来就不该做成可点按钮：切过去意味着后续消息进入
+// **子代理的上下文**，主会话的对话线就此分叉，且当前没有「回到父会话」
+// 的入口——点错了只能自己去 `/use <父会话ID>`。容易在不知情的情况下把
+// 对话发到错误的地方。既然默认不给入口，列明细就只剩噪音；
+// 真要进子会话，用户可显式 `/use <会话ID>`，有意识地做，而非误触。
+func childCountLine(node SessionNode) string {
+	count := countDescendants(node)
+	if count == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s↳ %d 个子会话", indent(depthOfRoot), count)
 }

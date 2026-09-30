@@ -11,6 +11,7 @@ package feishu
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 )
@@ -111,6 +112,61 @@ func backoffMs(attempt int) time.Duration {
 type SendResult struct {
 	Success     bool
 	RateLimited bool
+}
+
+// RenderFailure 是渲染失败的分类。
+//
+// UpdateCard 对**所有**失败都只返回不抛，而调用方很容易忽略返回值，
+// 于是「超限(230025) / 无权限 / 消息已删」和「限流(230020)」被同等对待：
+// 都只写一行日志、都不重试、都不告诉用户 —— 卡片静默冻结在半途。
+// 两者必须区别对待：
+//   - RenderFailureRateLimited：暂态，RenderWithRetry 已经退避重试过，
+//     重试仍失败说明短时间内救不回来，用户也无需知道（他正在看别的内容）。
+//   - RenderFailureHard：真失败（超限、无权限、消息被删）。内容**真的丢了**，
+//     必须让用户知道，否则「半截」在他眼里就是机器人坏了。
+type RenderFailure string
+
+const (
+	RenderFailureNone        RenderFailure = "none"
+	RenderFailureRateLimited RenderFailure = "rate-limited"
+	RenderFailureHard        RenderFailure = "hard"
+)
+
+// ClassifyRenderFailure 把一次更新的结果归类。
+func ClassifyRenderFailure(res SendResult) RenderFailure {
+	if res.Success {
+		return RenderFailureNone
+	}
+	if res.RateLimited {
+		return RenderFailureRateLimited
+	}
+	return RenderFailureHard
+}
+
+// IsUserVisibleFailure 是否需要让用户知道。只有真失败才打扰。
+func IsUserVisibleFailure(f RenderFailure) bool {
+	return f == RenderFailureHard
+}
+
+// RenderFailureNotice 是真失败时发给用户的话；返回空串表示不该打扰。
+//
+// 抽成纯函数而不是在渲染层里拼字符串：判断标准（「限流不打扰、
+// 真失败必须说」）本身是产品决策，值得被单测钉住。
+func RenderFailureNotice(f RenderFailure, subject, reason, recovery string) string {
+	if !IsUserVisibleFailure(f) {
+		return ""
+	}
+	if subject == "" {
+		subject = "回复卡片"
+	}
+	if reason != "" {
+		subject += "（" + reason + "）"
+	}
+	lines := []string{"⚠️ " + subject + "更新失败，上方内容可能不完整。"}
+	if recovery != "" {
+		lines = append(lines, recovery)
+	}
+	return strings.Join(lines, "\n\n")
 }
 
 // RateLimitError 是飞书限流的错误码。

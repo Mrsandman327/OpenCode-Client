@@ -51,9 +51,59 @@ type Bridge struct {
 	// key 是 chatID——确认必须绑定会话，否则 A 的确认会作用到 B 的会话上。
 	mu      sync.Mutex
 	pending map[string]*pendingState
+	// turns 存正在进行的流式回合，key 是 chatID。
+	//
+	// 必须按 chatID 而非 sessionID 存：同一会话可能被两个 chat 同时
+	// 驱动（飞书群 + 私聊），而它们各有各的卡片。
+	turns map[string]*streamTurn
+	// pushedPrompt 是已推过卡的「提问」标识集合（formID / 权限 requestID）。
+	//
+	// 为什么需要去重：飞书卡片会**长期留在聊天记录里**，重复推送不是
+	// 「多一条消息」而是让用户对着两张一模一样的卡，不知道该点哪张。
+	// 键带上 session 前缀，避免不同会话的同名 ID 互相抑制。
+	pushedPrompt map[string]time.Time
+	// closed 为 true 时不再开新回合（StopFeishu 之后）。
+	closed bool
+}
 
-	// onReply 供上层把执行结果发出去（流式渲染等）。可为空。
-	onReply func(ctx context.Context, chatID, sessionID, text string)
+// pushedPromptTTL 是已推送记录的保留时长。
+//
+// 取 1 小时：既够覆盖「同一次提问被重复投递」的全部时间窗，
+// 又不会让 map 无限增长（每个键只有几十字节）。
+const pushedPromptTTL = time.Hour
+
+// isClosed 报告通道是否已停止（StopFeishu 之后）。
+//
+// 提问卡的推送是**异步到达**的：事件在 SSE goroutine 里被处理，
+// 而关停随时可能发生在两次事件之间。关停后还推卡 = 往一个已经
+// 断开的飞书连接发消息，用户收不到、日志里只有一条失败。
+func (b *Bridge) isClosed() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.closed
+}
+
+// markPromptPushed 记下「已推过卡」，返回是否首次。
+//
+// 首次为 true 时顺手清理过期记录——清理放在这条路径上而不是
+// 另起定时器，是因为这条路径本来就有锁，额外起一个 goroutine
+// 只为删几个几十字节的键不值。
+func (b *Bridge) markPromptPushed(chatID, kind, id string) bool {
+	key := kind + "|" + id
+	now := time.Now()
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for k, at := range b.pushedPrompt {
+		if now.Sub(at) > pushedPromptTTL {
+			delete(b.pushedPrompt, k)
+		}
+	}
+	if _, dup := b.pushedPrompt[key]; dup {
+		return false
+	}
+	b.pushedPrompt[key] = now
+	return true
 }
 
 // pendingState 是等待用户确认的中间状态。
@@ -77,18 +127,35 @@ const pendingTimeout = 10 * time.Minute
 // NewBridge 建桥接层。
 func NewBridge(oc OpenCode, out Output, sessions *SessionMap, wl *Whitelist, cfg BridgeConfig) *Bridge {
 	return &Bridge{
-		oc:       oc,
-		out:      out,
-		sessions: sessions,
-		wl:       wl,
-		cfg:      cfg,
-		pending:  make(map[string]*pendingState),
+		oc:           oc,
+		out:          out,
+		sessions:     sessions,
+		wl:           wl,
+		cfg:          cfg,
+		pending:      make(map[string]*pendingState),
+		turns:        make(map[string]*streamTurn),
+		pushedPrompt: make(map[string]time.Time),
 	}
 }
 
-// SetReplyHandler 注册执行结果回调。
-func (b *Bridge) SetReplyHandler(fn func(ctx context.Context, chatID, sessionID, text string)) {
-	b.onReply = fn
+// Close 收掉所有进行中的流式回合。可重复调用。
+//
+// StopFeishu 必须调它：不调的后果是事件订阅 goroutine 与心跳定时器
+// 一直活着（订阅会自己重连），进程退出前持续空转，且在重连后
+// 往一个已经没人听的 chat 发卡片。
+func (b *Bridge) Close() {
+	b.mu.Lock()
+	b.closed = true
+	turns := make([]*streamTurn, 0, len(b.turns))
+	for _, t := range b.turns {
+		turns = append(turns, t)
+	}
+	b.turns = make(map[string]*streamTurn)
+	b.mu.Unlock()
+
+	for _, t := range turns {
+		t.stop()
+	}
 }
 
 // policy 取当前访问策略。
@@ -154,10 +221,177 @@ func (b *Bridge) handlePrompt(ctx context.Context, msg IncomingMessage) {
 		b.replyText(ctx, msg.ChatID, "**发送失败**\n\n"+err.Error())
 		return
 	}
-	// 回复内容由上层流式渲染接走；这里只做确认性提示
-	if b.onReply != nil {
-		b.onReply(ctx, msg.ChatID, st.SessionID, msg.Text)
+	// 助手回复由流式回合接走：先起订阅 + 占位卡，再消费事件。
+	// 这一步失败必须**明确告诉用户**——此前这里有一个零调用方的
+	// onReply 回调（恒为 nil），失败被完全静默，用户只看到自己发的
+	// 那条消息被复读一次，此后永远等不到回复。
+	if err := b.startTurn(msg.ChatID, st.SessionID); err != nil {
+		b.replyText(ctx, msg.ChatID,
+			"**已发送，但无法接收回复**\n\n"+err.Error()+
+				"\n\n请检查 OpenCode 服务是否在运行（`/server_status`），或用 `/abort` 结束当前任务。")
 	}
+}
+
+// startTurn 开一轮流式渲染。
+func (b *Bridge) startTurn(chatID, sessionID string) error {
+	if b.out == nil {
+		return errNoCardUpdater
+	}
+	b.mu.Lock()
+	if b.closed {
+		b.mu.Unlock()
+		return errBridgeClosed
+	}
+	// 同一 chat 已有在跑的回合：先停掉。旧回合不收尾的话，
+	// 它的事件流会继续往同一张卡上渲染，两个回合的内容互相覆盖。
+	if old := b.turns[chatID]; old != nil {
+		old.Stop()
+		delete(b.turns, chatID)
+	}
+	b.mu.Unlock()
+
+	turn, err := StartStreamTurn(b.out, sessionID, chatID, StreamConfig{
+		Subscribe:         b.oc.SubscribeEvents,
+		OnFinish:          b.onTurnFinish(chatID),
+		OnFormCreated:     b.onFormCreated(chatID, sessionID),
+		OnPermissionAsked: b.onPermissionAsked(chatID, sessionID),
+	})
+	if err != nil {
+		return err
+	}
+	b.mu.Lock()
+	if b.closed {
+		b.mu.Unlock()
+		// 关停与开回合竞态：Close 刚跑完，这里新开的回合没人收。
+		turn.Stop()
+		return errBridgeClosed
+	}
+	b.turns[chatID] = turn
+	b.mu.Unlock()
+	return nil
+}
+
+// onFormCreated 推 OpenCode 的提问卡。
+//
+// ⚠️ 事件本身**不带 fields**，只有 formID——所以必须先用 GetForm
+// 查一次详情。不查就 `FormCard(FormInfo{})` 的话，用户收到的是一张
+// 只有「提交」按钮的空卡片，看起来像机器人问了句莫名其妙的话。
+//
+// 同步执行（与 bot 侧一致）：本轮已经被 form 卡住、不会有别的���件，
+// 阻塞事件泵的代价可以忽略；换来的是测试不需要等 goroutine。
+func (b *Bridge) onFormCreated(chatID, sessionID string) func(formID string) {
+	return func(formID string) {
+		if b.isClosed() {
+			return
+		}
+		// 同一个 form 只推一次。V2 的 form 是「settle 一次」语义，
+		// 但事件流重连或状态对账可能重复投递 form.created。
+		if !b.markPromptPushed(chatID, "form", formID) {
+			return
+		}
+		form, err := b.oc.GetForm(sessionID, formID)
+		if err != nil {
+			// 取不到详情时必须告诉用户：流式卡上已经写了「在等你回答」，
+			// 而用户手上什么都没有 —— 他会一直等一张永远不来的卡。
+			logf("取表单详情失败 chat=%s form=%s: %v", chatID, formID, err)
+			b.replyText(context.Background(), chatID,
+				"**问题卡片加载失败**\n\n"+err.Error()+
+					"\n\n可以先用 `/abort` 结束本轮，或直接发消息回答。")
+			return
+		}
+		// 服务端偶尔不带 id 回填，用事件里的 formID 兜底——
+		// 卡片里 form 容器的 name 依赖它（FormCard 用 form.ID 命名）。
+		if form.ID == "" {
+			form.ID = formID
+		}
+		if form.SessionID == "" {
+			form.SessionID = sessionID
+		}
+		b.sendCard(context.Background(), chatID, FormCard(form))
+	}
+}
+
+// onPermissionAsked 推权限审批卡。
+//
+// 之所以必须**事件驱动**而不是只靠 `/permissions` 补查：V2 是 inbox 式
+// 执行，一旦本轮被权限卡住，message.complete / session.idle 永远不会来。
+// 只在用户手动敲命令时才推，等于绝大多数情况下用户根本不知道有这回事。
+func (b *Bridge) onPermissionAsked(chatID, sessionID string) func(requestID string) {
+	return func(requestID string) {
+		if b.isClosed() {
+			return
+		}
+		if !b.markPromptPushed(chatID, "perm", requestID) {
+			return
+		}
+		// 逐个匹配而不是直接构造 PermissionCard：ListPermissions 返回的
+		// 才是带 action/resources/message 的完整请求，事件里只有 ID。
+		reqs, err := b.oc.ListPermissions(sessionID)
+		if err != nil {
+			logf("取权限请求失败 chat=%s req=%s: %v", chatID, requestID, err)
+			return
+		}
+		for _, r := range reqs {
+			if r.ID != requestID {
+				continue
+			}
+			b.sendCard(context.Background(), chatID, PermissionCard(r))
+			return
+		}
+		// 请求已被处理掉（或刚过期）就不推：推一张点下去只会报错的卡
+		// 比不推更糟。
+		logf("权限请求 %s 已不在待审列表中，跳过推送", requestID)
+	}
+}
+
+// onTurnFinish 构造整轮结束的回调。
+func (b *Bridge) onTurnFinish(chatID string) func(res TurnResult) {
+	return func(res TurnResult) {
+		b.mu.Lock()
+		delete(b.turns, chatID)
+		b.mu.Unlock()
+
+		// 长任务额外推一条完成通知，避免用户切走后错过结果。
+		//
+		// 通知卡**只带元信息**：正文已在流式卡上逐字显示过，再放一遍
+		// 就是「同一份正文发两遍」。仅当主卡真更新失败、用户手上什么
+		// 都没有时，才把正文作为兜底附上（见 TaskNotification）。
+		if b.out == nil || !ShouldNotifyTask(res.Elapsed) {
+			return
+		}
+		st := b.sessions.Get(chatID)
+		n := TaskNotification{
+			ElapsedSeconds: int(res.Elapsed.Round(time.Second) / time.Second),
+			Success:        res.Success,
+			ProjectPath:    st.ProjectPath,
+			// 标题不查：一次 ListSessions 往返只为填一个标题不划算，
+			// 短 ID 足以让用户在多标签页里认出是哪一个（/status 给全 ID）。
+			SessionID: st.SessionID,
+		}
+		if !res.MainCardDelivered {
+			body := res.Content
+			if !res.Success && res.ErrText != "" {
+				body = res.ErrText
+			}
+			n.FallbackOutput = body
+		}
+		// 用独立的 ctx：回调发生在事件 goroutine 里，携带的 ctx
+		// 随时可能已取消。
+		b.sendCard(context.Background(), chatID, TaskNotificationCard(n))
+	}
+}
+
+// abortTurn 停掉某 chat 的进行中回合。
+func (b *Bridge) abortTurn(chatID string) bool {
+	b.mu.Lock()
+	t := b.turns[chatID]
+	delete(b.turns, chatID)
+	b.mu.Unlock()
+	if t == nil {
+		return false
+	}
+	t.Stop()
+	return true
 }
 
 // ── 命令入口 ──
@@ -439,6 +673,13 @@ func (b *Bridge) cmdAbort(ctx context.Context, chatID string) {
 	}
 	if err := b.oc.Interrupt(st.SessionID); err != nil {
 		b.replyText(ctx, chatID, "**中止失败**\n\n"+err.Error())
+		return
+	}
+	// 同时收掉本 chat 的流式回合：心跳必须一起停，否则卡片会继续
+	// 每 2.5 秒跳一次「正在思考…」，而 OpenCode 侧已经被中止——
+	// 这是「明明按了中止，卡片还在动」的直接成因。
+	if b.abortTurn(chatID) {
+		b.replyText(ctx, chatID, "已中止当前运行的任务（流式卡片已停止更新）。")
 		return
 	}
 	b.replyText(ctx, chatID, "已中止当前运行的任务。")

@@ -163,9 +163,14 @@ func (a *App) StartFeishu(ctx context.Context, cfg FeishuConfig) error {
 	// 同一条消息被处理两次
 	feishuRT.mu.Lock()
 	old := feishuRT.client
+	oldBridge := feishuRT.bridge
 	feishuRT.client = nil
 	feishuRT.bridge = nil
 	feishuRT.mu.Unlock()
+	// 旧桥接层也要收：它持有事件订阅与心跳定时器（见 StopFeishu 的注释）
+	if oldBridge != nil {
+		oldBridge.Close()
+	}
 	if old != nil {
 		_ = old.Stop(context.Background())
 	}
@@ -281,12 +286,19 @@ func (a *App) StartFeishu(ctx context.Context, cfg FeishuConfig) error {
 func (a *App) StopFeishu() error {
 	feishuRT.mu.Lock()
 	client := feishuRT.client
+	bridge := feishuRT.bridge
 	feishuRT.client = nil
 	feishuRT.bridge = nil
 	feishuRT.status.Running = false
 	feishuRT.status.State = string(feishu.StateIdle)
 	feishuRT.mu.Unlock()
 
+	// **先收桥接层**再停客户端。顺序反了会漏事件：
+	// 桥接层持有 OpenCode 事件订阅（自己会重连）与心跳定时器，
+	// 不收就等于进程退出前一直在重连并往一个已停的飞书连接发卡片。
+	if bridge != nil {
+		bridge.Close()
+	}
 	if client == nil {
 		return nil
 	}

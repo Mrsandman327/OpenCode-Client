@@ -370,6 +370,65 @@ func (r *RealOpenCode) ReplyPermission(sessionID, requestID, decision string) er
 	return err
 }
 
+// ── 表单 ──
+
+// GetForm 取单个待回答的表单。
+//
+// ⚠️ 端点是 **/api/session/{id}/form/{formID}**（不是 /api/form）。
+//
+// 契约取自 @opencode/client@2.0.18 生成的客户端（bot 侧 node_modules 里
+// 能直接读到原始请求定义），五条 form 端点逐字如下：
+//
+//	GET    /api/session/{sessionID}/form                     200  列表
+//	POST   /api/session/{sessionID}/form                     200  创建
+//	GET    /api/session/{sessionID}/form/{formID}            200  取单个
+//	POST   /api/session/{sessionID}/form/{formID}/reply      204  回答 {answer:{...}}
+//	DELETE /api/session/{sessionID}/form/{formID}            204  取消
+//
+// ⚠️ 本仓 service/opencode/api.go 的 findPendingForm 走的是
+// **GET /api/form?location[directory]=**（全局待答列表，供桌面端
+// 问答主路径用）。两者不冲突：那个答的是「这个目录有哪些待答表单」，
+// 这个答的是「这个表单长什么样」。取详情用后者更精确，且不需要 directory。
+// formPath 构造「取单个表单」的路径。
+//
+// 单独抽出来而不是内联在 GetForm 里：端点路径是最容易悄悄漂移的东西
+// （把 /api/session/{id}/form 写成 /api/form 只差几个字符），
+// 而漂移的后果是 404 → 被 GetForm 的错误路径吞掉 → 表现成
+// 「问题卡片加载失败」，查不到根因。抽成纯函数后可以被测试直接钉住。
+func formPath(sessionID, formID string) string {
+	return sessPath(sessionID) + "/form/" + url.PathEscape(formID)
+}
+
+// parseForm 解出表单并判空。
+//
+// 「字段名全对但内容空」是最危险的失败形态：卡片会渲染出一张只有
+// 「提交」按钮的空表单，用户只会以为「机器人没问真问题」，
+// 而且没有任何报错。必须在这里就拦住。
+func parseForm(raw string) (FormInfo, error) {
+	var info FormInfo
+	if err := unwrapData(raw, &info); err != nil {
+		return FormInfo{}, fmt.Errorf("解析表单失败: %w", err)
+	}
+	if info.ID == "" && len(info.Fields) == 0 {
+		return FormInfo{}, fmt.Errorf("表单响应为空: %s", summarizeErrBody(raw))
+	}
+	return info, nil
+}
+
+func (r *RealOpenCode) GetForm(sessionID, formID string) (FormInfo, error) {
+	if sessionID == "" {
+		return FormInfo{}, errMissingSessionID
+	}
+	if formID == "" {
+		return FormInfo{}, fmt.Errorf("缺少表单 ID")
+	}
+	raw, err := call("GET", formPath(sessionID, formID), "")
+	if err != nil {
+		return FormInfo{}, err
+	}
+	return parseForm(raw)
+}
+
 // ── 只读查询 ──
 
 // SessionUsage 取用量。

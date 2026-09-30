@@ -34,6 +34,7 @@ type fakeOC struct {
 
 	sessions   []SessionSummary
 	perms      []PermissionRequest
+	forms      map[string]FormInfo
 	usage      Usage
 	diffs      []FileDiffStat
 	revertTgt  []RevertTarget
@@ -42,6 +43,71 @@ type fakeOC struct {
 
 	// failOn 让指定操作返回错误，验证错误路径
 	failOn string
+
+	// getFormCalls 记录 GetForm 的调用（formID 或 "sessionID|formID"）。
+	getFormCalls []string
+	// getFormErr 让 GetForm 返回错误。
+	getFormErr error
+
+	// subscribed 记录 SubscribeEvents 被调用的会话 ID。
+	subscribed []string
+	// unsubCount 记录退订函数被调用的次数。
+	unsubCount int
+	// handlers 持有当前的订阅回调，便于测试手动喂事件。
+	handlers []EventCallback
+	// subscribeErr 让订阅返回错误。
+	subscribeErr error
+	// activeSub 标记当前是否有活跃订阅（用于断言关停确实收了它）。
+	activeSub bool
+}
+
+// SubscribeEvents 记录订阅并保存回调。
+//
+// 真实实现在独立 goroutine 里读 SSE；这里保持同步注册，
+// 便于测试用 emit 精确投递事件。
+func (f *fakeOC) SubscribeEvents(sessionID string, cb EventCallback) (func(), error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.subscribeErr != nil {
+		return nil, f.subscribeErr
+	}
+	f.subscribed = append(f.subscribed, sessionID)
+	f.handlers = append(f.handlers, cb)
+	f.activeSub = true
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			f.mu.Lock()
+			f.unsubCount++
+			f.activeSub = false
+			f.mu.Unlock()
+		})
+	}, nil
+}
+
+// emit 向当前所有订阅投递一条事件。
+func (f *fakeOC) emit(ev AgentEvent) {
+	f.mu.Lock()
+	handlers := make([]EventCallback, len(f.handlers))
+	copy(handlers, f.handlers)
+	f.mu.Unlock()
+	for _, h := range handlers {
+		h(ev)
+	}
+}
+
+// hasSub 是否有活跃订阅。
+func (f *fakeOC) hasSub() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.activeSub
+}
+
+// unsubCalls 返回退订次数。
+func (f *fakeOC) unsubCalls() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.unsubCount
 }
 
 func (f *fakeOC) shouldFail(op string) bool {
@@ -112,6 +178,25 @@ func (f *fakeOC) SessionDiff(sessionID string) ([]FileDiffStat, error) {
 
 func (f *fakeOC) ListPermissions(sessionID string) ([]PermissionRequest, error) {
 	return f.perms, nil
+}
+
+// GetForm 返回登记的表单。
+//
+// 找不到时返回错误而不是零值 FormInfo：真实实现在这种情况下也会
+// 报错（见 RealOpenCode.GetForm 的空响应判别），返回一个「有 ID 没
+// fields」的零值会让测试测不到真正的失败路径。
+func (f *fakeOC) GetForm(sessionID, formID string) (FormInfo, error) {
+	f.mu.Lock()
+	f.getFormCalls = append(f.getFormCalls, sessionID+"|"+formID)
+	f.mu.Unlock()
+	if f.getFormErr != nil {
+		return FormInfo{}, f.getFormErr
+	}
+	form, ok := f.forms[formID]
+	if !ok {
+		return FormInfo{}, fmt.Errorf("模拟：表单 %s 不存在", formID)
+	}
+	return form, nil
 }
 
 func (f *fakeOC) ReplyPermission(sessionID, requestID, decision string) error {
@@ -199,6 +284,20 @@ type fakeOut struct {
 	texts    []string
 	cards    []*Card
 	failSend bool
+
+	// updates 记录每次 UpdateCard 的卡片内容（按顺序）。
+	updates []string
+	// updateFails 为 true 时 UpdateCard 失败，返回 updateResult。
+	// 默认成功：真实的 UpdateCard 绝大多数时候是成功的，
+	// 失败路径必须显式打开，否则节流测的是「一直失败」而不是节流。
+	updateFails bool
+	// updateResult 是 updateFails 为 true 时的返回内容。
+	updateResult SendResult
+	updateErr    error
+	// failCard 让 SendCard 失败（占位卡发不出去）。
+	failCard bool
+	// updateIDs 记录被更新的 messageID。
+	updateIDs []string
 }
 
 func (o *fakeOut) SendText(ctx context.Context, chatID, text string) (string, error) {
@@ -214,8 +313,78 @@ func (o *fakeOut) SendText(ctx context.Context, chatID, text string) (string, er
 func (o *fakeOut) SendCard(ctx context.Context, chatID string, card *Card) (string, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	if o.failCard {
+		return "", fmt.Errorf("模拟发卡失败")
+	}
 	o.cards = append(o.cards, card)
-	return "om_2", nil
+	return fmt.Sprintf("om_card_%d", len(o.cards)), nil
+}
+
+// UpdateCard 实现 CardUpdater，使 fakeOut 能参与流式渲染测试。
+func (o *fakeOut) UpdateCard(ctx context.Context, messageID string, card *Card) (SendResult, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.updateIDs = append(o.updateIDs, messageID)
+	o.updates = append(o.updates, card.MustJSON())
+	if !o.updateFails {
+		return SendResult{Success: true}, nil
+	}
+	if o.updateErr != nil {
+		return o.updateResult, o.updateErr
+	}
+	return o.updateResult, fmt.Errorf("模拟更新失败 code=%d", 230025)
+}
+
+// updateTexts 返回每次更新的卡片正文（按顺序）。
+func (o *fakeOut) updateTexts() []string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	out := make([]string, 0, len(o.updates))
+	for _, raw := range o.updates {
+		var probe struct {
+			Body struct {
+				Elements []struct {
+					Content string `json:"content"`
+				} `json:"elements"`
+			} `json:"body"`
+		}
+		if err := json.Unmarshal([]byte(raw), &probe); err != nil {
+			continue
+		}
+		for _, el := range probe.Body.Elements {
+			if el.Content != "" {
+				out = append(out, el.Content)
+			}
+		}
+	}
+	return out
+}
+
+// updateCount 返回更新次数。
+func (o *fakeOut) updateCount() int {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return len(o.updates)
+}
+
+// noUpdateOut 只支持发消息、不支持更新卡片。
+//
+// 刻意**不内嵌** fakeOut：内嵌会把 UpdateCard 一起带进来，
+// 于是这个替身仍然满足 CardUpdater，测不出「不支持流式」这条路径。
+type noUpdateOut struct {
+	mu    sync.Mutex
+	cards []*Card
+}
+
+func (o *noUpdateOut) SendText(ctx context.Context, chatID, text string) (string, error) {
+	return "om_1", nil
+}
+
+func (o *noUpdateOut) SendCard(ctx context.Context, chatID string, card *Card) (string, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.cards = append(o.cards, card)
+	return "om_card_1", nil
 }
 
 // lastText 返回最后一条文本。
@@ -680,8 +849,11 @@ func Test会话卡只给主会话生成按钮(t *testing.T) {
 		t.Errorf("按钮应属主会话: %v", btns[0].Behaviors[0].Value)
 	}
 	txt := out.cardJSON(t, 0)
-	if !strings.Contains(txt, "子1") || !strings.Contains(txt, "子2") {
-		t.Error("子会话应作为标注行可见")
+	if !strings.Contains(txt, "2 个子会话") {
+		t.Errorf("子会话应给条数: %s", txt)
+	}
+	if strings.Contains(txt, "子1") || strings.Contains(txt, "子2") {
+		t.Error("子会话明细不应出现在卡上（只给条数）")
 	}
 }
 

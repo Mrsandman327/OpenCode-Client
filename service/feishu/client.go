@@ -342,6 +342,9 @@ func (c *Client) SendText(ctx context.Context, chatID, text string) (string, err
 }
 
 // SendMarkdown 发送 markdown 文本。
+//
+// 零**生产**调用方（桥接层的回复一律走卡片），但 client_test.go 用它
+// 锁「缺 chatID 必须报错」这条入参校验——删掉它那条校验就没了测法。
 func (c *Client) SendMarkdown(ctx context.Context, chatID, md string) (string, error) {
 	if chatID == "" {
 		return "", fmt.Errorf("缺少 chatID")
@@ -511,6 +514,9 @@ func errorOf(res *types.SendResult) error {
 
 // MustMarshal 把任意值转成 JSON 字符串，失败返回 "{}"。
 // 用于卡片按钮的 value —— 结构简单且已在调用处构造，不必层层传 error。
+//
+// 零**生产**调用方，client_test.go 里有一条专门锁它的测试
+// （尤其是「不可序列化的值回退 {} 而不是 panic」这条）。
 func MustMarshal(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {

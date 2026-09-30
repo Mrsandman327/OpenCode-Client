@@ -16,8 +16,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -162,20 +160,4 @@ func (r *RealOpenCode) ClearRevert(sessionID string) error {
 	}
 	_, err := call("DELETE", sessPath(sessionID)+"/revert", "")
 	return err
-}
-
-// FormatPID 便于展示进程号。
-func FormatPID(pid int) string {
-	if pid == 0 {
-		return "未知"
-	}
-	return strconv.Itoa(pid)
-}
-
-// NormalizeModelRef 把用户输入的模型串规范化。
-//
-// 允许只给模型名（不写 provider）：V2 会在模型解析阶段报错，
-// 那时的信息比这里瞎猜 provider 更有价值。
-func NormalizeModelRef(s string) string {
-	return strings.TrimSpace(s)
 }

@@ -429,22 +429,6 @@ func TestFormAnsweredCard未回答标注(t *testing.T) {
 	}
 }
 
-func TestFormCancelledCard带原因(t *testing.T) {
-	c := FormCancelledCard("用户取消")
-	if !strings.Contains(cardText(t, c), "用户取消") {
-		t.Error("应带取消原因")
-	}
-	if c.Header.Template != TemplateGrey {
-		t.Errorf("取消应为灰色，实际 %q", c.Header.Template)
-	}
-}
-
-func TestFormCancelledCard无原因回退(t *testing.T) {
-	if !strings.Contains(cardText(t, FormCancelledCard("")), "该提问已被取消") {
-		t.Error("无原因时应有默认文案")
-	}
-}
-
 // TestFormInfo契约字段名不漂 契约字段名错一个，OpenCode 的 form
 // 事件就解析不出来——而错误是静默的。
 func TestFormInfo契约字段名不漂(t *testing.T) {

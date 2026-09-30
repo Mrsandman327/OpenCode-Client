@@ -249,11 +249,3 @@ func FormAnsweredCard(form FormInfo, answers []string) *Card {
 	}
 	return c
 }
-
-// FormCancelledCard 生成 form 被取消时的卡片。
-func FormCancelledCard(reason string) *Card {
-	if reason == "" {
-		reason = "该提问已被取消"
-	}
-	return NewCard().WithHeader("🚫 已取消", TemplateGrey).Markdown(reason, "normal")
-}

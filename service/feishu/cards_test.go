@@ -2,6 +2,7 @@ package feishu
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -176,8 +177,8 @@ func TestShouldNotifyTask阈值(t *testing.T) {
 }
 
 func TestTaskNotificationCard成功与失败视觉区分(t *testing.T) {
-	ok := TaskNotificationCard(TaskNotification{ElapsedSeconds: 90, Success: true, Output: "完成"})
-	fail := TaskNotificationCard(TaskNotification{ElapsedSeconds: 90, Success: false, Output: "炸了"})
+	ok := TaskNotificationCard(TaskNotification{ElapsedSeconds: 90, Success: true, FallbackOutput: "完成"})
+	fail := TaskNotificationCard(TaskNotification{ElapsedSeconds: 90, Success: false, FallbackOutput: "炸了"})
 
 	if ok.Header.Template != TemplateGreen {
 		t.Errorf("成功卡片模板 = %q, 期望绿", ok.Header.Template)
@@ -217,7 +218,7 @@ func TestHumanDuration(t *testing.T) {
 // Test输出截断标注总长度 不标总长度的话，用户会把残缺内容当成全部结论。
 func Test输出截断标注总长度(t *testing.T) {
 	long := strings.Repeat("输出", 2000)
-	c := TaskNotificationCard(TaskNotification{ElapsedSeconds: 60, Output: long})
+	c := TaskNotificationCard(TaskNotification{ElapsedSeconds: 60, FallbackOutput: long})
 	txt := cardText(t, c)
 	if !strings.Contains(txt, "已截断") {
 		t.Error("超长输出应标注截断")
@@ -227,10 +228,120 @@ func Test输出截断标注总长度(t *testing.T) {
 	}
 }
 
+// Test兜底输出为空时不加输出段
 func Test输出为空时不加输出段(t *testing.T) {
-	c := TaskNotificationCard(TaskNotification{ElapsedSeconds: 60, Output: "   "})
-	if strings.Contains(cardText(t, c), "**输出**") {
-		t.Error("空输出不应渲染输出段")
+	c := TaskNotificationCard(TaskNotification{ElapsedSeconds: 60, FallbackOutput: "   "})
+	if strings.Contains(cardText(t, c), "正文附在此处") {
+		t.Error("空兜底输出不应渲染兜底段")
+	}
+}
+
+// ============ 通知卡去重 ============
+
+// Test常规路径不重复正文 这是通知卡最关键的行为约束。
+//
+// 旧实现有个 Output 字段，它就是 fullContent —— 与流式卡上已经逐字
+// 显示过的正文同源。超过 30 秒的任务因此把同一份正文发了两遍。
+// 这不是「摘要更好」，是重复投递。
+func Test常规路径不重复正文(t *testing.T) {
+	// 常规路径：FallbackOutput 留空（主卡已送达）
+	c := TaskNotificationCard(TaskNotification{
+		ElapsedSeconds: 120,
+		Success:        true,
+		ProjectPath:    "/proj",
+		SessionID:      "ses_1",
+	})
+	txt := cardText(t, c)
+	if HasFallbackBody(TaskNotification{ElapsedSeconds: 120, Success: true}) {
+		t.Error("FallbackOutput 为空时 HasFallbackBody 应为 false")
+	}
+	if !strings.Contains(txt, bodyElsewhere) {
+		t.Errorf("常规路径应指引用户看上方卡片: %s", txt)
+	}
+	if strings.Contains(txt, "正文附在此处") {
+		t.Errorf("常规路径不得带正文: %s", txt)
+	}
+}
+
+// Test真失败时才兜底正文 上方流式卡没送达时，通知卡是唯一载体。
+func Test真失败时才兜底正文(t *testing.T) {
+	n := TaskNotification{
+		ElapsedSeconds: 120,
+		Success:        true,
+		FallbackOutput: "上方没送达的正文",
+		SessionID:      "ses_1",
+	}
+	if !HasFallbackBody(n) {
+		t.Fatal("填了 FallbackOutput 时 HasFallbackBody 应为 true")
+	}
+	txt := cardText(t, TaskNotificationCard(n))
+	if !strings.Contains(txt, bodyFallbackHint) {
+		t.Errorf("兜底时必须说明原因: %s", txt)
+	}
+	if !strings.Contains(txt, "上方没送达的正文") {
+		t.Errorf("兜底时必须带正文: %s", txt)
+	}
+	if strings.Contains(txt, bodyElsewhere) {
+		t.Errorf("兜底时不应再说「见上方卡片」（上方什么都没有）: %s", txt)
+	}
+}
+
+// Test错误分支的兜底说明不同 错误详情与正常正文要说清区别。
+func Test错误分支的兜底说明不同(t *testing.T) {
+	ok := cardText(t, TaskNotificationCard(TaskNotification{
+		ElapsedSeconds: 90, Success: true, FallbackOutput: "x",
+	}))
+	fail := cardText(t, TaskNotificationCard(TaskNotification{
+		ElapsedSeconds: 90, Success: false, FallbackOutput: "x",
+	}))
+	if !strings.Contains(ok, bodyFallbackHint) {
+		t.Errorf("成功兜底说明: %s", ok)
+	}
+	if !strings.Contains(fail, bodyFallbackHintError) {
+		t.Errorf("错误兜底说明应另起文案: %s", fail)
+	}
+	// 无兜底时错误分支也有自己的指引文案
+	noFallback := cardText(t, TaskNotificationCard(TaskNotification{
+		ElapsedSeconds: 90, Success: false,
+	}))
+	if !strings.Contains(noFallback, bodyElsewhereError) {
+		t.Errorf("错误分支无兜底时应说「错误详情见上方卡片」: %s", noFallback)
+	}
+}
+
+// Test通知卡仍带元信息 通知卡的价值在「辨认是哪一个会话 + 耗时」。
+func Test通知卡仍带元信息(t *testing.T) {
+	c := TaskNotificationCard(TaskNotification{
+		ElapsedSeconds: 3725,
+		Success:        true,
+		ProjectPath:    "/work/bmall",
+		HasChanges:     true,
+		SessionID:      "ses_abcdefghij",
+	})
+	txt := cardText(t, c)
+	for _, want := range []string{"1 小时 2 分", "/work/bmall", "有文件改动", "ses_ab"} {
+		if !strings.Contains(txt, want) {
+			t.Errorf("通知卡缺元信息 %q: %s", want, txt)
+		}
+	}
+}
+
+// Test通知卡不再有Output字段 防止有人「顺手」把正文加回来。
+func Test通知卡不再有Output字段(t *testing.T) {
+	names := strings.Split(fieldNames(TaskNotification{}), ",")
+	for _, n := range names {
+		if n == "Output" {
+			t.Error("TaskNotification 不应有 Output 字段（它就是「重复投递正文」的成因）")
+		}
+	}
+	found := false
+	for _, n := range names {
+		if n == "FallbackOutput" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("TaskNotification 应有 FallbackOutput 字段")
 	}
 }
 
@@ -298,26 +409,59 @@ func Test子会话不产生按钮(t *testing.T) {
 	if btns[0].Behaviors[0].Value["session_id"] != "ses_p" {
 		t.Errorf("唯一按钮应属主会话: %v", btns[0].Behaviors[0].Value)
 	}
+}
+
+// Test子会话只给条数不列明细 2026-09-30 改的行为。
+//
+// 逐条列出时主会话被彻底淹没（实测最近 50 条里 39 条是子会话），
+// 卡片高度也撑爆；而子会话本来就不给入口，列明细只剩噪音。
+func Test子会话只给条数不列明细(t *testing.T) {
+	parent := node("ses_p", "主会话",
+		node("ses_c1", "子任务A"),
+		node("ses_c2", "子任务B"),
+	)
+	c := SessionSelectCard(SessionSelectOptions{Nodes: []SessionNode{parent}})
 
 	txt := cardText(t, c)
-	if !strings.Contains(txt, "↳ 子任务A") || !strings.Contains(txt, "↳ 子任务B") {
-		t.Errorf("子会话应作为标注行可见: %s", txt)
+	if !strings.Contains(txt, "↳ 2 个子会话") {
+		t.Errorf("应给子会话条数: %s", txt)
+	}
+	// 明细（子会话标题与会话 ID）不应出现
+	for _, leaked := range []string{"子任务A", "子任务B", "ses_c1", "ses_c2"} {
+		if strings.Contains(txt, leaked) {
+			t.Errorf("子会话明细 %q 不应出现（只给条数）: %s", leaked, txt)
+		}
 	}
 }
 
-func Test子会话缩进递进(t *testing.T) {
+// Test条数含被截断的子会话 锁住 HiddenChildCount 必须计入。
+//
+// 一个实际有 12 个子会话的父会话，展示 5 个时若报「5 个子会话」就是直接说谎。
+func Test条数含被截断的子会话(t *testing.T) {
+	parent := node("ses_p", "主", node("c1", "子"), node("c2", "子2"))
+	parent.HiddenChildCount = 7 // 共 9 个子会话
+	c := SessionSelectCard(SessionSelectOptions{Nodes: []SessionNode{parent}})
+	if !strings.Contains(cardText(t, c), "↳ 9 个子会话") {
+		t.Errorf("条数必须含被截断的 7 个: %s", cardText(t, c))
+	}
+	if !strings.Contains(cardText(t, c), "共 1 个主会话、9 个子会话") {
+		t.Errorf("标题计数同样必须含被截断部分: %s", cardText(t, c))
+	}
+}
+
+// Test多层级子会话只算一条链 孙会话计入，但不单独列行。
+func Test多层级子会话只算一条链(t *testing.T) {
 	grand := node("ses_g", "孙")
 	child := node("ses_c", "子", grand)
 	c := SessionSelectCard(SessionSelectOptions{
 		Nodes: []SessionNode{node("ses_p", "主", child)},
 	})
 	txt := cardText(t, c)
-	// 子一层缩进、孙两层；用 JSON 里的转义形式比对
-	if !strings.Contains(txt, "↳ 子") {
-		t.Error("子会话标注缺失")
+	if !strings.Contains(txt, "↳ 2 个子会话") {
+		t.Errorf("子 + 孙共 2 个: %s", txt)
 	}
-	if !strings.Contains(txt, "↳ 孙") {
-		t.Error("孙会话标注缺失")
+	if strings.Contains(txt, "↳ 子") || strings.Contains(txt, "↳ 孙") {
+		t.Errorf("不应逐条列子会话: %s", txt)
 	}
 }
 
@@ -356,21 +500,26 @@ func Test三类截断提示(t *testing.T) {
 		UnattachedChildCount: 4,
 	})
 	txt := cardText(t, c)
-	for _, want := range []string{"另有 7 个更早的子会话", "已显示最近 1 个", "另有 4 个子会话的父会话较久"} {
+	// 被截断的子会话不再单独提示「另有 N 个更早的子会话」——
+	// 它们已经并进「↳ 8 个子会话」这个总数里（见 Test条数含被截断的子会话）
+	for _, want := range []string{"已显示最近 1 个", "另有 4 个子会话的父会话较久", "↳ 8 个子会话"} {
 		if !strings.Contains(txt, want) {
 			t.Errorf("缺提示 %q: %s", want, txt)
 		}
 	}
+	if strings.Contains(txt, "另有 7 个更早的子会话") {
+		t.Errorf("截断的子会话应并入总数而非单独提示: %s", txt)
+	}
 }
 
-func Test根节点截断也提示(t *testing.T) {
-	// 初版 bug：截断提示只写在子节点分支，根节点自己的 hidden 永不显示，
-	// 导致主会话的截断被静默隐藏
+// Test根节点截断也计入条数 截断提示改由条数承载后，
+// 根节点自己的 HiddenChildCount 同样不能丢。
+func Test根节点截断也计入条数(t *testing.T) {
 	parent := node("ses_p", "主", node("c1", "子"))
 	parent.HiddenChildCount = 3
 	c := SessionSelectCard(SessionSelectOptions{Nodes: []SessionNode{parent}})
-	if !strings.Contains(cardText(t, c), "另有 3 个更早的子会话") {
-		t.Errorf("根节点截断必须提示: %s", cardText(t, c))
+	if !strings.Contains(cardText(t, c), "↳ 4 个子会话") {
+		t.Errorf("根节点截断必须计入条数: %s", cardText(t, c))
 	}
 }
 
@@ -394,6 +543,37 @@ func TestCountChildren含多层(t *testing.T) {
 	}
 	if got := countChildren(nodes); got != 3 {
 		t.Errorf("countChildren = %d, 期望 3（c、c2、g；p/q 是一级会话不计入）", got)
+	}
+}
+
+// TestCountChildren含截断部分 12 个子会话的父会话不能被报成 5 个。
+//
+// 这是 UI 现在**唯一**的子会话呈现口径（只给条数），漏算就是直接说谎。
+func TestCountChildren含截断部分(t *testing.T) {
+	// 实际 12 个子会话：保留 5 个（maxChildrenPerRoot），隐藏 7 个
+	children := make([]SessionNode, 0, 5)
+	for i := 0; i < 5; i++ {
+		children = append(children, node(fmt.Sprintf("c%d", i), "子"))
+	}
+	root := node("p", "主", children...)
+	root.HiddenChildCount = 7
+	if got := countDescendants(root); got != 12 {
+		t.Errorf("countDescendants = %d, 期望 12（5 展示 + 7 截断）", got)
+	}
+	if got := countChildren([]SessionNode{root}); got != 12 {
+		t.Errorf("countChildren = %d, 期望 12（不能只数已展开的 5 个）", got)
+	}
+}
+
+// TestCountDescendants递归计入孙的截断部分
+func TestCountDescendants递归计入孙的截断部分(t *testing.T) {
+	grand := node("g", "孙")
+	grand.HiddenChildCount = 2
+	child := node("c", "子", grand)
+	root := node("p", "主", child)
+	// 1（c）+ 1（g）+ 2（g 的隐藏）
+	if got := countDescendants(root); got != 4 {
+		t.Errorf("countDescendants = %d, 期望 4", got)
 	}
 }
 

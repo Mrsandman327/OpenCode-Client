@@ -9,7 +9,6 @@ package feishu
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 // Card 是飞书 schema 2.0 卡片的顶层结构。
@@ -208,12 +207,6 @@ func (c *Card) WithHeader(title, template string) *Card {
 	return c
 }
 
-// WithSummary 设置折叠摘要，让长内容折叠时仍可辨识。
-func (c *Card) WithSummary(text string) *Card {
-	c.Config.Summary = &CardSummary{Text: text}
-	return c
-}
-
 // Add 追加元素。
 func (c *Card) Add(elems ...Element) *Card {
 	c.Body.Elements = append(c.Body.Elements, elems...)
@@ -402,15 +395,6 @@ func (c *Card) Validate() []string {
 	return problems
 }
 
-// MustValidate 返回校验问题的合并文本；无问题时返回空串。
-func (c *Card) MustValidate() string {
-	p := c.Validate()
-	if len(p) == 0 {
-		return ""
-	}
-	return strings.Join(p, "; ")
-}
-
 // MustJSON 序列化，失败时返回空串。仅用于确定不会失败的场景（如测试）。
 func (c *Card) MustJSON() string {
 	s, err := c.JSON()
@@ -421,6 +405,10 @@ func (c *Card) MustJSON() string {
 }
 
 // TextCard 是最简卡片：一段文本。
+//
+// 零**生产**调用方，但被 7 处测试当「最小可用卡片」用
+// （含 live_test.go 的真机连通性探针）——那些测试需要一张结构完整、
+// 又不掺任何被测逻辑的卡片，删掉它就得在每个测试里重造一遍。
 func TextCard(title, text string) *Card {
 	return NewCard().WithHeader(title, TemplateBlue).Markdown(text, "normal")
 }

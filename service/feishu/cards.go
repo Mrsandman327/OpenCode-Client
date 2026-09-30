@@ -202,16 +202,51 @@ const maxSummaryChars = 1500
 const maxTitleChars = 32
 
 // TaskNotification 是一次后台任务完成的通知内容。
+//
+// ⚠️ 职责边界（这是本结构被改写的原因）：
+// **正文只由流式卡承载，通知卡只承载元信息。**
+//
+// 此前这里有个 Output 字段，而它就是 fullContent —— 与流式卡上已经
+// 逐字显示过的正文同源。超过 30 秒的任务因此把同一份正文**发了两遍**。
+// 这不是「摘要更好」，是重复投递。
+//
+// 唯一例外：上方那张流式卡**没能成功送达**时（UpdateCard 真失败），
+// 用户手上什么都没有，此时通知卡是唯一载体，必须带正文。
+// 用 FallbackOutput 单独表达这个意图——它不是「要不要摘要」，
+// 而是「有没有兜底的必要」，两者混在一个字段里必然复发。
 type TaskNotification struct {
 	ElapsedSeconds int
 	Success        bool
-	Output         string
+	// FallbackOutput 是兜底正文。**只在没有可指向上方的流式卡时才填**
+	// （如卡片更新真失败）。常规路径（流式卡已送达）必须留空——
+	// 填了就等于把正文重发一遍。
+	FallbackOutput string
 	ProjectPath    string
 	HasChanges     bool
 	// SessionTitle 用于多标签页并行时辨认是哪一个会话；可能为空。
 	SessionTitle string
 	// SessionID 在标题缺失时兜底辨认。
 	SessionID string
+}
+
+// bodyElsewhere 是正文在流式卡上时的指引文案。
+const bodyElsewhere = "📄 完整回复见上方卡片"
+
+// bodyElsewhereError 是错误分支的指引文案。
+const bodyElsewhereError = "📄 错误详情见上方卡片"
+
+// bodyFallbackHint 是正文因为兜底而必须出现在本卡时的说明。
+const bodyFallbackHint = "⚠️ 上方回复卡片未能更新，正文附在此处"
+
+// bodyFallbackHintError 是错误分支的兜底说明。
+const bodyFallbackHintError = "⚠️ 上方回复卡片未能更新，错误详情附在此处"
+
+// HasFallbackBody 判断本卡是否需要兜底展示正文。
+//
+// 单独抽成函数而不是内联在建卡逻辑里：「该不该重复正文」是一条
+// 产品规则，值得被独立断言。
+func HasFallbackBody(n TaskNotification) bool {
+	return strings.TrimSpace(n.FallbackOutput) != ""
 }
 
 // ShouldNotifyTask 判断任务是否值得额外通知。
@@ -250,9 +285,21 @@ func TaskNotificationCard(n TaskNotification) *Card {
 		c.Markdown("**有文件改动**", "normal")
 	}
 
-	if out := summarizeOutput(n.Output); out != "" {
-		c.HR()
-		c.Markdown("**输出**\n"+out, "normal")
+	c.HR()
+	if HasFallbackBody(n) {
+		// 唯一允许在通知卡里出现正文的分支：上方卡片没送达
+		hint := bodyFallbackHint
+		if !n.Success {
+			hint = bodyFallbackHintError
+		}
+		c.Markdown(hint, "normal")
+		c.Markdown(summarizeOutput(n.FallbackOutput), "normal")
+		return c
+	}
+	if n.Success {
+		c.Markdown(bodyElsewhere, "normal")
+	} else {
+		c.Markdown(bodyElsewhereError, "normal")
 	}
 	return c
 }

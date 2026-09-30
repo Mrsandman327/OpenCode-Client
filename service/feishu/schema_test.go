@@ -44,7 +44,7 @@ func Test所有卡片通过飞书Schema(t *testing.T) {
 		}),
 		"用量统计": UsageCard(Usage{Cost: 1.5, Tokens: TokenUsage{Input: 100, Output: 200}}),
 		"任务通知": TaskNotificationCard(TaskNotification{
-			ElapsedSeconds: 90, Success: true, Output: "完成", SessionID: "ses_x",
+			ElapsedSeconds: 90, Success: true, FallbackOutput: "完成", SessionID: "ses_x",
 		}),
 		"代码改动": DiffCard(DiffCardOptions{
 			Stats:            []FileDiffStat{{File: "a.go", Additions: 1, Deletions: 0, Status: "modified"}},
