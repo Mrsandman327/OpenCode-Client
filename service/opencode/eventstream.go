@@ -89,7 +89,6 @@ func pumpEventStream(body io.Reader, onLine func(payload string)) error {
 // SubscribeOpenCodeEvents 连上全局事件流并把每条 data 载荷交给 onPayload。
 //
 // 这是**长连接**：函数会一直阻塞到 ctx 结束或服务端断开。
-// 调用方负责断线重连（飞书通道见 service/feishu/opencode_events.go）。
 func SubscribeOpenCodeEvents(ctx context.Context, onPayload func(payload string)) error {
 	body, err := dialEventStream(ctx)
 	if err != nil {
