@@ -13,6 +13,9 @@ import { buildTree } from './tree.js';
 import { unwrap, unwrapList } from '../core/v2compat.js';
 
 let cmdPaletteItems = [];
+let skillItems = [];
+let cmdPaletteDir = '';
+let cmdPaletteRetryAttempt = 0;
 let cmdPaletteLoaded = false;
 let cmdPaletteIndex = -1;
 let cmdPaletteVisible = false;
@@ -20,7 +23,7 @@ let cmdPaletteVisible = false;
 const FIXED_COMMANDS = [
     { name: 'summarize', description: '压缩会话上下文', source: 'fixed' },
     { name: 'revert',    description: '撤销最后消息（需 Git 仓库）', source: 'fixed' },
-    { name: 'unrevert',  description: '重做撤销（需 Git 仓库）', source: 'fixed' },
+    { name: 'unrevert',  description: '取消撤销（清除暂存的撤销；需 Git 仓库）', source: 'fixed' },
     { name: 'fork',      description: '从消息创建新会话（分叉）', source: 'fixed' },
 ];
 
@@ -33,18 +36,62 @@ const cmdInputEl = document.getElementById('ocPrompt');
 // ============================
 
 export async function loadCmdPalette() {
-    if (cmdPaletteLoaded) return;
+    // 未打开会话时目录为空 → 直接返回且**不标记已加载**：
+    // 否则启动时的空结果会被永久缓存，面板里只剩固定命令，API 的 command/skill 永不出现。
+    const dir0 = currentDir();
+    if (!dir0) return;
+    // 同目录已加载则跳过；目录变化（切会话）时重新拉取
+    if (cmdPaletteLoaded && cmdPaletteDir === dir0) return;
     try {
-        // v2: GET /api/command 返回 {location, data:[...]} 信封；
+        // v2: GET /api/command（已注册命令）与 GET /api/skill（技能）都返回 {location, data:[...]} 信封；
         // 需带当前目录，否则服务端会回落到其 CWD（共享服务为 home）并登记为项目。
+        // 技能一并放进命令面板供手动调用：选中后插入 "/<技能id> "，发送时会被附加到 prompt 的
+        // skills 数组（v2 调用技能的方式，见 core/v2compat.js 的 toPromptBody 与 session.js）。
         const dir = currentDir();
-        cmdPaletteItems = dir ? unwrapList(await api.OpenCodeCall('GET', '/api/command', null, dir)) : [];
+        const [cmds, skills] = dir
+            ? await Promise.all([
+                api.OpenCodeCall('GET', '/api/command', null, dir).catch(() => []),
+                api.OpenCodeCall('GET', '/api/skill', null, dir).catch(() => []),
+            ])
+            : [[], []];
+        cmdPaletteItems = unwrapList(cmds) || [];
+        skillItems = (unwrapList(skills) || [])
+            .map(s => ({
+                name: (s && s.id) || '',
+                description: (s && (s.description || s.name)) || '技能',
+                source: 'skill',
+            }))
+            .filter(it => it.name);
     } catch (_) {
         cmdPaletteItems = [];
+        skillItems = [];
     }
-    // 合并固定命令（排前面）
-    cmdPaletteItems = [...FIXED_COMMANDS, ...cmdPaletteItems];
-    cmdPaletteLoaded = true;
+    // 合并固定命令（排前面）与技能（排在服务端命令之后）
+    cmdPaletteItems = [...FIXED_COMMANDS, ...cmdPaletteItems, ...skillItems];
+    cmdPaletteDir = dir0;
+    // 空结果**不视为"已加载"**：服务刚启动/连接时首次请求可能失败或返回空，
+    // 若把这种结果缓存住，面板会永远只剩固定命令（此前就是这样，需手动"重试加载"才恢复）。
+    // 这里自动退避重试最多 3 次；拿到数据后清零计数。
+    const gotNone = !skillItems.length && cmdPaletteItems.length === FIXED_COMMANDS.length;
+    if (gotNone) {
+        cmdPaletteLoaded = false;
+        if (cmdPaletteRetryAttempt < 3) {
+            cmdPaletteRetryAttempt++;
+            const delay = 1500 * cmdPaletteRetryAttempt;
+            setTimeout(() => {
+                cmdPaletteDir = '';
+                loadCmdPalette().catch(() => {});
+            }, delay);
+        }
+    } else {
+        cmdPaletteRetryAttempt = 0;
+        cmdPaletteLoaded = true;
+        // 自动重试/首次加载成功后，若面板正开着就**立即重渲染一次**——
+        // 否则用户必须再敲一个字符才会看到新数据（表现为"要输两次 /"）。
+        if (cmdPaletteVisible) {
+            try { renderCmdPalette(cmdInputEl.value.slice(1)); } catch (_) { /* 面板可能已关闭 */ }
+        }
+    }
 }
 
 export function filterCmdItems(query) {
@@ -197,6 +244,14 @@ export function selectCmdPalette() {
 export function selectCmdItem(cmdName, source) {
     if (source === 'fixed') {
         executeFixedCmd(cmdName);
+    } else if (source === 'diag') {
+        showToast('诊断项：仅用于定位，不可执行', 'info');
+    } else if (source === 'reload') {
+        // 诊断用：清掉缓存后重新拉取
+        cmdPaletteLoaded = false;
+        cmdPaletteDir = '';
+        showCmdPalette();
+        showToast('正在重新拉取命令/技能…', 'info');
     } else {
         insertCmdToPrompt(cmdName);
     }
@@ -232,16 +287,18 @@ export async function executeFixedCmd(cmdName) {
                     }
                 }
                 if (!messageID) { showToast('未找到可撤销的消息', 'error'); return; }
-                // v1: POST /session/{id}/revert  →  v2: POST /api/session/{id}/revert/stage
+                // v2 是三段式：stage（暂存标记）→ commit（真正落实回退）。
+                // 只调 stage 不会回退（此前就是漏了 commit 导致"撤销不生效"）。
                 await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/revert/stage`, { messageID });
-                showToast('已撤销最后消息', 'success');
+                await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/revert/commit`);
+                showToast('已撤销到最后一条助手消息', 'success');
                 loadMessages();
                 break;
             }
             case 'unrevert':
-                // v1: POST /session/{id}/unrevert  →  v2: POST /api/session/{id}/revert/commit
-                await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/revert/commit`);
-                showToast('已重做撤销', 'success');
+                // v2 没有"重做已提交撤销"的端点：DELETE /revert 的语义是「清除暂存的撤销 = 取消撤销」。
+                await api.OpenCodeCall('DELETE', `/api/session/${encodeURIComponent(sid)}/revert`);
+                showToast('已取消撤销', 'success');
                 loadMessages();
                 break;
             case 'fork':
@@ -259,6 +316,20 @@ export function insertCmdToPrompt(cmdName) {
     cmdInputEl.value = '/' + cmdName + ' ';
     cmdInputEl.focus();
     hideCmdPalette();
+}
+
+/** 判断某名字是否是「服务端命令」（来自 GET /api/command）。
+ *  供发送路径决定走「命令执行端点」还是「普通提示词端点」。 */
+export function isKnownCommand(name) {
+    if (!name) return false;
+    return cmdPaletteItems.some(function(it) { return it && it.source !== 'skill' && it.name === name; });
+}
+
+/** 判断某名字是否是「技能 id」（来自 GET /api/skill）。
+ *  技能不是命令端点，而是作为 prompt 的 skills 附件提交（见 v2compat.toPromptBody）。 */
+export function isKnownSkill(name) {
+    if (!name) return false;
+    return skillItems.some(function(it) { return it && it.name === name; });
 }
 
 // ============================
@@ -340,7 +411,7 @@ async function forkFromMessage(messageID) {
             ? ` body=${raw.body.slice(0, 120)}`
             : '';
         console.error('[fork] 请求路径:', reqPath, 'messageID:', messageID, 'raw:', raw, '错误:', e);
-        showToast('分叉失败: ' + (e.message || e) + status + snippet + ` | path=${reqPath}`, 'error');
+        showToast('分叉失败: ' + (e.message || e) + status + snippet, 'error');
     }
 }
 

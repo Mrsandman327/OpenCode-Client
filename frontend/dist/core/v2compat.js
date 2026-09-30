@@ -62,7 +62,7 @@ export function formatApiError(e) {
     }
     if (!detail) detail = e.message || '';
     detail = String(detail).replace(/\s+/g, ' ').trim().slice(0, 300);
-    return status ? ('HTTP ' + status + ': ' + detail) : detail;
+    return status ? ('服务端返回错误（' + status + '）：' + detail) : detail;
 }
 
 // ============================
@@ -122,6 +122,14 @@ export function toPromptBody(v1body) {
     // 必须透传：发送后本地会先乐观插入一条 user 消息，只有 id 与服务端一致，
     // 服务端回执（session.inbox.enqueued 的 inboxID）才能按 id 命中并合并，
     // 否则同一条输入会显示两遍。服务端会原样采纳该 id（已实测）。
+    // v2 的 skills 附件：[{id}]（PromptInput.SkillAttachment）——调用技能的唯一方式。
+    // 调用方（session.js）在正文以 "/<技能id>" 开头时通过 body.skills 传入技能 id。
+    if (Array.isArray(body.skills) && body.skills.length) {
+        const skills = body.skills
+            .map(s => ({ id: typeof s === 'string' ? s : (s && s.id) }))
+            .filter(s => s.id);
+        if (skills.length) out.skills = skills;
+    }
     if (body.messageID) out.id = body.messageID;
     return out;
 }

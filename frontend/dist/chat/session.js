@@ -19,6 +19,9 @@ import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.j
 import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
 import { loadSessionStatuses } from './events.js';
 import { isSessionBusy, smartScroll, updateSendButton, renderMessages, ensureSelectOption } from './render.js';
+// 与 cmd-palette 互相 import（它在函数内调用本模块的 loadMessages 等）；
+// ESM 循环在"仅运行时调用"下是安全的：这里只在发送时调用 isKnownCommand。
+import { isKnownCommand, isKnownSkill } from './cmd-palette.js';
 import { rememberKnownDir } from './tree.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
 import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
@@ -459,16 +462,16 @@ export async function loadOlderMessages(sessionID) {
     if (!targetId) return;
     if (!sessionPaging[targetId]) sessionPaging[targetId] = {};
     const paging = sessionPaging[targetId];
-    // 一次性诊断：把「为什么没加载」直接告诉用户/开发者，避免静默无效
+    // 一次性提示：用平实语言告诉用户"为什么没有更早的消息"，避免暴露游标/limit 等术语
     const note = (msg) => {
         if (paging.diagShown === msg) return; // 同一原因只提示一次，避免滚动时刷屏
         paging.diagShown = msg;
-        showToast('[分页] ' + msg, 'info');
+        showToast(msg, 'info');
     };
     if (paging.loading) return;
-    if (paging.loadedAll) { note('已到最早一条（' + (paging.loadedAllReason || '原因未知') + '）'); return; }
+    if (paging.loadedAll) { note('已经是最早的消息了'); return; }
     const cursor = paging.cursor;
-    if (!cursor) { paging.loadedAll = true; note('未取得更早页游标（该会话可能只有一页，或首屏加载未完成）'); return; }
+    if (!cursor) { paging.loadedAll = true; note('暂时没有更早的消息（若刚打开会话，稍后再试）'); return; }
     paging.loading = true;
     try {
         const res = await api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=200&cursor=${encodeURIComponent(cursor)}`);
@@ -476,7 +479,7 @@ export async function loadOlderMessages(sessionID) {
         // 一次性诊断：成功取到更早消息时也给个反馈（便于确认"上滑确实命中了"）
         if (messages.length) {
             paging.diagShown = '';
-            showToast('[分页] 已加载更早 ' + messages.length + ' 条', 'success');
+            showToast('已加载 ' + messages.length + ' 条更早的消息', 'success');
         }
         // 渲染到目标会话自己的容器；仅当前激活会话保持滚动位置与同步用户定位
         const isCurrent = targetId === store.currentSessionId;
@@ -1185,7 +1188,7 @@ export function armPromptWatch(sessionID) {
     promptWatchTimer = setTimeout(function () {
         promptWatchTimer = null;
         if (Date.now() - promptActivityAt < PROMPT_WATCH_TIMEOUT_MS) return; // 期间有活动，静默
-        showToast('已发送但未收到响应，请检查模型/agent 是否可用', 'error');
+            showToast('已发送，但一直没有回应；请检查模型或智能体是否可用', 'error');
     }, PROMPT_WATCH_TIMEOUT_MS);
 }
 
@@ -1308,7 +1311,7 @@ export async function sendPrompt() {
                 store.selectedAgent = '';
                 const agentSelEl = document.getElementById('ocAgentSelect');
                 if (agentSelEl) agentSelEl.value = '';
-                showToast('原 agent `' + rawAgent + '` 已不存在，已回退默认', 'warning');
+                showToast('原智能体 `' + rawAgent + '` 已不存在，已改用默认', 'warning');
             }
         }
         // ===== 发送前严格校验（model）=====
@@ -1354,7 +1357,23 @@ export async function sendPrompt() {
                 throw new Error('切换模型（' + resolvedModel + '）失败: ' + formatApiError(e));
             }
         }
-        await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/prompt`, toPromptBody(body));
+        // v2 命令与提示词是两个端点：正文形如 "/命令名 [参数]"：
+        //  - 命中**技能 id** → 不调命令端点，而是把技能作为 prompt 的 skills 附件（下文 body.skills）；
+        //  - 命中**服务端命令** → 走 POST /api/session/{id}/command（body {command,text,delivery}），
+        //    否则会被当普通文本喂给模型、命令不会执行；
+        //  - 都不命中 → 照常走 prompt。
+        const cmdMatch = /^\/([^\s/]+)(?:\s+([\s\S]*))?$/.exec(text);
+        const skillId = cmdMatch && isKnownSkill(cmdMatch[1]) ? cmdMatch[1] : '';
+        if (cmdMatch && !skillId && isKnownCommand(cmdMatch[1])) {
+            await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/command`, {
+                command: cmdMatch[1],
+                text: (cmdMatch[2] || '').trim(),
+                delivery: 'steer',
+            });
+        } else {
+            if (skillId) body.skills = [{ id: skillId }];
+            await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/prompt`, toPromptBody(body));
+        }
         // 发送成功：启动无响应看门狗——20s 内既无流式输出也无失败事件时提示（见 armPromptWatch）
         armPromptWatch(sid);
         if (isNew) {
