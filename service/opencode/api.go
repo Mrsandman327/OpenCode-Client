@@ -198,6 +198,42 @@ type sessionTime struct {
 	Updated int64 `json:"updated"`
 }
 
+// lastPathSegment 返回路径的最后一段（目录名）。
+// 同时兼容 Windows 的 \ 与 Unix 的 /，并忽略结尾多余的分隔符，
+// 例如 E:\code\git\foo → foo、/home/me/bar/ → bar。
+func lastPathSegment(path string) string {
+	// 先统一分隔符，再去掉结尾的 / 或 \
+	normalized := strings.TrimRight(strings.ReplaceAll(path, "\\", "/"), "/")
+	if normalized == "" {
+		return ""
+	}
+	if idx := strings.LastIndex(normalized, "/"); idx >= 0 {
+		return normalized[idx+1:]
+	}
+	// 路径中没有任何分隔符时，整段本身就是目录名
+	return normalized
+}
+
+// projectDisplayName 返回项目的可读名称。
+// v1 的 Project 可能没有 name（为空）。此时若像旧实现那样直接回退到 id，
+// 界面上就会出现一串 40 位哈希，用户无从判断这是哪个项目；故改取 worktree
+// （工作目录）路径的最后一段，例如 E:\code\git\foo → foo。
+func projectDisplayName(p ProjectInfo) string {
+	name := p.Name
+	if name == "" {
+		// v1 项目缺 name 时用工作目录名兜底
+		name = lastPathSegment(p.Worktree)
+	}
+	// 仍然无名可读（如名称为 "global"，或连工作目录都为空）时才走最终兜底
+	if name == "" || name == "global" {
+		if p.ID == "global" {
+			return "全局项目"
+		}
+		return p.ID
+	}
+	return name
+}
+
 type treeSession struct {
 	ID        string      `json:"id"`
 	Title     string      `json:"title"`
@@ -319,13 +355,8 @@ func buildTreeJSON(projects []ProjectInfo, sessions []treeSession) string {
 	dirMap := make(map[string]*model.TreeNode) // key: projectID+"|"+directory
 
 	for _, p := range projects {
-		name := p.Name
-		if name == "" {
-			name = p.ID
-		}
-		if name == "global" {
-			name = "全局项目"
-		}
+		// 项目名统一走 projectDisplayName：name → worktree 末段 → id，并处理 global 中文名
+		name := projectDisplayName(p)
 		// 项目时间：updated 优先，其次 created
 		var projectTime string
 		if p.Time.Updated > 0 {
@@ -351,9 +382,13 @@ func buildTreeJSON(projects []ProjectInfo, sessions []treeSession) string {
 		// 确保 project 存在
 		proj, ok := projectMap[pid]
 		if !ok {
+			// 项目未出现在 /project 列表中（例如 v1 遗留或已删除的项目），
+			// 同样不能用 40 位哈希当标题，优先用会话所在目录名兜底
 			name := pid
 			if pid == "global" {
 				name = "全局项目"
+			} else if seg := lastPathSegment(dir); seg != "" {
+				name = seg
 			}
 			proj = &model.TreeNode{ID: pid, Title: name, Type: "project"}
 			projectMap[pid] = proj

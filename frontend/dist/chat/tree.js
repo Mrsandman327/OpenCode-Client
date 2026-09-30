@@ -671,7 +671,7 @@ export async function renameSession(sid) {
     }
 }
 
-/** 重命名项目（PATCH /project/{id} 设置 name；name 为空时项目显示回退为 id） */
+/** 重命名项目（PATCH /project/{id} 设置 name；name 为空时项目标题回退为工作目录名） */
 export async function renameProject(projectId) {
     if (!projectId) return;
     const input = prompt('请输入新项目名称：');
@@ -679,7 +679,7 @@ export async function renameProject(projectId) {
     const name = input.trim();
     try {
         await api.OpenCodeCall('PATCH', '/project/' + encodeURIComponent(projectId), { name });
-        showToast(name ? '项目已重命名' : '项目名已清空（显示为 id）', 'success');
+        showToast(name ? '项目已重命名' : '项目名已清空（显示为工作目录名）', 'success');
         buildTree();
     } catch (e) {
         showToast('重命名失败: ' + (e.message || e), 'error');
