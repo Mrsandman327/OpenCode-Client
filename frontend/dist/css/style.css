@@ -1947,8 +1947,26 @@ input::placeholder, textarea::placeholder {
 .oc-message-time {
     font-size: 10px;
     color: var(--text-muted);
-    text-align: right;
     margin-top: 4px;
+    text-align: right;
+    font-family: "SF Mono", "Cascadia Code", monospace;
+}
+/* 卡片底部一行：token 统计靠左、时间靠右（space-between）。
+   间距/字体对齐老项目：token 文字同 .oc-step-cost（等宽 10px），行间距同 .oc-step-divider 的 gap:12px */
+.oc-message-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-top: 4px;
+}
+.oc-message-footer .oc-message-time { margin-top: 0; }
+.oc-message-footer .oc-message-usage { margin-top: 0; }
+/* 助手卡片的 token 统计：靠左；字体沿用老项目 .oc-step-cost 的等宽体 */
+.oc-message-usage {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: left;
     font-family: "SF Mono", "Cascadia Code", monospace;
 }
 .oc-message pre {

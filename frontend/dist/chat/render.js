@@ -195,13 +195,36 @@ export function buildMessageNode(item) {
             node.appendChild(metaEl);
         }
     }
-    // 消息时间：user / assistant 都显示在卡片底部（右下角）
+    // 消息时间：user / assistant 都显示在卡片底部（右下角）；
+    // 助手消息的 token 统计放在**时间行左侧**（v2 历史消息没有步骤行，不做合成）。
     const msgTime = formatStepTime(info.time?.created || info.time?.updated || info.createdAt);
-    if (msgTime && (role === 'user' || role === 'assistant')) {
-        const timeEl = document.createElement('div');
-        timeEl.className = 'oc-message-time';
-        timeEl.textContent = '⏱ ' + msgTime;
-        node.appendChild(timeEl);
+    var usageText = '';
+    if (role === 'assistant' && info.tokens) {
+        var tk2 = info.tokens || {};
+        var inTok2 = Number(tk2.input) || 0;
+        var outTok2 = Number(tk2.output) || 0;
+        var totalTok2 = inTok2 + outTok2 + (Number(tk2.reasoning) || 0);
+        if (totalTok2 > 0) {
+            usageText = '输入:' + formatNumber(inTok2) + ' 输出:' + formatNumber(outTok2) + ' 统计:' + formatNumber(totalTok2) + ' tokens';
+        }
+    }
+    if ((msgTime || usageText) && (role === 'user' || role === 'assistant')) {
+        // 同一行：token 统计靠左、时间靠右（由 CSS 的 space-between 实现）
+        const footerEl = document.createElement('div');
+        footerEl.className = 'oc-message-footer';
+        if (usageText) {
+            const usageEl = document.createElement('span');
+            usageEl.className = 'oc-message-usage';
+            usageEl.textContent = usageText;
+            footerEl.appendChild(usageEl);
+        }
+        if (msgTime) {
+            const timeEl = document.createElement('span');
+            timeEl.className = 'oc-message-time';
+            timeEl.textContent = '⏱ ' + msgTime;
+            footerEl.appendChild(timeEl);
+        }
+        node.appendChild(footerEl);
     }
     return node;
 }
