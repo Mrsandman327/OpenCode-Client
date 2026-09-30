@@ -115,7 +115,10 @@ export function toModelOptions(res) {
             variants: Array.isArray(m.variants) ? m.variants.map(v => v.id) : [],
             enabled: m.enabled !== false,
         };
-    }).filter(m => m.value);
+    }).filter(m => m.value)
+      // 按「供应商/模型」排序：同一供应商的模型必须连续，否则下拉里会被打散
+      // （服务端返回顺序按发布时间，provider 是交错的）。大小写不敏感，保证分组稳定。
+      .sort((a, b) => a.value.toLowerCase().localeCompare(b.value.toLowerCase()));
 }
 
 // ============================
