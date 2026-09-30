@@ -1,3 +1,5 @@
+//go:build feishu
+
 // bridge_prompt_push_test.go —— 「向用户提问」卡片的推送
 //
 // 这一层曾整条缺失：V2 的 form.created 事件翻译出来了、渲染层也停了心跳，

@@ -1,3 +1,5 @@
+//go:build feishu
+
 // events.go —— OpenCode 事件的内部契约与 V2 事件翻译
 //
 // 对应 opencode-feishu-bot 的 src/opencode/client.ts 的 translateEvent

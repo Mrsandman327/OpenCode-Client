@@ -1,3 +1,5 @@
+//go:build feishu
+
 package main
 
 import (
@@ -12,6 +14,41 @@ import (
 
 	"github.com/larksuite/oapi-sdk-go/v3/channel/types"
 )
+
+// Test飞书通道自注册 带 feishu tag 编译时，工厂表里应包含飞书，
+// 且构造出的通道实现了 OptionalChannel、Name() == "feishu"。
+func Test飞书通道自注册(t *testing.T) {
+	a := NewApp()
+	chs := buildOptionalChannels(a)
+	var found OptionalChannel
+	for _, ch := range chs {
+		if ch.Name() == "feishu" {
+			found = ch
+		}
+	}
+	if found == nil {
+		t.Fatalf("带 feishu tag 时应注册飞书通道，实际通道: %v", channelNames(chs))
+	}
+	// 未配置时 AutoStart 必须静默成功（不报错、不启动）
+	if err := found.AutoStart(context.Background()); err != nil {
+		t.Errorf("未配置时 AutoStart 不应报错: %v", err)
+	}
+	// Shutdown 可重复调用
+	if err := found.Shutdown(); err != nil {
+		t.Errorf("Shutdown 失败: %v", err)
+	}
+	if err := found.Shutdown(); err != nil {
+		t.Errorf("重复 Shutdown 失败: %v", err)
+	}
+}
+
+func channelNames(chs []OptionalChannel) []string {
+	names := make([]string, 0, len(chs))
+	for _, ch := range chs {
+		names = append(names, ch.Name())
+	}
+	return names
+}
 
 // ============ 配置读写 ============
 

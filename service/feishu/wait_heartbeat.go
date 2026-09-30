@@ -1,3 +1,5 @@
+//go:build feishu
+
 // wait_heartbeat.go —— 等待期心跳
 //
 // 对应 opencode-feishu-bot 的 src/feishu/wait-heartbeat.ts。

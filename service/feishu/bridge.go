@@ -1,3 +1,5 @@
+//go:build feishu
+
 // bridge.go —— 飞书 ↔ OpenCode 桥接层
 //
 // 把三件事连起来：飞书事件进来、命令解析、OpenCode 调用、结果发回飞书。

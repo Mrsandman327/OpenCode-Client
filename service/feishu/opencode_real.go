@@ -1,3 +1,5 @@
+//go:build feishu
+
 // opencode_real.go —— OpenCode 接口的真实实现
 //
 // 走 service/opencode 已有的 OpenCodeAPI 通用出口，不重复实现 HTTP、

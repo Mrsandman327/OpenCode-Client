@@ -1,3 +1,5 @@
+//go:build feishu
+
 // form_card.go —— OpenCode form（向用户提问）卡片
 //
 // 对应 bot 的 src/feishu/form-card.ts。

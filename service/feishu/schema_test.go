@@ -1,3 +1,5 @@
+//go:build feishu
+
 // schema_test.go —— 飞书卡片 schema 约束
 //
 // 这些断言的依据是**飞书真实返回的错误**，不是文档推测。

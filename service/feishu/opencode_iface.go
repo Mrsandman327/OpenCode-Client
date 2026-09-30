@@ -1,3 +1,5 @@
+//go:build feishu
+
 // opencode_iface.go —— 飞书层需要的 OpenCode 能力子集
 //
 // 这里只定义接口，不含任何 HTTP 代码，因此桥接逻辑可以完全脱离真实服务

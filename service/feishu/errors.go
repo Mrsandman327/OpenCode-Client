@@ -1,3 +1,5 @@
+//go:build feishu
+
 // errors.go —— 飞书通道的哨兵错误
 //
 // 单独成文件而不是散在各处的 errors.New：这些错误的**判据是

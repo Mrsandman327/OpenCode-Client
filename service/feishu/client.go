@@ -1,3 +1,5 @@
+//go:build feishu
+
 // client.go —— 飞书长连接客户端
 //
 // 用 SDK 的 Channel 模块承载传输（WebSocket 长连接 + 事件分发 + 消息归一化），

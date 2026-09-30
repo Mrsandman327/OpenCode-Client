@@ -1,3 +1,5 @@
+//go:build feishu
+
 // commands.go —— 斜杠命令
 //
 // 命令解析是纯函数，便于单测；执行逻辑在 bridge.go，通过 OpenCode 接口

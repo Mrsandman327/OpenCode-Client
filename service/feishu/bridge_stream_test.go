@@ -1,3 +1,5 @@
+//go:build feishu
+
 // bridge_stream_test.go —— 桥接层与流式回合的接线
 //
 // 这些测试的价值在于「构造层面」：一个真实的缺陷曾让整条回复链路

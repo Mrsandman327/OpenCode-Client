@@ -1,3 +1,5 @@
+//go:build feishu
+
 // card.go —— 飞书卡片（schema 2.0）构建
 //
 // 用 Go 结构体而非 map[string]any 拼卡片：卡片字段嵌套深、名称长，

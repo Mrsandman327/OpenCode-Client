@@ -1,3 +1,5 @@
+//go:build feishu
+
 // opencode_events.go —— 事件订阅的真实实现
 //
 // 对应 opencode-feishu-bot 的 src/opencode/client.ts 的 subscribeToEvents

@@ -1,3 +1,5 @@
+//go:build feishu
+
 // session_tree.go —— 会话建树
 //
 // 对应 opencode-feishu-bot 的 src/opencode/session-tree.ts，

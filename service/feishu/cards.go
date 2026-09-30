@@ -1,3 +1,5 @@
+//go:build feishu
+
 // cards.go —— 业务卡片集
 //
 // 对应 opencode-feishu-bot 的 src/feishu/ 下各 *-card.ts 与 task-notification.ts。

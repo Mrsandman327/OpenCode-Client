@@ -1,3 +1,5 @@
+//go:build feishu
+
 // events_test.go —— V2 事件翻译的契约测试
 //
 // fixture 全部取自 tests/fixtures/events-basic.json 与 events-tool.json

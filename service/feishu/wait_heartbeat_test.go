@@ -1,3 +1,5 @@
+//go:build feishu
+
 // wait_heartbeat_test.go —— 等待期心跳的契约测试
 //
 // 缺陷根因（实测探针序列）：首个事件到达前有 7.2 秒静默。

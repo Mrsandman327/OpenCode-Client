@@ -31,6 +31,8 @@ type App struct {
 	ctx context.Context
 	app *application.App // v3 应用引用（由 main 注入），供事件/对话框/浏览器调用
 	sm  *skill.Manager
+	// channels 是编译进来的可选外部通道（由带 build tag 的文件自注册）。
+	channels []OptionalChannel
 }
 
 // NewApp 创建新的 App 实例。
@@ -61,16 +63,17 @@ func (e *eventEmitter) Emit(name string, data ...any) {
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	a.ctx = ctx
 
-	// 飞书通道是可选的：已配置且启用时自动启动。
-	// 启动失败不阻断应用——opencode 本体照常用，
-	// 错误记进 FeishuStatus 供界面展示。
-	// 「没配过」不是错误，因此只有配置存在时才尝试。
-	if cfg := LoadFeishuConfig(); cfg.Enabled && cfg.AppID != "" && cfg.AppSecret != "" {
-		if err := a.StartFeishu(ctx, cfg); err != nil {
+	// 可选外部通道（飞书等）由带 build tag 的文件自注册工厂进来。
+	// 这里只遍历中立接口，不认识任何具体通道：
+	// 「未配置 / 未启用」由通道自己吞掉（返回 nil）；
+	// 启动失败不阻断应用——opencode 本体照常用，错误由通道记进自己的状态。
+	a.channels = buildOptionalChannels(a)
+	for _, ch := range a.channels {
+		if err := ch.AutoStart(ctx); err != nil {
 			// ⚠️ 走 logger 而不是 fmt.Println：GUI 构建带 -H windowsgui
-			// （无控制台），Println 的输出无处可去 —— 飞书通道启动失败会
+			// （无控制台），Println 的输出无处可去 —— 通道启动失败会
 			// 完全静默，用户只会看到「机器人没反应」。
-			logger.Printf("[feishu] 启动失败（不影响其它功能）: %v", err)
+			logger.Printf("[%s] 启动失败（不影响其它功能）: %v", ch.Name(), err)
 		}
 	}
 	return nil
@@ -86,8 +89,10 @@ func (a *App) emitAppReady() {
 
 // ServiceShutdown 在应用关闭时调用（v3 Service 生命周期，替代 v2 的 OnShutdown），清理资源。
 func (a *App) ServiceShutdown() error {
-	// 先停飞书：它还持有长连接，不关会在进程退出时留下悬挂连接
-	_ = a.StopFeishu()
+	// 先收可选通道：它们可能持有长连接，不关会在进程退出时留下悬挂连接
+	for _, ch := range a.channels {
+		_ = ch.Shutdown()
+	}
 	a.StopOpenCodeEvents()
 	a.StopOpenCodeWeb()
 	a.StopFrontendWeb()

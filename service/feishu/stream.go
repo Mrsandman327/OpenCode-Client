@@ -1,3 +1,5 @@
+//go:build feishu
+
 // stream.go —— 流式回复的渲染回合
 //
 // 对应 opencode-feishu-bot 的 src/index.ts 的 render() / emitTerminalReply()

@@ -1,3 +1,5 @@
+//go:build feishu
+
 // reply_split.go —— 长回复按字节分段
 //
 // 对应 opencode-feishu-bot 的 src/feishu/reply-split.ts。

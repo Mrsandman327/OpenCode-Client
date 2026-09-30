@@ -1,3 +1,5 @@
+//go:build feishu
+
 package feishu
 
 import (

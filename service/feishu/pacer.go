@@ -1,3 +1,5 @@
+//go:build feishu
+
 // pacer.go —— 流式卡片更新的节流与限流退避
 //
 // 直接移植 opencode-feishu-bot 的 src/feishu/stream-pacer.ts。

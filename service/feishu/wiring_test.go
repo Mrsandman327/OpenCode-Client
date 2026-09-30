@@ -1,3 +1,5 @@
+//go:build feishu
+
 // wiring_test.go —— 传输层接线断言
 //
 // 这些测试的存在理由：一个真实的 bug 曾让整条消息链路失效，

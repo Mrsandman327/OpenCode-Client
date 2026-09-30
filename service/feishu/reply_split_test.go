@@ -1,3 +1,5 @@
+//go:build feishu
+
 // reply_split_test.go —— 长回复分段的契约测试
 //
 // 本文件的核心断言只有一条，但它是全部：

@@ -1,8 +1,14 @@
+//go:build feishu
+
 // app_feishu.go —— 飞书通道接入 OC Manager 生命周期
 //
 // 职责边界：把 feishu 包的客户端与桥接层接到 App 的启动/关闭生命周期上，
 // 并把状态透给前端。本文件不含任何业务逻辑——
 // 那些都在 service/feishu 里，那一层不需要知道 Wails 存在。
+//
+// 编译期可拆：本文件（连同对飞书 SDK / service/feishu 的全部依赖）
+// 只在 `-tags feishu` 时参与编译。不带该 tag 时，本文件整体不编译，
+// 核心通过 optional_channel.go 的中立接口与空注册表照常工作。
 
 package main
 
@@ -329,6 +335,35 @@ func (a *App) emitFeishuStatus() {
 	}
 	st := a.GetFeishuStatus()
 	a.app.Event.Emit("feishu-status", st)
+}
+
+// ============ OptionalChannel 适配（自注册） ============
+
+// feishuChannel 把飞书启停逻辑适配成核心的 OptionalChannel 接口。
+type feishuChannel struct{ app *App }
+
+// Name 实现 OptionalChannel。
+func (c *feishuChannel) Name() string { return "feishu" }
+
+// AutoStart 实现 OptionalChannel：读自己的配置，已启用且凭据齐全才启动。
+// 「没配过」不是错误，因此只有配置满足条件时才尝试。
+func (c *feishuChannel) AutoStart(ctx context.Context) error {
+	cfg := LoadFeishuConfig()
+	if !cfg.Enabled || cfg.AppID == "" || cfg.AppSecret == "" {
+		return nil
+	}
+	return c.app.StartFeishu(ctx, cfg)
+}
+
+// Shutdown 实现 OptionalChannel。
+func (c *feishuChannel) Shutdown() error { return c.app.StopFeishu() }
+
+// init 自注册工厂：带 feishu tag 编译时，核心即可构造出本通道；
+// 不带 tag 时本文件不参与编译，注册表里没有飞书。
+func init() {
+	registerOptionalChannel(func(a *App) OptionalChannel {
+		return &feishuChannel{app: a}
+	})
 }
 
 // stripBotMention 去掉群聊里的 @机器人 前缀。

@@ -1,3 +1,5 @@
+//go:build feishu
+
 // menu.go —— 卡片快捷操作
 //
 // 对应 bot 的 src/feishu/menu.ts。两边**动作名刻意保持一致**：

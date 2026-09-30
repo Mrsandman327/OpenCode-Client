@@ -1,3 +1,5 @@
+//go:build feishu
+
 // session_card.go —— 会话选择卡片
 //
 // 对应 opencode-feishu-bot 的 src/feishu/session-card.ts，

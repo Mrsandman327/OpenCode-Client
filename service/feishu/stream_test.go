@@ -1,3 +1,5 @@
+//go:build feishu
+
 // stream_test.go —— 流式渲染回合的契约测试
 //
 // 这些测试用假对象注入（fakeOut / fakeOC），不碰真机：

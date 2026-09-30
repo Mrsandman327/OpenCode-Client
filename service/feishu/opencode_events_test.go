@@ -1,3 +1,5 @@
+//go:build feishu
+
 // opencode_events_test.go —— 事件订阅的生命周期
 //
 // 三条约束各有对应测试：必须重连、退订必须真的停、退订可重复调用。

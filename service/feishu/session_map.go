@@ -1,3 +1,5 @@
+//go:build feishu
+
 // session_map.go —— 飞书会话 ↔ OpenCode 会话的映射
 //
 // 每个飞书会话（私聊或群）绑定一个 OpenCode 会话，绑定关系需持久化：

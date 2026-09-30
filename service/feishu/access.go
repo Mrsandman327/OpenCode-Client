@@ -1,3 +1,5 @@
+//go:build feishu
+
 // access.go —— 访问门禁
 //
 // 移植自 opencode-feishu-bot 的 src/utils/access.ts。

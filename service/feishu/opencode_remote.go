@@ -1,3 +1,5 @@
+//go:build feishu
+
 // opencode_remote.go —— 远程管理能力的真实实现
 //
 // 与 opencode_real.go 分开：这个文件只放「远程管理」类端点

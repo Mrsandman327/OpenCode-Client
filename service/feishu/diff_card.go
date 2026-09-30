@@ -1,3 +1,5 @@
+//go:build feishu
+
 // diff_card.go —— 代码改动统计卡片
 //
 // 对应 bot 的 src/feishu/diff-card.ts。

@@ -1,3 +1,5 @@
+//go:build feishu
+
 // bridge_live_test.go —— 桥接层无头连通性测试
 //
 // 目的：在不启动 GUI、不动用户正在运行的 OC Manager 的前提下，
