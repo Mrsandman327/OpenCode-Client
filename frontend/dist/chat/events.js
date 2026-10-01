@@ -255,7 +255,10 @@ export function handleOcEvent(event) {
     }
 
     const isCurrentSession = sid && sid === store.currentSessionId;
-    if (type === 'session.created' && isCurrentSession) {
+    if (type === 'session.created') {
+        // 新建会话必须刷新树：**不能**只在"它是当前会话"时才刷。
+        // 事件可能在 store.currentSessionId 赋值之前到达（新建流程存在竞态），
+        // 一旦被跳过，新建的会话就不会出现在项目树里。树重建很轻，无条件刷新即可。
         buildTree();
         return;
     }

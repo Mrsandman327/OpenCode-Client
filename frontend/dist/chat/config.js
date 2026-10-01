@@ -13,13 +13,26 @@ import { api } from '../core/apicall.js';
 // 网络配置 — localStorage 读写
 // ============================
 
+/** 端口归一化：非法值（空 / 0 / 非数字 / 超范围）一律回退默认，避免界面显示 0 或 NaN。
+ *  背景：用户反馈"端口没保存、每次打开显示 0"——存进去的可能是 0/空串这类无效值，
+ *  这里统一在读取时纠正，写入时也用它把关。 */
+function normalizePort(value, fallback) {
+    const n = parseInt(String(value === undefined || value === null ? '' : value).trim(), 10);
+    if (!Number.isFinite(n) || n <= 0 || n > 65535) return fallback;
+    return String(n);
+}
+
 /** 从 localStorage 读取网络配置 */
 export function getNetworkConfig() {
     try {
         const saved = JSON.parse(localStorage.getItem(NETWORK_CONFIG_KEY) || '{}');
+        // 迁移：老版本（v1）用 servicePort === '0' 表示「随机端口」。本版本已移除随机端口，
+        // 若不处理，界面会直接显示 0（'0' 是真值字符串，不会被 || 兜底）。这里统一按默认端口处理。
+        const rawPort = String(saved.servicePort === undefined || saved.servicePort === null ? '' : saved.servicePort).trim();
+        const migratedPort = rawPort === '0' ? '' : rawPort;
         return {
             serviceHost: (saved.serviceHost || '127.0.0.1').trim(),
-            servicePort: (saved.servicePort || '49374').toString().trim(),
+            servicePort: normalizePort(migratedPort, '49374'),
             // servicePassword：OpenCode v2 服务强制 Basic 认证。启动服务时会用此口令
             // 执行 `opencode service set password`。默认 12345678。
             servicePassword: (saved.servicePassword || '12345678').trim(),
@@ -36,7 +49,7 @@ export function getNetworkConfig() {
 export function saveNetworkConfig(config) {
     const next = {
         serviceHost: (config.serviceHost || '127.0.0.1').trim(),
-        servicePort: (config.servicePort || '49374').toString().trim(),
+        servicePort: normalizePort(config.servicePort, '49374'),
         servicePassword: (config.servicePassword || '12345678').trim(),
         proxyEnabled: !!config.proxyEnabled,
         proxyHost: (config.proxyHost || '127.0.0.1').trim(),
@@ -53,7 +66,7 @@ export function getFrontendWebConfig() {
         const saved = JSON.parse(localStorage.getItem(FRONTEND_WEB_CONFIG_KEY) || '{}');
         return {
             host: (saved.host || '127.0.0.1').trim(),
-            port: (saved.port || '8081').toString().trim(),
+            port: normalizePort(saved.port, '8081'),
         };
     } catch (_) {
         return { host: '127.0.0.1', port: '8081' };
@@ -64,7 +77,7 @@ export function getFrontendWebConfig() {
 export function saveFrontendWebConfig(config) {
     const next = {
         host: (config.host || '127.0.0.1').trim(),
-        port: (config.port || '8081').toString().trim(),
+        port: normalizePort(config.port, '8081'),
     };
     localStorage.setItem(FRONTEND_WEB_CONFIG_KEY, JSON.stringify(next));
     return next;
