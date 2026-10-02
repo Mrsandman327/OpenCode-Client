@@ -447,15 +447,19 @@ export function treeHasSessionsForDir(tree, dir) {
 }
 
 /** 添加工作目录：选择已有会话的目录并加载；无会话记录时仅 toast 提示，不引导新建会话 */
+/** 选择目录（供「新建会话 / 添加工作目录 / 移动会话」等入口复用）。
+ *  Web 端 → 站内目录浏览器；桌面端 → 系统原生目录对话框。用户取消时返回 ''。 */
+export async function pickDirectory() {
+    if (isBrowserRuntimeForMain()) {
+        return (await openDirBrowserModal()) || '';
+    }
+    return (await api.OpenDirectoryDialog()) || '';
+}
+
 export async function addDirectoryToProject() {
     if (!store.webRunning) return;
     try {
-        let dir = ''
-        if (isBrowserRuntimeForMain()) {
-            dir = await openDirBrowserModal();
-        } else {
-            dir = await api.OpenDirectoryDialog();
-        }
+        let dir = await pickDirectory();
         if (!dir) return;
         rememberKnownDir(dir);
         const ok = await buildTree();
@@ -525,11 +529,7 @@ export async function createNewSession(dir) {
     try {
         var hasDirParam = typeof dir === 'string' && dir.length > 0;
         if (!hasDirParam) {
-            if (isBrowserRuntimeForMain()) {
-                dir = await openDirBrowserModal();
-            } else {
-                dir = await api.OpenDirectoryDialog();
-            }
+            dir = await pickDirectory();
             if (!dir) return;
         }
         store.pendingWorkDir = dir;
@@ -741,9 +741,11 @@ export async function exportSession(sid) {
  *  失败时如实回传服务端原因，不做静默重试）。 */
 export async function moveSessionDialog(sid) {
     if (!sid) return;
-    var target = prompt('请输入目标项目目录（绝对路径）：\n会话将被移动到该目录所属项目。', '');
-    if (target === null) return;
-    target = target.trim();
+    // 目录选择与「新建会话」完全一致：Web 端站内目录浏览器、桌面端原生目录对话框；
+    // 用户取消（返回空）则中止移动。
+    var target = await pickDirectory();
+    if (!target) return;
+    target = String(target).trim();
     if (!target) return;
     try {
         var res = await api.MoveSession(sid, target, '');
@@ -756,7 +758,10 @@ export async function moveSessionDialog(sid) {
             return;
         }
         showToast('会话已移动', 'success');
+        // 移动是服务端异步落库：紧跟其后的一次建树常早于数据更新，表现为"树没变化"。
+        // 因此先刷一次，再在稍后补刷一次（与其它异步变更的处理方式一致）。
         await buildTree();
+        setTimeout(function() { buildTree(); }, 1200);
     } catch (e) {
         showToast('移动失败: ' + (e.message || e), 'error');
     }
