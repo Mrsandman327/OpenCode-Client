@@ -874,6 +874,13 @@ export function renderQuestionTool(part) {
                     part.__pendingAnswers[qi] = cur;
                     // 当前按钮高亮
                     btn.classList.toggle('selected', cur.indexOf(optValue) >= 0);
+                    // 与自定义输入互斥：点了选项就**清空该题的输入框**（但不置灰，用户仍可继续输入；
+                    // 一旦继续输入就会反过来取消选项高亮）——始终"最后动作生效"，所见即所交。
+                    part.__pendingCustom[qi] = '';
+                    const customEl = qBlock.querySelector('.oc-question-custom-input');
+                    if (customEl) customEl.value = '';
+                    // 选择即视为在作答：取消"跳过"标记，否则提交时会被跳过逻辑吞掉
+                    part.__pendingSkipped[qi] = false;
                     // 更新该问题"已答"提示
                     const answeredHint = qBlock.querySelector('.oc-question-answered-hint');
                     if (cur.length) {
@@ -910,6 +917,14 @@ export function renderQuestionTool(part) {
             customInput.value = part.__pendingCustom[qi] || '';
             customInput.addEventListener('input', () => {
                 part.__pendingCustom[qi] = customInput.value;
+                // 与选项互斥：一旦输入，就取消该题所有选项的高亮（最后动作生效）
+                if (customInput.value.trim()) {
+                    part.__pendingAnswers[qi] = [];
+                    qBlock.querySelectorAll('.oc-question-option-btn').forEach(function(b) {
+                        b.classList.remove('selected');
+                    });
+                    part.__pendingSkipped[qi] = false;
+                }
                 // 同步"已答"提示
                 const val = customInput.value.trim();
                 const answeredHint = qBlock.querySelector('.oc-question-answered-hint');
