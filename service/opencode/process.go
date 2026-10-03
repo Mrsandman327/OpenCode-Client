@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -79,7 +80,7 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 		}
 	}
 
-	cmd := exec.Command("opencode", "serve",
+	cmd := exec.Command(resolveOpencodeBin(), "serve",
 		"--port", strconv.Itoa(port),
 		"--hostname", hostname,
 	)
@@ -335,13 +336,32 @@ func getWebSession() *webSession {
 	return nil
 }
 
+// resolveOpencodeBin 返回 OC Manager 要启动的 opencode 可执行文件路径。
+// 优先使用程序目录下 tools/opencode(.exe)（便携模式，与 config/ 同级），
+// 不存在时回退到 PATH 上的 opencode（开发环境、未放置便携版时保持可用），
+// 从而使正常使用时不依赖系统 PATH 环境变量。
+func resolveOpencodeBin() string {
+	if exePath, err := os.Executable(); err == nil {
+		toolsDir := filepath.Join(filepath.Dir(exePath), "tools")
+		// 按平台常见命名依次探测：Windows 为 opencode.exe，类 Unix 为 opencode
+		for _, name := range []string{"opencode.exe", "opencode"} {
+			candidate := filepath.Join(toolsDir, name)
+			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+				return candidate
+			}
+		}
+	}
+	return "opencode"
+}
+
 // LaunchWindowsTerminal 在外部终端中打开 opencode。
 func LaunchWindowsTerminal(mode, webURL, dir string) model.WebResult {
+	bin := resolveOpencodeBin()
 	var args []string
 	if mode == "attach" && webURL != "" {
-		args = []string{"opencode", "attach", webURL}
+		args = []string{bin, "attach", webURL}
 	} else {
-		args = []string{"opencode"}
+		args = []string{bin}
 	}
 	if dir != "" {
 		args = append(args, "--dir", dir)
