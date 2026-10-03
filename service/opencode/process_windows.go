@@ -17,7 +17,9 @@ func launchTerminal(args []string, env []string) (*exec.Cmd, error) {
 	if c, err := findWindowsTerminal(args...); err == nil {
 		cmd = c
 	} else {
-		cmdArgs := append([]string{"/c", "start", "opencode"}, args[1:]...)
+		// 使用解析后的 opencode 路径（args[0]）替代写死的命令名；
+		// "" 是 start 的窗口标题占位符，避免带空格的路径被误当成标题。
+		cmdArgs := append([]string{"/c", "start", ""}, args...)
 		cmd = exec.Command("cmd", cmdArgs...)
 	}
 	executil.SetHideWindow(cmd, false)

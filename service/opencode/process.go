@@ -11,7 +11,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,9 +48,27 @@ var (
 
 // ========== opencode service 命令封装 ==========
 
+// resolveOpencodeBin 返回 ocmanger 要启动的 opencode 可执行文件路径。
+// 优先使用程序目录下 tools/opencode.exe（便携模式，与 configs/ 同级），
+// 不存在时回退到 PATH 上的 opencode（开发环境、未放置便携版时保持可用）。
+func resolveOpencodeBin() string {
+	if exePath, err := os.Executable(); err == nil {
+		toolsDir := filepath.Join(filepath.Dir(exePath), "tools")
+		// 按平台常见命名依次探测：Windows 为 opencode.exe，类 Unix 为 opencode
+		for _, name := range []string{"opencode.exe", "opencode"} {
+			candidate := filepath.Join(toolsDir, name)
+			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+				return candidate
+			}
+		}
+	}
+	return "opencode"
+}
+
 // runOpencodeService 执行 `opencode service <args...>`，返回合并后的输出。
+// 可执行文件优先取程序目录下的 tools/opencode.exe（见 resolveOpencodeBin）。
 func runOpencodeService(args ...string) (string, error) {
-	cmd := exec.Command("opencode", append([]string{"service"}, args...)...)
+	cmd := exec.Command(resolveOpencodeBin(), append([]string{"service"}, args...)...)
 	executil.SetHideWindow(cmd, true)
 	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
@@ -289,7 +309,8 @@ func getWebSession() *webSession {
 
 // LaunchWindowsTerminal 在外部终端中打开 opencode（v2 命令形态）。
 func LaunchWindowsTerminal(mode, webURL, dir string) model.WebResult {
-	args := []string{"opencode"}
+	// 与 runOpencodeService 保持一致：优先使用程序目录下的 tools/opencode.exe
+	args := []string{resolveOpencodeBin()}
 	if mode == "attach" && webURL != "" {
 		// v2 移除了 `attach` 子命令，改用顶层 --server 连接指定服务
 		args = append(args, "--server", webURL)
