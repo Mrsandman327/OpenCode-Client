@@ -2,10 +2,7 @@
 package opencode
 
 import (
-	"bufio"
 	"context"
-	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -62,13 +59,6 @@ const (
 
 // StartOpenCodeEvents 连接 opencode 全局 SSE，并通过桌面事件与浏览器 SSE 双通道转发给前端。
 func StartOpenCodeEvents() model.APIResult {
-	WebSessMu.Lock()
-	sess := WebSess
-	WebSessMu.Unlock()
-	if sess == nil {
-		return model.APIResult{Error: "opencode 服务未启动"}
-	}
-
 	eventMu.Lock()
 	if eventStop != nil {
 		eventStop()
@@ -77,52 +67,25 @@ func StartOpenCodeEvents() model.APIResult {
 	eventStop = cancel
 	eventMu.Unlock()
 
-	// v1 为 /global/event，v2 收拢到 /api/event，且与普通 API 一样需要 Basic 认证
-	url := fmt.Sprintf("http://%s:%d/api/event", sess.hostname, sess.port)
+	// 建连与逐行读复用 eventstream.go —— 飞书通道消费的是**同一份**连接逻辑。
+	// 各自实现必然漂移，而这段逻辑里三处判据（Basic 认证、200+HTML 回落、
+	// 必须用无 Timeout 的 client）任一写错都表现为「连上了但收不到事件」且不报错。
 	go func() {
-		req, err := http.NewRequestWithContext(sseCtx, http.MethodGet, url, nil)
+		body, err := dialEventStream(sseCtx)
 		if err != nil {
-			emitToDesktop("oc-event-error", err.Error())
-			return
-		}
-		applyAuth(req, sess.password)
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
+			if sseCtx.Err() != nil {
+				return
+			}
 			emitToDesktop("oc-event-error", err.Error())
 			broadcastBrowserSSE("oc-event-error", err.Error())
 			return
 		}
-		defer resp.Body.Close()
+		defer body.Close()
 
-		// 认证失败或路径不存在时 v2 会回落到 SPA 首页（200 + HTML），
-		// 此时没有任何 data: 行，前端表现为「连上了但收不到事件」，需显式报错。
-		if resp.StatusCode != http.StatusOK {
-			msg := fmt.Sprintf("事件流连接失败: HTTP %d", resp.StatusCode)
-			emitToDesktop("oc-event-error", msg)
-			broadcastBrowserSSE("oc-event-error", msg)
-			return
-		}
-		if isHTMLResponse(resp.Header.Get("Content-Type")) {
-			msg := "事件流连接失败：OpenCode v2 未提供 /api/event 端点（返回了网页内容）"
-			emitToDesktop("oc-event-error", msg)
-			broadcastBrowserSSE("oc-event-error", msg)
-			return
-		}
-
-		scanner := bufio.NewScanner(resp.Body)
-		buf := make([]byte, 0, 64*1024)
-		// 单行 SSE 数据可能携带大消息/大工具结果（如整文件内容、超长 JSON），
-		// 默认 64KB 会频繁触发 token too long；上限放宽到 100MB。
-		scanner.Buffer(buf, 100*1024*1024)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if strings.HasPrefix(line, "data:") {
-				payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-				emitToDesktop("oc-event", payload)
-				broadcastBrowserSSE("oc-event", payload)
-			}
-		}
-		if err := scanner.Err(); err != nil && sseCtx.Err() == nil {
+		if err := pumpEventStream(body, func(payload string) {
+			emitToDesktop("oc-event", payload)
+			broadcastBrowserSSE("oc-event", payload)
+		}); err != nil && sseCtx.Err() == nil {
 			emitToDesktop("oc-event-error", err.Error())
 			broadcastBrowserSSE("oc-event-error", err.Error())
 		}
