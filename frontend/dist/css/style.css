@@ -8473,3 +8473,82 @@ input.toolbar-input {
     /* 标签区独占一行，避免与分类下拉挤压 */
     .kb-meta-tags { flex-basis: 100%; }
 }
+
+/* ============================================================
+   OMO 配置（oh-my-opencode-slim 方案管理）— 视图专属样式
+   ------------------------------------------------------------
+   改造说明：本视图复用 .model-group / .model-row / .batch-* /
+   .btn* 等既有组件，仅补充少量「方案 radio 与继承标记」样式；
+   全部沿用现有 CSS 变量，克制、朴素，不引入新的视觉语言。
+   ============================================================ */
+/* 方案单选按钮（组头最左；radio 是唯一表达「启用」的元素） */
+#view-omo .preset-radio {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+}
+/* 方案名：默认中等字重；选中的方案加粗（唯一的高亮差异） */
+#view-omo .model-group-title .model-group-label {
+    flex: 0 0 auto;
+    font-weight: 500;
+}
+#view-omo .model-group.active .model-group-label {
+    font-weight: 600;
+}
+/* 灰色小字标记：「启用中」「继承自 X」「继承」「已覆盖」 */
+#view-omo .active-tag,
+#view-omo .inherit-note,
+#view-omo .inherit-tag {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+/* 行内「继承 / 已覆盖」标记紧跟 agent 名（收紧与名字的间距） */
+#view-omo .inherit-tag {
+    margin-left: -4px;
+}
+/* 继承异常警示（继承环 / 继承源缺失；此类方案禁止保存） */
+#view-omo .inherit-error {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--danger);
+    white-space: nowrap;
+}
+/* 纯继承行：左边缘一条浅灰竖线（padding 补偿 2px，保持内容对齐） */
+#view-omo .model-row.inherited {
+    border-left: 2px solid var(--border);
+    padding-left: 18px;
+}
+/* 组头「✎ 重命名方案」按钮（圆形中性色；不吃 .btn-add-entry 的 auto 外边距） */
+#view-omo .btn-rename-preset {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#view-omo .btn-rename-preset:hover {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+/* 顶部覆盖提示条：环境变量 / 项目级配置优先、本文件可能不生效时的提示 */
+#view-omo .slim-override-hint {
+    padding: 8px 12px;
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-sm);
+    background: var(--warning-bg);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}

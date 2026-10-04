@@ -52,30 +52,6 @@ type DirectoryEntry struct {
 	Path string `json:"path"`
 }
 
-// ========== 模型配置相关 ==========
-
-// OpenAgentConfig 表示 oh-my-openagent.jsonc 的顶层模型配置结构。
-type OpenAgentConfig map[string]map[string]ModelConfig
-
-// ModelConfig 单个 agent/category 的模型配置。
-// OMO 格式（omo.jsonc）使用 reasoning 字段；Variant 仅为兼容读取旧配置保留，
-// 写入时一律落盘 reasoning。
-type ModelConfig struct {
-	Model     string `json:"model"`
-	Variant   string `json:"variant,omitempty"`
-	Reasoning string `json:"reasoning,omitempty"`
-}
-
-// ModelEntry 前端展示用的模型条目。
-type ModelEntry struct {
-	Key       string `json:"key"`
-	Type      string `json:"type"`
-	Model     string `json:"model"`
-	Variant   string `json:"variant"`
-	Reasoning string `json:"reasoning"`
-	Comment   string `json:"comment"`
-}
-
 // ========== 供应商配置相关 ==========
 
 // OpenCodeConfig 是 opencode.json(c) 的顶层结构，采用 OpenCode v2 原生格式。
@@ -430,15 +406,6 @@ type CmdGroup struct {
 	Title string    `json:"title"`
 	Cmds  []CmdInfo `json:"cmds"`
 	IsTUI bool      `json:"isTui"`
-}
-
-// ========== 方案管理相关 ==========
-
-// SchemeInfo 方案文件信息。
-type SchemeInfo struct {
-	Name     string `json:"name"`
-	FileName string `json:"fileName"`
-	FullPath string `json:"fullPath"`
 }
 
 // ========== 技能项目配置相关 ==========

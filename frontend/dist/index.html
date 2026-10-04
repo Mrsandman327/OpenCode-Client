@@ -223,35 +223,15 @@
             <div class="view-panel" id="view-omo">
                 <!-- 顶部固定栏 -->
                 <div class="omo-topbar">
-                    <!-- 方案信息栏 -->
+                    <!-- 配置文件信息栏 -->
                     <section class="omo-info-bar">
                         <div class="omo-info-row">
                             <div class="omo-info-text">
                                 <span class="omo-info-label">配置文件：</span>
                                 <span class="omo-info-value" id="configPath">加载中...</span>
                             </div>
+                            <button type="button" class="btn btn-sm btn-open" id="btnOpenSlimDir" title="在资源管理器中打开配置目录">📂 打开</button>
                             <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshModels">🔄 刷新</button>
-                        </div>
-                        <div class="omo-info-row">
-                            <div class="omo-info-text">
-                                <span class="omo-info-label">方案目录：</span>
-                                <span class="omo-info-value" id="omoSchemeDir">加载中...</span>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-open" id="btnOpenSchemeDir" title="在资源管理器中打开方案目录">📂 打开</button>
-                        </div>
-                    </section>
-
-                    <!-- 方案操作栏 -->
-                    <section class="omo-action-bar">
-                        <div class="omo-action-group">
-                            <label class="omo-action-label">方案：</label>
-                            <select class="omo-scheme-select" id="schemeSelect" disabled>
-                                <option value="">（无可用方案）</option>
-                            </select>
-                            <button type="button" class="btn btn-sm omo-action-btn" id="btnSchemeImport">导入</button>
-                            <button type="button" class="btn btn-sm omo-action-btn" id="btnSchemeExport">导出</button>
-                            <button type="button" class="btn btn-sm omo-action-btn" id="btnSchemeSave">入库</button>
-                            <label class="omo-status-bar" id="omoSchemeStatus"></label>
                         </div>
                     </section>
                 </div>
@@ -264,7 +244,7 @@
                 </div>
 
                 <div class="model-actions omo-bottom-bar" id="modelActions" style="display:none">
-                    <button type="button" class="btn btn-primary btn-add-type" id="btnAddModelType">➕ 添加类型</button>
+                    <button type="button" class="btn btn-primary btn-add-type" id="btnAddModelType">➕ 新增方案</button>
                     <button type="button" class="btn btn-primary btn-save" id="btnSaveModels">💾 保存配置</button>
                     <span class="save-status" id="saveStatus"></span>
                 </div>

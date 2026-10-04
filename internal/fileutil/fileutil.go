@@ -69,9 +69,12 @@ func ValidateJSONC(data []byte) error {
 	return nil
 }
 
-// StripComments 移除 JSONC 中的单行注释（// ...），正确处理引号内的 // 与转义。
-// 逐字符扫描：字符串字面量（含转义）内的 // 保留，其余视为注释。
+// StripComments 移除 JSONC 中的注释（// 单行 与 /* */ 块注释），并剥离开头的 UTF-8 BOM。
+// 逐字符扫描：字符串字面量（含转义）内的注释符保留，其余视为注释。
+// 仅依赖 ASCII 字节判定，对 UTF-8 多字节内容安全。
 func StripComments(text string) string {
+	// 剥离 UTF-8 BOM：否则 json.Unmarshal / json.Valid 会因首字节非法而失败
+	text = strings.TrimPrefix(text, "\uFEFF")
 	var sb strings.Builder
 	inString := false
 	escaped := false
@@ -94,13 +97,21 @@ func StripComments(text string) string {
 			sb.WriteByte(c)
 		case '/':
 			if i+1 < len(text) && text[i+1] == '/' {
-				// 跳过注释直到行尾
+				// 单行注释：跳到行尾
 				for i < len(text) && text[i] != '\n' {
 					i++
 				}
 				if i < len(text) {
 					sb.WriteByte('\n')
 				}
+			} else if i+1 < len(text) && text[i+1] == '*' {
+				// 块注释：跳到闭合的 */
+				i += 2
+				for i+1 < len(text) && !(text[i] == '*' && text[i+1] == '/') {
+					i++
+				}
+				i++ // 结束时 i 指向 '*'，自增到 '/'（外层循环再自增跳过）
+				sb.WriteByte('\n')
 			} else {
 				sb.WriteByte(c)
 			}

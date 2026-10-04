@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"oc-manager/config/omo"
 	"oc-manager/model"
 )
 
@@ -193,8 +194,24 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.GetModelList(baseURL, apiKey), nil
-	case "GetModelConfig":
-		return a.GetModelConfig()
+	case "GetSlimConfig":
+		var projectDir string
+		if len(args) > 0 {
+			if err := decodeArgs(args, &projectDir); err != nil {
+				return nil, err
+			}
+		}
+		return a.GetSlimConfig(projectDir)
+	case "SaveSlimConfig":
+		var payload omo.SlimSavePayload
+		if err := decodeArgs(args, &payload); err != nil {
+			return nil, err
+		}
+		return a.SaveSlimConfig(payload), nil
+	case "GetSlimConfigPath":
+		return a.GetSlimConfigPath(), nil
+	case "GetSlimAgentDescriptions":
+		return a.GetSlimAgentDescriptions(), nil
 	case "GetProviderConfigPath":
 		return a.GetProviderConfigPath(), nil
 	case "SaveProvider":
@@ -209,45 +226,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.DeleteProvider(key), nil
-	case "ParseConfigContent":
-		var content string
-		if err := decodeArgs(args, &content); err != nil {
-			return nil, err
-		}
-		return a.ParseConfigContent(content)
-	case "GetConfigPath":
-		return a.GetConfigPath(), nil
-	case "GetAgentDescriptions":
-		return a.GetAgentDescriptions(), nil
-	case "AddModelType":
-		var entryType string
-		if err := decodeArgs(args, &entryType); err != nil {
-			return nil, err
-		}
-		return a.AddModelType(entryType), nil
-	case "DeleteModelType":
-		var entryType string
-		if err := decodeArgs(args, &entryType); err != nil {
-			return nil, err
-		}
-		return a.DeleteModelType(entryType), nil
-	case "GetSchemeDir":
-		return a.GetSchemeDir(), nil
-	case "ListSchemes":
-		return a.ListSchemes(), nil
-	case "SaveSchemeEntries":
-		var name string
-		var entries []model.ModelEntry
-		if err := decodeArgs(args, &name, &entries); err != nil {
-			return nil, err
-		}
-		return map[string]bool{"success": a.SaveSchemeEntries(name, entries) == nil}, nil
-	case "ReadSchemeEntries":
-		var name string
-		if err := decodeArgs(args, &name); err != nil {
-			return nil, err
-		}
-		return a.ReadSchemeEntries(name)
 	case "Refresh":
 		return map[string]bool{"success": a.Refresh() == nil}, nil
 	case "AddSkillSourceDir":
@@ -299,15 +277,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return map[string]bool{"success": a.OpenDir(path) == nil}, nil
-	case "OpenSchemeDir":
-		return map[string]bool{"success": a.OpenSchemeDir() == nil}, nil
-	case "ExportConfigEntries":
-		var dir, filename string
-		var entries []model.ModelEntry
-		if err := decodeArgs(args, &dir, &filename, &entries); err != nil {
-			return nil, err
-		}
-		return a.ExportConfigEntries(dir, filename, entries)
 	case "SaveSkillScheme":
 		var name string
 		if err := decodeArgs(args, &name); err != nil {
@@ -451,12 +420,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		return a.StartOpenCodeEvents(), nil
 	case "StopOpenCodeEvents":
 		return a.StopOpenCodeEvents(), nil
-	case "UpdateModels":
-		var entries []model.ModelEntry
-		if err := decodeArgs(args, &entries); err != nil {
-			return nil, err
-		}
-		return a.UpdateModels(entries), nil
 	case "GetProjectConfigSummary":
 		var rootDir string
 		if err := decodeArgs(args, &rootDir); err != nil {

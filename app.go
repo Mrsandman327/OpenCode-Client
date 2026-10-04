@@ -383,72 +383,34 @@ func (a *App) DeleteSkillScheme(name string) model.SaveResult {
 	return model.SaveResult{Success: true}
 }
 
-// ========== 模型配置 ==========
+// ========== OMO Slim 配置（oh-my-opencode-slim.jsonc） ==========
 
-// GetModelConfig 读取所有 agent/category 的模型配置。
-func (a *App) GetModelConfig() ([]model.ModelEntry, error) {
-	cfg, _, _, err := omo.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	descs, _ := omo.LoadAgentDescriptions()
-	return omo.ConfigToEntries(cfg, descs), nil
+// GetSlimConfig 读取 oh-my-opencode-slim 配置并转为前端结构。
+// projectDir 非空时额外检测项目级配置（用于"编辑可能不生效"的覆盖提示）。
+func (a *App) GetSlimConfig(projectDir string) (*omo.SlimConfigResult, error) {
+	return omo.LoadSlimConfig(projectDir)
 }
 
-// GetAgentDescriptions 返回 agent/category 描述表。
-func (a *App) GetAgentDescriptions() map[string]string {
-	descs, err := omo.LoadAgentDescriptions()
+// SaveSlimConfig 保存前端编辑结果到 oh-my-opencode-slim 配置文件。
+func (a *App) SaveSlimConfig(payload omo.SlimSavePayload) model.SaveResult {
+	if err := omo.SaveSlimConfig(payload); err != nil {
+		return model.SaveResult{Success: false, Error: err.Error()}
+	}
+	return model.SaveResult{Success: true}
+}
+
+// GetSlimConfigPath 返回 oh-my-opencode-slim 配置文件路径。
+func (a *App) GetSlimConfigPath() string {
+	return omo.SlimConfigPath()
+}
+
+// GetSlimAgentDescriptions 返回 OMO Slim 的 agent 描述表。
+func (a *App) GetSlimAgentDescriptions() map[string]string {
+	descs, err := omo.LoadSlimAgentDescriptions()
 	if err != nil {
-		return nil
+		return map[string]string{}
 	}
 	return descs
-}
-
-// UpdateModels 批量更新模型配置并保存到 JSONC 文件，同时将描述写入 agents-comments.json。
-func (a *App) UpdateModels(entries []model.ModelEntry) model.SaveResult {
-	if err := omo.SaveConfig(entries); err != nil {
-		return model.SaveResult{Success: false, Error: err.Error()}
-	}
-	// 同步 key-comment 到描述文件
-	descEntries := make([]struct {
-		Key     string
-		Comment string
-	}, len(entries))
-	for i, e := range entries {
-		descEntries[i].Key = e.Key
-		descEntries[i].Comment = e.Comment
-	}
-	if err := omo.ApplyDescriptions(descEntries); err != nil {
-		// 描述写入失败不影响主流程
-		fmt.Printf("写入描述文件失败: %v\n", err)
-	}
-	return model.SaveResult{Success: true}
-}
-
-// AddModelType 添加模型配置类型分组。
-func (a *App) AddModelType(entryType string) model.SaveResult {
-	if err := omo.AddModelType(entryType); err != nil {
-		return model.SaveResult{Success: false, Error: err.Error()}
-	}
-	return model.SaveResult{Success: true}
-}
-
-// DeleteModelType 删除整个模型配置类型分组。
-func (a *App) DeleteModelType(entryType string) model.SaveResult {
-	if err := omo.DeleteModelType(entryType); err != nil {
-		return model.SaveResult{Success: false, Error: err.Error()}
-	}
-	return model.SaveResult{Success: true}
-}
-
-// GetConfigPath 返回模型配置文件路径。
-func (a *App) GetConfigPath() string {
-	return omo.ConfigPath()
-}
-
-// ParseConfigContent 解析任意 JSONC 文本（导入场景），返回结构化模型条目。
-func (a *App) ParseConfigContent(content string) ([]model.ModelEntry, error) {
-	return omo.ParseConfigContent(content)
 }
 
 // GetProviderConfigPath 返回供应商配置文件路径。
@@ -482,51 +444,6 @@ func (a *App) DeleteProvider(key string) model.SaveResult {
 		return model.SaveResult{Success: false, Error: err.Error()}
 	}
 	return model.SaveResult{Success: true}
-}
-
-// ========== 方案管理 ==========
-
-// GetSchemeDir 返回方案目录的绝对路径。
-func (a *App) GetSchemeDir() string {
-	dir, err := omo.SchemeDir()
-	if err != nil {
-		return ""
-	}
-	return dir
-}
-
-// ListSchemes 扫描方案目录并返回所有方案文件信息。
-func (a *App) ListSchemes() []model.SchemeInfo {
-	schemes, err := omo.ListSchemes()
-	if err != nil {
-		return []model.SchemeInfo{}
-	}
-	return schemes
-}
-
-// SaveSchemeEntries 将结构化模型条目保存为方案文件（后端生成 omo.jsonc 兼容结构）。
-func (a *App) SaveSchemeEntries(name string, entries []model.ModelEntry) error {
-	return omo.SaveSchemeEntries(name, entries)
-}
-
-// ReadSchemeEntries 读取方案文件并解析为结构化模型条目列表。
-func (a *App) ReadSchemeEntries(name string) ([]model.ModelEntry, error) {
-	entries, _, err := omo.ReadSchemeEntries(name)
-	return entries, err
-}
-
-// OpenSchemeDir 在文件资源管理器中打开方案目录。
-func (a *App) OpenSchemeDir() error {
-	dir, err := omo.EnsureSchemeDir()
-	if err != nil {
-		return err
-	}
-	return a.OpenDir(dir)
-}
-
-// ExportConfigEntries 将结构化模型条目导出为 omo.jsonc 兼容文件。
-func (a *App) ExportConfigEntries(dir, filename string, entries []model.ModelEntry) (string, error) {
-	return omo.ExportConfigEntries(dir, filename, entries)
 }
 
 // ========== Web 服务（委托到 service 包）==========
