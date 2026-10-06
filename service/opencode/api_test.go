@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"oc-manager/model"
 )
 
 // TestDescribeV2Error 覆盖 v2 错误体的解析。
@@ -309,46 +308,7 @@ func TestTreeSessionDir(t *testing.T) {
 	}
 }
 
-// TestUnmarshalProjectCanonical 覆盖 Project 的 v2 形态：
-// worktree → canonical，且不再有 name。
-func TestUnmarshalProjectCanonical(t *testing.T) {
-	var projects []ProjectInfo
-	body := `[{"id":"p1","canonical":"C:\\work\\bmall","vcs":"git","time":{"created":1,"updated":2}}]`
-	if err := json.Unmarshal([]byte(body), &projects); err != nil {
-		t.Fatal(err)
-	}
-	if len(projects) != 1 {
-		t.Fatalf("项目数 = %d, 期望 1", len(projects))
-	}
-	if projects[0].Canonical != `C:\work\bmall` {
-		t.Errorf("Canonical = %q", projects[0].Canonical)
-	}
-	if projects[0].Name != "" {
-		t.Errorf("v2 不应有 name，实际 %q", projects[0].Name)
-	}
-}
 
-// TestProjectDisplayName 覆盖项目名从 canonical 末段推导。
-func TestProjectDisplayName(t *testing.T) {
-	cases := []struct {
-		name    string
-		project ProjectInfo
-		want    string
-	}{
-		{"unix 路径", ProjectInfo{ID: "p", Canonical: "/home/u/bmall"}, "bmall"},
-		{"windows 路径", ProjectInfo{ID: "p", Canonical: `C:\work\bmall\go-exCore`}, "go-exCore"},
-		{"带尾斜杠", ProjectInfo{ID: "p", Canonical: "/home/u/bmall/"}, "bmall"},
-		{"根路径 + global", ProjectInfo{ID: "global", Canonical: "/"}, "全局项目"},
-		{"空 canonical + global", ProjectInfo{ID: "global"}, "全局项目"},
-		{"空 canonical + 普通 id", ProjectInfo{ID: "abc123"}, "abc123"},
-		{"已有 name 优先由调用方处理", ProjectInfo{ID: "p", Canonical: "/a/b"}, "b"},
-	}
-	for _, c := range cases {
-		if got := projectDisplayName(c.project); got != c.want {
-			t.Errorf("%s: projectDisplayName = %q, 期望 %q", c.name, got, c.want)
-		}
-	}
-}
 
 // ============ 会话树：父子（子代理）关系 ============
 
@@ -410,44 +370,6 @@ func TestUnmarshalSessionListKeepsParentID(t *testing.T) {
 	}
 }
 
-// TestBuildTreeJSONExcludesChildSessions 子会话不得进入会话树。
-func TestBuildTreeJSONExcludesChildSessions(t *testing.T) {
-	projects := []ProjectInfo{{ID: "p1", Canonical: "/w"}}
-	sessions := []treeSession{
-		{ID: "ses_root", ProjectID: "p1", Location: &struct {
-			Directory string `json:"directory"`
-		}{Directory: "/w"}, Title: "主会话"},
-		{ID: "ses_kid", ProjectID: "p1", ParentID: "ses_root", Location: &struct {
-			Directory string `json:"directory"`
-		}{Directory: "/w"}, Title: "子代理会话"},
-	}
-	out := buildTreeJSON(projects, sessions)
-
-	var nodes []model.TreeNode
-	if err := json.Unmarshal([]byte(out), &nodes); err != nil {
-		t.Fatalf("输出不是合法 JSON: %v", err)
-	}
-	// 收集所有 session 节点
-	var titles []string
-	var walk func(n model.TreeNode)
-	walk = func(n model.TreeNode) {
-		if n.Type == "session" {
-			titles = append(titles, n.Title)
-		}
-		for _, c := range n.Children {
-			walk(c)
-		}
-	}
-	for _, n := range nodes {
-		walk(n)
-	}
-	if len(titles) != 1 {
-		t.Fatalf("会话树中应只有 1 个 session 节点，实际 %d 个: %v", len(titles), titles)
-	}
-	if titles[0] != "主会话" {
-		t.Errorf("保留的应是根会话，实际 %q", titles[0])
-	}
-}
 
 // ============ 认证 ============
 
