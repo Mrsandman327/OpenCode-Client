@@ -107,15 +107,18 @@ func ensureServiceConfig(hostname string, port int, password string) error {
 	return nil
 }
 
-// StartOpenCodeWeb 启动（或连接）OpenCode v2 共享后台服务。
+// StartOpenCodeWeb 启动 OpenCode v2 共享后台服务。
 //
 // 流程：
 //  1. 若本进程已连接同一地址的服务，直接返回其状态；
-//  2. 若注册文件描述的服务已健康运行，直接连接（不 set、不 start）；
+//  2. 启动前拦截：机器上已有 opencode 服务在运行（v1 的 serve / v2 的 service，
+//     含外部启动与上次残留）→ 一律要求先关闭，避免并存两套服务/两套数据；
 //  3. 端口预检：被占用则立即报错（避免 service start 等到 120 秒超时）；
 //  4. 与目标配置有差异时，service set hostname/port/password；
 //  5. opencode service start；
 //  6. 读取注册文件 state/service.json 拿到 url/password 并连接。
+//
+// 说明：本程序不再自动连接"已经运行的服务"——必须由本程序自己启动（见步骤 2 拦截）。
 func StartOpenCodeWeb(port int, hostname string, password string, proxy model.ProxyConfig) model.WebResult {
 	if hostname == "" {
 		hostname = defaultHostname
@@ -139,14 +142,13 @@ func StartOpenCodeWeb(port int, hostname string, password string, proxy model.Pr
 	}
 	WebSessMu.Unlock()
 
-	// 2) 已有健康共享服务（注册文件）且地址一致 → 直接连接
-	if h, p, pwd, ok := discoverOpenCodeServer(); ok {
-		if h == hostname && p == port {
-			setSession(h, p, pwd)
-			health, version, _ := getOpenCodeHealthWithAuth(h, p, pwd)
-			return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", h, p), Health: health, Version: version}
+	// 2) 启动前拦截：机器上只要存在运行中的 opencode 服务（v1 的 serve / v2 的
+	//    service，含外部启动与上次崩溃残留），就要求用户先关闭，不再自动连接。
+	if running, desc := findRunningOpencodeService(); running {
+		if desc != "" {
+			return model.WebResult{Error: "检测到已有 OpenCode 服务正在运行（" + desc + "），请先关闭后再启动"}
 		}
-		// 服务在别的地址：继续走 set + start，把它重启到目标地址
+		return model.WebResult{Error: "检测到已有 OpenCode 服务正在运行，请先关闭后再启动"}
 	}
 
 	// 3) 端口预检：被占用立即报错
