@@ -480,6 +480,27 @@ func TestServiceInfoMatches(t *testing.T) {
 		{"URL 为空", &serviceInfo{}, "127.0.0.1", 4096, false},
 		{"info 为 nil", nil, "127.0.0.1", 4096, false},
 		{"无端口", &serviceInfo{URL: "http://127.0.0.1"}, "127.0.0.1", 4096, false},
+
+		// ↓↓ v2.0.24 兼容：service.json 的 url 改写成绑定地址 0.0.0.0 ↓↓
+		// 回归用例：真实故障是「会话列表全空」——口令取不到 → 401 → 什么都读不出。
+		{"绑定地址 0.0.0.0 对回环探测（v2.0.24 实测场景）",
+			&serviceInfo{URL: "http://0.0.0.0:4096"}, "127.0.0.1", 4096, true},
+		{"绑定地址 0.0.0.0 对 localhost", &serviceInfo{URL: "http://0.0.0.0:4096"}, "localhost", 4096, true},
+		// IPv6 未指定地址
+		{"绑定地址 [::] 对回环", &serviceInfo{URL: "http://[::]:4096"}, "127.0.0.1", 4096, true},
+		{"绑定地址 [::] 对 ::1", &serviceInfo{URL: "http://[::]:4096"}, "::1", 4096, true},
+		// 回环族互认（旧实现的注释声称支持、代码并未实现）
+		{"localhost 对 127.0.0.1", &serviceInfo{URL: "http://localhost:4096"}, "127.0.0.1", 4096, true},
+		{"127.0.0.1 对 localhost", &serviceInfo{URL: "http://127.0.0.1:4096"}, "localhost", 4096, true},
+		{"127.0.0.2 仍是回环", &serviceInfo{URL: "http://127.0.0.2:4096"}, "127.0.0.1", 4096, true},
+		// 反例：绑定地址不得匹配远程主机，否则会把本机口令用到远端同端口服务上
+		{"绑定地址 0.0.0.0 对远程 IP（必须不匹配）",
+			&serviceInfo{URL: "http://0.0.0.0:4096"}, "192.168.1.50", 4096, false},
+		{"绑定地址 0.0.0.0 对远程域名（必须不匹配）",
+			&serviceInfo{URL: "http://0.0.0.0:4096"}, "example.com", 4096, false},
+		{"不同远程主机（必须不匹配）",
+			&serviceInfo{URL: "http://10.0.0.5:4096"}, "10.0.0.6", 4096, false},
+		{"端口不同时绑定地址也不匹配", &serviceInfo{URL: "http://0.0.0.0:4096"}, "127.0.0.1", 5000, false},
 	}
 	for _, c := range cases {
 		if got := serviceInfoMatches(c.info, c.host, c.port); got != c.want {

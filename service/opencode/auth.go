@@ -4,6 +4,7 @@ package opencode
 import (
 	"encoding/base64"
 	"encoding/json"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -125,12 +126,66 @@ func serviceInfoMatches(info *serviceInfo, hostname string, port int) bool {
 		url = strings.TrimPrefix(url, prefix)
 	}
 	url = strings.TrimSuffix(url, "/")
-	host, portStr, ok := strings.Cut(url, ":")
-	if !ok {
+	// 用 SplitHostPort 而非 strings.Cut：IPv6 的 [::]:4096 里第一个冒号是
+	// 地址的一部分，Cut 会把 host 切成 "["。SplitHostPort 正确处理方括号。
+	// 无端口时它返回错误，与旧行为（要求必须有端口）一致。
+	host, portStr, err := net.SplitHostPort(url)
+	if err != nil {
 		return false
 	}
-	// 主机名比较不区分大小写（Windows 下 127.0.0.1 / localhost 可能混用）
-	return strings.EqualFold(host, hostname) && portStr == strconv.Itoa(port)
+	return hostsEquivalent(host, hostname) && portStr == strconv.Itoa(port)
+}
+
+// isUnspecifiedHost 判断是否为「未指定地址」——服务端的**绑定**地址，不表示
+// 某个具体的可连接主机。
+//
+// v2.0.24 起，`service.json` 的 url 写的是绑定地址（实测出现 `http://0.0.0.0:4096`），
+// 而更早版本写的是 `127.0.0.1:<port>`。0.0.0.0 / :: 的含义是「监听所有网卡」，
+// 客户端不能拿它当目标地址用，但它**恰恰说明服务就在本机**。
+func isUnspecifiedHost(host string) bool {
+	h := strings.Trim(strings.TrimSpace(host), "[]")
+	return h == "" || h == "0.0.0.0" || h == "::"
+}
+
+// isLoopbackHost 判断是否回环地址族：127.0.0.0/8、::1、localhost。
+func isLoopbackHost(host string) bool {
+	h := strings.ToLower(strings.Trim(strings.TrimSpace(host), "[]"))
+	if h == "localhost" || h == "::1" {
+		return true
+	}
+	// 127.0.0.0/8 整段都是回环，127.0.0.1 只是最常用那个
+	if strings.HasPrefix(h, "127.") {
+		return true
+	}
+	return false
+}
+
+// hostsEquivalent 判断两个主机名是否指向同一个服务端点。
+//
+// 为什么不能只做 EqualFold：旧实现就是那样，导致两类误判——
+//  1. v2.0.24 把 service.json 的 url 写成绑定地址 `0.0.0.0` 后，
+//     与探测用的 `127.0.0.1` 不相等 → 取不到口令 → 401 → 会话列表全空。
+//  2. `localhost` 与 `127.0.0.1` 本就是一回事，但 EqualFold 判为不同
+//     （旧注释写明了「可能混用」，代码却没实现）。
+//
+// 规则：显式相等；同属回环族；或一侧是未指定地址、另一侧是回环
+//（服务监听所有网卡 ⇒ 本机回环地址一定连得到它）。
+//
+// 未指定地址**不**与远程主机等价——否则会把本机注册的口令误用到远端同端口服务上。
+func hostsEquivalent(a, b string) bool {
+	if strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b)) {
+		return true
+	}
+	if isLoopbackHost(a) && isLoopbackHost(b) {
+		return true
+	}
+	if isUnspecifiedHost(a) && isLoopbackHost(b) {
+		return true
+	}
+	if isUnspecifiedHost(b) && isLoopbackHost(a) {
+		return true
+	}
+	return false
 }
 
 // basicAuthValue 生成 Basic 认证头值。password 为空时返回空串（表示不加认证头）。
