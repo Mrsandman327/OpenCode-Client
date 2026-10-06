@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // chat-session.js — 会话管理与消息收发
 // 负责会话选择/创建/加载、Agent/Model 选择器、附件管理、消息发送、轮询与中止
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages）、
@@ -30,7 +30,7 @@ import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 // 该模块不识 session.js，无循环依赖。
 import { collectKnowledgeRefs, clearKnowledgeRefs, hasKnowledgeRefs } from './knowledge-ref.js';
 // OpenCode v2 适配层：拆 {data:...} 信封、把 v2 扁平消息还原为 v1 的 {info,parts}、转换 prompt 请求体。
-import { unwrap, unwrapList, toModelOptions, adaptMessages, nextCursor, toPromptBody, toModelRef, locationQuery, formatApiError } from '../core/v2compat.js';
+import { unwrap, unwrapList, toModelOptions, MODEL_LIST_EMPTY_HINT, adaptMessages, nextCursor, toPromptBody, toModelRef, locationQuery, formatApiError } from '../core/v2compat.js';
 
 // ============================
 // 全局 Agent/Model 选择器
@@ -69,9 +69,21 @@ export async function loadAgentModelSelectors(dir, force) {
     try {
         // v2：/api/agent、/api/model 返回 {location, data:[...]} 信封，需拆包。
         // 注意模型列表必须用 /api/model——v2 的 /api/provider 不再内嵌 models 字段。
+        //
+        // 失败**必须可见**：这里原先写作 .catch(() => [])，请求出错被静默吞成空数组，
+        // 于是「列表没加载出来」与「这个项目本来就没有模型」在用户侧看起来一模一样，
+        // 日志里也一条线索都没有。保留降级行为（继续用已有列表），但先记一笔。
+        const fetchList = async (path) => {
+            try {
+                return await api.OpenCodeCall('GET', path, null, directory);
+            } catch (err) {
+                console.error(`[模型列表] ${path} 请求失败（目录 ${directory}）`, err);
+                return [];
+            }
+        };
         const [agentsRes, modelsRes] = await Promise.all([
-            api.OpenCodeCall('GET', '/api/agent', null, directory).catch(() => []),
-            api.OpenCodeCall('GET', '/api/model', null, directory).catch(() => []),
+            fetchList('/api/agent'),
+            fetchList('/api/model'),
         ]);
         const agents = unwrapList(agentsRes);
         const models = toModelOptions(modelsRes);
@@ -99,13 +111,13 @@ export async function loadAgentModelSelectors(dir, force) {
         } else {
             agentModelRetryAttempt = 0;
         }
-    } catch (_) {
+    } catch (error) {
         // 请求失败同样不得清空已有列表：保留上一次成功的数据（stale-while-revalidate），
         // 下一轮刷新或事件驱动重拉时再校正；清空式失败处理会让手选值在发送前被误判回退。
+        console.error('[模型列表] 加载异常', error);
         if (!store.agentList.length) store.agentList = [];
         if (!store.modelList.length) store.modelList = [];
     }
-
     const agentSel = document.getElementById('ocAgentSelect');
     const modelSel = document.getElementById('ocModelSelect');
     if (!agentSel || !modelSel) return;
@@ -135,6 +147,16 @@ export async function loadAgentModelSelectors(dir, force) {
         opt.textContent = m.label;
         modelSel.appendChild(opt);
     });
+    // 列表为空要**看得见**：否则用户只看到「默认」+ 手选/历史兜底的那几项，
+    // 会以为是「可选项就这么少 / 自己选不了」，而不是「列表没加载出来」。
+    // 禁用项，不可选中，只作说明。
+    if (!store.modelList.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.disabled = true;
+        opt.textContent = MODEL_LIST_EMPTY_HINT;
+        modelSel.appendChild(opt);
+    }
     // 与 agent 同一口径：列表不可用时补齐手选的模型项
     if (!store.modelList.length && store.selectedModel) ensureSelectOption(modelSel, store.selectedModel, store.selectedModel);
     modelSel.value = store.selectedModel;

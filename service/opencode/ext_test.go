@@ -79,7 +79,7 @@ func newTestServer(t *testing.T, responder func(c captured) (int, string)) *test
 	}
 	WebSessMu.Lock()
 	prev := WebSess
-	WebSess = &webSession{hostname: host, port: port, password: "test-pw", external: true}
+	WebSess = &webSession{hostname: host, port: port, password: "test-pw"}
 	WebSessMu.Unlock()
 	t.Cleanup(func() {
 		WebSessMu.Lock()
@@ -761,7 +761,7 @@ func Test扩展端点HTML兜底(t *testing.T) {
 	}
 	WebSessMu.Lock()
 	prev := WebSess
-	WebSess = &webSession{hostname: host, port: port, external: true}
+	WebSess = &webSession{hostname: host, port: port}
 	WebSessMu.Unlock()
 	defer func() {
 		WebSessMu.Lock()
