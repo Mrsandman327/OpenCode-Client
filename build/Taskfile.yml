@@ -65,7 +65,13 @@ tasks:
     cmds:
       # -b：使用 wails 内置 runtime（/wails/runtime.js），不依赖 npm 包 @wailsio/runtime
       # -d：输出到 dist 内，随 go:embed 一并嵌入，由 asset server 直接服务
-      - wails3 generate bindings -b -clean=true -d frontend/dist/bindings
+      #
+      # -f：把 EXTRA_TAGS 透传给绑定生成。**这一步不能省**：
+      # 带 tag 才有对应导出方法，绑定生成扫描不到 tags 后面的方法，
+      # 会把它们从 app.js 里删掉 —— 表现为「Go 侧编进了飞书，前端却没有任何
+      # 飞书方法可以调」，配置面板直接失效。而这一步是静默的：构建成功、
+      # 测试全绿，只有重新生成的绑定文件少了函数。
+      - wails3 generate bindings -b -clean=true -d frontend/dist/bindings{{if .EXTRA_TAGS}} -f "-tags {{.EXTRA_TAGS}}"{{end}}
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` from an image; on macOS, `-iconcomposerinput appicon.icon -macassetdir darwin` also produces `Assets.car` from a `.icon` file (skipped on other platforms).
