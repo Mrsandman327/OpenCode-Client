@@ -175,6 +175,15 @@ export function toModelOptions(res) {
       .sort((a, b) => a.value.toLowerCase().localeCompare(b.value.toLowerCase()));
 }
 
+/**
+ * 模型列表为空时下拉框里的提示文案。
+ *
+ * 上游已有「逐步就绪」的重试与数量收敛逻辑，这里补的是**可见性**：
+ * 列表为空时只显示「默认」+ 手选/历史兜底项，用户会以为「可选项就这么少」，
+ * 而不是「列表没加载出来」。禁用项不可选中，只作说明。
+ */
+export const MODEL_LIST_EMPTY_HINT = '模型列表未加载（服务未就绪或鉴权失败），稍后自动重试';
+
 // ============================
 // 会话状态：v2 的 {type:'running'} → v1 的 'busy' / 'idle'
 // ============================
