@@ -27,7 +27,7 @@ import { openFileBrowserModal, openFileBrowserStandaloneFor } from '../filebrows
 // 该模块不识 session.js，无循环依赖。
 import { collectKnowledgeRefs, clearKnowledgeRefs, hasKnowledgeRefs } from './knowledge-ref.js';
 // OpenCode v2 适配层：拆 {data:...} 信封、把 v2 扁平消息还原为 v1 的 {info,parts}、转换 prompt 请求体。
-import { unwrap, unwrapList, toModelOptions, adaptMessages, prevCursor, toPromptBody, toModelRef, locationQuery } from '../core/v2compat.js';
+import { unwrap, unwrapList, toModelOptions, modelSelectorsUsable, MODEL_LIST_EMPTY_HINT, adaptMessages, prevCursor, toPromptBody, toModelRef, locationQuery } from '../core/v2compat.js';
 
 // ============================
 // 全局 Agent/Model 选择器
@@ -36,75 +36,126 @@ import { unwrap, unwrapList, toModelOptions, adaptMessages, prevCursor, toPrompt
 /** 加载 Agent/Model 下拉选择器（从 API 获取可用列表） */
 export async function loadAgentModelSelectors() {
     if (store.agentModelSelectorsLoaded) return;
-    try {
-        // v2：/api/agent、/api/model 返回 {location, data:[...]} 信封，需拆包。
-        // 注意模型列表必须用 /api/model——v2 的 /api/provider 不再内嵌 models 字段。
-        const [agentsRes, modelsRes] = await Promise.all([
-            api.OpenCodeCall('GET', '/api/agent').catch(() => []),
-            api.OpenCodeCall('GET', '/api/model').catch(() => []),
-        ]);
-        store.agentList = unwrapList(agentsRes);
-        store.modelList = toModelOptions(modelsRes);
-    } catch (_) {
-        store.agentList = [];
-        store.modelList = [];
-    }
+    // 同一时刻只跑一次：checkWebStatus 与服务启动路径都可能触发
+    if (modelSelectorLoadInFlight) return modelSelectorLoadInFlight;
 
-    const agentSel = document.getElementById('ocAgentSelect');
-    const modelSel = document.getElementById('ocModelSelect');
-    if (!agentSel || !modelSel) return;
+    modelSelectorLoadInFlight = (async () => {
+        try {
+            // 不吞错：失败要能看见。原本写成 .catch(() => [])，于是服务未就绪时
+            // 拿到空数组、守卫照样置位，问题被永久掩盖且日志无痕。
+            const [agentsRes, modelsRes] = await Promise.all([
+                api.OpenCodeCall('GET', '/api/agent'),
+                api.OpenCodeCall('GET', '/api/model'),
+            ]);
+            store.agentList = unwrapList(agentsRes);
+            store.modelList = toModelOptions(modelsRes);
+        } catch (err) {
+            console.error('[模型列表] 加载失败，将重试', err);
+            store.agentList = [];
+            store.modelList = [];
+        }
 
-    // 填充 agent 下拉框
-    agentSel.innerHTML = '<option value="">默认</option>';
-    store.agentList.forEach(a => {
-        const opt = document.createElement('option');
-        opt.value = a.name;
-        opt.textContent = a.name;
-        if (a.description) opt.title = a.description;
-        agentSel.appendChild(opt);
-    });
-    agentSel.value = store.selectedAgent;
+        const agentSel = document.getElementById('ocAgentSelect');
+        const modelSel = document.getElementById('ocModelSelect');
+        if (!agentSel || !modelSel) return;
 
-    // 填充 model 下拉框（value 用真实模型 ID 供对话请求切分；文字显示 name）
-    modelSel.innerHTML = '<option value="">默认</option>';
-    store.modelList.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.value;
-        opt.textContent = m.label;
-        modelSel.appendChild(opt);
-    });
-    modelSel.value = store.selectedModel;
-
-    // change 事件（带绑定守卫：启停多次只绑一次，避免重复监听）
-    // 用户手动选择后立即标记「本会话已完成同步」，阻止后续重渲染用消息历史覆盖该选择
-    if (!agentSel.dataset.modelBound) {
-        agentSel.dataset.modelBound = '1';
-        agentSel.addEventListener('change', () => {
-            store.selectedAgent = agentSel.value;
-            store.agentModelSyncedSession = store.currentSessionId || '';
+        // 填充 agent 下拉框
+        agentSel.innerHTML = '<option value="">默认</option>';
+        store.agentList.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.name;
+            opt.textContent = a.name;
+            if (a.description) opt.title = a.description;
+            agentSel.appendChild(opt);
         });
-    }
-    if (!modelSel.dataset.modelBound) {
-        modelSel.dataset.modelBound = '1';
-        modelSel.addEventListener('change', () => {
-            store.selectedModel = modelSel.value;
-            store.agentModelSyncedSession = store.currentSessionId || '';
-        });
-    }
+        agentSel.value = store.selectedAgent;
 
-    // Variant 选择器
-    const variantSel = document.getElementById('ocVariantSelect');
-    if (variantSel) {
-        variantSel.value = store.selectedVariant;
-        if (!variantSel.dataset.modelBound) {
-            variantSel.dataset.modelBound = '1';
-            variantSel.addEventListener('change', () => {
-                store.selectedVariant = variantSel.value;
+        // 填充 model 下拉框（value 用真实模型 ID 供对话请求切分；文字显示 name）
+        modelSel.innerHTML = '<option value="">默认</option>';
+        store.modelList.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.value;
+            opt.textContent = m.label;
+            modelSel.appendChild(opt);
+        });
+        // 空列表要**看得见**：否则用户只看到「默认」+ 会话历史兜底的那几项，
+        // 以为是自己选不了，而不是「列表没加载出来」。
+        if (store.modelList.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.disabled = true;
+            opt.textContent = MODEL_LIST_EMPTY_HINT;
+            modelSel.appendChild(opt);
+        }
+        modelSel.value = store.selectedModel;
+
+        // change 事件（带绑定守卫：启停多次只绑一次，避免重复监听）
+        // 用户手动选择后立即标记「本会话已完成同步」，阻止后续重渲染用消息历史覆盖该选择
+        if (!agentSel.dataset.modelBound) {
+            agentSel.dataset.modelBound = '1';
+            agentSel.addEventListener('change', () => {
+                store.selectedAgent = agentSel.value;
+                store.agentModelSyncedSession = store.currentSessionId || '';
             });
         }
-    }
+        if (!modelSel.dataset.modelBound) {
+            modelSel.dataset.modelBound = '1';
+            modelSel.addEventListener('change', () => {
+                store.selectedModel = modelSel.value;
+                store.agentModelSyncedSession = store.currentSessionId || '';
+            });
+        }
 
-    store.agentModelSelectorsLoaded = true;
+        // Variant 选择器
+        const variantSel = document.getElementById('ocVariantSelect');
+        if (variantSel) {
+            variantSel.value = store.selectedVariant;
+            if (!variantSel.dataset.modelBound) {
+                variantSel.dataset.modelBound = '1';
+                variantSel.addEventListener('change', () => {
+                    store.selectedVariant = variantSel.value;
+                });
+            }
+        }
+
+        // 只在真的拿到模型列表时才置「已加载」守卫。
+        // 空列表保持未加载 → 后续状态检查会重试；同时起有界自愈重试。
+        if (modelSelectorsUsable(store.modelList)) {
+            store.agentModelSelectorsLoaded = true;
+        } else {
+            scheduleModelSelectorRetry();
+        }
+    })().finally(() => {
+        modelSelectorLoadInFlight = null;
+    });
+
+    return modelSelectorLoadInFlight;
+}
+
+/** 模型列表加载的并发合并：checkWebStatus 与服务启动可能同时触发。 */
+let modelSelectorLoadInFlight = null;
+
+/** 空列表时的自愈重试：有界，避免服务真的不可用时无限打请求。 */
+const MODEL_SELECTOR_RETRY_MAX = 5;
+const MODEL_SELECTOR_RETRY_DELAY_MS = 2000;
+let modelSelectorRetries = 0;
+
+function scheduleModelSelectorRetry() {
+    if (modelSelectorRetries >= MODEL_SELECTOR_RETRY_MAX) {
+        console.warn('[模型列表] 重试已达上限，停止重试；停止/重启服务可重新加载');
+        return;
+    }
+    modelSelectorRetries += 1;
+    setTimeout(() => {
+        // 期间用户可能已手动重启服务并加载成功，这里再确认一次
+        if (store.agentModelSelectorsLoaded) return;
+        loadAgentModelSelectors();
+    }, MODEL_SELECTOR_RETRY_DELAY_MS);
+}
+
+/** 服务重启后重置重试计数，使新一轮启动能重新自愈。 */
+export function resetModelSelectorRetries() {
+    modelSelectorRetries = 0;
 }
 
 let currentSessionRefreshPending = false;

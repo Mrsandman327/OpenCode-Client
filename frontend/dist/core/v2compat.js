@@ -116,6 +116,23 @@ export function toModelOptions(res) {
     }).filter(m => m.value);
 }
 
+/**
+ * 模型/Agent 选择器是否算「加载成功」——只有拿到**非空**模型列表才算。
+ *
+ * 为什么要单独一个判据：调用方原本无条件把「已加载」守卫置为 true，
+ * 于是一次**瞬态失败**（服务刚起未就绪、鉴权一时不通）会被永久固化 ——
+ * 之后再也不重试，下拉框永久只剩「默认」+ 从会话历史兜底补进来的零星几项。
+ * 用户看到的症状是「模型列表不全 / 选不到模型」，而日志里一条线索都没有。
+ *
+ * 失败或空列表时必须保持「未加载」，让后续状态检查能够重试。
+ */
+export function modelSelectorsUsable(modelList) {
+    return Array.isArray(modelList) && modelList.length > 0;
+}
+
+/** 模型列表为空时下拉框里的提示文案（用户能看懂 + 能行动）。 */
+export const MODEL_LIST_EMPTY_HINT = '模型列表未加载（服务未就绪或鉴权失败），稍后自动重试';
+
 // ============================
 // 会话状态：v2 的 {type:'running'} → v1 的 'busy' / 'idle'
 // ============================

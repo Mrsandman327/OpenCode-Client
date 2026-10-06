@@ -14,7 +14,7 @@ import { showToast, escapeHtml, getActiveMessagesEl, updateModelInfo } from '../
 import { getNetworkConfig } from './config.js';
 import { startEventStream, loadSessionStatuses } from './events.js';
 import { buildTree } from './tree.js';
-import { loadAgentModelSelectors } from './session.js';
+import { loadAgentModelSelectors, resetModelSelectorRetries } from './session.js';
 import { initSearch, initUserNav } from './search.js';
 import { initCredentials, loadCredentials } from '../views/credentials.js';
 import { unwrap } from '../core/v2compat.js';
@@ -368,6 +368,7 @@ export async function stopWeb() {
         store.selectedVariant = '';
         store.agentModelSelectorsLoaded = false;
         store.agentModelSyncedSession = '';
+        resetModelSelectorRetries();
         ['ocAgentSelect', 'ocModelSelect', 'ocVariantSelect'].forEach(function(id) {
             var sel = document.getElementById(id);
             if (sel) sel.value = '';
