@@ -70,6 +70,15 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 	}
 	WebSessMu.Unlock()
 
+	// 2) 启动前拦截：机器上只要存在运行中的 opencode 服务（v1 的 serve / v2 的
+	//    service，含外部启动与上次崩溃残留），就要求用户先关闭，避免并存两套服务。
+	if running, desc := findRunningOpencodeService(); running {
+		if desc != "" {
+			return model.WebResult{Error: "检测到已有 OpenCode 服务正在运行（" + desc + "），请先关闭后再启动"}
+		}
+		return model.WebResult{Error: "检测到已有 OpenCode 服务正在运行，请先关闭后再启动"}
+	}
+
 	if !randomPort {
 		if isOpenCodeServerRunning(hostname, port) {
 			return model.WebResult{Error: fmt.Sprintf("%s:%d 已有 OpenCode 服务运行，请先停止该服务", hostname, port)}
