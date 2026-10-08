@@ -9,7 +9,7 @@
 
 import { store, currentDir } from '../core/state.js';
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml, getCachedMessages, safeText, isDesktopRuntime, loadWailsRuntime } from '../core/utils.js';
+import { showToast, escapeHtml, getCachedMessages, safeText, isDesktopRuntime, loadWailsRuntime, refreshServiceStatus } from '../core/utils.js';
 import { loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity } from './session.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
@@ -59,6 +59,29 @@ function showThrottledToast(key, message, type) {
     if (now - (toastLastShownAt[key] || 0) < TOAST_THROTTLE_MS) return;
     toastLastShownAt[key] = now;
     showToast(message, type);
+}
+
+// ============================
+// MCP 状态变更 → 服务面板防抖刷新
+// ============================
+
+/** MCP 事件触发刷新的防抖窗口（毫秒）。
+ *  MCP 连接状态变化常连续到来（status/tools/resources 多个事件），
+ *  窗口内的多次事件合并为一次刷新，避免每个事件都重拉 /api/mcp 与 /api/plugin。 */
+const MCP_STATUS_REFRESH_DEBOUNCE_MS = 500;
+
+/** 待执行的 MCP 刷新定时器句柄（单例：新事件到来即重置等待窗口） */
+let mcpStatusRefreshTimer = 0;
+
+/** 防抖刷新服务面板（MCP/插件状态）。
+ *  经 core/utils.js 的注册中心调用 service.js 的加载实现（refreshServiceStatus），
+ *  避免 events.js ↔ service.js 循环导入。 */
+function scheduleMcpStatusRefresh() {
+    if (mcpStatusRefreshTimer) clearTimeout(mcpStatusRefreshTimer);
+    mcpStatusRefreshTimer = setTimeout(function() {
+        mcpStatusRefreshTimer = 0;
+        refreshServiceStatus();
+    }, MCP_STATUS_REFRESH_DEBOUNCE_MS);
 }
 
 /** 解析 SSE 事件原始 JSON 载荷。
@@ -163,6 +186,14 @@ export function handleOcEvent(event) {
         type === 'credential.updated' || type === 'credential.switched' ||
         type === 'integration.updated') {
         loadAgentModelSelectors(currentDir(), true);
+        return;
+    }
+
+    // MCP 运行时状态变化（mcp.status.changed / mcp.tools.changed / mcp.resources.changed，
+    // 载荷形如 {server:"wiz"}）：官方客户端会据此刷新 MCP 状态；这里防抖刷新服务面板，
+    // 让「连接中 → 已连接/异常」以及重连/断开的结果自动呈现，不再需要手动点刷新。
+    if (type === 'mcp.status.changed' || type === 'mcp.tools.changed' || type === 'mcp.resources.changed') {
+        scheduleMcpStatusRefresh();
         return;
     }
 

@@ -536,6 +536,13 @@ export function adaptEvent(event) {
     if (event.type.startsWith('permission.') || event.type.startsWith('form.')) {
         return [event];
     }
+
+    // —— MCP 运行时事件（连接状态 / 工具列表 / 资源列表变化）：
+    // v1 没有对应形态，但服务面板需要据此刷新 MCP 状态（见 chat/events.js 的防抖刷新），
+    // 因此原样透传而不是落入 default 被丢弃。
+    if (event.type === 'mcp.status.changed' || event.type === 'mcp.tools.changed' || event.type === 'mcp.resources.changed') {
+        return [event];
+    }
     if (event.type === 'session.deleted' || event.type === 'session.created') {
         return [event];
     }

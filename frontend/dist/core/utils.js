@@ -352,6 +352,47 @@ export function refreshServiceStatus() {
 }
 
 // ============================================================
+// MCP 状态判定（纯函数）
+// 从 service.js 下放到 core 层：service.js 的渲染与重试循环共用同一实现，
+// 且 Node 测试可直接导入（core 层无顶层 DOM 依赖）。
+// ============================================================
+
+/** 从 /api/mcp 的服务器条目提取规范化状态字符串。
+ *  v2 形态：{ name, status: { status: 'connected'|'pending'|'disabled'|'failed'|'needs_auth', error? } }；
+ *  同时兼容把 status 直接写成字符串的简化形态，以及 status 为 null 的情况。 */
+export function mcpState(info) {
+    if (!info) return '';
+    const s = info.status;
+    return (s && typeof s === 'object') ? (s.status || '') : (s || '');
+}
+
+/** MCP/插件延迟重试循环的停止判定（纯函数，便于 Node 单测）。
+ *
+ *  继续重试（返回 false）的条件（满足任一即可）：
+ *   - MCP 列表为空：服务端 MCP 异步就绪，可能还没返回任何服务器；
+ *   - 任一服务器状态为 pending：stdio 子进程仍在连接中，稍后会转为 connected/failed；
+ *   - 插件列表为空：插件加载通常晚于 MCP。
+ *  停止（返回 true）的条件：MCP 非空、无 pending、插件非空（全部就绪），
+ *  或已超过尝试上限（防止服务端持续 pending 时无限轮询）。
+ *
+ *  注意：failed / needs_auth 是**终态**（不会自行恢复），不算 pending——
+ *  遇到它们应停止轮询，由用户手动点「重连」处理，避免无意义的持续请求。
+ *
+ *  @param {Array|Object|null} mcpList    /api/mcp 的服务器列表（数组或键值对象）
+ *  @param {Array|null} pluginList        /api/plugin 的用户插件列表
+ *  @param {number} attempt               当前已执行的尝试次数（从 1 开始）
+ *  @param {number} maxAttempts           允许的最大尝试次数
+ *  @returns {boolean} true=停止重试；false=继续重试
+ */
+export function mcpRetryShouldStop(mcpList, pluginList, attempt, maxAttempts) {
+    const list = Array.isArray(mcpList) ? mcpList : Object.values(mcpList || {});
+    const mcpEmpty = list.length === 0;
+    const mcpPending = list.some(function (i) { return mcpState(i) === 'pending'; });
+    const pluginEmpty = !(pluginList || []).length;
+    return (!mcpEmpty && !mcpPending && !pluginEmpty) || attempt > maxAttempts;
+}
+
+// ============================================================
 // 项目树当前会话高亮同步
 // 只依赖 store + DOM，不依赖 chat 层任何模块；
 // tabs.js / session.js / tree.js 均从 core 层 import，避免模块环。

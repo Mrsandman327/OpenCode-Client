@@ -2528,6 +2528,58 @@ input::placeholder, textarea::placeholder {
 .oc-service-card .oc-service-item {
     border-bottom: 1px solid var(--border);
 }
+/* MCP 服务行内的操作按钮区（重连 / 断开）：
+ * 按钮保留全局类（.btn-sm 重连 / .btn-del 断开）以沿用既定 hover 语义，
+ * 这里把二者统一收成 26×26 的 ghost 图标按钮（图标 .oc-service-icon，内联 SVG）。
+ * 按钮只显示图标：文案写入原生 title，由浏览器默认气泡呈现。 */
+.oc-service-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+}
+.oc-service-actions .btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+}
+/* 悬停配色沿用原语义：重连 → 品牌蓝；断开（.btn-del）→ 危险红 */
+.oc-service-actions .btn:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+}
+.oc-service-actions .btn-del:hover:not(:disabled) {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+/* 图标本体：线性 stroke 风格（与 .kb-i / .cfg-i 同一语言），
+ * 颜色继承按钮 currentColor，尺寸固定 14px，不改动按钮布局。 */
+.oc-service-actions .oc-service-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+/* 请求在途（handleMcpAction 期间按钮被禁用）：刷新图标自旋作为进度反馈。
+ * 注意这里覆盖全局 .btn:disabled 的整按钮 opacity 0.4——禁用时保留整按钮可见
+ * （只降低图标透明度），让图标自旋反馈清晰可见。 */
+.oc-service-actions .btn:disabled {
+    opacity: 1;
+    cursor: not-allowed;
+}
+.oc-service-actions .btn:disabled .oc-service-icon {
+    opacity: 0.45;
+    animation: spin 0.8s linear infinite;
+}
 /* ===== 凭据与集成面板（v2 /api/integration + /api/credential） ===== */
 
 .oc-credentials {

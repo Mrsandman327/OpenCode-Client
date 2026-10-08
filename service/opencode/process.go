@@ -189,11 +189,31 @@ func StartOpenCodeWeb(port int, hostname string, password string, proxy model.Pr
 	return model.WebResult{Running: true, Success: true, URL: fmt.Sprintf("http://%s:%d", h, p), Health: health, Version: version}
 }
 
-// applyProxyToService 把代理设置写入共享服务的环境变量（best effort，不阻断启动）。
+// applyProxyToService 把代理设置同步到共享服务的环境变量（best effort，不阻断启动）。
+//
+// 启用与禁用两个方向都必须处理：env 写在服务配置里，服务每次启动都会加载。
+// 若只在「启用」时写入而不在「禁用」时清除，关掉代理后旧变量仍会残留，
+// 让 opencode 及它启动的所有 MCP 子进程继续去连一个可能不再监听的代理端口
+// （表现为 ConnectionRefused），而用户界面上的「代理开关」早已是关闭状态。
+//
+// 与 ensureServiceConfig 一致：先读当前配置做差异检测再调用 service set/unset，
+// 因为这两个命令会停掉正在运行的服务，值已正确就跳过。
 func applyProxyToService(proxy model.ProxyConfig) {
+	cur := readServiceConfig()
+	if cur == nil {
+		cur = &serviceConfig{}
+	}
+
 	if !proxy.ProxyEnabled {
+		// 关闭代理：清除此前可能写入的代理变量（仅在确实存在时调用，避免无谓的服务重启）
+		for _, key := range []string{"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"} {
+			if _, exists := cur.Env[key]; exists {
+				_, _ = runOpencodeService("unset", "env", key)
+			}
+		}
 		return
 	}
+
 	host := strings.TrimSpace(proxy.ProxyHost)
 	proxyPort := strings.TrimSpace(proxy.ProxyPort)
 	if host == "" {
@@ -209,6 +229,9 @@ func applyProxyToService(proxy model.ProxyConfig) {
 		{"ALL_PROXY", proxyURL},
 		{"NO_PROXY", "localhost,127.0.0.1"},
 	} {
+		if cur.Env[kv[0]] == kv[1] {
+			continue // 值一致则跳过（service set 会重启服务）
+		}
 		_, _ = runOpencodeService("set", "env", kv[0], kv[1])
 	}
 }

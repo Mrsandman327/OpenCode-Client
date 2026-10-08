@@ -10,7 +10,7 @@
 
 import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
-import { showToast, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler } from '../core/utils.js';
+import { showToast, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop } from '../core/utils.js';
 import { getNetworkConfig } from './config.js';
 import { startEventStream, loadSessionStatuses } from './events.js';
 import { buildTree } from './tree.js';
@@ -157,25 +157,36 @@ async function fetchMcpPlugin(dir) {
     store.pluginBuiltin = pluginInfo.builtin;
 }
 
-// MCP/插件重试定时器句柄
+// MCP/插件重试定时器句柄与「世代」令牌。
+// 世代令牌的作用：旧的重试链可能在 await fetchMcpPlugin 期间被新的 schedule 取代，
+// 恢复后凭过期世代直接退出，避免两条链并行造成重复请求（防泄漏）。
 let mcpPluginRetryTimer = 0;
+let mcpPluginRetryGen = 0;
+
+/** MCP/插件延迟重试的最大尝试次数（3 秒/次，最长约 30 秒） */
+const MCP_RETRY_MAX_ATTEMPTS = 10;
 
 /**
  * 有限次延迟重试 MCP/插件状态。
  * OpenCode v2 的 MCP 服务器是**异步连接**的（stdio 需 spawn 子进程，通常耗时数秒），
- * 服务刚启动时 /api/mcp 往往返回空数组；插件（尤其 package 插件）也需加载时间。
- * 因此在拿到数据前按固定间隔重试若干次，最多约 18 秒。
+ * 服务刚启动时 /api/mcp 往往返回空数组或 status=pending；插件（尤其 package 插件）也需加载时间。
+ * 因此只要「MCP 列表为空 / 任一服务器仍 pending / 插件列表为空」就按固定间隔重试，
+ * 直到全部就绪或达到上限（停止条件见 core/utils.js 的 mcpRetryShouldStop）。
  */
 function scheduleMcpPluginRefresh(dir) {
     if (mcpPluginRetryTimer) { clearTimeout(mcpPluginRetryTimer); mcpPluginRetryTimer = 0; }
     if (!dir || !store.webRunning) return;
+    const gen = ++mcpPluginRetryGen;
     let attempt = 0;
     const tick = async () => {
+        // 已被更新的重试链取代（或服务已停止）时直接退出，避免旧链复活
+        if (gen !== mcpPluginRetryGen || !store.webRunning) return;
+        mcpPluginRetryTimer = 0;
         attempt += 1;
-        const mcpEmpty = !Array.isArray(store.mcpStatus) || store.mcpStatus.length === 0;
-        const pluginEmpty = !(store.pluginStatus || []).length;
-        if ((!mcpEmpty && !pluginEmpty) || attempt > 6) return; // 拿到数据或超时即止
+        if (mcpRetryShouldStop(store.mcpStatus, store.pluginStatus, attempt, MCP_RETRY_MAX_ATTEMPTS)) return;
         await fetchMcpPlugin(dir);
+        // await 期间可能被新的 schedule 取代（例如 SSE 触发的刷新）：过期世代不再安排下一跳
+        if (gen !== mcpPluginRetryGen || !store.webRunning) return;
         renderServiceStatus();
         mcpPluginRetryTimer = setTimeout(tick, 3000);
     };
@@ -261,6 +272,66 @@ export function serviceHealthClass(health) {
     return 'off';
 }
 
+// ===== MCP 运行时操作（重连 / 断开） =====
+
+// 操作在途守卫：key = 「动作|服务器名」。
+// 请求期间即使按钮被重绘替换（mcp.* 事件触发的防抖刷新会重建 DOM），
+// 同一服务器的重复触发也会被这里拦下（双点击保护）。
+const mcpActionInFlight = new Set();
+
+/** 执行 MCP 运行时操作（重连 = connect，断开 = disconnect）。
+ *
+ *  opencode v2 的实验性运行时端点：
+ *   - POST /api/experimental/mcp/:server/connect    内部为 stop+start，可安全重连；
+ *   - POST /api/experimental/mcp/:server/disconnect 断开连接。
+ *  两者成功均返回 204 NoContent（无响应体）；apicall.js 对空 body 直接返回 null，
+ *  不会抛 JSON 解析错误，因此这里直接 await 即可。
+ *  旧版本 opencode 没有这两个端点（404）：给出「重启服务」的替代方案。
+ *
+ *  @param {string} action 'connect'（重连）或 'disconnect'（断开）
+ *  @param {string} name   服务器名（mcp.servers 的键）
+ *  @param {HTMLButtonElement} btn 触发按钮（用于在途禁用与失败恢复） */
+async function handleMcpAction(action, name, btn) {
+    const key = action + '|' + name;
+    if (mcpActionInFlight.has(key)) return;
+    // 先占锁再 await：双击的第二次 click 会在这里被挡住，避免重复请求
+    mcpActionInFlight.add(key);
+    // 图标按钮没有可见文字：在途反馈 = 按钮禁用 + 图标自旋（CSS :disabled 规则），
+    // 原生 title 提示文案临时改为「处理中…」；失败或提前返回时在 finally 中恢复。
+    const originalTip = btn.title;
+    btn.disabled = true;
+    btn.title = '处理中…';
+    try {
+        const dir = await resolveServiceDefaultDir();
+        if (!dir) {
+            showToast('尚未获取到服务目录', 'error');
+            return;
+        }
+        const path = '/api/experimental/mcp/' + encodeURIComponent(name) +
+            (action === 'disconnect' ? '/disconnect' : '/connect');
+        await api.OpenCodeCall('POST', path, null, dir);
+        showToast(name + (action === 'disconnect' ? ' 已断开' : ' 已重连'), 'success');
+        // 立即刷新一次；随后到达的 mcp.* SSE 事件还会防抖补刷（连接/断开可能有延迟）
+        await fetchMcpPlugin(dir);
+        renderServiceStatus();
+    } catch (e) {
+        if (e && e.status === 404) {
+            // 旧版 opencode 未提供这两个实验端点：给出当前版本可执行的替代方案
+            showToast('当前 opencode 版本不支持运行时重连,请重启服务', 'error');
+        } else {
+            showToast((action === 'disconnect' ? '断开失败: ' : '重连失败: ') + ((e && e.message) || e), 'error');
+        }
+    } finally {
+        mcpActionInFlight.delete(key);
+        // 成功路径已重绘（按钮脱离文档，无需恢复）；失败或提前返回时恢复按钮可点。
+        // 用 isConnected 判断按钮是否仍在文档中，避免操作已被替换的旧引用。
+        if (btn.isConnected) {
+            btn.disabled = false;
+            btn.title = originalTip;
+        }
+    }
+}
+
 /** 渲染服务状态面板（包含 Server / MCP / LSP 三栏） */
 export function renderServiceStatus() {
     const box = document.getElementById('ocServices');
@@ -295,11 +366,7 @@ export function renderServiceStatus() {
     // ── MCP 服务 — 点击展开/折叠 ──
     // v2 的 GET /api/mcp 返回 {location, data: Mcp.Server[]}，
     // 每项 { name, status:{status:'connected'|'pending'|'disabled'|'failed'|'needs_auth', error?}, integrationID? }
-    const mcpState = (info) => {
-        if (!info) return '';
-        const s = info.status;
-        return (s && typeof s === 'object') ? (s.status || '') : (s || '');
-    };
+    // 状态提取用 core/utils.js 的 mcpState（与重试循环共用同一实现）。
     if (store.mcpStatus) {
         const list = Array.isArray(store.mcpStatus) ? store.mcpStatus : Object.values(store.mcpStatus || {});
         const anyRunning = list.some(i => mcpState(i) === 'connected');
@@ -316,7 +383,7 @@ export function renderServiceStatus() {
             sec.innerHTML += '<div class="oc-service-body"><div class="oc-service-item"><span class="oc-service-dot off"></span>无已配置的 MCP 服务</div></div>';
         } else {
             let body = '<div class="oc-service-body">';
-            list.forEach(info => {
+            list.forEach((info, idx) => {
                 const name = (info && (info.name || info.id)) || '?';
                 const st = mcpState(info);
                 const running = st === 'connected';
@@ -326,11 +393,43 @@ export function renderServiceStatus() {
                     : failed ? '异常'
                     : st === 'pending' ? '连接中'
                     : '未连接';
-                const detail = (info && info.status && info.status.error) ? '（' + escapeHtml(info.status.error) + '）' : '';
-                body += '<div class="oc-service-item"><span class="oc-service-dot ' + (running ? 'on' : 'off') + '"></span>' + escapeHtml(name) + ' <span class="oc-service-state">' + stateText + detail + '</span></div>';
+                // 错误全文不内联展示（过长会撑破行且影响观感），仅在悬浮「异常」状态文字时经原生 title 查看。
+                const errText = (info && info.status && info.status.error) ? String(info.status.error) : '';
+                // 操作按钮：「重连」对任何状态都可点（v2 的 connect 端点内部是 stop+start，
+                // failed/needs_auth/disabled/pending/connected 都能安全重连）；
+                // 「断开」只在已连接时出现（断开一个没连上的服务器没有意义）。
+                // 用 list 下标（数字）标识目标服务器，避免把服务器名写进 HTML 属性带来的转义问题。
+                // 两个按钮为图标按钮（内联 SVG，无外部资源）：
+                //   - 文案不显示在按钮内，而是写入原生 title，悬停时由浏览器默认气泡呈现；
+                //   - aria-label 保留同一文案，供读屏与无 tooltip 场景使用；
+                //   - 图标尺寸/描边颜色由 .oc-service-icon 统一控制（stroke 取 currentColor 跟随按钮色）。
+                const actions = '<span class="oc-service-actions">' +
+                    '<button type="button" class="btn btn-sm" data-mcp-action="connect" data-mcp-idx="' + idx + '" title="重连" aria-label="重连">' +
+                        '<svg class="oc-service-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
+                    '</button>' +
+                    (running ? '<button type="button" class="btn btn-sm btn-del" data-mcp-action="disconnect" data-mcp-idx="' + idx + '" title="断开" aria-label="断开">' +
+                        '<svg class="oc-service-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
+                    '</button>' : '') +
+                '</span>';
+                // 异常状态只内联显示「异常」，错误全文放入原生 title。
+                // escapeHtml 走 textContent→innerHTML，不转义双引号；而 title 属性由双引号包裹，
+                // 因此就地把 " 替换为 &quot;（必须在 escapeHtml 之后替换，否则 & 会被二次转义）。
+                const stateHtml = (failed && errText)
+                    ? '<span class="oc-service-state" title="' + escapeHtml(errText).replace(/"/g, '&quot;') + '">' + stateText + '</span>'
+                    : '<span class="oc-service-state">' + stateText + '</span>';
+                body += '<div class="oc-service-item"><span class="oc-service-dot ' + (running ? 'on' : 'off') + '"></span>' + escapeHtml(name) + ' ' + stateHtml + actions + '</div>';
             });
             body += '</div>';
             sec.innerHTML += body;
+            // MCP 操作按钮：本函数每次执行都会重建 DOM，因此必须在重建后重新绑定。
+            // 服务器名从闭包中的 list 按下标取回（不经过 HTML 属性）。
+            sec.querySelectorAll('[data-mcp-action]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const info = list[Number(btn.dataset.mcpIdx)] || {};
+                    const name = info.name || info.id || '?';
+                    handleMcpAction(btn.dataset.mcpAction, name, btn);
+                });
+            });
         }
         sec.querySelector('.oc-service-group-title.clickable').addEventListener('click', function() {
             sec.classList.toggle('collapsed');
