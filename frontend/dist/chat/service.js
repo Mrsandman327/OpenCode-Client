@@ -10,7 +10,7 @@
 
 import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
-import { showToast, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop } from '../core/utils.js';
+import { showToast, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop, todoPluginAvailable, refreshTodoPanel } from '../core/utils.js';
 import { getNetworkConfig } from './config.js';
 import { startEventStream, loadSessionStatuses } from './events.js';
 import { buildTree } from './tree.js';
@@ -113,6 +113,9 @@ export async function loadServiceStatus() {
         store.mcpStatus = null;
         store.lspStatus = null;
         store.pluginStatus = null;
+        // 插件状态获取失败：待办能力一并关闭，避免分区停留在上一次的状态
+        store.todoSupported = false;
+        refreshTodoPanel();
         renderServiceStatus();
     }
 }
@@ -143,6 +146,9 @@ async function fetchMcpPlugin(dir) {
         store.mcpStatus = null;
         store.pluginStatus = null;
         store.pluginBuiltin = null;
+        // 无目录即查不到插件列表：按「待办插件未加载」处理，隐藏代办分区
+        store.todoSupported = false;
+        refreshTodoPanel();
         return;
     }
     const [mcp, plugin] = await Promise.all([
@@ -155,6 +161,9 @@ async function fetchMcpPlugin(dir) {
     const pluginInfo = extractPluginList(plugin);
     store.pluginStatus = pluginInfo.list;
     store.pluginBuiltin = pluginInfo.builtin;
+    // 待办能力：由配套插件（oc-manager.todo）是否已加载决定，驱动右栏代办分区显隐
+    store.todoSupported = todoPluginAvailable(store.pluginStatus);
+    refreshTodoPanel();
 }
 
 // MCP/插件重试定时器句柄与「世代」令牌。
@@ -609,6 +618,9 @@ export async function stopWeb() {
         // 插件区块也要随之隐藏：此前漏清 pluginStatus，导致停止服务后 MCP 隐藏而插件仍显示
         store.pluginStatus = null;
         store.pluginBuiltin = null;
+        // 代办分区同理：插件列表清空后待办能力关闭，分区随服务停止一起隐藏
+        store.todoSupported = false;
+        refreshTodoPanel();
         // 清理 Agent/Model 选择器：清空列表与选中值，并重置加载守卫，
         // 使下次启动时 loadAgentModelSelectors 重新获取列表。
         // 注意：不清空下拉框的 <option>——ocVariantSelect 的选项是 index.html

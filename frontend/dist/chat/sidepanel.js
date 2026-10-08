@@ -7,15 +7,20 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, safeText, modelDisplayLabel } from '../core/utils.js';
+import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, safeText, modelDisplayLabel, setTodoPanelRefreshHandler } from '../core/utils.js';
 import { adaptMessages } from '../core/v2compat.js';
 import { renderPart, setRenderTodosHandler } from './render.js';
 
 // 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（sidepanel→render 单向依赖，无环）。
+// 同时向 core 层注册"待办面板刷新"入口：service.js 检测到待办插件加载/卸载后会触发，
+// 使代办分区的显隐立即生效（不必等待下一次消息渲染）。
 // renderTodos 定义于本文件下方（函数声明提升）。
 // 注意：session→tabs→events→session 仍存在跨模块环（顶层均无立即跨模块调用，运行时函数调用安全），
 // 且 sidepanel 被 session 依赖、又依赖 render——渲染期注入仍需延迟到微任务，避免模块初始化 TDZ。
-queueMicrotask(() => setRenderTodosHandler(renderTodos));
+queueMicrotask(() => {
+    setRenderTodosHandler(renderTodos);
+    setTodoPanelRefreshHandler(renderTodos);
+});
 
 // ============================
 // 代办事项 — 从消息中提取并渲染
@@ -54,11 +59,13 @@ export function extractTodos() {
 
 /** 渲染代办事项面板
  *
- *  服务端不支持代办时**整块分区隐藏**（含标题），而不是渲染「不支持」的占位：
- *  OpenCode v2 的工具清单里已无 todowrite（Files / Commands / Web / Interaction /
- *  Automation 均无），类型定义与事件流中也不存在任何 todo 相关项，本面板在 v2 下
- *  永远不会有内容。留一个空壳标题会长期占侧栏位置，看起来像坏了。
- *  若将来接上支持 todowrite 的服务端，todoSupported 转 true，分区自动恢复。 */
+ *  显隐由 store.todoSupported 驱动（整块分区隐藏，含标题，而不是渲染占位）：
+ *  OpenCode v2 自身已无 todowrite 工具，该开关由 service.js 根据「配套待办插件
+ *  （plugins/manager-todo.ts，提供 todo_write 工具）是否已加载」动态更新
+ *  ——插件在 → true 显示；未装 / 无目录 / 服务停止 → false 隐藏。
+ *  数据来源：模型调用 todo_write 后，从会话消息中提取 state.input.todos
+ *  （见 extractTodos）；刷新时机：消息渲染后（render.js 回调）与插件状态变化后
+ *  （service.js 经 core/utils.js 的刷新通道）。 */
 export function renderTodos() {
     const box = document.getElementById('ocTodos');
     if (!box) return;
