@@ -190,24 +190,6 @@ go vet ./internal/... ./model/... ./service/... ./config/...   # 静态检查（
 
 > **前置条件**：Go 1.25+ · wails3 CLI · Windows WebView2 / Linux WebKitGTK（`sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config gcc`）
 
-### 测试
-
-```bash
-go test . ./service/...                    # Go 单元测试
-node tests/v2compat.test.mjs               # 前端适配层测试
-node tests/subtask-todo.test.mjs           # 子任务/代办提取与动作名
-node tests/credentials.test.mjs            # 凭据面板纯逻辑 + 静态接线门禁
-node tests/no-v1-paths.test.mjs            # 静态门禁：禁止 V1 路径残留
-go test -tags integration ./service/opencode/ -run Integration   # 对真实服务验证端点契约
-```
-
-前端为纯静态 ES Modules（无打包步骤），故测试同样不引入框架：用 Node 内置
-`assert` 手写，fixture 为 OpenCode 服务端的真实响应与事件流载荷（见
-`tests/fixtures/`），无需网络或运行中的服务。
-
-集成测试（`ext_integration_test.go`）带 `integration` build tag，默认不参与
-`go test ./...`；需本机已有可发现的 opencode v2 服务。
-
 ---
 
 ## 📖 使用指南
