@@ -532,6 +532,45 @@ input::placeholder, textarea::placeholder {
     margin: 0 auto;
 }
 
+/* 左下角版本信息：展开态=图标+vX.Y.Z；折叠态=仅图标（版本号由 title 悬浮气泡显示） */
+.sidebar-version {
+    margin-top: auto; /* 推至侧栏底部（sidebar 为 flex column） */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: default;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.sidebar-version-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-image: url("../assets/信息.svg");
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-image: url("../assets/信息.svg");
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+
+.sidebar.collapsed .sidebar-version {
+    justify-content: center;
+    gap: 0;
+    padding: 8px 6px;
+}
+
+.sidebar.collapsed .sidebar-version-text {
+    display: none;
+}
+
 /* ========== 内容区域 ========== */
 .content-area {
     flex: 1;

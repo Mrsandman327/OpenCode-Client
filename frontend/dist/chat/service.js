@@ -370,7 +370,6 @@ export function renderServiceStatus() {
                 '<div class="oc-service-item"><span class="oc-service-dot ' + serviceHealthClass(health) + '"></span>健康状态 <span class="oc-service-state">' + escapeHtml(health) + '</span></div>' +
                 '<div class="oc-service-field"><span>URL</span><code title="' + escapeHtml(url) + '">' + escapeHtml(url) + '</code></div>' +
                 '<div class="oc-service-field"><span>版本</span><code>' + escapeHtml(version) + '</code><span class="oc-version-check" id="ocVersionCheck"></span></div>' +
-                '<div class="oc-service-field"><span>客户端</span><code id="ocClientVersion">--</code></div>' +
             '</div>' +
         '</div>';
     serverSec.querySelector('.oc-service-group-title.clickable').addEventListener('click', function() {
@@ -379,13 +378,6 @@ export function renderServiceStatus() {
     box.appendChild(serverSec);
 
     renderVersionCheck(version);
-
-    // 客户端版本（OC Manager 自身版本）：Go 端 appVersion 单一来源；
-    // 渲染后异步填充，失败保持 "--"（不打扰用户）
-    const clientVerEl = document.getElementById('ocClientVersion');
-    if (clientVerEl) {
-        api.GetAppVersion().then((v) => { if (v) clientVerEl.textContent = v; }).catch(() => {});
-    }
 
     // ── MCP 服务 — 点击展开/折叠 ──
     // v2 的 GET /api/mcp 返回 {location, data: Mcp.Server[]}，
