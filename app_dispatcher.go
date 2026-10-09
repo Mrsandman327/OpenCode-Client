@@ -400,6 +400,8 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.CheckOpenCodeVersion(currentVersion), nil
+	case "GetAppVersion":
+		return a.GetAppVersion(), nil
 	case "KnowledgeList":
 		return a.KnowledgeList()
 	case "KnowledgeGet":

@@ -352,25 +352,40 @@ export function renderServiceStatus() {
         .map(g => !g.classList.contains('collapsed'));
     box.innerHTML = '';
 
-    // ── 服务器 — 始终展开 ──
+    // ── 服务器 — 点击标题折叠（默认展开） ──
     const health = store.serverStatus.health || (store.webRunning ? '未知' : '离线');
     const url = store.serverStatus.url || '--';
     const version = store.serverStatus.version || '--';
     const serverSec = document.createElement('div');
     serverSec.className = 'oc-service-group';
+    // 卡片包在 oc-service-body 里（与 MCP/LSP/插件分组同构）：
+    // 折叠样式 .oc-service-group.collapsed .oc-service-body 只作用于 body 层。
     serverSec.innerHTML =
-        '<div class="oc-service-group-title">' +
+        '<div class="oc-service-group-title clickable">' +
             '<span class="oc-service-dot ' + serviceHealthClass(health) + '"></span>' +
             '服务器' +
         '</div>' +
-        '<div class="oc-service-card">' +
-            '<div class="oc-service-item"><span class="oc-service-dot ' + serviceHealthClass(health) + '"></span>健康状态 <span class="oc-service-state">' + escapeHtml(health) + '</span></div>' +
-            '<div class="oc-service-field"><span>URL</span><code title="' + escapeHtml(url) + '">' + escapeHtml(url) + '</code></div>' +
-            '<div class="oc-service-field"><span>版本</span><code>' + escapeHtml(version) + '</code><span class="oc-version-check" id="ocVersionCheck"></span></div>' +
+        '<div class="oc-service-body">' +
+            '<div class="oc-service-card">' +
+                '<div class="oc-service-item"><span class="oc-service-dot ' + serviceHealthClass(health) + '"></span>健康状态 <span class="oc-service-state">' + escapeHtml(health) + '</span></div>' +
+                '<div class="oc-service-field"><span>URL</span><code title="' + escapeHtml(url) + '">' + escapeHtml(url) + '</code></div>' +
+                '<div class="oc-service-field"><span>版本</span><code>' + escapeHtml(version) + '</code><span class="oc-version-check" id="ocVersionCheck"></span></div>' +
+                '<div class="oc-service-field"><span>客户端</span><code id="ocClientVersion">--</code></div>' +
+            '</div>' +
         '</div>';
+    serverSec.querySelector('.oc-service-group-title.clickable').addEventListener('click', function() {
+        serverSec.classList.toggle('collapsed');
+    });
     box.appendChild(serverSec);
 
     renderVersionCheck(version);
+
+    // 客户端版本（OC Manager 自身版本）：Go 端 appVersion 单一来源；
+    // 渲染后异步填充，失败保持 "--"（不打扰用户）
+    const clientVerEl = document.getElementById('ocClientVersion');
+    if (clientVerEl) {
+        api.GetAppVersion().then((v) => { if (v) clientVerEl.textContent = v; }).catch(() => {});
+    }
 
     // ── MCP 服务 — 点击展开/折叠 ──
     // v2 的 GET /api/mcp 返回 {location, data: Mcp.Server[]}，
@@ -536,9 +551,12 @@ export function renderServiceStatus() {
         });
         box.appendChild(pluginSec);
     }
-    // 恢复重渲染前的展开状态（新出现的分组保持默认折叠）
+    // 恢复重渲染前的展开状态：按记录双向恢复（新出现的分组保持构造默认）。
+    // 原先只做「展开则 remove」——对默认折叠的分组够用，但服务器分组默认展开，
+    // 用户折叠它后一旦重建就会被复位；toggle 双向设置可以保住折叠状态。
     box.querySelectorAll('.oc-service-group').forEach(function(g, i) {
-        if (expandedBefore[i]) g.classList.remove('collapsed');
+        if (expandedBefore[i] === undefined) return;
+        g.classList.toggle('collapsed', !expandedBefore[i]);
     });
 }
 
