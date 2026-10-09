@@ -236,6 +236,14 @@ go vet ./internal/... ./model/... ./service/... ./config/...   # 静态检查（
 
 ---
 
+## 🤝 交流
+
+<p align="center">
+  <img src="./doc/image/wechat.png" width="30%" />
+</p>
+
+---
+
 <p align="center">
   <sub>Made with ❤️ for the OpenCode community</sub>
 </p>
