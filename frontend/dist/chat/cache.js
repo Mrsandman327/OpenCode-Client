@@ -73,7 +73,21 @@ export function prependMessages(sessionID, items) {
     }
 }
 
-/** 合并两条消息（info 浅合并，parts 逐个按 id 合并）。
+/** 合并两条消息的 info：逐字段浅合并，唯独 time 深合并。
+ *  v2 实时事件中同一消息的 time 分两次到达（step.started 带 created、step.ended 带
+ *  completed），浅合并会让后到的 { completed } 整个替换掉 { created }，表现为实时卡片
+ *  缺失时间戳（历史加载路径由 adaptMessage 一次性带全 time，所以不受影响）。 */
+export function mergeInfo(existingInfo, incomingInfo) {
+    const base = existingInfo || {};
+    const next = incomingInfo || {};
+    const merged = { ...base, ...next };
+    if (base.time || next.time) {
+        merged.time = { ...(base.time || {}), ...(next.time || {}) };
+    }
+    return merged;
+}
+
+/** 合并两条消息（info 通过 mergeInfo 合并，parts 逐个按 id 合并）。
  *  服务端返回了真实 parts 时，先丢弃本地乐观 part（id 非 `prt_` 前缀，由 cacheLocalUserMessage
  *  在发送瞬间造出），否则同一条消息里会同时存在本地造的和服务端推的两份 part，显示为重复。 */
 export function mergeMessage(existing, incoming) {
@@ -93,7 +107,7 @@ export function mergeMessage(existing, incoming) {
         }
     }
     return {
-        info: { ...existing.info, ...incoming.info },
+        info: mergeInfo(existing.info, incoming.info),
         parts: mergedParts,
     };
 }
@@ -211,7 +225,7 @@ export function upsertMessage(info) {
     const nextList = getCachedMessages(info.sessionID);
     const index = nextList.findIndex(item => (item.info?.id || item.id) === info.id);
     if (index >= 0) {
-        nextList[index].info = { ...nextList[index].info, ...info };
+        nextList[index].info = mergeInfo(nextList[index].info, info);
     } else {
         nextList.push({ info, parts: [] });
     }

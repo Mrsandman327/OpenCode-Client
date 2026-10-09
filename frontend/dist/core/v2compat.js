@@ -545,10 +545,11 @@ export function adaptEvent(event) {
                 role: 'assistant',
                 agent: data.agent,
                 model: data.model,
-                time: { created: data.started || event.created },
+                time: { created: data.started || event.created, completed: undefined },
                 // v2 在重试/继续时会对同一消息重发 step.started，并在服务端把上一次的
                 // error / finish 等清空（message-updater 的 step.started 分支）。前端缓存
-                // 是浅合并，必须显式带 error: undefined 才能清掉残留的错误卡片。
+                // 的 info 是浅合并（time 为深合并），必须显式带 error / completed: undefined
+                // 才能清掉残留的错误卡片与完成时间（否则旧 completed 会让新消息被误判为已完成）。
                 error: undefined,
             };
             // v2 的 model 是 Model.Ref = {id, providerID, variant?}，而 render.js
