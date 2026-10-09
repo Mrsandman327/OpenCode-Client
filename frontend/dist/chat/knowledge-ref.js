@@ -7,7 +7,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { escapeHtml, showToast, showApiError } from '../core/utils.js';
 
 // ---------- 内联线性图标（与 views/knowledge.js 同一套语言，不使用 emoji） ----------
 var ICONS = {
@@ -132,7 +132,7 @@ async function loadKbItems() {
         var list = await api.KnowledgeList();
         kbItems = Array.isArray(list) ? list : [];
     } catch (e) {
-        if (!kbItems.length) showToast('加载知识库失败: ' + (e.message || e), 'error');
+        if (!kbItems.length) showApiError('加载知识库失败: ', e);
     } finally {
         kbLoading = false;
     }

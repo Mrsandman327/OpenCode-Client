@@ -2,7 +2,7 @@
 // 说明：ES Modules 化改造。core 层依赖静态导入；filebrowser 依赖
 // 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import。
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast, isBrowserRuntimeForMain } from '../core/utils.js';
+import { escapeHtml, showToast, showApiError, isBrowserRuntimeForMain } from '../core/utils.js';
 import { store } from '../core/state.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
@@ -52,7 +52,7 @@ export async function loadSkillsData() {
         await loadSkillSchemes();
     } catch (err) {
         store.skillsLoaded = false;
-        showToast('加载技能数据失败: ' + (err.message || err), 'error');
+        showApiError('加载技能数据失败: ', err);
     }
 }
 
@@ -223,7 +223,7 @@ export async function handleSkillManagerActionClick(event) {
         } catch (e) {
             // 失败时回滚 checkbox 并提示
             target.checked = !enable;
-            showToast('操作失败: ' + (e.message || e), 'error');
+            showApiError('操作失败: ', e);
         }
         return;
     }
@@ -248,7 +248,7 @@ export async function openSkillDir(skillPath) {
     try {
         openFileBrowserModal(skillPath);
     } catch (e) {
-        showToast('打开技能目录失败: ' + (e.message || e), 'error');
+        showApiError('打开技能目录失败: ', e);
     }
 }
 
@@ -363,7 +363,7 @@ export async function performAddSourceDir(dir) {
         store.skillsLoaded = false;
         await loadSkillsData();
     } catch (err) {
-        showToast('添加目录失败: ' + (err.message || err), 'error');
+        showApiError('添加目录失败: ', err);
     }
 }
 
@@ -392,7 +392,7 @@ export async function removeSourceDir(dir) {
         store.skillsLoaded = false;
         await loadSkillsData();
     } catch (err) {
-        showToast('删除目录失败: ' + (err.message || err), 'error');
+        showApiError('删除目录失败: ', err);
     }
 }
 
@@ -413,7 +413,7 @@ export async function openSelectedSourceDir(dir) {
     try {
         await api.OpenDir(dir);
     } catch (err) {
-        showToast('打开目录失败: ' + (err.message || err), 'error');
+        showApiError('打开目录失败: ', err);
     }
 }
 
@@ -451,7 +451,7 @@ export async function saveSkillScheme() {
         // 保存只是新增一份配方，不等于已应用，也不存在「当前方案」需要维护
         await loadSkillSchemes();
     } catch (err) {
-        showToast('保存方案失败: ' + (err.message || err), 'error');
+        showApiError('保存方案失败: ', err);
     }
 }
 
@@ -472,7 +472,7 @@ export async function deleteSkillScheme(name) {
         // 删除只是移除一份配方；不涉及「当前方案」状态（本就不存在该状态）
         await loadSkillSchemes();
     } catch (err) {
-        showToast('删除方案失败: ' + (err.message || err), 'error');
+        showApiError('删除方案失败: ', err);
     }
 }
 
@@ -503,7 +503,7 @@ export async function applySkillScheme(name) {
         store.skillsLoaded = false;
         await loadSkillsData();
     } catch (err) {
-        showToast('应用方案失败: ' + (err.message || err), 'error');
+        showApiError('应用方案失败: ', err);
     } finally {
         // 无论成败都退出忙碌态，恢复 chip 可点击
         applyingScheme = '';

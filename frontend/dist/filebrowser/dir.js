@@ -5,7 +5,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { showToast, escapeHtml } from '../core/utils.js';
+import { showToast, escapeHtml, showApiError } from '../core/utils.js';
 
 /** 打开目录浏览器弹窗，返回 Promise<dir> */
 export async function openDirBrowserModal() {
@@ -48,7 +48,7 @@ export async function loadDirBrowserList(path) {
 		});
 	} catch (e) {
 		list.innerHTML = '<div class="oc-empty">读取目录失败</div>';
-		showToast('读取目录失败: ' + (e.message || e), 'error');
+		showApiError('读取目录失败: ', e);
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"oc-manager/internal/fileutil"
+	"oc-manager/internal/pathutil"
 	"oc-manager/model"
 )
 
@@ -122,7 +124,13 @@ func SaveBrowserFile(rootDir, relPath, content string) (model.SaveResult, error)
 	if !editable {
 		return model.SaveResult{Success: false, Error: "该文件类型不支持编辑保存"}, nil
 	}
-	if err := os.WriteFile(absPath, []byte(content), info.Mode().Perm()); err != nil {
+	// 空内容是合法的（编辑器清空文件），而 AtomicWriteRaw 拒绝零字节写入，故为空时直接落盘
+	data := []byte(content)
+	if len(data) == 0 {
+		if err := os.WriteFile(absPath, data, info.Mode().Perm()); err != nil {
+			return model.SaveResult{}, fmt.Errorf("写入文件失败: %w", err)
+		}
+	} else if err := fileutil.AtomicWriteRaw(absPath, data, info.Mode().Perm()); err != nil {
 		return model.SaveResult{}, fmt.Errorf("写入文件失败: %w", err)
 	}
 	return model.SaveResult{Success: true}, nil
@@ -186,7 +194,12 @@ func UploadBrowserFile(rootDir, relPath, fileName, base64Data string, overwrite 
 	if err != nil {
 		return model.FileBrowserUploadResult{Success: false, Error: "文件内容解析失败"}, nil
 	}
-	if err := os.WriteFile(targetPath, data, 0644); err != nil {
+	// 空文件（0 字节）是合法上传内容，而 AtomicWriteRaw 拒绝零字节写入，故为空时直接落盘
+	if len(data) == 0 {
+		if err := os.WriteFile(targetPath, data, 0644); err != nil {
+			return model.FileBrowserUploadResult{}, fmt.Errorf("写入文件失败: %w", err)
+		}
+	} else if err := fileutil.AtomicWriteRaw(targetPath, data, 0644); err != nil {
 		return model.FileBrowserUploadResult{}, fmt.Errorf("写入文件失败: %w", err)
 	}
 	return model.FileBrowserUploadResult{Success: true, Name: fileName}, nil
@@ -281,11 +294,9 @@ func resolveBrowserPath(rootDir, relPath string) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("解析目标路径失败: %w", err)
 	}
-	relCheck, err := filepath.Rel(rootAbs, absPath)
-	if err != nil {
-		return "", "", fmt.Errorf("路径校验失败: %w", err)
-	}
-	if relCheck == ".." || strings.HasPrefix(relCheck, ".."+string(filepath.Separator)) {
+	// 归属校验：目标必须是根目录本身或其子路径
+	// （pathutil 内部处理大小写与分隔符边界，避免 /a/bc 被误判为 /a/b 的子路径）
+	if !pathutil.IsSub(absPath, rootAbs) {
 		return "", "", fmt.Errorf("禁止访问根目录之外的路径")
 	}
 	return absPath, rootAbs, nil

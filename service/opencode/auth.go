@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -16,31 +14,25 @@ import (
 // ============================================================================
 // OpenCode v2 服务认证
 //
-// v1 的 `opencode serve` 无认证；v2 起默认开启 HTTP Basic 认证，启动时在 stdout
-// 打印一行 `server password <token>`，且所有 /api/* 端点（含 SSE）都要求
-// `Authorization: Basic base64("opencode:" + password)`。缺少该头会得到 401。
+// v1 的 `opencode serve` 无认证；v2 起默认开启 HTTP Basic 认证，且所有 /api/*
+// 端点（含 SSE）都要求 `Authorization: Basic base64("opencode:" + password)`。
+// 缺少该头会得到 401。
 //
-// 密码有两个来源：
-//  1. 本进程启动的服务：从 stdout 解析（见 process.go 的 startPasswordRe）。
-//  2. 外部启动 / 主动发现的服务：读取 V2 的服务注册文件 service.json。
+// 口令有两个来源：
+//  1. 服务注册文件 state/service.json：由 `opencode service start` 启动的服务
+//     自行写入，是自启动服务的权威来源（见 readServiceRegistration）。
+//  2. 用户手工填写：适用于外部启动 / 无注册文件的场景（见 SetServerPassword），
+//     在注册文件口令不可用时作为兜底（见 process.go 的 discoverOpenCodeServer）。
 // ============================================================================
 
 // serverPasswordUser 是 v2 Basic 认证固定用户名。
 const serverPasswordUser = "opencode"
 
-// startPasswordRe 匹配 v2 serve 启动时打印的密码行：
-//
-//	server listening on http://127.0.0.1:41999
-//	server password xWV63BgTpM11QtDql1YXVN33MU5XVM_l3iNEafmL-Q0
-var startPasswordRe = regexp.MustCompile(`server password\s+(\S+)`)
-
 // serviceInfo 对应 V2 服务注册文件（~/.local/state/opencode/service.json）的结构。
-// 字段均为可选，仅取本项目需要的 url / pid / password。
+// 字段均为可选，仅取本项目需要的 url / password；其余字段（id/version/pid 等）
+// 由 encoding/json 默认忽略，不影响解析。
 type serviceInfo struct {
-	ID       string `json:"id"`
-	Version  string `json:"version"`
 	URL      string `json:"url"`
-	PID      int    `json:"pid"`
 	Password string `json:"password"`
 }
 
@@ -77,9 +69,9 @@ func readServiceRegistration() *serviceInfo {
 }
 
 // configuredServerPassword 是用户在网络配置里手工填写的服务口令。
-// 仅在「连接外部已启动的 opencode 服务」时需要——那种服务的口令只出现在
-// 它自己的 stdout 里，OC Manager 既没 spawn 它、注册表里也可能没有。
-// 本进程 spawn 的服务不需要它（口令从 stdout 直接解析）。
+// 用于「外部启动 / 注册文件口令不可用」的场景：这类服务的口令只出现在
+// 它自己的启动输出里，OC Manager 无法从注册文件获得，只能由用户手填。
+// 由 discoverOpenCodeServer 在注册文件口令探测失败时作为兜底使用。
 var (
 	configuredServerPasswordMu sync.RWMutex
 	configuredServerPassword   string
@@ -97,40 +89,6 @@ func configuredPassword() string {
 	configuredServerPasswordMu.RLock()
 	defer configuredServerPasswordMu.RUnlock()
 	return configuredServerPassword
-}
-
-// discoverServerPassword 为外部启动 / 主动发现的服务寻找访问密码：
-// 先看用户是否手工提供过口令，再回落到 V2 的服务注册文件。
-func discoverServerPassword(hostname string, port int) string {
-	if pwd := configuredPassword(); pwd != "" {
-		return pwd
-	}
-	info := readServiceRegistration()
-	if info == nil || info.Password == "" {
-		return ""
-	}
-	if !serviceInfoMatches(info, hostname, port) {
-		return ""
-	}
-	return info.Password
-}
-
-// serviceInfoMatches 判断注册文件描述的服务是否就是 hostname:port 这个地址。
-func serviceInfoMatches(info *serviceInfo, hostname string, port int) bool {
-	if info == nil || info.URL == "" {
-		return false
-	}
-	url := info.URL
-	for _, prefix := range []string{"http://", "https://"} {
-		url = strings.TrimPrefix(url, prefix)
-	}
-	url = strings.TrimSuffix(url, "/")
-	host, portStr, ok := strings.Cut(url, ":")
-	if !ok {
-		return false
-	}
-	// 主机名比较不区分大小写（Windows 下 127.0.0.1 / localhost 可能混用）
-	return strings.EqualFold(host, hostname) && portStr == strconv.Itoa(port)
 }
 
 // basicAuthValue 生成 Basic 认证头值。password 为空时返回空串（表示不加认证头）。
@@ -157,11 +115,11 @@ func applyAuth(req *http.Request, password string) {
 // ============================================================================
 
 // serviceConfig 对应 V2 服务配置文件结构。
+// 仅声明本项目读写的字段；cors 等其余配置项由 encoding/json 默认忽略。
 type serviceConfig struct {
 	Hostname string            `json:"hostname"`
 	Port     int               `json:"port"`
 	Password string            `json:"password"`
-	Cors     []string          `json:"cors"`
 	Env      map[string]string `json:"env"`
 }
 

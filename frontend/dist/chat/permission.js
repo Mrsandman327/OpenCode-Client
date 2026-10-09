@@ -11,7 +11,7 @@
 
 import { store } from '../core/state.js';
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { escapeHtml, showToast, showApiError } from '../core/utils.js';
 import { unwrap } from '../core/v2compat.js';
 
 /** 待处理的权限请求队列 */
@@ -168,7 +168,7 @@ export async function respondPermission(reply) {
     } catch (e) {
         pendingQueue = pendingQueue.filter(r => r.id !== p.id);
         showNextPermission();
-        showToast('权限响应失败: ' + (e.message || e), 'error');
+        showApiError('权限响应失败: ', e);
     }
 }
 

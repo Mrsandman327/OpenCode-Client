@@ -1,16 +1,20 @@
-﻿// ============================================================
+// ============================================================
 // chat-tree.js — 会话树 & 目录浏览器
 // 依赖：core/state.js（webRunning, currentSessionId, pendingWorkDir 等）、core/apicall.js（api）、
 //       core/utils.js（escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo）、
 //       chat/mobile.js（isMobileTreeMode, closeMobileTree）、chat/events.js（switchSession）、
 //       chat/tabs.js（closeSessionTab, renderTabsBar）、chat/search.js（resetUserNav）、
 //       views/project-config.js（openProjectConfig）、filebrowser/dir.js（openDirBrowserModal）
-// 解环说明：updateModelInfo 经 core/utils.js 注册中心调用，不再静态 import render.js。
+// 解环说明：updateModelInfo 经 core/utils.js 注册中心调用，不再静态 import render.js；
+//           buildTree / wasSessionDeletedLocally 经 setTreeActionHandlers 注册给 events.js 调用，
+//           events.js 不再静态 import 本模块（解 events↔tree 环，本文件对 events 的依赖保持单向）。
 // ============================================================
 
 import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
-import { escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo, updateTreeActiveSession } from '../core/utils.js';
+import { escapeHtml, showToast, showApiError, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo, updateTreeActiveSession, setTreeActionHandlers } from '../core/utils.js';
+// 相对时间格式化统一走 core/format.js
+import { formatRelativeTime } from '../core/format.js';
 import { isMobileTreeMode, closeMobileTree } from './mobile.js';
 import { switchSession } from './events.js';
 import { closeSessionTab, renderTabsBar } from './tabs.js';
@@ -125,32 +129,13 @@ export function renderTree(tree) {
         return (a.title || '').localeCompare(b.title || '');
     });
 
-    window._sessionMap = {};
+    store.sessionMap = {};
     let html = '';
     const toggleIcon = (expanded) => expanded ? '▼' : '⯈';
 
     // 树容器顶部：独立的「添加工作目录」操作行。
     // 原实现在 global 项目行上挂 ＋ 按钮，项目层取消后改为常驻操作行，保证入口仍可用。
     html += `<div class="oc-tree-add-dir-row"><button class="oc-tree-add-dir" title="添加工作目录">＋ 添加工作目录</button></div>`;
-
-    /** 把 "YYYY-MM-DD HH:MM" 转成相对时间（如 "3分钟前"/"昨天"），无法解析时原样返回 */
-    const formatRelativeTime = (t) => {
-        if (!t) return '';
-        const m = String(t).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-        if (!m) return '';
-        const then = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
-        const diff = Date.now() - then.getTime();
-        if (diff < 0) return '';
-        const min = Math.floor(diff / 60000);
-        if (min < 1) return '刚刚';
-        if (min < 60) return min + ' 分钟前';
-        const hr = Math.floor(min / 60);
-        if (hr < 24) return hr + ' 小时前';
-        const day = Math.floor(hr / 24);
-        if (day === 1) return '昨天';
-        if (day < 7) return day + ' 天前';
-        return t.slice(0, 10);
-    };
 
     for (const dir of tree) {
         // 目录行：分组标题 + 会话计数徽章（沿用原目录行标记与类名）
@@ -167,7 +152,7 @@ export function renderTree(tree) {
             const fullTitle = ses.title;
             const updatedAt = ses.updatedAt || '';
             const sesDir = ses.directory || dir.title;
-            window._sessionMap[ses.id] = { title: ses.title, directory: sesDir, updatedAt: updatedAt };
+            store.sessionMap[ses.id] = { title: ses.title, directory: sesDir, updatedAt: updatedAt };
             // 会话卡片：图标 + 标题 + 相对时间 + 删除按钮；active 由 updateTreeActiveSession 维护
             html += `<div class="oc-tree-node oc-tree-session" data-session-id="${escapeHtml(ses.id)}">`;
             html += `<div class="oc-tree-indent"></div><span class="oc-tree-session-icon">💬</span><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n📂 '+sesDir+'\n⏰ '+updatedAt)}">${escapeHtml(ses.title)}</span>`;
@@ -469,19 +454,13 @@ export async function addDirectoryToProject() {
         }
         showToast('已加载目录会话: ' + dir, 'success');
     } catch (e) {
-        showToast('选择目录失败: ' + (e.message || e), 'error');
+        showApiError('选择目录失败: ', e);
     }
 }
 
 // ============================
 // 会话 CRUD
 // ============================
-
-/** 加载会话列表（刷新树的简易入口） */
-export async function loadSessions() {
-    if (!store.webRunning) return;
-    await buildTree();
-}
 
 /** 删除指定会话及相关缓存 */
 export async function deleteSession(id) {
@@ -514,11 +493,11 @@ export async function deleteSession(id) {
                 }
             }
         }
-        delete window._sessionMap[id];
+        delete store.sessionMap[id];
         // 清理对应 Tab（若被删除的是活动 Tab，自动切到相邻 Tab）
         closeSessionTab(id);
     } catch (e) {
-        showToast('删除失败: ' + (e.message || e), 'error');
+        showApiError('删除失败: ', e);
     }
 }
 
@@ -567,7 +546,7 @@ export async function createNewSession(dir) {
         document.getElementById('ocPrompt').value = '';
         document.getElementById('ocPrompt').focus();
     } catch (e) {
-        showToast('选择目录失败: ' + (e.message || e), 'error');
+        showApiError('选择目录失败: ', e);
     }
 }
 
@@ -670,7 +649,7 @@ export function initTreeContextMenu() {
 /** 重命名会话 */
 export async function renameSession(sid) {
     if (!sid) return;
-    var info = window._sessionMap && window._sessionMap[sid];
+    var info = store.sessionMap && store.sessionMap[sid];
     var oldTitle = (info && info.title) || sid;
     var newTitle = prompt('请输入新名称：', oldTitle);
     if (!newTitle || newTitle.trim() === '' || newTitle.trim() === oldTitle) return;
@@ -688,7 +667,7 @@ export async function renameSession(sid) {
         renderTabsBar();
         await buildTree();
     } catch (e) {
-        showToast('重命名失败: ' + (e.message || e), 'error');
+        showApiError('重命名失败: ', e);
     }
 }
 
@@ -730,7 +709,7 @@ export async function exportSession(sid) {
         URL.revokeObjectURL(url);
         showToast('已导出 ' + title + '.json', 'success');
     } catch (e) {
-        showToast('导出失败: ' + (e.message || e), 'error');
+        showApiError('导出失败: ', e);
     }
 }
 
@@ -763,7 +742,7 @@ export async function moveSessionDialog(sid) {
         await buildTree();
         setTimeout(function() { buildTree(); }, 1200);
     } catch (e) {
-        showToast('移动失败: ' + (e.message || e), 'error');
+        showApiError('移动失败: ', e);
     }
 }
 
@@ -808,9 +787,19 @@ export async function importSessionDialog() {
         showToast('导入成功', 'success');
         await buildTree();
     } catch (e) {
-        showToast('导入失败: ' + (e.message || e), 'error');
+        showApiError('导入失败: ', e);
     }
 }
 
 initTreeContextMenu();
+
+// ============================================================
+// 会话树动作注册中心注册
+// events.js 经 core/utils.js 调用以下实现（解环，说明见 core/utils.js）。
+// 函数声明提升保证此处可引用；注册在模块求值期完成，先于任何运行时调用。
+// ============================================================
+setTreeActionHandlers({
+    buildTree,
+    wasSessionDeletedLocally,
+});
 

@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"oc-manager/internal/fileutil"
+	"oc-manager/internal/jsonutil"
 	"oc-manager/model"
 )
 
@@ -21,28 +22,16 @@ var providerWriteMu sync.Mutex
 // v1 的 @ai-sdk/* 包在 v2 中统一加 aisdk: 前缀。
 const defaultProviderPackage = "aisdk:@ai-sdk/openai-compatible"
 
-// resolvePath 优先返回 .jsonc 路径，若不存在则回退到 .json。
-func resolvePath(jsoncPath string) string {
-	if _, err := os.Stat(jsoncPath); err == nil {
-		return jsoncPath
-	}
-	jsonPath := strings.TrimSuffix(jsoncPath, ".jsonc") + ".json"
-	if _, err := os.Stat(jsonPath); err == nil {
-		return jsonPath
-	}
-	return jsoncPath
-}
-
 // ========== 供应商配置 ==========
 
-// OpenCodeConfigPath 返回 opencode.jsonc 的完整路径。
+// OpenCodeConfigPath 返回 opencode.jsonc 的完整路径（不存在时回退同名 .json）。
 func OpenCodeConfigPath() string {
 	dir := os.Getenv("XDG_CONFIG_HOME")
 	if dir != "" {
-		return resolvePath(filepath.Join(dir, "opencode", "opencode.jsonc"))
+		return fileutil.ResolveJSONC(filepath.Join(dir, "opencode", "opencode.jsonc"))
 	}
 	home, _ := os.UserHomeDir()
-	return resolvePath(filepath.Join(home, ".config", "opencode", "opencode.jsonc"))
+	return fileutil.ResolveJSONC(filepath.Join(home, ".config", "opencode", "opencode.jsonc"))
 }
 
 func loadOpenCodeConfig() (*model.OpenCodeConfig, error) {
@@ -125,7 +114,7 @@ func SaveProvider(ps model.ProviderSave) error {
 		for k, v := range old.Settings {
 			settings[k] = v
 		}
-		if opts := rawToMap(old.Extra["options"]); opts != nil {
+		if opts := jsonutil.RawMap(old.Extra["options"]); opts != nil {
 			for k, v := range opts {
 				if _, exists := settings[k]; !exists {
 					settings[k] = v
@@ -134,7 +123,7 @@ func SaveProvider(ps model.ProviderSave) error {
 		}
 		// v1 少数供应商把地址写在 api 字段；迁移为 settings.baseURL（若尚未提供）
 		if _, exists := settings["baseURL"]; !exists {
-			if api := rawToString(old.Extra["api"]); api != "" {
+			if api := jsonutil.RawString(old.Extra["api"]); api != "" {
 				settings["baseURL"] = api
 			}
 		}
@@ -169,7 +158,7 @@ func SaveProvider(ps model.ProviderSave) error {
 				if oldDef := old.Models[m.ID]; oldDef != nil {
 					// 保留真实 modelID：UI 只有单一「模型ID」输入，提交端可能把 modelID 写成 map key；
 					// 若旧定义带有不同的真实 ID，则回填，避免覆盖。
-					if prev := firstNonEmpty(oldDef.ModelID, rawToString(oldDef.Extra["id"])); prev != "" &&
+					if prev := firstNonEmpty(oldDef.ModelID, jsonutil.RawString(oldDef.Extra["id"])); prev != "" &&
 						prev != m.ID && (def.ModelID == "" || def.ModelID == m.ID) {
 						def.ModelID = prev
 					}
@@ -232,7 +221,7 @@ func readConnection(entry *model.ProviderEntry) (baseURL, apiKey string) {
 	}
 	pick(entry.Settings)
 	if baseURL == "" || apiKey == "" {
-		pick(rawToMap(entry.Extra["options"]))
+		pick(jsonutil.RawMap(entry.Extra["options"]))
 	}
 	return baseURL, apiKey
 }
@@ -245,7 +234,7 @@ func readPackage(entry *model.ProviderEntry) string {
 	if entry.Package != "" {
 		return entry.Package
 	}
-	if npm := rawToString(entry.Extra["npm"]); npm != "" {
+	if npm := jsonutil.RawString(entry.Extra["npm"]); npm != "" {
 		// v2 原生包名（@opencode/ai/providers/...）或已带前缀者原样返回
 		if strings.HasPrefix(npm, "aisdk:") || strings.HasPrefix(npm, "@opencode/ai/providers/") {
 			return npm
@@ -283,7 +272,7 @@ func readModels(entry *model.ProviderEntry) []model.ModelInfo {
 			mi.ModelID = def.ModelID
 			if mi.ModelID == "" {
 				// v1 模型把真实 ID 放在 id 字段
-				mi.ModelID = rawToString(def.Extra["id"])
+				mi.ModelID = jsonutil.RawString(def.Extra["id"])
 			}
 			mi.Capabilities = def.Capabilities
 			if mi.Capabilities == nil {
@@ -569,30 +558,6 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-// rawToString 把 json.RawMessage 解析为字符串；失败或空返回 ""。
-func rawToString(raw json.RawMessage) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	var s string
-	if json.Unmarshal(raw, &s) != nil {
-		return ""
-	}
-	return s
-}
-
-// rawToMap 把 json.RawMessage 解析为 map[string]interface{}；失败返回 nil。
-func rawToMap(raw json.RawMessage) map[string]interface{} {
-	if len(raw) == 0 {
-		return nil
-	}
-	var m map[string]interface{}
-	if json.Unmarshal(raw, &m) != nil {
-		return nil
-	}
-	return m
 }
 
 // containsFold 大小写不敏感地判断 key 是否在 list 中。

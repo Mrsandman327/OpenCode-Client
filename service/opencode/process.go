@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"oc-manager/internal/executil"
+	"oc-manager/internal/jsonutil"
 	"oc-manager/model"
 )
 
@@ -40,8 +41,12 @@ const (
 )
 
 var (
-	WebSess     *webSession
-	WebSessMu   sync.Mutex
+	WebSess   *webSession
+	WebSessMu sync.Mutex
+	// LastCfgHost / LastCfgPort 记录前端最近一次配置的服务地址。
+	// 由 lastCfgMu 保护：StartOpenCodeWeb / GetWebStatus 都会写入，
+	// 单独一把锁避免与 WebSessMu 交错加锁。
+	lastCfgMu   sync.Mutex
 	LastCfgHost = defaultHostname
 	LastCfgPort = defaultPort
 )
@@ -126,8 +131,10 @@ func StartOpenCodeWeb(port int, hostname string, password string, proxy model.Pr
 	if port <= 0 {
 		port = defaultPort
 	}
+	lastCfgMu.Lock()
 	LastCfgHost = hostname
 	LastCfgPort = port
+	lastCfgMu.Unlock()
 
 	// 1) 本会话已连接的服务
 	WebSessMu.Lock()
@@ -256,6 +263,12 @@ func StopOpenCodeWeb() model.WebResult {
 
 // discoverOpenCodeServer 通过读取 V2 服务注册文件（state/service.json）发现运行中的服务，
 // 并用 /api/info 严格探活。返回 (hostname, port, password, ok)。
+//
+// 口令来源优先级：
+//  1. 注册文件 state/service.json 的口令（自启动服务的权威来源，由服务自身写入）；
+//  2. 用户手填口令 configuredPassword（外部启动 / 无注册文件场景的兜底）：
+//     仅当注册文件口令为空或探测失败，且手填口令非空并与注册文件口令不同时，
+//     才用手填口令再探测一次。
 func discoverOpenCodeServer() (string, int, string, bool) {
 	info := readServiceRegistration()
 	if info == nil || info.URL == "" {
@@ -267,6 +280,10 @@ func discoverOpenCodeServer() (string, int, string, bool) {
 	}
 	if probeOpenCodeHealth(h, p, info.Password) {
 		return h, p, info.Password, true
+	}
+	// 注册文件口令不可用：尝试用户手填口令（含注册文件口令为空的场景）
+	if pwd := configuredPassword(); pwd != "" && pwd != info.Password && probeOpenCodeHealth(h, p, pwd) {
+		return h, p, pwd, true
 	}
 	return "", 0, "", false
 }
@@ -295,8 +312,10 @@ func GetWebStatus(hostname string, port int) model.WebResult {
 	if port <= 0 {
 		port = defaultPort
 	}
+	lastCfgMu.Lock()
 	LastCfgHost = hostname
 	LastCfgPort = port
+	lastCfgMu.Unlock()
 
 	WebSessMu.Lock()
 	if WebSess != nil {
@@ -373,11 +392,6 @@ func isPortInUse(hostname string, port int) bool {
 	return true
 }
 
-// getOpenCodeHealth 探测服务健康状态（口令从注册文件获取）。
-func getOpenCodeHealth(hostname string, port int) (string, string, bool) {
-	return getOpenCodeHealthWithAuth(hostname, port, discoverServerPassword(hostname, port))
-}
-
 // getOpenCodeHealthWithAuth 探测 v2 的 /api/info 取版本号与存活状态。
 // v1 的 /global/health 在 v2 中不存在，v2 未注册的路径会回落到 SPA 首页并
 // 返回 200 + text/html，因此必须改用 /api/info 这种真实端点来判定。
@@ -402,9 +416,9 @@ func getOpenCodeHealthWithAuth(hostname string, port int, password string) (stri
 	if len(body) > 0 {
 		var payload map[string]interface{}
 		if err := json.Unmarshal(body, &payload); err == nil {
-			version = stringValue(payload["version"])
+			version = jsonutil.String(payload["version"])
 			if version == "" {
-				version = stringValue(payload["Version"])
+				version = jsonutil.String(payload["Version"])
 			}
 		}
 	}
@@ -443,57 +457,4 @@ func serviceHostPort(rawURL string) (string, int) {
 		return "", 0
 	}
 	return host, port
-}
-
-func stringValue(value interface{}) string {
-	switch v := value.(type) {
-	case string:
-		return v
-	case fmt.Stringer:
-		return v.String()
-	default:
-		return ""
-	}
-}
-
-// 获取模型列表
-func GetModelList(baseURL, apiKey string) []string {
-	url := baseURL + "/models"
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return []string{}
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return []string{}
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return []string{}
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return []string{}
-	}
-
-	var result struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return []string{}
-	}
-
-	modelIDs := make([]string, 0, len(result.Data))
-	for _, model := range result.Data {
-		modelIDs = append(modelIDs, model.ID)
-	}
-	return modelIDs
 }

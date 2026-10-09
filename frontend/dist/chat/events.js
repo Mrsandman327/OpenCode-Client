@@ -1,20 +1,21 @@
 ﻿// ============================================================
 // chat-events.js — SSE 事件流处理
 // 负责 SSE 连接建立、事件分发解析、事件处理逻辑
-// 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getCachedMessages, safeText）、core/apicall.js（api）、
-//       chat/session.js（loadMessages, refreshSessionTitle, selectSession）、
+// 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getCachedMessages, safeText、
+//       loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity、
+//       buildTree, wasSessionDeletedLocally 等注册中心入口）、core/apicall.js（api）、
 //       chat/render.js（updateSendButton）、chat/cache.js（scheduleRenderCachedMessages, upsertMessage 等）、
-//       chat/sidepanel.js（scheduleSubtaskExtraction）、chat/tree.js（buildTree, wasSessionDeletedLocally）
+//       chat/sidepanel.js（scheduleSubtaskExtraction）、chat/permission.js
+// 解环说明：原先静态 import chat/session.js 与 chat/tree.js 造成循环依赖，
+//           现改为经 core/utils.js 注册中心间接调用（实现由 session.js / tree.js 注册）。
 // ============================================================
 
 import { store, currentDir } from '../core/state.js';
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml, getCachedMessages, safeText, isDesktopRuntime, loadWailsRuntime, refreshServiceStatus } from '../core/utils.js';
-import { loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity } from './session.js';
+import { showToast, escapeHtml, getCachedMessages, safeText, isDesktopRuntime, loadWailsRuntime, refreshServiceStatus, loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity, buildTree, wasSessionDeletedLocally } from '../core/utils.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
-import { buildTree, wasSessionDeletedLocally } from './tree.js';
 import { showPermissionRequest, closePermissionModal } from './permission.js';
 import { adaptEvent, normalizeStatuses } from '../core/v2compat.js';
 

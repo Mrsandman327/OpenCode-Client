@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"oc-manager/config/skill"
+	"oc-manager/internal/fileutil"
+	"oc-manager/internal/pathutil"
 	"oc-manager/internal/symlink"
 	"oc-manager/model"
 )
@@ -96,7 +98,13 @@ func SaveProjectFile(rootDir, category, relPath, content string) (model.ProjectC
 		return model.ProjectConfigFileResult{}, fmt.Errorf("创建目录失败: %w", err)
 	}
 
-	if err := os.WriteFile(fullPath, []byte(content), 0o644); err != nil {
+	// 空内容是合法输入（允许清空配置），而 AtomicWriteRaw 拒绝零字节写入，故为空时直接落盘
+	data := []byte(content)
+	if len(data) == 0 {
+		if err := os.WriteFile(fullPath, data, 0o644); err != nil {
+			return model.ProjectConfigFileResult{}, fmt.Errorf("写入文件失败: %w", err)
+		}
+	} else if err := fileutil.AtomicWriteRaw(fullPath, data, 0o644); err != nil {
 		return model.ProjectConfigFileResult{}, fmt.Errorf("写入文件失败: %w", err)
 	}
 
@@ -187,14 +195,10 @@ func GetGlobalOpenCodeConfig() model.GlobalConfigInfo {
 
 	result := model.GlobalConfigInfo{}
 	jsoncPath := filepath.Join(dir, "opencode", "opencode.jsonc")
-	if data, err := os.ReadFile(jsoncPath); err == nil {
-		result.Path = jsoncPath
-		result.Content = string(data)
-		return result
-	}
-	jsonPath := filepath.Join(dir, "opencode", "opencode.json")
-	if data, err := os.ReadFile(jsonPath); err == nil {
-		result.Path = jsonPath
+	// 优先读 .jsonc，不存在时回退同名 .json
+	path := fileutil.ResolveJSONC(jsoncPath)
+	if data, err := os.ReadFile(path); err == nil {
+		result.Path = path
 		result.Content = string(data)
 		return result
 	}
@@ -224,7 +228,9 @@ func resolveProjectFilePath(rootDir, category, relPath string) (string, error) {
 
 	clean := filepath.Clean(filepath.Join(base, relPath))
 
-	// 防止路径穿越
+	// 防止路径穿越：目标必须位于 base 目录内。
+	// pathutil.IsSub 带分隔符边界判断，修复此前 strings.HasPrefix 把 /a/bc
+	// 误判为 /a/b 子路径的问题（同时兼容 Windows 大小写）。
 	absBase, err := filepath.Abs(base)
 	if err != nil {
 		return "", fmt.Errorf("无法解析基础路径: %w", err)
@@ -233,7 +239,7 @@ func resolveProjectFilePath(rootDir, category, relPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("无法解析目标路径: %w", err)
 	}
-	if !strings.HasPrefix(absClean, absBase) {
+	if !pathutil.IsSub(absClean, absBase) {
 		return "", fmt.Errorf("路径越界: %s", relPath)
 	}
 
@@ -333,7 +339,6 @@ func scanRulesDir(ocDir string) model.ProjectConfigTab {
 	}
 	return model.ProjectConfigTab{Exists: true, Message: "", Files: files}
 }
-
 
 func scanSkillsDir(ocDir string) model.ProjectConfigTab {
 	dir := filepath.Join(ocDir, "skills")

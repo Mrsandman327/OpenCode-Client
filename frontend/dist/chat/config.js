@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // chat-config.js — 网络配置 & Web 服务配置
 // 依赖：core/state.js（FRONTEND_WEB_CONFIG_KEY, frontendWebRunning, frontendWebURL, webRunning）、
 //       core/theme.js（NETWORK_CONFIG_KEY）、core/utils.js（showToast）、core/apicall.js（api）
@@ -6,7 +6,7 @@
 
 import { NETWORK_CONFIG_KEY } from '../core/theme.js';
 import { FRONTEND_WEB_CONFIG_KEY, store } from '../core/state.js';
-import { showToast } from '../core/utils.js';
+import { showToast, showApiError, copyToClipboard } from '../core/utils.js';
 import { api } from '../core/apicall.js';
 
 // ============================
@@ -107,19 +107,10 @@ export async function copyFrontendWebUrl() {
         return;
     }
     try {
-        if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(store.frontendWebURL);
-        } else {
-            const input = document.createElement('input');
-            input.value = store.frontendWebURL;
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand('copy');
-            document.body.removeChild(input);
-        }
+        await copyToClipboard(store.frontendWebURL);
         showToast('访问地址已复制', 'success');
     } catch (e) {
-        showToast('复制失败: ' + (e.message || e), 'error');
+        showApiError('复制失败: ', e);
     }
 }
 
@@ -178,10 +169,13 @@ export function showProxyModal() {
     const readonly = store.webRunning;
     serviceHostEl.readOnly = readonly;
     servicePortEl.readOnly = readonly;
-    // 口令始终可改：服务运行中也可能需要更正（它不影响服务本身的启停）
-    if (servicePwdEl) servicePwdEl.readOnly = false;
+    // 口令是"启动服务时设置的密码"（启动时写入 service.json、由 opencode 进程读取），
+    // 运行中修改不生效（需重启服务），因此服务运行期间与 host/port 一并置灰。
+    if (servicePwdEl) servicePwdEl.readOnly = readonly;
     // 显示明文按钮（复用 provider 的 .btn-eye 交互）
     const pwdToggleEl = document.getElementById('btnToggleServicePwd');
+    // 只读期间同步禁用"显示明文"按钮（与口令输入框状态保持一致）
+    if (pwdToggleEl) pwdToggleEl.disabled = readonly;
     if (pwdToggleEl && !pwdToggleEl.dataset.bound) {
         pwdToggleEl.dataset.bound = '1';
         pwdToggleEl.addEventListener('click', function() {
@@ -201,11 +195,13 @@ export function showProxyModal() {
     if (readonly) {
         serviceHostEl.style.opacity = '0.6';
         servicePortEl.style.opacity = '0.6';
+        if (servicePwdEl) servicePwdEl.style.opacity = '0.6';
         proxyHostEl.style.opacity = '0.6';
         proxyPortEl.style.opacity = '0.6';
     } else {
         serviceHostEl.style.opacity = '';
         servicePortEl.style.opacity = '';
+        if (servicePwdEl) servicePwdEl.style.opacity = '';
         proxyHostEl.style.opacity = '';
         proxyPortEl.style.opacity = '';
     }
@@ -324,7 +320,7 @@ export async function startFrontendWeb() {
             showToast('Web服务启动失败: ' + result.error, 'error');
         }
     } catch (e) {
-        showToast('Web服务启动失败: ' + (e.message || e), 'error');
+        showApiError('Web服务启动失败: ', e);
     }
     btn.textContent = '启动服务';
     checkFrontendWebStatus();
@@ -343,7 +339,7 @@ export async function stopFrontendWeb() {
         renderFrontendWebStatus();
         showToast('Web服务已停止', 'info');
     } catch (e) {
-        showToast('Web服务停止失败: ' + (e.message || e), 'error');
+        showApiError('Web服务停止失败: ', e);
     }
     btn.textContent = '停止服务';
     checkFrontendWebStatus();

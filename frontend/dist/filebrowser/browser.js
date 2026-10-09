@@ -6,7 +6,9 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml, isDesktopRuntime } from '../core/utils.js';
+import { store } from '../core/state.js';
+import { showToast, escapeHtml, showApiError, isDesktopRuntime } from '../core/utils.js';
+import { formatApiError } from '../core/v2compat.js';
 import {
     fileBrowserClearObjectURL,
     destroyFileBrowserEditor,
@@ -18,7 +20,7 @@ import {
     clearFileBrowserPreview
 } from './preview.js';
 
-window.fileBrowserState = {
+store.fileBrowserState = {
     rootDir: '',
     mode: 'files',
     selectedItem: null,
@@ -147,7 +149,7 @@ export function findNodeByPath(node, path) {
 
 /** 加载目录节点的 children（懒加载） */
 export async function loadDirChildren(node) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!node || node.type !== 'dir' || node.loaded) return;
     try {
         var data = await fileBrowserApiList(state.rootDir, node.path);
@@ -157,13 +159,13 @@ export async function loadDirChildren(node) {
         });
         node.loaded = true;
     } catch (err) {
-        showToast('加载目录失败: ' + (err.message || err), 'error');
+        showApiError('加载目录失败: ', err);
     }
 }
 
 /** 根据 path 查找节点并重新加载其 children */
 export async function reloadDirChildren(dirPath) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var node = findNodeByPath(state.rootNode, dirPath);
     if (node && node.type === 'dir') {
         node.loaded = false;
@@ -204,7 +206,7 @@ export function renderTreeChildren(children, container, depth) {
 
 /** 创建单个树节点 DOM 行 */
 export function createTreeNodeRow(node, depth) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var row = document.createElement('div');
     row.className = 'file-browser-item-row file-browser-tree-row';
     row.dataset.path = node.path;
@@ -252,7 +254,7 @@ export function createTreeNodeRow(node, depth) {
 
 /** 给文件树容器绑定点击事件 */
 export function bindFileTreeEvents(container) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
 
     // 文件/目录点击
     container.querySelectorAll('.file-browser-item').forEach(function(btn) {
@@ -293,7 +295,7 @@ export function bindFileTreeEvents(container) {
 
 /** 处理树目录点击：展开/收起/懒加载 */
 export async function handleTreeDirClick(path) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var node = findNodeByPath(state.rootNode, path);
     if (!node || node.type !== 'dir') return;
     state.selectedPath = path;
@@ -315,7 +317,7 @@ export async function handleTreeDirClick(path) {
 
 /** 处理树文件点击：以 tab 打开并预览 */
 export function handleTreeFileClick(path) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     state.selectedPath = path;
     // 构造 item 供预览使用
     state.selectedItem = treeNodeToItem(state.rootNode, path);
@@ -344,7 +346,7 @@ export function markTreeSelection(rootNode, path) {
 
 /** 获取当前目录操作目标路径：选中目录用目录本身，选中文件用其父目录，默认根目录 */
 export function getCurrentDirPath() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootNode || !state.selectedPath) return '/';
     var node = findNodeByPath(state.rootNode, state.selectedPath);
     if (!node) return '/';
@@ -355,7 +357,7 @@ export function getCurrentDirPath() {
 
 /** 删除树节点（文件或空目录） */
 export async function deleteBrowserTreeItem(node) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!node || !state.rootDir) return;
     var confirmed = await fileBrowserConfirmDelete({ name: node.title, type: node.type });
     if (!confirmed) return;
@@ -377,7 +379,7 @@ export async function deleteBrowserTreeItem(node) {
         await reloadDirChildren(parentPath);
         renderFileTree(state.rootNode);
     } catch (err) {
-        showToast(err.message || '删除失败', 'error');
+        showApiError('删除失败: ', err);
     }
 }
 
@@ -459,7 +461,7 @@ export function openFileBrowserCreateDirInline() {
 }
 
 export async function submitFileBrowserCreateDir() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var input = document.getElementById('fileBrowserCreateDirInput');
     var dirName = input ? String(input.value || '').trim() : '';
     var targetDirPath = getCurrentDirPath();
@@ -482,7 +484,7 @@ export async function submitFileBrowserCreateDir() {
         renderFileTree(state.rootNode);
         markTreeSelection(state.rootNode, state.selectedPath);
     } catch (err) {
-        showToast(err.message || '创建文件夹失败', 'error');
+        showApiError('创建文件夹失败: ', err);
     } finally {
         setFileBrowserCreateDirLoading(false);
     }
@@ -524,7 +526,7 @@ export function showFileBrowserRenameMode() {
 }
 
 export async function submitBrowserUpload(fileName, overwrite) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var targetDirPath = getCurrentDirPath();
     var result = await fileBrowserApiUpload(state.rootDir, targetDirPath, fileName, state.pendingUploadBase64 || '', overwrite);
     if (result.success) {
@@ -547,7 +549,7 @@ export async function submitBrowserUpload(fileName, overwrite) {
 
 export async function handleBrowserUploadSelected(file) {
     if (!file) return;
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var targetDirPath = getCurrentDirPath();
     state.pendingUploadFileName = file.name || '';
     state.pendingUploadBase64 = await fileToBase64(file);
@@ -568,7 +570,7 @@ export async function handleBrowserUploadSelected(file) {
         }
         showToast(result.error || '上传失败', 'error');
     } catch (err) {
-        showToast(err.message || '上传失败', 'error');
+        showApiError('上传失败: ', err);
     }
 }
 
@@ -692,7 +694,7 @@ export async function fileBrowserConfirmDelete(item) {
 })();
 
 export async function gitPush() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir) return;
     var btn = document.getElementById('btnFileBrowserGitPush');
     setGitRemoteActionLoading('push', true);
@@ -705,13 +707,13 @@ export async function gitPush() {
             showToast(result.message || '推送失败', 'error');
         }
     } catch (err) {
-        showToast(err.message || '推送失败', 'error');
+        showApiError('推送失败: ', err);
     }
     setGitRemoteActionLoading('push', false);
 }
 
 export async function gitPull() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir) return;
     setGitRemoteActionLoading('pull', true);
     try {
@@ -723,7 +725,7 @@ export async function gitPull() {
             showToast(result.message || '拉取失败', 'error');
         }
     } catch (err) {
-        showToast(err.message || '拉取失败', 'error');
+        showApiError('拉取失败: ', err);
     }
     setGitRemoteActionLoading('pull', false);
 }
@@ -746,7 +748,7 @@ export function setGitRemoteActionLoading(action, loading) {
 }
 
 export async function discardFile(path) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir || !path) return;
     state.git.gitActionError = '';
     try {
@@ -757,7 +759,7 @@ export async function discardFile(path) {
             showToast(result.message || '撤销失败', 'error');
         }
     } catch (err) {
-        showToast(err.message || '撤销失败', 'error');
+        showApiError('撤销失败: ', err);
     }
     await loadFileBrowserGitStatus();
 }
@@ -841,31 +843,31 @@ export function openFileBrowserModal(rootDir, options) {
     if (!modal) return;
     var features = (options && Array.isArray(options.features)) ? options.features : [];
     var hasExtraFeatures = features.length > 0;
-    window.fileBrowserState.mode = 'files';
-    window.fileBrowserState.rootDir = rootDir || '';
-    window.fileBrowserState.features = features;
-    window.fileBrowserState.selectedItem = null;
+    store.fileBrowserState.mode = 'files';
+    store.fileBrowserState.rootDir = rootDir || '';
+    store.fileBrowserState.features = features;
+    store.fileBrowserState.selectedItem = null;
     // 新目录新会话：重置多文件 tab（tab 编辑缓存随弹窗关闭而清空）
-    window.fileBrowserState.fileTabs = [];
-    window.fileBrowserState.fileTabCache = {};
-    window.fileBrowserState.activeFileTabPath = '';
+    store.fileBrowserState.fileTabs = [];
+    store.fileBrowserState.fileTabCache = {};
+    store.fileBrowserState.activeFileTabPath = '';
     renderFileBrowserTabs();
-    window.fileBrowserState.rootNode = null;
-    window.fileBrowserState.selectedPath = '';
-    window.fileBrowserState.previewMode = 'file';
-    window.fileBrowserState.previewRenderMode = 'preview';
-    window.fileBrowserState.previewEditorValue = '';
-    window.fileBrowserState.previewOriginalContent = '';
-    window.fileBrowserState.previewEditorInstance = null;
-    window.fileBrowserState.previewSearchSyncTimer = null;
-    window.fileBrowserState.previewReadResult = null;
-    window.fileBrowserState.savingPreview = false;
-    window.fileBrowserState.forcedTextPreview = {};
-    window.fileBrowserState.previewDownloadPath = '';
-    window.fileBrowserState.previewDownloadName = '';
-    window.fileBrowserState.pendingUploadFileName = '';
-    window.fileBrowserState.pendingUploadBase64 = '';
-    window.fileBrowserState.git = {
+    store.fileBrowserState.rootNode = null;
+    store.fileBrowserState.selectedPath = '';
+    store.fileBrowserState.previewMode = 'file';
+    store.fileBrowserState.previewRenderMode = 'preview';
+    store.fileBrowserState.previewEditorValue = '';
+    store.fileBrowserState.previewOriginalContent = '';
+    store.fileBrowserState.previewEditorInstance = null;
+    store.fileBrowserState.previewSearchSyncTimer = null;
+    store.fileBrowserState.previewReadResult = null;
+    store.fileBrowserState.savingPreview = false;
+    store.fileBrowserState.forcedTextPreview = {};
+    store.fileBrowserState.previewDownloadPath = '';
+    store.fileBrowserState.previewDownloadName = '';
+    store.fileBrowserState.pendingUploadFileName = '';
+    store.fileBrowserState.pendingUploadBase64 = '';
+    store.fileBrowserState.git = {
         isGitRepo: false,
         files: [],
         message: '',
@@ -907,7 +909,7 @@ export function closeFileBrowserModal() {
 }
 
 export async function downloadCurrentFilePreview() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir || !state.previewDownloadPath) return;
     try {
         var rawRes = await fileBrowserResolveRawResource(state.rootDir, state.previewDownloadPath);
@@ -918,12 +920,12 @@ export async function downloadCurrentFilePreview() {
         link.click();
         document.body.removeChild(link);
     } catch (err) {
-        showToast(err.message || '下载失败', 'error');
+        showApiError('下载失败: ', err);
     }
 }
 
 export async function loadFileBrowserGitStatus() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir) return;
     try {
         var data = await fileBrowserApiGitStatus(state.rootDir);
@@ -933,13 +935,13 @@ export async function loadFileBrowserGitStatus() {
     } catch (err) {
         state.git.isGitRepo = false;
         state.git.files = [];
-        state.git.message = err.message || String(err);
+        state.git.message = formatApiError(err);
     }
     renderFileBrowserGitSection();
 }
 
 export async function loadFileBrowserGitHistory(loadMore) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir || state.git.historyLoading) return;
     state.git.historyLoading = true;
     renderFileBrowserGitSection();
@@ -965,7 +967,7 @@ export async function loadFileBrowserGitHistory(loadMore) {
         state.git.historyOffset = (data.offset || 0) + items.length;
         state.git.historyHasMore = !!data.hasMore;
     } catch (err) {
-        state.git.message = err.message || String(err);
+        state.git.message = formatApiError(err);
     } finally {
         state.git.historyLoading = false;
         renderFileBrowserGitSection();
@@ -973,7 +975,7 @@ export async function loadFileBrowserGitHistory(loadMore) {
 }
 
 export async function loadFileBrowserList(path) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var listEl = document.getElementById('fileBrowserList');
     var emptyEl = document.getElementById('fileBrowserListEmpty');
     if (!listEl || !state.rootDir) return;
@@ -997,7 +999,7 @@ export async function loadFileBrowserList(path) {
         markTreeSelection(state.rootNode, state.selectedPath);
         loadFileBrowserGitStatus();
     } catch (err) {
-        if (listEl) listEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
+        if (listEl) listEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
     } finally {
         state.loadingList = false;
     }
@@ -1006,7 +1008,7 @@ export async function loadFileBrowserList(path) {
 export function renderFileBrowserGitSection() {
     var currentBodyEl = document.getElementById('fileBrowserGitCurrentBody');
     var historyBodyEl = document.getElementById('fileBrowserGitHistoryBody');
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!currentBodyEl || !historyBodyEl) return;
     if (!state.git.isGitRepo) {
         currentBodyEl.innerHTML = '<div class="file-browser-empty">' + escapeHtml(state.git.message || '当前目录未启用 Git 版本管理') + '</div>';
@@ -1074,7 +1076,7 @@ export function buildGitFileTree(files) {
  * - 文件行（缩进 + 状态码 + 文件名 + 暂存/撤销按钮；完整路径放 title）
  */
 export function renderGitTreeNodes(node, groupName, depth) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var INDENT = 14;
     var html = '';
     var dirNames = Object.keys(node.children).sort(function(a, b) { return a.localeCompare(b); });
@@ -1107,9 +1109,9 @@ export function renderGitTreeFileRow(item, groupName, depth, indentUnit) {
     var actionBtn = '';
     var discardBtn = '<button type="button" class="file-browser-git-action-btn file-browser-git-discard-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="discard" title="撤销变更">↩</button>';
     if (groupName === 'unstaged') {
-        actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="stage" title="加入暂存区" ' + (window.fileBrowserState.git.stageLoadingPath === item.path || window.fileBrowserState.git.stageAllLoading ? 'disabled' : '') + '>+</button>';
+        actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="stage" title="加入暂存区" ' + (store.fileBrowserState.git.stageLoadingPath === item.path || store.fileBrowserState.git.stageAllLoading ? 'disabled' : '') + '>+</button>';
     } else if (groupName === 'staged') {
-        actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="unstage" title="移出暂存区" ' + (window.fileBrowserState.git.unstageLoadingPath === item.path ? 'disabled' : '') + '>-</button>';
+        actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="unstage" title="移出暂存区" ' + (store.fileBrowserState.git.unstageLoadingPath === item.path ? 'disabled' : '') + '>-</button>';
     }
     return '<div class="file-browser-git-item-row" style="padding-left:' + (depth * INDENT) + 'px">' +
         '<button type="button" class="file-browser-git-item" data-git-path="' + escapeHtml(item.path) + '" data-git-group="' + escapeHtml(groupName) + '" title="' + escapeHtml(fullPath) + '">' +
@@ -1124,7 +1126,7 @@ export function renderGitTreeFileRow(item, groupName, depth, indentUnit) {
 }
 
 export function bindCurrentGitFileEvents(bodyEl) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
 
     // 目录行点击：切换折叠状态并重渲染变更面板
     bodyEl.querySelectorAll('.file-browser-git-tree-dir').forEach(function(dirEl) {
@@ -1193,14 +1195,14 @@ export function bindCurrentGitFileEvents(bodyEl) {
     var commitInput = bodyEl.querySelector('.file-browser-git-commit-input');
     if (commitInput) {
         commitInput.addEventListener('input', function() {
-            window.fileBrowserState.git.commitMessage = this.value || '';
-            window.fileBrowserState.git.gitActionError = '';
+            store.fileBrowserState.git.commitMessage = this.value || '';
+            store.fileBrowserState.git.gitActionError = '';
         });
     }
 }
 
 export function renderFileBrowserGitHistory(bodyEl) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (state.git.historyLoading && !state.git.historyItems.length) {
         bodyEl.innerHTML = '<div class="file-browser-empty">正在读取提交历史...</div>';
         return;
@@ -1271,7 +1273,7 @@ export function renderFileBrowserGitHistory(bodyEl) {
 
 export function renderFileBrowserSelection() {
     var listEl = document.getElementById('fileBrowserList');
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!listEl) return;
     listEl.querySelectorAll('.file-browser-item').forEach(function(node) {
         node.classList.toggle('active', node.dataset.path === state.selectedPath);
@@ -1285,7 +1287,7 @@ export function renderFileBrowserSelection() {
 }
 
 export async function toggleFileBrowserGitHistoryCommit(commitHash) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!commitHash) return;
     if (state.git.expandedCommitHash === commitHash) {
         state.git.expandedCommitHash = '';
@@ -1311,7 +1313,7 @@ export async function toggleFileBrowserGitHistoryCommit(commitHash) {
     } catch (err) {
         item.files = [];
         item.filesLoaded = true;
-        state.git.message = err.message || String(err);
+        state.git.message = formatApiError(err);
     } finally {
         item.loadingFiles = false;
         renderFileBrowserGitSection();
@@ -1319,7 +1321,7 @@ export async function toggleFileBrowserGitHistoryCommit(commitHash) {
 }
 
 export async function stageSingleFile(path) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir || !path) return;
     state.git.stageLoadingPath = path;
     state.git.gitActionError = '';
@@ -1330,14 +1332,14 @@ export async function stageSingleFile(path) {
             state.git.gitActionError = result.message || '暂存失败';
         }
     } catch (err) {
-        state.git.gitActionError = err.message || '暂存失败';
+        state.git.gitActionError = formatApiError(err) || '暂存失败';
     }
     state.git.stageLoadingPath = '';
     await loadFileBrowserGitStatus();
 }
 
 export async function unstageSingleFile(path) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir || !path) return;
     state.git.unstageLoadingPath = path;
     state.git.gitActionError = '';
@@ -1348,14 +1350,14 @@ export async function unstageSingleFile(path) {
             state.git.gitActionError = result.message || '取消暂存失败';
         }
     } catch (err) {
-        state.git.gitActionError = err.message || '取消暂存失败';
+        state.git.gitActionError = formatApiError(err) || '取消暂存失败';
     }
     state.git.unstageLoadingPath = '';
     await loadFileBrowserGitStatus();
 }
 
 export async function stageAllGitFiles() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir) return;
     state.git.stageAllLoading = true;
     state.git.gitActionError = '';
@@ -1366,14 +1368,14 @@ export async function stageAllGitFiles() {
             state.git.gitActionError = result.message || '全部暂存失败';
         }
     } catch (err) {
-        state.git.gitActionError = err.message || '全部暂存失败';
+        state.git.gitActionError = formatApiError(err) || '全部暂存失败';
     }
     state.git.stageAllLoading = false;
     await loadFileBrowserGitStatus();
 }
 
 export async function gitCommit() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.rootDir) return;
     var msg = (state.git.commitMessage || '').trim();
     if (!msg) {
@@ -1401,14 +1403,14 @@ export async function gitCommit() {
             await loadFileBrowserGitHistory(false);
         }
     } catch (err) {
-        state.git.gitActionError = err.message || '提交失败';
+        state.git.gitActionError = formatApiError(err) || '提交失败';
     }
     state.git.commitSubmitting = false;
     renderFileBrowserGitSection();
 }
 
 export function switchFileBrowserMode(mode) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (mode === 'git' && (!state.features || state.features.indexOf('git') < 0)) return;
     state.mode = mode === 'git' ? 'git' : 'files';
     renderFileBrowserMode();
@@ -1418,7 +1420,7 @@ export function switchFileBrowserMode(mode) {
 }
 
 export function renderFileBrowserMode() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var filesBtn = document.getElementById('btnFileBrowserModeFiles');
     var gitBtn = document.getElementById('btnFileBrowserModeGit');
     var filesPanel = document.getElementById('fileBrowserFilesPanel');
@@ -1434,7 +1436,7 @@ export function renderFileBrowserMode() {
 }
 
 export function refreshFileBrowser() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     loadFileBrowserList('/').then(function() {
         var activeTab = state.fileTabs.find(function(tab) {
             return tab.path === state.activeFileTabPath;

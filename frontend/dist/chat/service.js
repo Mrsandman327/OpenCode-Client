@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // chat-service.js — 服务管理 & API 工具
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl, updateModelInfo）、core/apicall.js（api）、
 //       chat/config.js（getNetworkConfig）、chat/events.js（startEventStream, loadSessionStatuses）、
@@ -10,7 +10,7 @@
 
 import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
-import { showToast, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop, todoPluginAvailable, refreshTodoPanel } from '../core/utils.js';
+import { showToast, showApiError, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop, todoPluginAvailable, refreshTodoPanel } from '../core/utils.js';
 import { getNetworkConfig } from './config.js';
 import { startEventStream, loadSessionStatuses } from './events.js';
 import { buildTree } from './tree.js';
@@ -572,7 +572,7 @@ export async function startWeb() {
             showToast('启动失败: ' + result.error, 'error');
         }
     } catch (e) {
-        showToast('启动失败: ' + (e.message || e), 'error');
+        showApiError('启动失败: ', e);
     } finally {
         updateWebUI();
     }
@@ -647,7 +647,7 @@ export async function stopWeb() {
         document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
         showToast('已停止', 'info');
     } catch (e) {
-        showToast('停止失败: ' + (e.message || e), 'error');
+        showApiError('停止失败: ', e);
     } finally {
         updateWebUI();
     }
@@ -677,7 +677,7 @@ export async function launchTerminal() {
             showToast('启动失败: ' + result.error, 'error');
         }
     } catch (e) {
-        showToast('启动终端失败: ' + (e.message || e), 'error');
+        showApiError('启动终端失败: ', e);
     }
 }
 

@@ -153,7 +153,7 @@ export function switchTab(sessionID) {
     var title = '';
     var tabInfo = store.openTabs.find(function(t) { return t.sessionID === sessionID; });
     if (tabInfo) title = tabInfo.title;
-    var info = window._sessionMap && window._sessionMap[sessionID];
+    var info = store.sessionMap && store.sessionMap[sessionID];
     if (!title && info) title = info.title;
     if (title) document.getElementById('ocChatTitle').textContent = title;
 

@@ -33,6 +33,10 @@ export const store = {
     sessionErrors: {},
     /** 新建会话的待用工作目录（tree.js 写入，session.js 首次发送时读取） */
     pendingWorkDir: '',
+    /** 会话信息映射表：key=会话ID，value={ title, directory, updatedAt }。
+     *  原为挂载在 window 上的全局会话映射，现收敛到 store；由 tree.js 重建树时写入，
+     *  session.js / tabs.js / views/knowledge.js / currentDir 读取。 */
+    sessionMap: {},
 
     // ============================
     // 多会话 Tab 页
@@ -93,10 +97,6 @@ export const store = {
     /** 每个会话独立的消息加载序列号：key=会话ID，value=seq。
      *  快速连点多个 tab 时，各会话的加载请求互不干扰（修复竞态导致的历史 tab 空白）。 */
     sessionLoadSeq: {},
-    /** 待渲染的会话 ID（调度到下一帧的消息渲染） */
-    pendingMessageRenderSession: '',
-    /** 待渲染的帧计数 */
-    pendingMessageRenderFrame: 0,
 
     // ============================
     // 展开状态 & 滚动
@@ -189,6 +189,13 @@ export const store = {
     cmdActiveTab: 'cli',
     /** 命令视图 API 文档搜索关键字（views/commands.js 读写，main.js 输入时写） */
     apiDocKeyword: '',
+
+    // ============================
+    // 文件浏览器（filebrowser/ 层）
+    // ============================
+    /** 站内文件浏览器工作状态（原为挂载在 window 上的 fileBrowserState，现收敛到 store）。
+     *  browser.js 模块加载时整体赋值；preview.js 与 browser.js 共享读写。 */
+    fileBrowserState: null,
 };
 
 // ============================
@@ -208,7 +215,7 @@ export const FRONTEND_WEB_CONFIG_KEY = 'oc-frontend-web-config';
  */
 export function currentDir() {
     const sid = store.currentSessionId;
-    const map = (typeof window !== 'undefined' && window._sessionMap) || {};
+    const map = store.sessionMap || {};
     const info = sid ? map[sid] : null;
     // 仅返回「当前会话」或「上次加载选择器所用」的目录；无会话时为空串。
     // 调用方（agent/model/MCP/插件等需要 location[directory] 的接口）在目录为空时

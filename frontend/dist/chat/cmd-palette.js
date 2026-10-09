@@ -1,16 +1,17 @@
-﻿// ============================================================
+// ============================================================
 // OpenCode 管理中心 - 命令面板（输入 / 触发快捷命令选择）
-// 依赖：core/state.js（webRunning, currentSessionId）、core/utils.js（escapeHtml, showToast, getCachedMessages）、
-//       core/apicall.js（api）、chat/session.js（loadMessages）
+// 依赖：core/state.js（webRunning, currentSessionId）、core/utils.js（escapeHtml, showToast, getCachedMessages、
+//       loadMessages, loadOlderMessages, isSessionLoadedAll 注册中心入口）、core/apicall.js（api）
+// 解环说明：原先静态 import chat/session.js 造成循环依赖，现改为经 core/utils.js 的
+//           setSessionActionHandlers 注册中心间接调用（实现由 session.js 注册）。
 // ============================================================
 
 import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
-import { escapeHtml, showToast, getCachedMessages, messageText } from '../core/utils.js';
-import { loadMessages, loadOlderMessages, isSessionLoadedAll } from './session.js';
+import { escapeHtml, showToast, showApiError, getCachedMessages, messageText, loadMessages, loadOlderMessages, isSessionLoadedAll } from '../core/utils.js';
 import { openSessionTab } from './tabs.js';
 import { buildTree } from './tree.js';
-import { unwrap, unwrapList } from '../core/v2compat.js';
+import { unwrap, unwrapList, formatApiError } from '../core/v2compat.js';
 
 let cmdPaletteItems = [];
 let skillItems = [];
@@ -307,7 +308,7 @@ export async function executeFixedCmd(cmdName) {
                 break;
         }
     } catch (e) {
-        showToast(`/${cmdName} 失败: ` + (e.message || e), 'error');
+        showApiError(`/${cmdName} 失败: `, e);
     }
     cmdInputEl.value = '';
 }
@@ -411,7 +412,7 @@ async function forkFromMessage(messageID) {
             ? ` body=${raw.body.slice(0, 120)}`
             : '';
         console.error('[fork] 请求路径:', reqPath, 'messageID:', messageID, 'raw:', raw, '错误:', e);
-        showToast('分叉失败: ' + (e.message || e) + status + snippet, 'error');
+        showToast('分叉失败: ' + formatApiError(e) + status + snippet, 'error');
     }
 }
 

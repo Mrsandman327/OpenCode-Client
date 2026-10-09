@@ -41,14 +41,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.GetDirEnabledSkills(dir), nil
-	case "GetSkills":
-		return a.GetSkills(), nil
-	case "GetAggregatedSkills":
-		return a.GetAggregatedSkills(), nil
-	case "GetStats":
-		return a.GetStats(), nil
-	case "GetSourceDir":
-		return a.GetSourceDir(), nil
 	case "ListBrowsableDirs":
 		var path string
 		if err := decodeArgs(args, &path); err != nil {
@@ -208,10 +200,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.SaveSlimConfig(payload), nil
-	case "GetSlimConfigPath":
-		return a.GetSlimConfigPath(), nil
-	case "GetSlimAgentDescriptions":
-		return a.GetSlimAgentDescriptions(), nil
 	case "GetProviderConfigPath":
 		return a.GetProviderConfigPath(), nil
 	case "SaveProvider":
@@ -240,8 +228,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.RemoveSkillSourceDir(dir), nil
-	case "GetSkillSourceDirs":
-		return a.GetSkillSourceDirs(), nil
 	case "AnswerQuestion":
 		var sessionID string
 		var answers [][]string
@@ -249,12 +235,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.AnswerQuestion(sessionID, answers), nil
-	case "RejectQuestion":
-		var sessionID string
-		if err := decodeArgs(args, &sessionID); err != nil {
-			return nil, err
-		}
-		return a.RejectQuestion(sessionID), nil
 	case "OpenDirectoryDialog":
 		return a.OpenDirectoryDialog(), nil
 	case "OpenFileBrowserWindow":
@@ -347,12 +327,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.MarkSessionViewed(sessionID, idle), nil
-	case "GetSessionContext":
-		var sessionID string
-		if err := decodeArgs(args, &sessionID); err != nil {
-			return nil, err
-		}
-		return a.GetSessionContext(sessionID), nil
 	case "ExportSession":
 		var sessionID string
 		var sanitize bool
@@ -366,56 +340,6 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.ImportSession(exportJSON), nil
-	case "ListIntegrations":
-		var directory string
-		var includeEmpty bool
-		if err := decodeArgs(args, &directory, &includeEmpty); err != nil {
-			return nil, err
-		}
-		return a.ListIntegrations(directory, includeEmpty), nil
-	case "ActivateCredential":
-		var credentialID string
-		if err := decodeArgs(args, &credentialID); err != nil {
-			return nil, err
-		}
-		return a.ActivateCredential(credentialID), nil
-	case "RenameCredential":
-		var credentialID, label string
-		if err := decodeArgs(args, &credentialID, &label); err != nil {
-			return nil, err
-		}
-		return a.RenameCredential(credentialID, label), nil
-	case "AddCredential":
-		var integrationID, key, label string
-		if err := decodeArgs(args, &integrationID, &key, &label); err != nil {
-			return nil, err
-		}
-		return a.AddCredential(integrationID, key, label), nil
-	case "DeleteCredential":
-		var credentialID string
-		if err := decodeArgs(args, &credentialID); err != nil {
-			return nil, err
-		}
-		return a.DeleteCredential(credentialID), nil
-	case "ListWorktrees":
-		var projectID string
-		if err := decodeArgs(args, &projectID); err != nil {
-			return nil, err
-		}
-		return a.ListWorktrees(projectID), nil
-	case "ListBranches":
-		var directory, search string
-		var limit int
-		if err := decodeArgs(args, &directory, &search, &limit); err != nil {
-			return nil, err
-		}
-		return a.ListBranches(directory, search, limit), nil
-	case "ListPtys":
-		var directory string
-		if err := decodeArgs(args, &directory); err != nil {
-			return nil, err
-		}
-		return a.ListPtys(directory), nil
 	case "StartOpenCodeEvents":
 		return a.StartOpenCodeEvents(), nil
 	case "StopOpenCodeEvents":

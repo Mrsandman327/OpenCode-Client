@@ -74,15 +74,8 @@ func SlimConfigPath() string {
 		home, _ := os.UserHomeDir()
 		dir = filepath.Join(home, ".config", "opencode")
 	}
-	jsonc := filepath.Join(dir, "oh-my-opencode-slim.jsonc")
-	if _, err := os.Stat(jsonc); err == nil {
-		return jsonc
-	}
-	jsonPath := strings.TrimSuffix(jsonc, ".jsonc") + ".json"
-	if _, err := os.Stat(jsonPath); err == nil {
-		return jsonPath
-	}
-	return jsonc
+	// 优先 .jsonc，其次同名 .json（与供应商配置相同的回退语义）
+	return fileutil.ResolveJSONC(filepath.Join(dir, "oh-my-opencode-slim.jsonc"))
 }
 
 // ProjectSlimConfigPath 返回项目级配置文件路径（<dir>/.opencode/oh-my-opencode-slim.jsonc）。
@@ -333,11 +326,25 @@ func parseSlimPresetDef(raw json.RawMessage) *slimPresetDef {
 				}
 			}
 		}
+		// agents 之外的顶层键（extends 已单独处理）全部保留到 extra：
+		// 否则结构化形态的方案在保存重建时会丢这些键（如 marketplace）。
+		for k, v := range obj {
+			if k == "extends" || k == "agents" {
+				continue
+			}
+			def.extra[k] = v
+		}
 		return def
 	}
-	// 扁平形态：除 extends/marketplace 外的对象键即 agent
+	// 扁平形态：除 extends 外的对象键参与 agent 判定；
+	// marketplace 属已知的非 agent 顶层键（对象且无 model，直接判定会误进 agents），
+	// 单独保留到 extra，避免保存重建时丢失。
 	for k, v := range obj {
-		if k == "extends" || k == "marketplace" {
+		if k == "extends" {
+			continue
+		}
+		if k == "marketplace" {
+			def.extra[k] = v
 			continue
 		}
 		if av, ok := parseSlimAgentValue(v); ok {
@@ -655,7 +662,7 @@ func applySlimLineEdits(lines []string, savePresets []SlimSavePreset, original m
 
 // rebuildSlimPresetsBlock 重建 "presets" 块的文本（块外内容原样保留）。
 func rebuildSlimPresetsBlock(lines []string, savePresets []SlimSavePreset, original map[string]*slimPresetDef) []string {
-	block := buildSlimPresetsBlock(savePresets)
+	block := buildSlimPresetsBlock(savePresets, original)
 	rootOpen, rootClose := rootContainer(lines)
 	if psKey, psEnd := findChildBlock(lines, rootOpen, rootClose, "presets"); psKey >= 0 {
 		// presets 之后若仍有成员，块末行需要补尾逗号
@@ -699,15 +706,22 @@ func hasFollowingMember(lines []string, start, end int) bool {
 }
 
 // buildSlimPresetsBlock 生成 "presets" 块的文本行（含缩进，不含尾逗号）。
-func buildSlimPresetsBlock(savePresets []SlimSavePreset) []string {
+//
+// original 用于保留未知键：结构变化触发的整体重建会把 presets 块整段替换掉，
+// 若不显式写回，非 agent 的未知键（def.extra）会丢失。这里参考 provider 的
+// Extra 模式把它们原样写回（值内容一字不改；键按字典序输出以保证多次保存稳定）。
+// 注意：结构未变时的行编辑路径（applySlimLineEdits）不动未知键所在行，无需处理。
+func buildSlimPresetsBlock(savePresets []SlimSavePreset, original map[string]*slimPresetDef) []string {
 	var out []string
 	out = append(out, `  "presets": {`)
 	for _, sp := range savePresets {
 		out = append(out, fmt.Sprintf(`    %s: {`, strconv.Quote(sp.Name)))
+
+		// 先收集本方案的全部成员条目，最后统一处理尾逗号
+		var entries []string
 		if sp.Extends != "" {
-			out = append(out, fmt.Sprintf(`      "extends": %s,`, strconv.Quote(sp.Extends)))
+			entries = append(entries, fmt.Sprintf(`      "extends": %s`, strconv.Quote(sp.Extends)))
 		}
-		written := 0
 		for _, a := range sp.Agents {
 			// 空模型视为"不写该条目"（可用于撤掉覆盖）
 			if a.Model == "" {
@@ -717,19 +731,27 @@ func buildSlimPresetsBlock(savePresets []SlimSavePreset) []string {
 			if sp.Extends != "" && !a.Dirty {
 				continue
 			}
-			written++
-			out = append(out, fmt.Sprintf(`      %s: {`, strconv.Quote(a.Key)))
-			out = append(out, fmt.Sprintf(`        "model": %s,`, strconv.Quote(a.Model)))
-			out = append(out, fmt.Sprintf(`        "variant": %s`, strconv.Quote(a.Variant)))
-			out = append(out, `      },`)
+			entries = append(entries, fmt.Sprintf("      %s: {\n        \"model\": %s,\n        \"variant\": %s\n      }",
+				strconv.Quote(a.Key), strconv.Quote(a.Model), strconv.Quote(a.Variant)))
 		}
-		// 去掉最后一个条目多余的尾逗号
-		if written > 0 {
-			last := len(out) - 1
-			out[last] = strings.TrimSuffix(out[last], ",")
-		} else if sp.Extends != "" {
-			last := len(out) - 1
-			out[last] = strings.TrimSuffix(out[last], ",")
+		// 未知键原样写回（字典序保证稳定）
+		if def := original[sp.Name]; def != nil && len(def.extra) > 0 {
+			keys := make([]string, 0, len(def.extra))
+			for k := range def.extra {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				entries = append(entries, fmt.Sprintf(`      %s: %s`, strconv.Quote(k), string(def.extra[k])))
+			}
+		}
+
+		for i, e := range entries {
+			if i < len(entries)-1 {
+				out = append(out, e+",")
+			} else {
+				out = append(out, e)
+			}
 		}
 		out = append(out, `    },`)
 	}

@@ -10,7 +10,11 @@
 // ============================================================
 
 import { store } from '../core/state.js';
-import { escapeHtml, getActiveMessagesEl, showToast, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler, modelDisplayLabel, resolveKnownValue } from '../core/utils.js';
+import { escapeHtml, getActiveMessagesEl, showToast, showApiError, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler, modelDisplayLabel, resolveKnownValue } from '../core/utils.js';
+// Markdown 清洗统一走 core/sanitize.js 的白名单实现（含 href 协议校验）
+import { sanitizeMarkedHtml } from '../core/sanitize.js';
+// 时间/数字格式化统一走 core/format.js
+import { formatToolDuration, formatCompactNumber, formatDateTime } from '../core/format.js';
 // isInternalInstructionMessage：识别服务端注入的内部指令/合成消息（如 "Instructions updated:" 的
 // Code Mode 目录），只在渲染层跳过（数据仍保留在缓存），判定依据见 v2compat.js 的函数注释。
 import { isInternalInstructionMessage } from '../core/v2compat.js';
@@ -32,25 +36,6 @@ export function setRenderTodosHandler(fn) {
 // 注册中心在 core/utils.js（setUpdateModelInfoHandler / updateModelInfo），
 // service.js / tree.js 从 core 层调用，不再静态 import render.js。
 // ============================
-
-/** 清洗 marked 渲染结果：移除会引发副作用的标签（脚本、meta 跳转、iframe 等）与事件属性 */
-export function sanitizeMarkedHtml(html) {
-    var template = document.createElement('template');
-    template.innerHTML = html;
-    var dangerousTags = ['SCRIPT', 'META', 'IFRAME', 'OBJECT', 'EMBED', 'STYLE', 'LINK', 'BASE', 'FORM', 'INPUT', 'BUTTON'];
-    template.content.querySelectorAll('*').forEach(function(node) {
-        if (dangerousTags.indexOf(node.tagName) >= 0) {
-            node.parentNode.removeChild(node);
-            return;
-        }
-        Array.prototype.slice.call(node.attributes || []).forEach(function(attr) {
-            if (/^on/i.test(attr.name)) {
-                node.removeAttribute(attr.name);
-            }
-        });
-    });
-    return template.innerHTML;
-}
 
 /** 保存元素焦点状态（用于 DOM 重建后恢复焦点） */
 export function saveFocusState(el) {
@@ -76,24 +61,6 @@ export function restoreFocusState(container, state) {
     } catch (_) {}
 }
 
-// ============================
-// 工具调用用时显示
-// 数据来自 part.state.time：{ start, end }（毫秒时间戳）。
-// completed/error 渲染静态「用时 X」；running 渲染带 data-live-start 的秒表，
-// 由下方全局定时器每秒刷新文本（全量重渲染后按 data 属性自动找回）。
-// ============================
-
-/** 毫秒 → 友好用时文本：850ms / 3.2s / 1m 23s（工具调用头部紧凑格式） */
-function formatDuration(ms) {
-    if (!ms || ms < 0 || !isFinite(ms)) return '';
-    ms = Math.round(ms);
-    if (ms < 1000) return ms + 'ms';
-    const s = ms / 1000;
-    if (s < 60) return (s >= 10 ? Math.round(s) : Math.round(s * 10) / 10) + 's';
-    const m = Math.floor(s / 60);
-    const rs = Math.round(s % 60);
-    return m + 'm ' + rs + 's';
-}
 
 /**
  * 生成工具调用用时 HTML 片段。
@@ -106,11 +73,11 @@ function buildDurationHtml(part, live) {
     if (!t.start) return '';
     if (t.end) {
         // 已完成/失败：静态总用时
-        return ' <span class="oc-tool-duration">用时 ' + formatDuration(t.end - t.start) + '</span>';
+        return ' <span class="oc-tool-duration">用时 ' + formatToolDuration(t.end - t.start) + '</span>';
     }
     if (!live) return ''; // 不允许走秒（如提问等待回答）且未完成 → 不显示
     // 运行中：秒表，由全局定时器刷新
-    return ' <span class="oc-tool-duration" data-live-start="' + t.start + '">已运行 ' + formatDuration(Date.now() - t.start) + '</span>';
+    return ' <span class="oc-tool-duration" data-live-start="' + t.start + '">已运行 ' + formatToolDuration(Date.now() - t.start) + '</span>';
 }
 
 /** 刷新所有运行中工具秒表文本（每秒执行） */
@@ -121,7 +88,7 @@ function refreshLiveToolDurations() {
     els.forEach((el) => {
         const start = parseInt(el.getAttribute('data-live-start'), 10);
         if (!start) return;
-        el.textContent = '已运行 ' + formatDuration(now - start);
+        el.textContent = '已运行 ' + formatToolDuration(now - start);
     });
 }
 // 秒表全局定时器：仅当页面存在运行中工具时才做实际更新，开销可忽略
@@ -197,7 +164,7 @@ export function buildMessageNode(item) {
     }
     // 消息时间：user / assistant 都显示在卡片底部（右下角）；
     // 助手消息的 token 统计放在**时间行左侧**（v2 历史消息没有步骤行，不做合成）。
-    const msgTime = formatStepTime(info.time?.created || info.time?.updated || info.createdAt);
+    const msgTime = formatDateTime(info.time?.created || info.time?.updated || info.createdAt);
     var usageText = '';
     if (role === 'assistant' && info.tokens) {
         var tk2 = info.tokens || {};
@@ -208,10 +175,10 @@ export function buildMessageNode(item) {
         var outTok2 = Number(tk2.output) || 0;
         var totalTok2 = inTok2 + outTok2 + (Number(tk2.reasoning) || 0);
         if (totalTok2 > 0) {
-            usageText = '输入:' + formatNumber(inTok2)
-                + (cacheRead > 0 ? '(缓存 ' + formatNumber(cacheRead) + ')' : '')
-                + ' 输出:' + formatNumber(outTok2)
-                + ' 统计:' + formatNumber(totalTok2) + ' tokens';
+            usageText = '输入:' + formatCompactNumber(inTok2)
+                + (cacheRead > 0 ? '(缓存 ' + formatCompactNumber(cacheRead) + ')' : '')
+                + ' 输出:' + formatCompactNumber(outTok2)
+                + ' 统计:' + formatCompactNumber(totalTok2) + ' tokens';
         }
     }
     if ((msgTime || usageText) && (role === 'user' || role === 'assistant')) {
@@ -652,46 +619,18 @@ export function partExpandKey(part, fallback) {
     return part?.id || `${part?.type || 'part'}:${part?.messageID || ''}:${fallback || ''}`;
 }
 
-// 格式化数字：<1000 原样显示；≥1000 显示 xx.xxk；≥1000000 显示 xx.xxM
-export function formatNumber(num) {
-  // 安全处理：不是数字就返回 0
-  if (isNaN(num) || num === null || num === undefined) return '0';
-
-  if (num < 1000) {
-    // 小于 1000，直接返回数字（可选择保留0位小数）
-    return num.toFixed(0);
-  } else if (num < 1000000) {
-    // 1000 ~ 999,999 → 显示 xx.xx k
-    return (num / 1000).toFixed(2) + 'k';
-  } else {
-    // ≥1,000,000 → 显示 xx.xx M
-    return (num / 1000000).toFixed(2) + 'M';
-  }
-}
-
-/** 格式化时间戳为「年月日时分秒」，非法值返回空串 */
-export function formatStepTime(ts) {
-    if (!ts) return '';
-    var d = new Date(Number(ts));
-    if (isNaN(d.getTime())) return '';
-    var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
-    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
-        + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-}
-
-
 /** 渲染步骤分割线（开始/结束 + token 统计 + 时间） */
 export function renderStepDivider(part, phase) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-step-divider';
-    const timeText = formatStepTime(part.time?.start || part.time?.created || part.time?.updated);
+    const timeText = formatDateTime(part.time?.start || part.time?.created || part.time?.updated);
     const timeHtml = timeText ? `<span class="oc-step-time">⏱ ${timeText}</span>` : '';
     if (phase === 'finish' && part.tokens) {
         const t = part.tokens;
         const input = (t.input || 0) + (t.cache?.read || 0) + (t.cache?.write || 0)
         const ouput = (t.output||0) + (t.reasoning||0);
         const total = t.total || (t.input || 0) + (t.output || 0) + (t.reasoning || 0);
-        el.innerHTML = `<span class="oc-step-label">步骤结束</span><span class="oc-step-cost">输入:${input} 输出:${ouput} 统计:${formatNumber(total)} tokens</span>${timeHtml}`;
+        el.innerHTML = `<span class="oc-step-label">步骤结束</span><span class="oc-step-cost">输入:${input} 输出:${ouput} 统计:${formatCompactNumber(total)} tokens</span>${timeHtml}`;
     } else {
         el.innerHTML = `<span class="oc-step-label">步骤开始</span>${timeHtml}`;
     }
@@ -1291,7 +1230,7 @@ export async function answerQuestion(answers) {
             if (input) { input.value = typeof answers === 'string' ? answers : ''; input.focus(); }
         }
     } catch (e) {
-        showToast('回答失败: ' + (e.message || e), 'error');
+        showApiError('回答失败: ', e);
         if (input) { input.value = typeof answers === 'string' ? answers : ''; input.focus(); }
     }
 }

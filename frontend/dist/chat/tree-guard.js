@@ -2,8 +2,8 @@
 // chat-tree-guard.js — 项目树重建的并发合并 + 「本地已删会话」去重
 // ============================================================
 // 纯逻辑，不碰 DOM、不 import 浏览器依赖，因此可在 Node 下直接单测
-// （同 views/credential-model.js 的做法：chat/tree.js import 了
-//  apicall.js / mobile.js / events.js，测试进程根本加载不了它）。
+// （chat/tree.js import 了 apicall.js / mobile.js / events.js，测试进程
+//  根本加载不了它）。
 //
 // 存在的原因：删除会话时「树一直闪」。两个根因：
 //

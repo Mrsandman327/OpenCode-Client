@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // chat-sidepanel.js — 右侧面板（Diff + 子任务 + 代办）
 // 依赖：core/state.js、core/utils.js（escapeHtml, showToast, getActiveMessagesEl, getCachedMessages,
 //       normalizeMessageItem, isInternalUserMessage, safeText）、core/apicall.js（api）、
@@ -7,8 +7,10 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, safeText, modelDisplayLabel, setTodoPanelRefreshHandler } from '../core/utils.js';
-import { adaptMessages } from '../core/v2compat.js';
+import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, safeText, modelDisplayLabel, setTodoPanelRefreshHandler, copyToClipboard } from '../core/utils.js';
+import { adaptMessages, formatApiError } from '../core/v2compat.js';
+// 时间格式化统一走 core/format.js
+import { formatSubtaskDuration, formatMinuteTime } from '../core/format.js';
 import { renderPart, setRenderTodosHandler } from './render.js';
 
 // 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（sidepanel→render 单向依赖，无环）。
@@ -212,27 +214,6 @@ export function scheduleSubtaskExtraction(sessionID) {
     });
 }
 
-/** 格式化时长（毫秒 → 中国语文） */
-export function formatDuration(ms) {
-    if (ms == null) return '—';
-    const seconds = Math.floor(ms / 1000);
-    if (seconds < 60) return seconds + '秒';
-    const minutes = Math.floor(seconds / 60);
-    const remainSec = seconds % 60;
-    if (minutes < 60) return minutes + '分' + (remainSec > 0 ? remainSec + '秒' : '');
-    const hours = Math.floor(minutes / 60);
-    const remainMin = minutes % 60;
-    return hours + '小时' + (remainMin > 0 ? remainMin + '分' : '');
-}
-
-/** 格式化时间戳 */
-export function formatTime(ts) {
-    if (ts == null) return '—';
-    const d = new Date(ts);
-    const pad = (n) => String(n).padStart(2, '0');
-    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-}
-
 /** 渲染子任务面板 */
 export function renderSubtaskPanel() {
     const box = document.getElementById('ocSubtasks');
@@ -258,7 +239,7 @@ export function renderSubtaskCard(s, idx) {
     const statusClass = 'status-' + (s.status || 'pending');
     const statusLabels = { completed: '已完成', running: '运行中', error: '失败', interrupt: '已中断', pending: '等待中' };
     const statusLabel = statusLabels[s.status] || s.status || '未知';
-    const durationText = s.durationMs != null ? formatDuration(s.durationMs) : (s.status === 'running' ? '运行中…' : '—');
+    const durationText = s.durationMs != null ? formatSubtaskDuration(s.durationMs) : (s.status === 'running' ? '运行中…' : '—');
 
     return '<div class="oc-subtask-card ' + statusClass + '" data-index="' + idx + '" data-parent-message-id="' + escapeHtml(s.parentMessageId) + '" data-child-session-id="' + escapeHtml(s.childSessionId || '') + '">'
         + '<div style="display:flex;justify-content:space-between;align-items:center">'
@@ -375,11 +356,14 @@ export function bindSubtaskModalEvents() {
     }
 
     const copyBtn = document.getElementById('subtaskCopySid');
-    copyBtn?.addEventListener('click', () => {
+    copyBtn?.addEventListener('click', async () => {
         const sid = document.getElementById('subtaskSid')?.textContent || '';
-        if (sid) {
-            navigator.clipboard?.writeText(sid).then(() => showToast('已复制: ' + sid, 'success'))
-                .catch(() => showToast('复制失败', 'error'));
+        if (!sid) return;
+        try {
+            await copyToClipboard(sid);
+            showToast('已复制: ' + sid, 'success');
+        } catch (_) {
+            showToast('复制失败', 'error');
         }
     });
 
@@ -404,10 +388,10 @@ export function fillModalSummary(s) {
     setHtml('subtaskAgent', escapeHtml(s.agent || '—'));
     setHtml('subtaskModel', escapeHtml(s.model || '—'));
 
-    const duration = s.durationMs != null ? formatDuration(s.durationMs) : (s.status === 'running' ? '运行中…' : '—');
+    const duration = s.durationMs != null ? formatSubtaskDuration(s.durationMs) : (s.status === 'running' ? '运行中…' : '—');
     set('subtaskDuration', duration);
-    set('subtaskStarted', formatTime(s.startedAt));
-    set('subtaskEnded', formatTime(s.endedAt));
+    set('subtaskStarted', formatMinuteTime(s.startedAt));
+    set('subtaskEnded', formatMinuteTime(s.endedAt));
 
     const desc = s.description || '';
     const descRow = document.getElementById('subtaskDescRow');
@@ -454,7 +438,7 @@ export async function loadSubtaskDetailMessages(childSessionId) {
         renderDetailMessages(items);
     } catch (err) {
         if (thisSeq !== store.detailMessageLoadSeq) return;
-        if (msgBox) msgBox.innerHTML = '<div class="oc-empty error">加载失败：' + escapeHtml(err.message || '网络错误') + '</div>';
+        if (msgBox) msgBox.innerHTML = '<div class="oc-empty error">加载失败：' + escapeHtml(formatApiError(err) || '网络错误') + '</div>';
     } finally {
         store.detailLoading[childSessionId] = false;
     }

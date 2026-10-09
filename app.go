@@ -101,28 +101,18 @@ func (a *App) GetSkillConfig() model.SkillConfigResult {
 	}
 }
 
-// GetSkills 返回所有技能及其在各平台的链接状态。
-func (a *App) GetSkills() []model.SkillInfo {
-	return a.sm.GetAllSkills()
-}
-
-// GetAggregatedSkills 返回所有技能的聚合列表：
+// getAggregatedSkills 返回所有技能的聚合列表（仅 App 内部使用）：
 // 1. 从配置读取来源目录
 // 2. 扫描所有来源目录
 // 3. 扫描全局目录
 // 4. 合并返回完整列表
 // 当没有配置来源目录时，回退到原有的 GetAllSkills 扫描逻辑。
-func (a *App) GetAggregatedSkills() []model.SkillInfo {
+func (a *App) getAggregatedSkills() []model.SkillInfo {
 	dirs, err := skill.ListSourceDirs()
 	if err != nil || len(dirs) == 0 {
 		return a.sm.GetAllSkills()
 	}
 	return a.sm.ScanWithGlobal(dirs)
-}
-
-// GetSourceDir 返回技能源目录路径。
-func (a *App) GetSourceDir() string {
-	return a.sm.SourceDir()
 }
 
 // GetDirEnabledSkills 返回指定来源目录中当前已启用的技能名称列表。
@@ -268,13 +258,6 @@ func (a *App) OpenURL(url string) {
 	}
 }
 
-// GetStats 返回统计信息。
-func (a *App) GetStats() model.Stats {
-	return model.Stats{
-		GlobalSkills: len(a.sm.GetAllSkills()),
-	}
-}
-
 // ToggleSkill 切换技能链接状态。
 func (a *App) ToggleSkill(skillPath, skillName string, enable bool) model.ToggleResult {
 	newState, err := a.sm.ToggleSkill(skillPath, skillName, enable)
@@ -322,20 +305,11 @@ func (a *App) RemoveSkillSourceDir(dir string) model.SaveResult {
 	return model.SaveResult{Success: true}
 }
 
-// GetSkillSourceDirs 返回当前配置中所有技能源目录。
-func (a *App) GetSkillSourceDirs() []string {
-	dirs, err := skill.ListSourceDirs()
-	if err != nil {
-		return []string{}
-	}
-	return dirs
-}
-
 // SaveSkillScheme 保存当前已启用的技能为方案。
 // 从聚合列表中筛选出 Linked=true 的技能，保存其名称列表。
 func (a *App) SaveSkillScheme(name string) model.SaveResult {
 	// 获取当前聚合技能列表
-	skills := a.GetAggregatedSkills()
+	skills := a.getAggregatedSkills()
 	var names []string
 	for _, s := range skills {
 		if s.Linked {
@@ -359,7 +333,7 @@ func (a *App) ApplySkillScheme(name string) model.SchemeApplyResult {
 		}
 	}
 	// 2. 获取聚合技能列表
-	available := a.GetAggregatedSkills()
+	available := a.getAggregatedSkills()
 	// 3. 获取来源目录
 	sourceDirs, _ := skill.ListSourceDirs()
 	// 4. 应用方案
@@ -397,20 +371,6 @@ func (a *App) SaveSlimConfig(payload omo.SlimSavePayload) model.SaveResult {
 		return model.SaveResult{Success: false, Error: err.Error()}
 	}
 	return model.SaveResult{Success: true}
-}
-
-// GetSlimConfigPath 返回 oh-my-opencode-slim 配置文件路径。
-func (a *App) GetSlimConfigPath() string {
-	return omo.SlimConfigPath()
-}
-
-// GetSlimAgentDescriptions 返回 OMO Slim 的 agent 描述表。
-func (a *App) GetSlimAgentDescriptions() map[string]string {
-	descs, err := omo.LoadSlimAgentDescriptions()
-	if err != nil {
-		return map[string]string{}
-	}
-	return descs
 }
 
 // GetProviderConfigPath 返回供应商配置文件路径。
@@ -479,11 +439,6 @@ func (a *App) OpenCodeAPI(method, path, body string) model.APIResult {
 // AnswerQuestion 回答 question 工具调用（answers 为按问题顺序的二维数组）。
 func (a *App) AnswerQuestion(sessionID string, answers [][]string) model.APIResult {
 	return opencode.AnswerQuestion(sessionID, answers)
-}
-
-// RejectQuestion 忽略 question 工具调用。
-func (a *App) RejectQuestion(sessionID string) model.APIResult {
-	return opencode.RejectQuestion(sessionID)
 }
 
 // GetProjectTree 获取项目→目录→会话的树形结构 JSON。

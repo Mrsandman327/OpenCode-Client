@@ -348,17 +348,6 @@ func AnswerQuestion(sessionID string, answers [][]string) model.APIResult {
 	return apiPost(replyURL, sess.password, payload)
 }
 
-// RejectQuestion 忽略待回答表单。
-//
-// v1 有 /question/{id}/reject 端点；v2 的表单 API 只提供 /reply，没有取消端点
-// （Form.State 虽有 cancelled 形态，但无对应写接口），故这里无法真正取消。
-//
-// 注意：前端「跳过此问题」并不调用本方法——它只在本地把该题标记为跳过，
-// 提交时按位置传空数组。因此 v2 下跳过功能本身是可用的，本方法仅作占位保留。
-func RejectQuestion(sessionID string) model.APIResult {
-	return model.APIResult{Error: "OpenCode v2 的表单 API 未提供取消端点；请直接回答，或在提交时跳过该题"}
-}
-
 type sessionTime struct {
 	Created int64 `json:"created"`
 	Updated int64 `json:"updated"`
@@ -374,7 +363,6 @@ type sessionTime struct {
 type treeSession struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
-	ProjectID string `json:"projectID"`
 	Directory string `json:"directory"`
 	Location  *struct {
 		Directory string `json:"directory"`

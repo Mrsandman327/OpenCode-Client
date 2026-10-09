@@ -6,11 +6,11 @@
 // 说明：P0 只做「主页 + 分类管理 + 编辑弹窗」，不含 @ 调用与转化（P1/P2）。
 // ============================================================
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { escapeHtml, escapeAttr, $, showToast, showApiError } from '../core/utils.js';
 // 当前会话所在目录（转化弹窗的「目标项目」默认值）取自会话状态
 import { store } from '../core/state.js';
-// 复用文件浏览器的 Markdown 白名单清洗（与 project-config.js 的用法一致），不重复实现安全逻辑
-import { fileBrowserSanitizeMarkedHtml } from '../filebrowser/preview.js';
+// 复用 core/sanitize.js 的 Markdown 白名单清洗（与 project-config.js 的用法一致），不重复实现安全逻辑
+import { sanitizeMarkedHtml } from '../core/sanitize.js';
 
 // ---------- 内联线性图标（不使用 emoji） ----------
 var ICONS = {
@@ -41,13 +41,6 @@ var kbState = {
     loading: false,     // 加载防重入
     bound: false        // 事件是否已绑定
 };
-
-/** 属性值转义：escapeHtml 只处理 & < >，属性里还需要把引号转成实体 */
-function attr(value) {
-    return escapeHtml(value).replace(/"/g, '&quot;');
-}
-
-function $(sel) { return document.querySelector(sel); }
 
 // ============================================================
 // 分类树工具
@@ -178,7 +171,7 @@ export async function loadKnowledgeView(force) {
         renderKbEntries();
         if (force) showToast('知识库已刷新', 'success');
     } catch (err) {
-        showToast('加载知识库失败: ' + (err.message || err), 'error');
+        showApiError('加载知识库失败: ', err);
         renderKbError();
     } finally {
         kbState.loading = false;
@@ -242,9 +235,9 @@ function kbCatListHtml(list, level) {
 function kbCatNodeHtml(cat, level, hasKids, count, active, collapsed) {
     var paddingLeft = 8 + level * 14;
     return '<div class="kb-cat-node' + (active ? ' active' : '') + (collapsed ? ' collapsed' : '') + '"' +
-                ' data-kb-cat="' + attr(cat.id) + '"' +
+                ' data-kb-cat="' + escapeAttr(cat.id) + '"' +
                 (hasKids ? ' data-kb-toggle="1"' : '') +
-                ' style="padding-left:' + paddingLeft + 'px" title="' + attr(cat.name) + '">' +
+                ' style="padding-left:' + paddingLeft + 'px" title="' + escapeAttr(cat.name) + '">' +
                 '<span class="kb-cat-caret' + (hasKids ? '' : ' is-leaf') + '">' + ICONS.caret + '</span>' +
                 '<span class="kb-cat-icon">' + (level === 0 ? ICONS.folder : ICONS.layers) + '</span>' +
                 '<span class="kb-cat-name">' + escapeHtml(cat.name) + '</span>' +
@@ -300,7 +293,7 @@ function tagListHtml(tags) {
  * @param {string} id 条目 id
  */
 function kbDeleteBtnHtml(id) {
-    return '<button type="button" class="kb-del-btn" data-kb-del="' + attr(id) + '"' +
+    return '<button type="button" class="kb-del-btn" data-kb-del="' + escapeAttr(id) + '"' +
                 ' title="删除条目" aria-label="删除条目">' + ICONS.trash +
            '</button>';
 }
@@ -335,7 +328,7 @@ export function renderKbEntries() {
             listView.innerHTML = '<div class="kb-empty">' + ICONS.search + '<span>' + escapeHtml(emptyText) + '</span></div>';
         } else {
             listView.innerHTML = list.map(function (e) {
-                return '<div class="kb-row" data-kb-entry="' + attr(e.id) + '">' +
+                return '<div class="kb-row" data-kb-entry="' + escapeAttr(e.id) + '">' +
                             kbDeleteBtnHtml(e.id) +
                             '<div class="kb-row-icon">' + ICONS.doc + '</div>' +
                             '<div class="kb-row-main">' +
@@ -359,11 +352,11 @@ export function renderKbEntries() {
             cardView.innerHTML = '<div class="kb-empty">' + ICONS.search + '<span>' + escapeHtml(emptyText) + '</span></div>';
         } else {
             cardView.innerHTML = list.map(function (e) {
-                return '<div class="kb-card" data-kb-entry="' + attr(e.id) + '">' +
+                return '<div class="kb-card" data-kb-entry="' + escapeAttr(e.id) + '">' +
                             kbDeleteBtnHtml(e.id) +
                             '<div class="kb-card-head">' +
                                 '<div class="kb-row-icon">' + ICONS.doc + '</div>' +
-                                '<span class="kb-card-title" title="' + attr(e.title) + '">' + escapeHtml(e.title) + '</span>' +
+                                '<span class="kb-card-title" title="' + escapeAttr(e.title) + '">' + escapeHtml(e.title) + '</span>' +
                             '</div>' +
                             '<div class="kb-card-summary">' + escapeHtml(e.summary || '（暂无说明）') + '</div>' +
                             '<div class="kb-card-foot">' +
@@ -411,7 +404,7 @@ export function renderKbTagFilterPop() {
     } else {
         tags.forEach(function (t) {
             html += '<div class="kb-tag-pop-item' + (kbState.tagFilter === t ? ' active' : '') + '"' +
-                        ' data-kb-tag="' + attr(t) + '">#' + escapeHtml(t) +
+                        ' data-kb-tag="' + escapeAttr(t) + '">#' + escapeHtml(t) +
                         '<span class="kb-tag-pop-count">' + counts[t] + '</span>' +
                     '</div>';
         });
@@ -451,7 +444,7 @@ export function fillKbCatSelect() {
     var options = ['<option value="">未分类</option>'];
     (function walk(list) {
         (list || []).forEach(function (cat) {
-            options.push('<option value="' + attr(cat.id) + '">' + escapeHtml(kbCatPath(cat.id)) + '</option>');
+            options.push('<option value="' + escapeAttr(cat.id) + '">' + escapeHtml(kbCatPath(cat.id)) + '</option>');
             walk(cat.children || []);
         });
     })(kbState.categories);
@@ -565,7 +558,7 @@ function applyKbContentMode() {
         preview.textContent = text;
         return;
     }
-    preview.innerHTML = fileBrowserSanitizeMarkedHtml(marked.parse(text, { breaks: true }));
+    preview.innerHTML = sanitizeMarkedHtml(marked.parse(text, { breaks: true }));
 }
 
 // ============================================================
@@ -586,7 +579,7 @@ export async function openKbEntryModal(id) {
             // 列表接口不返回正文，正文需单独拉取
             entry = await api.KnowledgeGet(id);
         } catch (err) {
-            showToast('加载条目失败: ' + (err.message || err), 'error');
+            showApiError('加载条目失败: ', err);
             return;
         }
     }
@@ -691,7 +684,7 @@ export async function saveKbEntry() {
         closeKbEntryModal();
         await loadKnowledgeView();
     } catch (err) {
-        showToast('保存失败: ' + (err.message || err), 'error');
+        showApiError('保存失败: ', err);
     } finally {
         if (saveBtn) {
             saveBtn.disabled = false;
@@ -727,7 +720,7 @@ export async function deleteKbEntryById(id) {
         if (kbState.editingId === id) closeKbEntryModal();
         await loadKnowledgeView();
     } catch (err) {
-        showToast('删除失败: ' + (err.message || err), 'error');
+        showApiError('删除失败: ', err);
     }
 }
 
@@ -770,7 +763,7 @@ async function saveKbCategories(successText) {
         renderKbEntries();
         if (successText) showToast(successText, 'success');
     } catch (err) {
-        showToast('保存分类失败: ' + (err.message || err), 'error');
+        showApiError('保存分类失败: ', err);
         await loadKnowledgeView();
     }
 }
@@ -1034,7 +1027,7 @@ function kbCurrentProjectDir() {
     var text = el ? String(el.textContent || '').trim() : '';
     if (text && text !== '--' && /[\\/]/.test(text)) return text;
     var sid = store.currentSessionId;
-    var info = (sid && window._sessionMap) ? window._sessionMap[sid] : null;
+    var info = (sid && store.sessionMap) ? store.sessionMap[sid] : null;
     var dir = info && info.directory ? String(info.directory).trim() : '';
     return /[\\/]/.test(dir) ? dir : '';
 }
@@ -1070,7 +1063,7 @@ function kbFillConvertProjects() {
 
     var options = dirs.map(function (d) {
         var label = kbDirLabel(d) + (d === current ? '（当前项目）' : '');
-        return '<option value="' + attr(d) + '"' + (d === current ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+        return '<option value="' + escapeAttr(d) + '"' + (d === current ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
     }).join('');
 
     if (!current) {

@@ -6,7 +6,11 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml } from '../core/utils.js';
+import { store } from '../core/state.js';
+import { showToast, escapeHtml, showApiError } from '../core/utils.js';
+// Markdown 清洗（白名单 + href 协议校验）统一走 core/sanitize.js 的公共实现
+import { sanitizeMarkedHtml } from '../core/sanitize.js';
+import { formatApiError } from '../core/v2compat.js';
 
 export async function fileBrowserApiStat(rootDir, relPath) {
     return await api.StatBrowserFile(rootDir, relPath);
@@ -29,7 +33,7 @@ export async function fileBrowserApiGitHistoryPreview(rootDir, commitHash, relPa
 }
 
 export function fileBrowserClearObjectURL() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (state && state.previewObjectURL) {
         URL.revokeObjectURL(state.previewObjectURL);
         state.previewObjectURL = '';
@@ -65,7 +69,7 @@ export async function fileBrowserResolveRawResource(rootDir, relPath) {
 }
 
 export function fileBrowserTrackObjectURL(url) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state || !url) return url;
     if (!Array.isArray(state.previewObjectURLs)) {
         state.previewObjectURLs = [];
@@ -85,52 +89,6 @@ export function fileBrowserHighlightCode(code, ext) {
         numbered += '<div class="hljs-line"><span class="hljs-line-no">' + (i + 1) + '</span><span class="hljs-line-content">' + (escapeHtml(lines[i]) || ' ') + '</span></div>';
     }
     return numbered;
-}
-
-export function fileBrowserSanitizeMarkedHtml(html) {
-    var template = document.createElement('template');
-    template.innerHTML = html;
-    var allowedTags = new Set(['A', 'P', 'BR', 'STRONG', 'EM', 'CODE', 'PRE', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HR', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'IMG', 'DETAILS', 'SUMMARY']);
-    sanitizeNodeTree(template.content, allowedTags);
-    return template.innerHTML;
-}
-
-export function sanitizeNodeTree(root, allowedTags) {
-    var children = Array.prototype.slice.call(root.childNodes || []);
-    children.forEach(function(node) {
-        if (node.nodeType === Node.TEXT_NODE) return;
-        if (node.nodeType !== Node.ELEMENT_NODE) {
-            root.removeChild(node);
-            return;
-        }
-        if (!allowedTags.has(node.tagName)) {
-            var text = document.createTextNode(node.textContent || '');
-            root.replaceChild(text, node);
-            return;
-        }
-        var attrs = Array.prototype.slice.call(node.attributes || []);
-        attrs.forEach(function(attr) {
-            var attrName = attr.name.toLowerCase();
-            if (node.tagName === 'A' && attrName === 'href') {
-                var href = (attr.value || '').trim();
-                if (/^(https?:|mailto:|#|\/)/i.test(href)) {
-                    node.setAttribute('target', '_blank');
-                    node.setAttribute('rel', 'noopener noreferrer');
-                } else {
-                    node.removeAttribute(attr.name);
-                }
-                return;
-            }
-            if (node.tagName === 'IMG' && (attrName === 'src' || attrName === 'alt')) {
-                return;
-            }
-            if (node.tagName === 'DETAILS' && attrName === 'open') {
-                return;
-            }
-            node.removeAttribute(attr.name);
-        });
-        sanitizeNodeTree(node, allowedTags);
-    });
 }
 
 export function fileBrowserFormatBytes(bytes) {
@@ -161,7 +119,7 @@ export function isFileBrowserDarkTheme(theme) {
 }
 
 export function destroyFileBrowserEditor() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     stopFileBrowserSearchButtonSync();
     if (state && state.previewDiffInstance && state.previewDiffInstance.destroy) {
         // git diff 视图：销毁左右双编辑器实例
@@ -178,7 +136,7 @@ export function destroyFileBrowserEditor() {
 
 export function setFileBrowserDownloadTarget(path, name) {
     var btn = document.getElementById('btnFileBrowserDownload');
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state) return;
     state.previewDownloadPath = path || '';
     state.previewDownloadName = name || '';
@@ -196,7 +154,7 @@ export function clearFileBrowserPreview() {
     if (metaEl) metaEl.textContent = '';
     if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">请选择左侧文件进行预览</div>';
     destroyFileBrowserEditor();
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state) return;
     state.previewMeta = null;
     state.previewReadResult = null;
@@ -218,7 +176,7 @@ export function clearFileBrowserPreview() {
 }
 
 export function syncFileBrowserEditorTheme(theme) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var isDark = isFileBrowserDarkTheme(theme);
     if (state && state.previewDiffInstance && state.previewDiffInstance.setTheme) {
         // git diff 视图：左右两个编辑器同步换肤
@@ -232,7 +190,7 @@ export function syncFileBrowserEditorTheme(theme) {
 window.syncFileBrowserEditorTheme = syncFileBrowserEditorTheme;
 
 export function fileBrowserIsSearchOpen() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     return !!(state && state.previewEditorInstance && window.ProjectConfigCodeEditor && window.ProjectConfigCodeEditor.isSearchOpen(state.previewEditorInstance));
 }
 
@@ -245,7 +203,7 @@ export function refreshFileBrowserSearchButtonState() {
 }
 
 export function stopFileBrowserSearchButtonSync() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (state && state.previewSearchSyncTimer) {
         clearInterval(state.previewSearchSyncTimer);
         state.previewSearchSyncTimer = null;
@@ -253,7 +211,7 @@ export function stopFileBrowserSearchButtonSync() {
 }
 
 export function startFileBrowserSearchButtonSync() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     stopFileBrowserSearchButtonSync();
     if (!state || !state.previewEditorInstance) return;
     state.previewSearchSyncTimer = setInterval(refreshFileBrowserSearchButtonState, 200);
@@ -280,12 +238,12 @@ export function fileBrowserGetPreferredRenderMode(meta) {
 }
 
 export function fileBrowserIsDirty() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     return (state.previewEditorValue || '') !== (state.previewOriginalContent || '');
 }
 
 export function renderFilePreviewToolbar() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var actionsEl = document.getElementById('filePreviewActions');
     if (!actionsEl) return;
 
@@ -364,7 +322,7 @@ export function renderFilePreviewToolbar() {
 }
 
 export function renderFilePreviewEditor(item, meta, readData) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var bodyEl = document.getElementById('filePreviewBody');
     if (!bodyEl) return;
     destroyFileBrowserEditor();
@@ -506,7 +464,7 @@ export async function resolveHtmlResources(rawHtml, rootDir, htmlFilePath) {
 }
 
 export async function renderHtmlPreview(item, readData, isCurrentRequest) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var bodyEl = document.getElementById('filePreviewBody');
     if (!bodyEl || !state) return;
     var resolvedHtml = await resolveHtmlResources(readData.content || '', state.rootDir, item.path);
@@ -614,7 +572,7 @@ export async function renderHtmlPreview(item, readData, isCurrentRequest) {
 }
 
 export async function renderTextualFilePreview(item, meta, readData, ext, isCurrentRequest) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var bodyEl = document.getElementById('filePreviewBody');
     if (!bodyEl) return;
     if (state.previewRenderMode === 'edit' && fileBrowserCanEdit(meta)) {
@@ -625,7 +583,7 @@ export async function renderTextualFilePreview(item, meta, readData, ext, isCurr
         var rawHtml = marked.parse(readData.content || '');
         var resolvedHtml = await resolveMarkdownImages(rawHtml, state.rootDir, item.path);
         if (isCurrentRequest && !isCurrentRequest()) return;
-        bodyEl.innerHTML = '<div class="oc-text file-browser-markdown">' + fileBrowserSanitizeMarkedHtml(resolvedHtml) + '</div>';
+        bodyEl.innerHTML = '<div class="oc-text file-browser-markdown">' + sanitizeMarkedHtml(resolvedHtml) + '</div>';
         return;
     }
     if (isHtmlExtension(ext)) {
@@ -640,7 +598,7 @@ export async function renderTextualFilePreview(item, meta, readData, ext, isCurr
 }
 
 export function switchFilePreviewRenderMode(mode) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var meta = state.previewMeta;
     if (!meta) return;
     if (mode === 'edit' && !fileBrowserCanEdit(meta)) return;
@@ -656,7 +614,7 @@ export function switchFilePreviewRenderMode(mode) {
 }
 
 export async function saveCurrentFilePreview() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var meta = state.previewMeta;
     var item = state.selectedItem;
     if (!item || !meta || !fileBrowserCanEdit(meta) || state.savingPreview) return;
@@ -679,7 +637,7 @@ export async function saveCurrentFilePreview() {
         showToast('保存成功', 'success');
         renderFilePreviewToolbar();
     } catch (err) {
-        showToast(err.message || '保存失败', 'error');
+        showApiError('保存失败: ', err);
     } finally {
         state.savingPreview = false;
         renderFilePreviewToolbar();
@@ -695,7 +653,7 @@ export async function saveCurrentFilePreview() {
 
 /** 把当前预览文件的编辑状态存入缓存（切 tab / 关闭 tab 前调用） */
 export function saveFileTabState() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state) return;
     var path = state.activeFileTabPath || (state.selectedItem && state.selectedItem.path);
     if (!path) return;
@@ -719,7 +677,7 @@ export function saveFileTabState() {
 export function renderFileBrowserTabs() {
     var tabsEl = document.getElementById('fileBrowserPreviewTabs');
     if (!tabsEl) return;
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state.fileTabs || !state.fileTabs.length) {
         tabsEl.innerHTML = '';
         tabsEl.style.display = 'none';
@@ -754,7 +712,7 @@ export function renderFileBrowserTabs() {
  * 从缓存恢复目标文件的编辑状态 → 渲染预览。
  */
 export function fileBrowserOpenFileTab(item) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state || !item || (item.type !== 'file' && item.type !== 'git-file' && item.type !== 'git-history-file')) return;
     var path = item.path;
     // 1. 保存当前活动 tab 的编辑状态
@@ -804,7 +762,7 @@ export function fileBrowserOpenFileTab(item) {
  * 标题加 ◆ 标记便于识别是 git 对比。
  */
 export function fileBrowserOpenGitTab(gitPath, group) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state || !gitPath) return;
     var clean = String(gitPath).replace(/^\//, '');
     var parts = clean.split('/');
@@ -824,7 +782,7 @@ export function fileBrowserOpenGitTab(gitPath, group) {
  * 标题显示 ◆ 文件名 @前7位哈希。
  */
 export function fileBrowserOpenGitHistoryTab(commitHash, gitPath) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state || !commitHash || !gitPath) return;
     var clean = String(gitPath).replace(/^\//, '');
     var parts = clean.split('/');
@@ -841,7 +799,7 @@ export function fileBrowserOpenGitHistoryTab(commitHash, gitPath) {
 
 /** 切换到指定路径的 tab（复用打开逻辑：已存在则仅激活） */
 export function fileBrowserSwitchTab(path) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state || path === state.activeFileTabPath) return;
     var tab = state.fileTabs.find(function(t) { return t.path === path; });
     if (!tab) return;
@@ -850,7 +808,7 @@ export function fileBrowserSwitchTab(path) {
 
 /** 关闭指定路径的 tab：从列表移除（编辑缓存保留，重新打开恢复），激活相邻 tab */
 export function fileBrowserCloseTab(path) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state || !state.fileTabs) return;
     // 先保存当前活动 tab 状态（可能是被关闭的 tab）
     saveFileTabState();
@@ -876,7 +834,7 @@ export function fileBrowserCloseTab(path) {
 }
 
 export async function renderFilePreview(item, options) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     options = options || {};
     if (!state || !item || item.type !== 'file') return;
     var requestSeq = ++state.previewRequestSeq;
@@ -984,7 +942,7 @@ export async function renderFilePreview(item, options) {
     } catch (err) {
         if (!isCurrentRequest()) return;
         if (metaEl) metaEl.textContent = '';
-        if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
+        if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
         renderFilePreviewToolbar();
     }
 }
@@ -1004,8 +962,8 @@ export function bindNoExtPreviewActions(item) {
     var openBtn = document.getElementById('btnOpenNoExtAsText');
     if (openBtn) {
         openBtn.onclick = function() {
-            window.fileBrowserState.forcedTextPreview[item.path] = true;
-            window.fileBrowserState.previewRenderMode = 'edit';
+            store.fileBrowserState.forcedTextPreview[item.path] = true;
+            store.fileBrowserState.previewRenderMode = 'edit';
             renderFilePreview(item);
         };
     }
@@ -1061,7 +1019,7 @@ export function buildGitPairRows(blocks) {
  * 传 undefined 表示无缓存，用后端返回的 rightContent。
  */
 export async function renderGitFilePreview(path, presetRightContent) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state || !path) return;
     fileBrowserClearObjectURL();
     state.previewMode = 'git';
@@ -1105,12 +1063,12 @@ export async function renderGitFilePreview(path, presetRightContent) {
             rightReadOnly: false
         });
     } catch (err) {
-        bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
+        bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
     }
 }
 
 export async function renderGitHistoryFilePreview(commitHash, path) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     if (!state || !commitHash || !path) return;
     fileBrowserClearObjectURL();
     state.previewMode = 'git-history';
@@ -1136,7 +1094,7 @@ export async function renderGitHistoryFilePreview(commitHash, path) {
             rightReadOnly: true
         });
     } catch (err) {
-        bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(err.message || err) + '</div>';
+        bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
     }
 }
 
@@ -1147,7 +1105,7 @@ export async function renderGitHistoryFilePreview(commitHash, path) {
  * 否则回退「独立双文档 + 比例滚动」模式（片段 diff 或未跟踪文件）。
  */
 export function renderGitDiffEditor(opts) {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var bodyEl = document.getElementById('filePreviewBody');
     if (!bodyEl || !window.ProjectConfigCodeEditor || !window.ProjectConfigCodeEditor.createDiff) return;
     // 先销毁旧 diff 实例（切换文件 / tab / 刷新时复用）
@@ -1339,7 +1297,7 @@ export function initGitDiffDivider() {
 
 /** 保存 git-file 视图右侧（工作区）的编辑内容到磁盘 */
 export async function saveCurrentGitDiffPreview() {
-    var state = window.fileBrowserState;
+    var state = store.fileBrowserState;
     var diff = state.previewDiffInstance;
     if (!state || !diff || state.previewMode !== 'git' || state.savingPreview) return;
     var path = state.gitPreviewPath;
@@ -1359,7 +1317,7 @@ export async function saveCurrentGitDiffPreview() {
         // 保存后重新拉取 diff（工作区已变化，右栏与左栏应趋于一致）
         await renderGitFilePreview(path);
     } catch (err) {
-        showToast(err.message || '保存失败', 'error');
+        showApiError('保存失败: ', err);
     } finally {
         state.savingPreview = false;
         renderFilePreviewToolbar();

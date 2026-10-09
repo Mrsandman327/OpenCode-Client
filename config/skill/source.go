@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"time"
 
 	"oc-manager/internal/fileutil"
+	"oc-manager/internal/pathutil"
 	"oc-manager/model"
 )
 
@@ -80,30 +79,6 @@ func SaveSkillConfig(cfg *model.SkillConfig) error {
 	return fileutil.AtomicWrite(path, data, 0644)
 }
 
-// NormalizePath 规范化路径：清理多余分隔符、转为绝对路径、解析符号链接。
-func NormalizePath(path string) (string, error) {
-	cleaned := filepath.Clean(path)
-	abs, err := filepath.Abs(cleaned)
-	if err != nil {
-		return "", fmt.Errorf("解析绝对路径失败: %w", err)
-	}
-	resolved, err := filepath.EvalSymlinks(abs)
-	if err != nil {
-		return "", fmt.Errorf("解析符号链接失败: %w", err)
-	}
-	return resolved, nil
-}
-
-// pathsEqual 比较两个已规范化的路径是否相等。
-func pathsEqual(a, b string) bool {
-	cleanedA := filepath.Clean(a)
-	cleanedB := filepath.Clean(b)
-	if runtime.GOOS == "windows" {
-		return strings.EqualFold(cleanedA, cleanedB)
-	}
-	return cleanedA == cleanedB
-}
-
 // hasSkillDir 检查目录下是否存在技能（即某个子目录中包含 SKILL.md）。
 // depth 为已下探层数（传入目录为 0），最多下探 maxScanDepth 层，
 // 与扫描逻辑（scanSourceRecursive / scanDir）保持一致：
@@ -133,7 +108,7 @@ func hasSkillDir(dir string, depth int) bool {
 
 // AddSourceDir 添加技能源目录到配置。
 func AddSourceDir(dir string, globalDir string) (*model.SkillConfig, error) {
-	normalized, err := NormalizePath(dir)
+	normalized, err := pathutil.Norm(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +120,8 @@ func AddSourceDir(dir string, globalDir string) (*model.SkillConfig, error) {
 	} else if !info.IsDir() {
 		return nil, fmt.Errorf("路径不是目录: %s", normalized)
 	}
-	normalizedGlobal, err := NormalizePath(globalDir)
-	if err == nil && pathsEqual(normalized, normalizedGlobal) {
+	normalizedGlobal, err := pathutil.Norm(globalDir)
+	if err == nil && pathutil.Equal(normalized, normalizedGlobal) {
 		return nil, fmt.Errorf("不能添加 opencode 全局技能目录: %s", normalized)
 	}
 	if !hasSkillDir(normalized, 0) {
@@ -157,8 +132,8 @@ func AddSourceDir(dir string, globalDir string) (*model.SkillConfig, error) {
 		return nil, err
 	}
 	for _, existingDir := range cfg.SourceDirs {
-		existingNormalized, err := NormalizePath(existingDir)
-		if err == nil && pathsEqual(normalized, existingNormalized) {
+		existingNormalized, err := pathutil.Norm(existingDir)
+		if err == nil && pathutil.Equal(normalized, existingNormalized) {
 			return nil, fmt.Errorf("目录已存在: %s", normalized)
 		}
 	}
@@ -171,7 +146,7 @@ func AddSourceDir(dir string, globalDir string) (*model.SkillConfig, error) {
 
 // RemoveSourceDir 从配置中移除指定的技能源目录。
 func RemoveSourceDir(dir string) (*model.SkillConfig, error) {
-	normalized, err := NormalizePath(dir)
+	normalized, err := pathutil.Norm(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +156,8 @@ func RemoveSourceDir(dir string) (*model.SkillConfig, error) {
 	}
 	idx := -1
 	for i, existingDir := range cfg.SourceDirs {
-		existingNormalized, err := NormalizePath(existingDir)
-		if err == nil && pathsEqual(normalized, existingNormalized) {
+		existingNormalized, err := pathutil.Norm(existingDir)
+		if err == nil && pathutil.Equal(normalized, existingNormalized) {
 			idx = i
 			break
 		}

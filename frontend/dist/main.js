@@ -7,10 +7,10 @@
 // 模块导入（依赖关系显式声明）
 // ============================
 import { toggleTheme } from './core/theme.js';
-import { isBrowserRuntimeForMain, showToast, isDesktopRuntime, loadWailsRuntime } from './core/utils.js';
+import { isBrowserRuntimeForMain, showToast, showApiError, isDesktopRuntime, loadWailsRuntime } from './core/utils.js';
 import { api } from './core/apicall.js';
 import { store, currentDir } from './core/state.js';
-import { toModelOptions } from './core/v2compat.js';
+import { toModelOptions, formatApiError } from './core/v2compat.js';
 import {
     isMobileTreeMode, toggleMobileTree, closeMobileTree,
     toggleSessions, toggleSidepanel,
@@ -45,8 +45,6 @@ import {
 } from './views/omo-config.js';
 import {
     loadSkillsData, renderSkillList, bindSkillManagerEvents,
-    addSourceDir, removeSourceDir, openSelectedSourceDir,
-    saveSkillScheme, deleteSkillScheme,
 } from './views/skill-manager.js';
 import {
     renderCommandsCard, renderApiDocs, apiDocLoaded,
@@ -257,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await downloadCurrentFilePreview();
         } catch (e) {
-            showToast('下载失败: ' + (e.message || e), 'error');
+            showApiError('下载失败: ', e);
         }
     });
     document.getElementById('fileBrowserUploadInput')?.addEventListener('change', async function(e) {
@@ -267,9 +265,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('btnFileBrowserUploadOverwrite')?.addEventListener('click', async function() {
         try {
-            await submitBrowserUpload(window.fileBrowserState.pendingUploadFileName || '', true);
+            await submitBrowserUpload(store.fileBrowserState.pendingUploadFileName || '', true);
         } catch (e) {
-            showToast('上传失败: ' + (e.message || e), 'error');
+            showApiError('上传失败: ', e);
         }
     });
     document.getElementById('btnFileBrowserUploadRenameMode')?.addEventListener('click', showFileBrowserRenameMode);
@@ -284,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await submitBrowserUpload(name, false);
         } catch (e) {
-            if (error) error.textContent = e.message || String(e);
+            if (error) error.textContent = formatApiError(e);
         }
     });
     document.getElementById('btnFileBrowserUploadConflictCancel')?.addEventListener('click', closeFileBrowserUploadConflictModal);
@@ -332,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadModelConfig();
             showToast(`获取到 ${store.availableModels.length} 个可用模型`, 'success');
         } catch (err) {
-            showToast('刷新模型列表失败: ' + (err.message || err), 'error');
+            showApiError('刷新模型列表失败: ', err);
         }
         btn.disabled = false;
         btn.textContent = '🔄 刷新';
@@ -361,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadSkillsData();
             showToast('列表已刷新', 'success');
         } catch (err) {
-            showToast('刷新失败: ' + (err.message || err), 'error');
+            showApiError('刷新失败: ', err);
         }
         btn.disabled = false;
         btn.textContent = '🔄 刷新';
@@ -383,31 +381,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // （数据在切换到「知识库」时按需加载，见 chat/navigation.js）
     // ========================
     bindKnowledgeEvents();
-
-    // ========================
-    // 技能管理 - L2 来源目录事件
-    // ========================
-    document.getElementById('btnAddSourceDir')?.addEventListener('click', async () => {
-        if (typeof addSourceDir === 'function') await addSourceDir();
-    });
-    document.getElementById('btnRemoveSourceDir')?.addEventListener('click', async () => {
-        if (typeof removeSourceDir === 'function') await removeSourceDir();
-    });
-    document.getElementById('btnOpenSourceDir')?.addEventListener('click', async () => {
-        if (typeof openSelectedSourceDir === 'function') await openSelectedSourceDir();
-    });
-
-    // ========================
-    // 技能管理 - L6 方案管理事件
-    // ========================
-    document.getElementById('btnSaveSkillScheme')?.addEventListener('click', async () => {
-        if (typeof saveSkillScheme === 'function') await saveSkillScheme();
-    });
-    document.getElementById('btnDeleteSkillScheme')?.addEventListener('click', async () => {
-        if (typeof deleteSkillScheme === 'function') await deleteSkillScheme();
-    });
-    // 注：「应用方案」按钮已移除，应用动作改由方案 chip 主体点击触发（见 skill-manager.js）
-
 
     // ========================
     // 命令视图事件绑定

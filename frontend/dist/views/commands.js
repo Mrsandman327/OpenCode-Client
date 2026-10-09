@@ -5,6 +5,7 @@
 // filebrowser/chat 模块，无守卫调用。
 import { api } from '../core/apicall.js';
 import { escapeHtml } from '../core/utils.js';
+import { formatApiError } from '../core/v2compat.js';
 import { store } from '../core/state.js';
 
 export let commandsData = [];
@@ -49,7 +50,7 @@ export async function loadCommands() {
     } catch (err) {
         content.innerHTML = `<div class="error">
             <p>⚠️ 加载命令失败</p>
-            <p class="error-detail">${escapeHtml(err.message || err)}</p>
+            <p class="error-detail">${escapeHtml(formatApiError(err))}</p>
             <button class="btn btn-primary">重试</button>
         </div>`;
         // ESM 下内联 onclick 失效，改为事件监听绑定
@@ -156,7 +157,7 @@ export async function loadApiDocs() {
     } catch (err) {
         content.innerHTML = `<div class="error">
             <p>⚠️ 加载 API 文档失败</p>
-            <p class="error-detail">${escapeHtml(err.message || err)}（请确认 OpenCode 服务已启动）</p>
+            <p class="error-detail">${escapeHtml(formatApiError(err))}（请确认 OpenCode 服务已启动）</p>
             <button class="btn btn-primary">重试</button>
         </div>`;
         // ESM 下内联 onclick 失效，改为事件监听绑定

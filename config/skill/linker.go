@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
+	"oc-manager/internal/pathutil"
 	"oc-manager/internal/symlink"
 )
 
@@ -85,40 +85,19 @@ func (m *Manager) LinkSkill(skillPath, skillName string) error {
 	return symlink.Create(topSource, linkPath)
 }
 
-// normalizeComparePath 规范化路径用于前缀比较。
-func normalizeComparePath(p string) string {
-	cleaned := filepath.Clean(p)
-	cleaned = strings.TrimPrefix(cleaned, `\\?\`)
-	if runtime.GOOS == "windows" {
-		cleaned = strings.ToLower(cleaned)
-	}
-	return cleaned
-}
-
-// isSubPath 判断 child 是否在 parent 目录下（或等于 parent）。
-func isSubPath(child, parent string) bool {
-	if !strings.HasPrefix(child, parent) {
-		return false
-	}
-	if len(child) == len(parent) {
-		return true
-	}
-	sep := child[len(parent)]
-	return sep == filepath.Separator || sep == '/'
-}
-
 // GetManagedLinks 获取全局目录中所有被本应用托管的链接。
 func (m *Manager) GetManagedLinks(sourceDirs []string) ([]string, error) {
 	if len(sourceDirs) == 0 {
 		return nil, nil
 	}
-	var normalizedSourceDirs []string
+	// 来源目录统一为绝对路径，归属判定交给 pathutil（内部处理大小写与分隔符边界）
+	normalizedSourceDirs := make([]string, 0, len(sourceDirs))
 	for _, d := range sourceDirs {
 		absD, err := filepath.Abs(filepath.Clean(d))
 		if err != nil {
 			continue
 		}
-		normalizedSourceDirs = append(normalizedSourceDirs, normalizeComparePath(absD))
+		normalizedSourceDirs = append(normalizedSourceDirs, absD)
 	}
 
 	entries, err := os.ReadDir(m.globalDir)
@@ -150,9 +129,8 @@ func (m *Manager) GetManagedLinks(sourceDirs []string) ([]string, error) {
 			continue
 		}
 
-		target = normalizeComparePath(target)
 		for _, src := range normalizedSourceDirs {
-			if isSubPath(target, src) {
+			if pathutil.IsSub(target, src) {
 				managed = append(managed, entry.Name())
 				break
 			}

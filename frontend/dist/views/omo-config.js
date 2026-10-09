@@ -21,9 +21,9 @@
 // ============================================================
 import { api } from '../core/apicall.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
-import { showToast } from '../core/utils.js';
+import { showToast, escapeAttr } from '../core/utils.js';
 import { store, currentDir } from '../core/state.js';
-import { toModelOptions } from '../core/v2compat.js';
+import { toModelOptions, formatApiError } from '../core/v2compat.js';
 
 // ========== 视图状态（全部由 loadModelConfig 填充） ==========
 export let slimPath = '';           // 配置文件路径
@@ -50,16 +50,6 @@ export const SLIM_VARIANT_OPTIONS = ['', 'minimal', 'low', 'medium', 'high', 'xh
 
 // ========== 小工具 ==========
 
-/** HTML 转义（统一处理文本与属性两种上下文，防止方案名/模型值里的特殊字符破坏结构） */
-function esc(value) {
-    return String(value == null ? '' : value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
 /** 模型下拉选项 HTML：当前值不在已知列表时补入（沿用原「不吞掉配置文件现值」的做法） */
 function modelOptionsHtml(current) {
     const models = store.availableModels && store.availableModels.length
@@ -71,7 +61,7 @@ function modelOptionsHtml(current) {
     if (!models.length) return '<option value="">（无可用模型）</option>';
     return models.map(m => {
         const selected = m.value === current ? ' selected' : '';
-        return `<option value="${esc(m.value)}"${selected}>${esc(m.label)}</option>`;
+        return `<option value="${escapeAttr(m.value)}"${selected}>${escapeAttr(m.label)}</option>`;
     }).join('');
 }
 
@@ -81,7 +71,7 @@ function variantOptionsHtml(current) {
     if (current && !options.includes(current)) options.push(current);
     return options.map(v => {
         const selected = v === current ? ' selected' : '';
-        return `<option value="${esc(v)}"${selected}>${v === '' ? '（空）' : esc(v)}</option>`;
+        return `<option value="${escapeAttr(v)}"${selected}>${v === '' ? '（空）' : escapeAttr(v)}</option>`;
     }).join('');
 }
 
@@ -116,7 +106,7 @@ export async function loadModelConfig() {
 
         renderModelConfig();
     } catch (err) {
-        container.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${esc(err.message || err)}</p><button class="btn btn-primary" id="btnRetryOmoLoad">重试</button></div>`;
+        container.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeAttr(formatApiError(err))}</p><button class="btn btn-primary" id="btnRetryOmoLoad">重试</button></div>`;
         const retryBtn = container.querySelector('#btnRetryOmoLoad');
         if (retryBtn) retryBtn.addEventListener('click', loadModelConfig);
     }
@@ -223,7 +213,7 @@ export function renderModelConfig() {
         clearBatchBar();
         const err = document.createElement('div');
         err.className = 'error';
-        err.innerHTML = `<p>⚠️ 配置文件解析失败</p><p class="error-detail">${esc(parseError)}</p><p class="error-detail">${esc(slimPath)}</p>`;
+        err.innerHTML = `<p>⚠️ 配置文件解析失败</p><p class="error-detail">${escapeAttr(parseError)}</p><p class="error-detail">${escapeAttr(slimPath)}</p>`;
         container.appendChild(err);
         updateSaveStatus();
         return;
@@ -625,12 +615,12 @@ export function showAddEntryModal(presetName) {
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
         <div class="modal">
-            <h3>添加条目 · ${esc(presetName)}</h3>
+            <h3>添加条目 · ${escapeAttr(presetName)}</h3>
             <div class="modal-field">
                 <label>Agent 名</label>
                 <select id="modalEntryKey" class="modal-select">
                     <option value="">（选择内置 agent）</option>
-                    ${SLIM_AGENT_KEYS.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}
+                    ${SLIM_AGENT_KEYS.map(k => `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`).join('')}
                     <option value="__custom__">自定义…</option>
                 </select>
                 <input id="modalEntryKeyCustom" placeholder="输入自定义 agent 名" style="display:none;margin-top:6px" />
@@ -714,7 +704,7 @@ export function showAddPresetModal() {
                 <label>继承自</label>
                 <select id="modalPresetBase" class="modal-select">
                     <option value="">不继承</option>
-                    ${names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}
+                    ${names.map(n => `<option value="${escapeAttr(n)}">${escapeAttr(n)}</option>`).join('')}
                 </select>
             </div>
             <div class="modal-actions">
@@ -822,7 +812,7 @@ export async function handleSlimSave() {
         await loadModelConfig();
         showToast('已保存。若在运行中的 OpenCode 未生效：请重载（v1）或稍候自动刷新（v2）', 'success');
     } catch (err) {
-        showToast('保存失败: ' + (err.message || err) + '。文件可能已被外部修改，请点「🔄 刷新」后重试', 'error');
+        showToast('保存失败: ' + formatApiError(err) + '。文件可能已被外部修改，请点「🔄 刷新」后重试', 'error');
     } finally {
         if (btn) {
             btn.disabled = false;

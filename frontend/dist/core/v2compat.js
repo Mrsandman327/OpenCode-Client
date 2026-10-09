@@ -69,23 +69,6 @@ export function formatApiError(e) {
 // 路径：v1 → v2
 // ============================
 
-const enc = encodeURIComponent;
-
-/** 会话目录作用域查询串。v1 用 ?directory=，v2 统一为 ?directory=。 */
-export function dirQuery(directory) {
-    return directory ? '?directory=' + enc(directory) : '';
-}
-
-/**
- * v2 中 /api/agent、/api/model、/api/command、/api/mcp、/api/config、/api/form
- * 等端点的作用域参数是 `location`，且为 **deepObject** 风格
- * （style=deepObject, explode=true），必须编码成 `location[directory]=...`。
- * 写成 `location=...` 会被服务端忽略，列表就退回服务端 CWD 而非当前会话目录。
- */
-export function locationQuery(directory) {
-    return directory ? '?location%5Bdirectory%5D=' + enc(directory) : '';
-}
-
 /** 把 v1 的 prompt 请求体转换为 v2 的 {text, files, agents, ...} 形态。
  *  v1 发送 {parts:[{type:'text',text},{type:'file',...}], model, variant, agent}；
  *  v2 改为顶层 text + files/agents/skills，且**不再随 prompt 提交 model/agent**——
@@ -469,13 +452,6 @@ export function adaptMessages(sessionID, res) {
  *  v1 的 before= 已废弃，v2 一律用 cursor= 透传服务端游标。 */
 export function nextCursor(res) {
     return res && typeof res === 'object' ? (res.cursor?.next || null) : null;
-}
-
-/** 从 v2 消息列表响应中取出「反向一页」的游标（默认 desc 顺序下指向更新）。
- *  注意：它**不是**「更早一页」的游标——加载更早历史必须用 nextCursor，
- *  误用本函数会让上滑分页请求被服务端解成空页（历史 bug 的根源）。 */
-export function prevCursor(res) {
-    return res && typeof res === 'object' ? (res.cursor?.previous || null) : null;
 }
 
 // ============================

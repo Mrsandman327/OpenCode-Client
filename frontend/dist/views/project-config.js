@@ -5,8 +5,11 @@
 // 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import；
 // marked 与 window.ProjectConfigCodeEditor 为全局 lib 符号，保持现状。
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast } from '../core/utils.js';
-import { fileBrowserSanitizeMarkedHtml, fileBrowserHighlightCode } from '../filebrowser/preview.js';
+import { escapeHtml, showToast, showApiError } from '../core/utils.js';
+import { fileBrowserHighlightCode } from '../filebrowser/preview.js';
+// Markdown 清洗统一走 core/sanitize.js 的白名单公共实现
+import { sanitizeMarkedHtml } from '../core/sanitize.js';
+import { formatApiError } from '../core/v2compat.js';
 
 window._projectConfig = {
     rootDir: '',
@@ -191,7 +194,7 @@ export async function loadProjectConfigSummary() {
         state.summary = await api.GetProjectConfigSummary(state.rootDir);
         renderCurrentTab();
     } catch (e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(e.message || e) + '</div>';
+        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
     }
 }
 
@@ -252,7 +255,7 @@ export async function viewGlobalConfig() {
         }
         renderPreview(info.path, info.content, true);
     } catch (e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(e.message || e) + '</div>';
+        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
     }
 }
 
@@ -305,7 +308,7 @@ export function renderSkillsTab(tab) {
                 showToast('已删除: ' + path, 'success');
                 loadProjectConfigSummary();
             }).catch(function(e) {
-                showToast('删除失败: ' + (e.message || e), 'error');
+                showApiError('删除失败: ', e);
             });
         });
     });
@@ -355,7 +358,7 @@ export function showImportSkillsModal() {
         body.innerHTML = html;
         bindImportEvents();
     }).catch(function(e) {
-        body.innerHTML = renderSkillsHeader() + '<div class="pc-empty error">加载失败: ' + escapeHtml(e.message || e) + '</div>';
+        body.innerHTML = renderSkillsHeader() + '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
     });
 }
 
@@ -377,7 +380,7 @@ export function bindImportEvents() {
                 showToast('已导入: ' + name, 'success');
                 loadProjectConfigSummary();
             }).catch(function(err) {
-                showToast('导入失败: ' + (err.message || err), 'error');
+                showApiError('导入失败: ', err);
                 btn.disabled = false;
                 btn.textContent = '导入';
             });
@@ -396,7 +399,7 @@ export function browseSkillDir(skillPath) {
 
         renderBrowseView('skills', skillPath, result, '← 返回技能列表', function() { renderCurrentTab(); });
     }).catch(function(e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(e.message || e) + '</div>';
+        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
     });
 }
 
@@ -471,7 +474,7 @@ export function browseSubDir(category, dirPath) {
     api.ListProjectConfigDir(state.rootDir, category, dirPath).then(function(result) {
         renderBrowseView(category, dirPath, result, '← 返回上级', function() { goBrowseBack(); });
     }).catch(function(e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(e.message || e) + '</div>';
+        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
     });
 }
 
@@ -544,7 +547,7 @@ export function openFileEditor(category, relPath) {
         }
         switchToEditMode(result.path, result.content);
     }).catch(function(e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(e.message || e) + '</div>';
+        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
     });
 }
 
@@ -572,7 +575,7 @@ export function renderPreview(fileName, content, readOnly) {
     if (isMarkdown && typeof marked !== 'undefined') {
         // Markdown 渲染（与文件浏览器一致）
         var rawHtml = marked.parse(String(content || ''));
-        var safeHtml = fileBrowserSanitizeMarkedHtml(rawHtml);
+        var safeHtml = sanitizeMarkedHtml(rawHtml);
         previewHtml = '<div class="oc-text file-browser-markdown">' + safeHtml + '</div>';
     } else {
         // 代码高亮 + 行号（与文件浏览器一致）
@@ -738,7 +741,7 @@ export async function saveCurrentFile() {
             updateProjectConfigDirtyBadge();
         }
     } catch (e) {
-        showToast('保存失败: ' + (e.message || e), 'error');
+        showApiError('保存失败: ', e);
         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '保存'; }
     }
 }
@@ -759,7 +762,7 @@ export function bindDeleteButtons(category, basePath, onDone) {
                 showToast('已删除: ' + path, 'success');
                 onDone();
             }).catch(function(e) {
-                showToast('删除失败: ' + (e.message || e), 'error');
+                showApiError('删除失败: ', e);
             });
         });
     });
@@ -783,7 +786,7 @@ export function bindAddEntryButton(category, basePath, onDone) {
             showToast('已创建: ' + entry.name, 'success');
             onDone();
         }).catch(function(e) {
-            showToast('创建失败: ' + (e.message || e), 'error');
+            showApiError('创建失败: ', e);
         });
     });
 }

@@ -188,6 +188,12 @@ func broadcastBrowserSSE(name, data string) {
 }
 
 func FormatBrowserSSE(event BrowserSSEEvent) string {
+	// browserSSENextID 由 browserSSEMu 保护（SubscribeBrowserSSE 中自增），
+	// 此处读取必须持同一把锁，否则与订阅端的自增构成数据竞争。
+	browserSSEMu.Lock()
+	nextID := browserSSENextID
+	browserSSEMu.Unlock()
+
 	var b strings.Builder
 	b.WriteString("event: ")
 	b.WriteString(event.Name)
@@ -198,7 +204,7 @@ func FormatBrowserSSE(event BrowserSSEEvent) string {
 		b.WriteString("\n")
 	}
 	b.WriteString("id: ")
-	b.WriteString(strconv.FormatInt(int64(browserSSENextID), 10))
+	b.WriteString(strconv.FormatInt(int64(nextID), 10))
 	b.WriteString("\n\n")
 	return b.String()
 }

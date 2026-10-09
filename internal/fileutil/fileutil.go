@@ -57,6 +57,20 @@ func AtomicWriteRaw(path string, data []byte, perm os.FileMode) error {
 	return nil
 }
 
+// ResolveJSONC 在给定的首选 .jsonc 路径与同名 .json 路径之间选择实际应读的路径：
+// 优先返回已存在的 .jsonc；否则回退到已存在的 .json；两者都不存在时返回首选路径
+// （交由调用方读取并在错误信息中保留预期路径）。
+func ResolveJSONC(jsoncPath string) string {
+	if _, err := os.Stat(jsoncPath); err == nil {
+		return jsoncPath
+	}
+	jsonPath := strings.TrimSuffix(jsoncPath, ".jsonc") + ".json"
+	if _, err := os.Stat(jsonPath); err == nil {
+		return jsonPath
+	}
+	return jsoncPath
+}
+
 // ValidateJSONC 验证 JSONC 数据是否包含有效的 JSON（去除注释后）。
 func ValidateJSONC(data []byte) error {
 	cleaned := strings.TrimSpace(StripComments(string(data)))

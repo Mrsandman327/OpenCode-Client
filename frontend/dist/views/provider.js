@@ -4,7 +4,7 @@
 // 说明：ES Modules 化改造。core 层依赖静态导入；filebrowser 依赖
 // 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import。
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { escapeHtml, showToast, showApiError } from '../core/utils.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 
 export let providerCache = [];
@@ -26,7 +26,7 @@ export async function openProviderConfigDirInBrowser() {
     try {
         openFileBrowserModal(dir);
     } catch (err) {
-        showToast('打开目录失败: ' + (err.message || err), 'error');
+        showApiError('打开目录失败: ', err);
     }
 }
 
@@ -395,7 +395,7 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
     try {
         models = await api.GetModelList(baseURL, apiKey) || [];
     } catch (e) {
-        showToast('获取模型列表失败: ' + (e.message || e), 'error');
+        showApiError('获取模型列表失败: ', e);
         if (btn) { btn.disabled = false; btn.textContent = '📡 获取模型列表'; }
         return;
     }

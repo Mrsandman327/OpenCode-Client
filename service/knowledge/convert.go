@@ -2,12 +2,12 @@ package knowledge
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"oc-manager/internal/fileutil"
+	"oc-manager/internal/logger"
 	"oc-manager/internal/symlink"
 	"oc-manager/model"
 )
@@ -178,7 +178,7 @@ func (c *Converter) writeAsset(req model.ConvertRequest, plan model.ConvertPrevi
 			return nil
 		} else {
 			// 软链接失败（如 Windows 无权限创建符号链接）不应导致整体失败，回退为复制
-			log.Printf("[知识库] 创建软链接失败，回退为复制: %v", err)
+			logger.Printf("[知识库] 创建软链接失败，回退为复制: %v", err)
 		}
 	}
 	if err := fileutil.AtomicWriteRaw(plan.TargetPath, []byte(plan.NewContent), filePerm); err != nil {

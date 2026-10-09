@@ -3,6 +3,7 @@
 // ============================================================
 
 import { store } from './state.js';
+import { formatApiError } from './v2compat.js';
 
 // DOM 快捷引用
 export const $ = (sel) => document.querySelector(sel);
@@ -21,12 +22,52 @@ export function showToast(message, type = 'info') {
     }, 2800);
 }
 
+/** 统一的 API 错误提示：prefix + formatApiError(e)，以 error 样式 toast 展示。
+ *  各模块 catch 中展示请求错误时统一调用，避免直接拼 e.message 丢掉
+ *  v2 错误体里可读的 message（解析逻辑见 core/v2compat.js 的 formatApiError）。 */
+export function showApiError(prefix, e) {
+    showToast((prefix || '') + formatApiError(e), 'error');
+}
+
 // HTML 转义
 export function escapeHtml(text) {
     if (text == null) return '';
     const div = document.createElement('div');
     div.textContent = String(text);
     return div.innerHTML;
+}
+
+/** HTML 属性值转义：在 escapeHtml 基础上补引号转义，用于 title="..." 等属性上下文 */
+export function escapeAttr(text) {
+    return escapeHtml(text).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// 剪贴板
+/** 复制文本到剪贴板：优先 navigator.clipboard，不可用/失败时回退 execCommand。
+ *  成功 resolve；失败 reject（错误信息为可读文本）。 */
+export async function copyToClipboard(text) {
+    const value = String(text == null ? '' : text);
+    if (navigator.clipboard?.writeText) {
+        try {
+            await navigator.clipboard.writeText(value);
+            return;
+        } catch (_) {
+            // 非安全上下文 / 权限被拒等情况继续走 execCommand 兜底
+        }
+    }
+    const input = document.createElement('input');
+    input.value = value;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.select();
+    let ok = false;
+    try {
+        ok = document.execCommand('copy');
+    } finally {
+        document.body.removeChild(input);
+    }
+    if (!ok) throw new Error('复制失败');
 }
 
 // ============================
@@ -197,7 +238,8 @@ export function getTabMessagesEl(sessionID) {
 /** 取当前活动 tab 的消息容器；无活动 tab 时回退到池本身 */
 export function getActiveMessagesEl() {
     var pool = document.getElementById('ocMessagesPool');
-    if (!pool) return document.getElementById('ocMessages');
+    // 池不存在（页面结构异常）时返回 null；不再回退到已不存在的 #ocMessages
+    if (!pool) return null;
     var active = pool.querySelector('.oc-messages-tab.active');
     return active || pool;
 }
@@ -448,4 +490,76 @@ export function updateTreeActiveSession() {
         var isActive = !!activeId && node.dataset.sessionId === activeId;
         node.classList.toggle('active', isActive);
     });
+}
+
+// ============================================================
+// 会话动作注册中心
+// 打破 chat/session.js ↔ chat/events.js、chat/session.js ↔ chat/cmd-palette.js
+// 循环依赖：实现留在 session.js（本模块不 import 任何 chat 层文件），
+// 由它在模块加载时注册；events.js / cmd-palette.js 只从 core 层调用。
+// 时序说明：这些函数全部由 SSE 事件回调 / 用户交互触发（运行时调用），
+// session.js 作为 main.js 的静态依赖先于任何调用完成注册，无加载期立即调用。
+// ============================================================
+let sessionActionHandlers = null;
+
+/** 由 session.js 模块加载时注册实现对象 */
+export function setSessionActionHandlers(handlers) {
+    sessionActionHandlers = handlers || null;
+}
+
+/** 加载指定会话的消息（缺省当前会话；实现见 session.js） */
+export function loadMessages(sessionID) {
+    return sessionActionHandlers ? sessionActionHandlers.loadMessages(sessionID) : undefined;
+}
+
+/** 加载更早的消息（分页历史；实现见 session.js） */
+export function loadOlderMessages(sessionID) {
+    return sessionActionHandlers ? sessionActionHandlers.loadOlderMessages(sessionID) : undefined;
+}
+
+/** 该会话的消息是否已全部加载（分页；实现见 session.js，未注册时视为 false） */
+export function isSessionLoadedAll(sessionID) {
+    return !!(sessionActionHandlers && sessionActionHandlers.isSessionLoadedAll(sessionID));
+}
+
+/** 拉取并同步当前会话标题（实现见 session.js） */
+export function refreshSessionTitle() {
+    return sessionActionHandlers ? sessionActionHandlers.refreshSessionTitle() : undefined;
+}
+
+/** 选择/切换会话（实现见 session.js） */
+export function selectSession(id) {
+    return sessionActionHandlers ? sessionActionHandlers.selectSession(id) : undefined;
+}
+
+/** 加载 Agent/Model 下拉选择器（实现见 session.js） */
+export function loadAgentModelSelectors(dir, force) {
+    return sessionActionHandlers ? sessionActionHandlers.loadAgentModelSelectors(dir, force) : undefined;
+}
+
+/** 记录模型活动（无响应看门狗基线；实现见 session.js） */
+export function notePromptActivity(sessionID) {
+    return sessionActionHandlers ? sessionActionHandlers.notePromptActivity(sessionID) : undefined;
+}
+
+// ============================================================
+// 会话树动作注册中心
+// 打破 chat/events.js ↔ chat/tree.js 循环依赖：实现留在 tree.js，
+// 由它在模块加载时注册；events.js 只从 core 层调用。
+// ============================================================
+let treeActionHandlers = null;
+
+/** 由 tree.js 模块加载时注册实现对象 */
+export function setTreeActionHandlers(handlers) {
+    treeActionHandlers = handlers || null;
+}
+
+/** 构建会话树（实现见 tree.js；返回 Promise<boolean>） */
+export function buildTree() {
+    return treeActionHandlers ? treeActionHandlers.buildTree() : undefined;
+}
+
+/** 该会话是否刚被本地删除（实现见 tree.js，未注册时视为 false） */
+export function wasSessionDeletedLocally(id) {
+    return !!(treeActionHandlers && treeActionHandlers.wasSessionDeletedLocally(id));
 }
