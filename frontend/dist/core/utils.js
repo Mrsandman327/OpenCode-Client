@@ -71,6 +71,31 @@ export async function copyToClipboard(text) {
 }
 
 // ============================
+// 弹窗遮罩关闭绑定
+// ============================
+
+/** 绑定「点击遮罩关闭」。
+ *
+ *  为什么不能用纯 click：click 事件的目标是 mousedown 与 mouseup 的**最近共同祖先**——
+ *  在弹窗内容里按下、拖到遮罩上再松开时，click 目标会是遮罩本身，导致误关闭
+ *  （在弹窗内拖选文本、拖拽时非常恼人）。这里记录 mousedown 的目标，
+ *  只有「按下与松开都发生在遮罩本身」才触发关闭。
+ */
+export function bindOverlayClose(modalEl, onClose) {
+    if (!modalEl || modalEl.dataset.overlayCloseBound) return;
+    modalEl.dataset.overlayCloseBound = '1';
+    let downOnOverlay = false;
+    modalEl.addEventListener('mousedown', (e) => {
+        downOnOverlay = e.target === modalEl;
+    });
+    modalEl.addEventListener('mouseup', (e) => {
+        const shouldClose = downOnOverlay && e.target === modalEl;
+        downOnOverlay = false;
+        if (shouldClose && typeof onClose === 'function') onClose();
+    });
+}
+
+// ============================
 // Agent / Model 选择值校验
 // ============================
 

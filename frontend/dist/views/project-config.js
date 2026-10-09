@@ -5,7 +5,7 @@
 // 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import；
 // marked 与 window.ProjectConfigCodeEditor 为全局 lib 符号，保持现状。
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast, showApiError } from '../core/utils.js';
+import { escapeHtml, showToast, showApiError, bindOverlayClose } from '../core/utils.js';
 import { fileBrowserHighlightCode } from '../filebrowser/preview.js';
 // Markdown 清洗统一走 core/sanitize.js 的白名单公共实现
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
@@ -799,9 +799,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var modal = document.getElementById('projectConfigModal');
     if (!modal) return;
 
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) closeProjectConfig();
-    });
+    // 仅当按下与松开都在遮罩上才关闭（避免弹窗内拖选误关）
+    bindOverlayClose(modal, closeProjectConfig);
 
     document.getElementById('btnCloseProjectConfig').addEventListener('click', closeProjectConfig);
 

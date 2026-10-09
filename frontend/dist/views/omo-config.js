@@ -21,7 +21,7 @@
 // ============================================================
 import { api } from '../core/apicall.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
-import { showToast, escapeAttr } from '../core/utils.js';
+import { showToast, escapeAttr, bindOverlayClose } from '../core/utils.js';
 import { store, currentDir } from '../core/state.js';
 import { toModelOptions, formatApiError } from '../core/v2compat.js';
 
@@ -639,8 +639,8 @@ export function showAddEntryModal(presetName) {
             </div>
         </div>`;
     document.body.appendChild(overlay);
-    overlay.addEventListener('click', () => overlay.remove());
-    overlay.querySelector('.modal').addEventListener('click', (e) => e.stopPropagation());
+    // 点遮罩关闭（仅当按下与松开都在遮罩上才触发；新机制不再需要子元素 stopPropagation）
+    bindOverlayClose(overlay, () => overlay.remove());
 
     const keySelect = overlay.querySelector('#modalEntryKey');
     const keyCustom = overlay.querySelector('#modalEntryKeyCustom');
@@ -713,8 +713,8 @@ export function showAddPresetModal() {
             </div>
         </div>`;
     document.body.appendChild(overlay);
-    overlay.addEventListener('click', () => overlay.remove());
-    overlay.querySelector('.modal').addEventListener('click', (e) => e.stopPropagation());
+    // 点遮罩关闭（仅当按下与松开都在遮罩上才触发；新机制不再需要子元素 stopPropagation）
+    bindOverlayClose(overlay, () => overlay.remove());
 
     overlay.querySelector('#btnCancelAddPreset').addEventListener('click', () => overlay.remove());
     overlay.querySelector('#btnConfirmAddPreset').addEventListener('click', () => {
