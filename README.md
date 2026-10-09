@@ -137,6 +137,11 @@ OC Manager 是**绿色便携**应用：程序目录自带一切，拷走即用�
 ```
 
 - **自带 opencode**：启动服务时优先使用 `tools/opencode.exe`，不依赖系统 `PATH`——系统未安装 opencode 也能正常运行
+
+​	**如何直接下载opencode.exe**
++ v1: 直接上GitHub发布页下载：[发行版 · anomalyco/opencode](https://github.com/anomalyco/opencode/releases)
++ v2: 使用链接下载：`https://opencode.ai/files/bin/{版本号}/{opencode压缩包}`，例如： https://opencode.ai/files/bin/2.0.26/opencode-windows-x64.zip
+
 - **免安装 / 整体搬迁**：整个目录拷到任意路径或另一台机器即可运行，配置、会话、知识库全在目录内，不污染 `~/.config`、`~/.local`
 - **便携数据目录**：程序启动最早期通过 5 个 XDG 环境变量，把 opencode 的配置/数据/缓存/状态指向程序目录下的 `agentdatas/`
 - **启动拦截**：启动服务前检测系统中是否已有 opencode 服务在运行（外部启动 / 上次残留），命中则拒绝启动，避免两套服务并存
