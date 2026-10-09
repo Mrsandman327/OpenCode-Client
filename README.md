@@ -117,6 +117,44 @@ agent / category 粒度的模型映射，方案**导出·导入·入库·应用*
 
 ---
 
+## 🟢 绿色便携
+
+OC Manager 是**绿色便携**应用：程序目录自带一切，拷走即用，**不写系统目录**。
+
+```
+<程序目录>/
+  oc-manager.exe          # 主程序
+  tools/opencode.exe      # 自带的 opencode —— 优先使用，无需系统安装
+  agentdatas/             # 便携数据（opencode 与 OC Manager 共用）
+    config/opencode/      # 配置：opencode.jsonc、OMO 方案、service.json
+    data/opencode/        # 数据：会话、凭据
+    cache/opencode/       # 缓存（可再生）
+    state/opencode/       # 状态：服务注册 service.json
+    runtime/              # 运行时目录（Linux）
+  configs/                # 内置配置模板
+  vault/                  # 知识库数据（独立于 OpenCode）
+  log/                    # 运行日志
+```
+
+- **自带 opencode**：启动服务时优先使用 `tools/opencode.exe`，不依赖系统 `PATH`——系统未安装 opencode 也能正常运行
+- **免安装 / 整体搬迁**：整个目录拷到任意路径或另一台机器即可运行，配置、会话、知识库全在目录内，不污染 `~/.config`、`~/.local`
+- **便携数据目录**：程序启动最早期通过 5 个 XDG 环境变量，把 opencode 的配置/数据/缓存/状态指向程序目录下的 `agentdatas/`
+- **启动拦截**：启动服务前检测系统中是否已有 opencode 服务在运行（外部启动 / 上次残留），命中则拒绝启动，避免两套服务并存
+
+### 迁移到便携版
+
+若此前使用系统安装的 opencode，可按下列步骤迁入便携目录：
+
+1. 把 opencode 可执行文件放到 `<程序目录>/tools/opencode.exe`
+2. 旧配置 → `<程序目录>/agentdatas/config/opencode/`（`opencode.jsonc`、OMO 方案、`skills/`、`commands/`、`rules/`）
+3. 旧数据 / 凭据（通常 `~/.local/share/opencode`）→ `<程序目录>/agentdatas/data/opencode/`
+4. `vault/` 放到程序目录（与 `configs/` 同级）
+5. 启动 OC Manager 验证：工作区能连接、供应商 / OMO / 技能正常加载、历史会话可见
+
+> 详细说明见 [doc/使用说明.md](doc/使用说明.md) 第 10 章「绿色便携与迁移」。
+
+---
+
 ## 📸 截图
 
 <details open>
