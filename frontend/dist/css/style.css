@@ -242,6 +242,25 @@ input::placeholder, textarea::placeholder {
     font-weight: 600;
     color: var(--text-primary);
     letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+/* 标题左侧图标：assets/侧边栏.svg 作遮罩，颜色随标题文字（同侧栏导航图标的 mask 机制） */
+.app-title-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-image: url("../assets/侧边栏.svg");
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-image: url("../assets/侧边栏.svg");
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
 }
 
 /* ========== 按钮 (Apple 风格) ========== */
