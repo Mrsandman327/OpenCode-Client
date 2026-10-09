@@ -372,6 +372,18 @@ func providerUseStatements(cfg *model.OpenCodeConfig) []policyStatement {
 	return out
 }
 
+// policyResourceRegistered 判断 provider.use 语句的 resource 是否指向任一托管供应商。
+// resource 按通配模式匹配（语义同 wildcardMatch）；匹配到任一 cfg.Providers 的 key
+// 即视为「已登记」——其启用/禁用一律以 UI 保存的状态为准，手写语句不参与重建。
+func policyResourceRegistered(resource string, cfg *model.OpenCodeConfig) bool {
+	for key := range cfg.Providers {
+		if wildcardMatch(resource, key) {
+			return true
+		}
+	}
+	return false
+}
+
 // isProviderEnabled 综合三种来源计算供应商是否启用（读兼容）：
 //  1. enabled_providers：非空时视为 allowlist，仅列表内供应商可启用；
 //  2. disabled_providers：命中即禁用，优先级高于 allowlist；
@@ -397,6 +409,7 @@ func isProviderEnabled(key string, cfg *model.OpenCodeConfig) bool {
 //   - 集合非空：写 [{action:provider.use,resource:*,effect:deny}] + 每个启用 key 一条 allow；
 //   - 集合为空：移除全部 provider.use 语句（保持「不限制」）；
 //   - 非 provider.use 语句原样保留，相对顺序不变；
+//   - 未登记供应商的 provider.use 语句（resource 不指向任何托管 key）原样保留，追加在重建块之后；
 //   - 不输出空的 policies / experimental 键。
 //
 // override 中的 key 以其给定值作为启用状态（覆盖三源计算结果），
@@ -433,11 +446,18 @@ func rewriteProviderPolicies(cfg *model.OpenCodeConfig, override map[string]bool
 		len(providerUseStatements(cfg)) > 0
 	anyDisabled := len(enabledKeys) < len(cfg.Providers)
 
-	// 保留非 provider.use 语句（provider.use 组将被整体重建）
+	// 保留非 provider.use 语句（provider.use 组将被整体重建）。
+	// 同时单独收集「未登记供应商」的 provider.use 语句：其 resource 不指向任何托管
+	// 供应商（cfg.Providers 的 key），重建不会代理它们的意图，必须原样保留——
+	// 典型场景：手写内置供应商（如 opencode 自带模型）的 allow，否则保存时会被清掉。
 	kept := make([]json.RawMessage, 0, len(policies))
+	var preservedUses []json.RawMessage
 	for _, item := range policies {
 		var st policyStatement
 		if json.Unmarshal(item, &st) == nil && st.Action == "provider.use" {
+			if !policyResourceRegistered(st.Resource, cfg) {
+				preservedUses = append(preservedUses, item)
+			}
 			continue
 		}
 		kept = append(kept, item)
@@ -468,6 +488,10 @@ func rewriteProviderPolicies(cfg *model.OpenCodeConfig, override map[string]bool
 			kept = append(kept, b)
 		}
 	}
+
+	// 未登记供应商的语句追加在生成块之后：语句按数组顺序「最后匹配者胜出」，
+	// 放在 deny * 之后可保证手写的 allow 依然生效（并保持它们原有的相对顺序）。
+	kept = append(kept, preservedUses...)
 
 	if len(kept) > 0 {
 		b, err := json.Marshal(kept)
