@@ -187,9 +187,12 @@ export function mapChildSessionsToSummaries(list) {
             description: '',
             agent: s?.agent || 'unknown',
             model: modelRef ? modelDisplayLabel(modelRef) : 'unknown',
-            // outcome 缺失 = v1 时代继承过来的旧会话（outcome 是 v2 才有的字段）：
-            // 无法区分成功/失败，用中性终态「已结束」呈现，而非误报「运行中」。
-            status: s?.outcome ? (CHILD_SESSION_STATUS_MAP[s.outcome] || 'running') : 'ended',
+            // outcome 是 v2 会话「结束」时才落盘的字段，缺失时必须区分两种情形：
+            //  - v2 会话（创建时即带 permissions 配置）→ outcome 还没写 = 仍在运行中；
+            //  - v1 时代继承的旧会话（无 permissions，永远不会写 outcome）→ 中性「已结束」。
+            status: s?.outcome
+                ? (CHILD_SESSION_STATUS_MAP[s.outcome] || 'running')
+                : (Array.isArray(s?.permissions) ? 'running' : 'ended'),
             durationMs: hasTime ? (updated - created) : null,
             interrupted: s?.outcome === 'interrupted',
             startedAt: hasTime ? created : null,
