@@ -6,6 +6,7 @@
 // ============================================================
 
 import { $$ } from '../core/utils.js';
+import { api } from '../core/apicall.js';
 import { checkWebStatus } from './service.js';
 import { loadModelConfig } from '../views/omo-config.js';
 import { loadSkillsData } from '../views/skill-manager.js';
@@ -82,3 +83,16 @@ if (appTitle) {
 }
 
 loadSidebarCollapseState();
+
+// 左下角版本信息：数据源为 Go 端 appVersion（GetAppVersion）。
+// 折叠态元素仅剩图标，版本号通过原生 title 悬浮气泡查看。
+const sidebarVersion = document.getElementById('sidebarVersion');
+const sidebarVersionText = document.getElementById('sidebarVersionText');
+if (sidebarVersion && sidebarVersionText) {
+    api.GetAppVersion().then((v) => {
+        if (!v) return;
+        const label = 'v' + v;
+        sidebarVersionText.textContent = label;
+        sidebarVersion.title = label;
+    }).catch(() => {});
+}

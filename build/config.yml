@@ -11,7 +11,7 @@ info:
   description: "OpenCode 全能工作台（桌面 / 浏览器 / 手机三端）" # The application description
   copyright: "(c) 2026, Linsn" # Copyright text
   comments: "OC Manager" # Comments
-  version: "1.0.0" # The application version
+  version: "1.8.3" # The application version
 
 # Dev mode configuration
 dev_mode:

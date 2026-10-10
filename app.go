@@ -826,3 +826,12 @@ func (a *App) KnowledgeConvert(req model.ConvertRequest) (string, error) {
 	}
 	return converter.Convert(req)
 }
+
+// appVersion 是 OC Manager 客户端自身的版本号（与右侧服务面板展示的 opencode
+// 服务端版本区分）。单一来源：前端通过 GetAppVersion 读取。
+const appVersion = "1.8.3"
+
+// GetAppVersion 返回 OC Manager 客户端版本号（侧边栏左下角展示）。
+func (a *App) GetAppVersion() string {
+	return appVersion
+}

@@ -157,6 +157,8 @@ const mockApi = (() => {
     ];
 
     return {
+        // 客户端版本号（OC Manager 自身版本）：mock 模式下固定返回，供界面联调
+        GetAppVersion: async () => '1.8.3',
         GetSkills: async () => JSON.parse(JSON.stringify(mockSkills)),
         GetSourceDir: async () => '~/.config/opencode/skills/',
         GetStats: async () => ({
