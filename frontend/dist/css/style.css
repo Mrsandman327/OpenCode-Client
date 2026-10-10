@@ -85,7 +85,7 @@
 
     /* 布局 */
     --header-height: 48px;
-    --sidebar-width: 160px;
+    --sidebar-width: 140px;
 }
 
 /* ========== CSS 变量 — 深色主题 (Apple 暗色覆盖) ========== */
@@ -569,6 +569,7 @@ input::placeholder, textarea::placeholder {
 
 .nav-label {
     flex: 1;
+    font-size: 13px;
 }
 
 .sidebar.collapsed {
