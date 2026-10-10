@@ -442,6 +442,37 @@ input::placeholder, textarea::placeholder {
     border-color: var(--success);
 }
 
+/* 工具按钮图标：assets SVG 作遮罩，颜色随按钮文字（全站统一的 mask 机制） */
+.btn-proxy-icon,
+.btn-frontend-web-icon,
+.btn-terminal-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+
+.btn-proxy-icon {
+    -webkit-mask-image: url("../assets/网络配置.svg");
+    mask-image: url("../assets/网络配置.svg");
+}
+
+.btn-frontend-web-icon {
+    -webkit-mask-image: url("../assets/web服务.svg");
+    mask-image: url("../assets/web服务.svg");
+}
+
+.btn-terminal-icon {
+    -webkit-mask-image: url("../assets/终端.svg");
+    mask-image: url("../assets/终端.svg");
+}
+
 /* ========== 主布局 ========== */
 .main-layout {
     display: flex;
