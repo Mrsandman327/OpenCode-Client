@@ -5580,6 +5580,10 @@ input::placeholder, textarea::placeholder {
     border-radius: 0;
     box-shadow: none;
 }
+/* 独立窗口里关闭按钮无意义（整个窗口即文件浏览器，关窗即退出），隐藏 */
+#fileBrowserModal.file-browser-standalone #btnCloseFileBrowser {
+    display: none;
+}
 .file-browser-modal .modal-header {
     border-bottom: 1px solid var(--border);
 }
