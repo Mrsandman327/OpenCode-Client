@@ -387,12 +387,13 @@ export async function selectSession(id) {
     markSessionViewed(id, info?.idle);
     document.getElementById('ocChatTitle').textContent = info?.title || id;
     const dirEl = document.getElementById('ocSideDirPath');
-    if (dirEl) {
+    const dirBar = document.getElementById('ocDirBar');
+    if (dirEl && dirBar) {
         var dirPath = info?.directory || '';
         dirEl.textContent = dirPath || id;
         dirEl.title = dirPath || '';
-        dirEl.style.cursor = 'pointer';
-        dirEl.onclick = function() {
+        // path 上的 title 保留为"完整路径"预览（省略号截断时悬浮可见）。
+        dirBar.onclick = function() {
             var p = info?.directory || '';
             if (!p) return;
             // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）

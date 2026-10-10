@@ -85,6 +85,7 @@
                         <div class="oc-tree-context-menu" id="ocTreeContextMenu" style="display:none">
                             <div class="oc-tree-context-menu-item" data-action="new-session">✨ 新建会话</div>
                             <div class="oc-tree-context-menu-item" data-action="project-config">⚙️ 项目配置</div>
+                            <div class="oc-tree-context-menu-item" data-action="open-file-browser">📂 打开目录</div>
                             <div class="oc-tree-context-menu-item" data-action="rename">✏️ 重命名</div>
                             <div class="oc-tree-context-menu-item" data-action="delete">🗑️ 删除会话</div>
                             <div class="oc-tree-context-menu-item" data-action="export">📤 导出会话</div>
@@ -218,9 +219,10 @@
                             </div>
                         </div>
                         </div>
-                        <div class="oc-dir-bar" id="ocDirBar">
+                        <div class="oc-dir-bar" id="ocDirBar" title="打开文件浏览器">
                             <span class="oc-dir-bar-icon">📂</span>
-                            <span class="oc-dir-bar-path" id="ocSideDirPath" title="">--</span>
+                            <span class="oc-dir-bar-path" id="ocSideDirPath">--</span>
+                            <span class="oc-dir-open" aria-hidden="true">↗</span>
                         </div>
                     </aside>
                 </div>

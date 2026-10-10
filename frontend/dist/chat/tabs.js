@@ -158,11 +158,12 @@ export function switchTab(sessionID) {
     if (title) document.getElementById('ocChatTitle').textContent = title;
 
     var dirEl = document.getElementById('ocSideDirPath');
-    if (dirEl) {
+    var dirBar = document.getElementById('ocDirBar');
+    if (dirEl && dirBar) {
         var dirPath = (info && info.directory) || '';
         dirEl.textContent = dirPath || sessionID;
         dirEl.title = dirPath || '';
-        dirEl.onclick = function() {
+        dirBar.onclick = function() {
             // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）
             if (dirPath) openFileBrowserStandaloneFor(dirPath, { features: ['git'] });
         };

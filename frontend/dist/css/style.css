@@ -2605,7 +2605,9 @@ input::placeholder, textarea::placeholder {
     border-left: none;
 }
 
-/* 目录栏 */
+/* 目录栏（属性面板最底部）：方案 A —— 整行可点击（点击 → 独立窗口打开文件浏览器）；
+   悬浮时整行背景浮起、文字/图标变亮，右侧「↗」常显并点亮为 accent。
+   注：path 上的 title 由 JS 写入完整路径（省略截断时悬浮可预览）。 */
 .oc-dir-bar {
     display: flex;
     align-items: center;
@@ -2616,6 +2618,12 @@ input::placeholder, textarea::placeholder {
     color: var(--text-muted);
     flex-shrink: 0;
     overflow: hidden;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+}
+.oc-dir-bar:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
 }
 .oc-dir-bar-icon {
     flex-shrink: 0;
@@ -2625,14 +2633,25 @@ input::placeholder, textarea::placeholder {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    cursor: pointer;
-    transition: color 0.15s;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Hiragino Sans GB", sans-serif;
+    transition: color var(--transition);
 }
-
-.oc-dir-bar-path:hover {
+.oc-dir-bar:hover .oc-dir-bar-path {
     color: var(--accent);
     text-decoration: underline;
+    font-weight: bold;
+}
+/* 右侧常显「↗」：暗示"会打开（新窗口）"；悬浮时点亮 */
+.oc-dir-open {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: color var(--transition);
+    font-weight: bold;
+}
+.oc-dir-bar:hover .oc-dir-open {
+    color: var(--accent);
 }
 
 .oc-panel-section {

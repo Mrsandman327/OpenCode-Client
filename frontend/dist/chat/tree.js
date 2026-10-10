@@ -21,6 +21,7 @@ import { closeSessionTab, renderTabsBar } from './tabs.js';
 import { resetUserNav } from './search.js';
 import { openProjectConfig } from '../views/project-config.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
+import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { createBuildGate, createRecentlyDeleted, RECENTLY_DELETED_TTL_MS } from './tree-guard.js';
 
 // ============================
@@ -566,7 +567,7 @@ export function showTreeContextMenu(e, type, data) {
         var action = item.dataset.action;
         if (type === 'dir') {
             // 「导入会话」是全局动作，挂在目录行上保持入口可达
-            item.style.display = (action === 'new-session' || action === 'project-config' || action === 'import') ? '' : 'none';
+            item.style.display = (action === 'new-session' || action === 'project-config' || action === 'open-file-browser' || action === 'import') ? '' : 'none';
         } else if (type === 'session') {
             item.style.display = (action === 'rename' || action === 'delete'
                 || action === 'export' || action === 'move') ? '' : 'none';
@@ -625,6 +626,8 @@ export function initTreeContextMenu() {
                 createNewSession(data.title);
             } else if (type === 'dir' && action === 'project-config') {
                 openProjectConfig(data.title);
+            } else if (type === 'dir' && action === 'open-file-browser') {
+                if (data.title) openFileBrowserStandaloneFor(data.title, { features: ['git'] });
             } else if (type === 'session' && action === 'rename') {
                 renameSession(data.sid);
             } else if (type === 'session' && action === 'delete') {
