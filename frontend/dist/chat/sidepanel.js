@@ -76,6 +76,11 @@ export function renderTodos() {
     if (section) {
         section.style.display = store.todoSupported === false ? 'none' : '';
     }
+    // 代办区隐藏时，其上方「子任务 ↔ 代办」的高度拖动条一并隐藏（其余情况恢复显示）
+    const midResizeHandle = document.getElementById('ocPanelResizeHandleMid');
+    if (midResizeHandle) {
+        midResizeHandle.style.display = store.todoSupported === false ? 'none' : '';
+    }
     if (store.todoSupported === false) {
         return;
     }

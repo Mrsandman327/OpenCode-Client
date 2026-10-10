@@ -184,7 +184,7 @@
                     <aside class="oc-sidepanel">
                         <div class="oc-sidepanel-resize-handle" id="ocSidepanelResizeHandle" aria-hidden="true"></div>
                         <div class="oc-sidepanel-content">
-                        <div class="oc-panel-section">
+                        <div class="oc-panel-section" id="servicePanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
                                 <span class="oc-panel-arrow">▼</span><span>📊 服务状态</span>
                                 <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshStatus" disabled>刷新</button>
@@ -205,6 +205,8 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- 高度拖动条：子任务 ↔ 代办事项（代办区隐藏时由 sidepanel.js 联动隐藏） -->
+                        <div class="oc-panel-resize-handle" id="ocPanelResizeHandleMid" title="拖动调整子任务高度（双击恢复默认）" aria-hidden="true"></div>
                         <div class="oc-panel-section" id="todoPanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
                                 <span class="oc-panel-arrow">▼</span><span>✅ 代办事项</span>

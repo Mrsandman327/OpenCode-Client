@@ -1397,9 +1397,14 @@ input::placeholder, textarea::placeholder {
 .collapsed .oc-panel-body {
     display: none;
 }
+/* 折叠时高度收缩到只剩标题栏：!important 用于覆盖拖动逻辑写入的 inline
+   height / min-height / flex（见 main.js「右侧面板分区高度拖动条」模块），
+   避免折叠后仍保留拖动固定高（或 flex 拉伸）留出大面积空白；
+   展开后折叠类移除，inline 固定高自动恢复生效。 */
 .oc-panel-section.collapsed {
-    min-height: 0;
-    flex: 0 0 auto;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
 }
 .oc-panel-section.collapsed .oc-panel-head {
     border-bottom: none;
@@ -1408,8 +1413,10 @@ input::placeholder, textarea::placeholder {
 /* ==================== 子任务面板 ==================== */
 .oc-subtasks {
     flex: 1;
+    min-height: 0; /* 与 .oc-todos 对齐：滚动容器最小高度归零，高度完全跟随分区 */
     overflow-y: auto;
-    max-height: 400px;
+    /* 原 max-height: 400px 已移除：遗留的固定上限会截断拖动调整后的分区高度
+       （列表滞留在 400px 不再跟随拖动条，下方留空白）。 */
     padding: 6px 8px;
 }
 .oc-subtask-card {
@@ -2634,10 +2641,75 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     border-bottom: 1px solid var(--border);
 }
-.oc-services {
-    flex: 1;
+/* ========== 右侧面板分区高度拖动条 ==========
+   仅「子任务 ↔ 代办事项」分界处一条（服务状态区不参与固定高度分配）；
+   视觉与交互对齐输入区域拖动条（.oc-input-resize-handle）：
+   默认透明，hover / 拖动时显示居中指示条，垂直拖动调整子任务高度 */
+.oc-panel-resize-handle {
+    height: 6px;
+    flex-shrink: 0;
+    align-self: stretch;
+    cursor: row-resize;
+    position: relative;
+    background: transparent;
+    transition: background 0.15s ease;
+    z-index: 2;
+}
+.oc-panel-resize-handle::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+.oc-panel-resize-handle:hover::before,
+.oc-panel-resize-handle.dragging::before {
+    opacity: 1;
+    background: var(--accent);
+}
+.oc-panel-resize-handle.dragging {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+/* 拖动面板高度期间禁止文本选中（与输入框拖动条一致） */
+.oc-sidepanel-content.panel-resizing {
+    user-select: none;
+    -webkit-user-select: none;
+}
+/* 服务状态区：不参与拖动固定高度分配，section / body / 列表整条链路
+   高度均由内容撑开（MCP/LSP/插件等分组折叠、展开时高度实时跟随）；
+   flex-shrink:0 保证内容较长时不被压缩，交给外层整体滚动 */
+#servicePanelSection {
     min-height: 0;
-    overflow: auto;
+    flex-shrink: 0;
+}
+#servicePanelSection .oc-panel-body {
+    flex: 0 0 auto;
+}
+/* 代办事项区高度规则：
+   1) 优先吃满面板剩余高度（flex-grow）；
+   2) 内容高于剩余时由内容撑开（min-content 沿 flex 链冒泡 → 分区不被压到内容以下，
+      超出部分由整体面板滚动兜底，无内部滚动条）；
+   3) 没有内容时最小高度 100px 保底。 */
+#todoPanelSection {
+    flex: 1 1 auto;
+    min-height: 100px;
+}
+#todoPanelSection .oc-panel-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+/* 服务状态列表：取消内部滚动（原 overflow:auto），高度由内容决定；
+   内容很长时由外层 .oc-sidepanel-content（已有 overflow:auto）整体滚动兜底 */
+.oc-services {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
     padding: 8px;
 }
 
@@ -2801,9 +2873,9 @@ input::placeholder, textarea::placeholder {
     text-decoration: underline;
 }
 .oc-todos {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
+    flex: 1 1 auto;          /* 吃满剩余高度 */
+    min-height: min-content; /* 内容高于剩余时撑开分区（整体面板滚动），不产生内部滚动条 */
+    overflow: visible;
     padding: 8px;
 }
 

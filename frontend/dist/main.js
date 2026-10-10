@@ -552,3 +552,170 @@ document.addEventListener('DOMContentLoaded', () => {
         resetHeight();
     });
 })();
+
+// ============================
+// 右侧面板分区高度拖动条
+// ============================
+// 规则：仅「子任务 ↔ 代办事项」之间一条拖动条，调整子任务高度；
+// 服务状态区不参与固定高度分配（高度完全由内容自适应，见 style.css）；
+// 代办事项不设高、始终填满剩余空间；子任务最小高度 100px（拖动上限必须给代办留 100px）。
+// 未拖动过时保持现状（CSS auto 高度兜底），首次拖动才以当前实际高度为基准进入固定
+// 分配模式；拖动结果持久化 localStorage，双击拖动条恢复默认（含清理存储）。
+
+/** 子任务区最小高度（同时是拖动上限为代办事项保留的最小高度） */
+var PANEL_MIN_HEIGHT = 100;
+/** 分区高度存储键：JSON 形如 { subtasks: 180 }（缺省键表示子任务区为 auto；
+ *  旧版本存储中的 services 键在读取时忽略，不再写入） */
+var PANEL_HEIGHTS_KEY = 'panelHeights';
+
+/**
+ * 夹取子任务区高度（纯函数，便于单测）
+ * @param {number} desired 期望高度（px）
+ * @param {number} containerH 容器总高度（px，.oc-sidepanel-content 的 clientHeight）
+ * @param {number} otherH 服务区、拖动条与其它已占用空间的高度（px）
+ * @returns {number} 夹取后的高度：不小于 100px；且保证代办区至少保留 100px
+ */
+function clampPanelHeight(desired, containerH, otherH) {
+    return Math.max(PANEL_MIN_HEIGHT, Math.min(desired, containerH - otherH - PANEL_MIN_HEIGHT));
+}
+
+(function() {
+    var content = document.querySelector('.oc-sidepanel-content');
+    var servicesSection = document.getElementById('servicePanelSection');
+    var subtaskSection = document.getElementById('subtaskPanelSection');
+    var todoSection = document.getElementById('todoPanelSection');
+    var midHandle = document.getElementById('ocPanelResizeHandleMid');
+    if (!content || !servicesSection || !subtaskSection || !todoSection || !midHandle) return;
+
+    // 子任务区当前高度：null 表示保持 auto（未拖过）；数字表示固定高度
+    var heights = { subtasks: null };
+    var dragging = false;
+
+    /** 将子任务区应用为固定高度或恢复 auto（inline 覆盖 CSS 的 min-height 兜底） */
+    function applySectionHeight(section, h) {
+        if (h == null) {
+            section.style.height = '';
+            section.style.flex = '';
+            section.style.minHeight = '';
+        } else {
+            section.style.height = h + 'px';
+            section.style.flex = 'none';
+            section.style.minHeight = PANEL_MIN_HEIGHT + 'px';
+        }
+    }
+
+    /** 应用高度分配：只设置子任务区的固定高；
+     *  代办区与服务区一样内容自适应（CSS 里 min-height 保底 + 内容撑高、无内部滚动），
+     *  不参与剩余空间分配，也不再由这里写任何 inline 样式。 */
+    function applyPanelHeights() {
+        applySectionHeight(subtaskSection, heights.subtasks);
+    }
+
+    /** 持久化高度（子任务恢复 auto 时移除存储） */
+    function persistPanelHeights() {
+        try {
+            if (heights.subtasks != null) {
+                localStorage.setItem(PANEL_HEIGHTS_KEY, JSON.stringify({ subtasks: Math.round(heights.subtasks) }));
+            } else {
+                localStorage.removeItem(PANEL_HEIGHTS_KEY);
+            }
+        } catch (_) {}
+    }
+
+    /** 加载缓存的高度并直接应用；随后按当前容器夹取一次，避免窗口变小后溢出。
+     *  兼容旧存储格式：只读取 subtasks 键，services 键直接忽略。 */
+    function loadPanelHeights() {
+        try {
+            var parsed = JSON.parse(localStorage.getItem(PANEL_HEIGHTS_KEY));
+            if (parsed && typeof parsed === 'object' && Number.isFinite(parsed.subtasks)) {
+                heights.subtasks = parsed.subtasks;
+            }
+        } catch (_) {}
+        if (heights.subtasks == null) return;
+        applyPanelHeights();
+        // 容器尚未布局（如侧栏隐藏）时跳过夹取，保留缓存值，等布局恢复后自然生效
+        var containerH = content.clientHeight;
+        if (containerH <= 0) return;
+        // 服务区已改为内容自适应、不参与高度分配：上限=容器可视高-代办最小高，
+        // 不再扣除服务区高度（服务区超高时若扣除，上限会变负、拖动被瞬间夹到下限）
+        var otherH = 0;
+        heights.subtasks = clampPanelHeight(heights.subtasks, containerH, otherH);
+        subtaskSection.style.height = heights.subtasks + 'px';
+        persistPanelHeights();
+    }
+
+    /** 恢复子任务区默认（auto 模式）并清理存储 */
+    function resetPanel() {
+        heights.subtasks = null;
+        applyPanelHeights();
+        persistPanelHeights();
+    }
+
+    /**
+     * 开始拖动：仅调整子任务高度
+     * 以按下时的实际布局为基准；首次移动才写入固定高度（纯点击不改变现状）
+     */
+    function startDrag(startClientY, handle) {
+        if (dragging) return;
+        if (isMobileTreeMode()) return;
+        // 拖动期间容器高度视为稳定，按下时冻结测量：
+        // 上限只保证代办区至少保留 PANEL_MIN_HEIGHT（=容器可视高-100），
+        // 不扣除服务区高度——服务区内容自适应后可能高于一屏（整体滚动场景），
+        // 若扣除会让上限变负、一拖动就被夹到下限，表现为“点一下就回原始高度”。
+        var containerH = content.clientHeight;
+        var otherH = 0;
+        var startHeight = subtaskSection.offsetHeight || PANEL_MIN_HEIGHT;
+        dragging = true;
+        handle.classList.add('dragging');
+        content.classList.add('panel-resizing');
+
+        function onMove(ev) {
+            if (!dragging) return;
+            if (ev.touches) ev.preventDefault();
+            var clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+            // 向下拖 = 分区底边界下移 = 高度增大（与拖动条所处分界方向一致）
+            var desired = startHeight + (clientY - startClientY);
+            heights.subtasks = clampPanelHeight(desired, containerH, otherH);
+            applyPanelHeights();
+        }
+
+        function onUp() {
+            if (!dragging) return;
+            dragging = false;
+            handle.classList.remove('dragging');
+            content.classList.remove('panel-resizing');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onUp);
+            window.removeEventListener('blur', onUp);
+            // 纯点击（未移动）时 heights 未被写入，持久化不会产生副作用
+            persistPanelHeights();
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+        window.addEventListener('blur', onUp);
+    }
+
+    /** 绑定拖动条：按下拖动 + 双击复位 */
+    function bindPanelResizeHandle(handle) {
+        handle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            startDrag(e.clientY, handle);
+        });
+        handle.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            startDrag(e.touches[0].clientY, handle);
+        });
+        // 双击恢复默认：清除子任务高度并清理存储
+        handle.addEventListener('dblclick', function() {
+            resetPanel();
+        });
+    }
+
+    loadPanelHeights();
+    bindPanelResizeHandle(midHandle);
+})();
