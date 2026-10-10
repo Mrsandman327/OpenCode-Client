@@ -237,11 +237,56 @@ input::placeholder, textarea::placeholder {
     -webkit-app-region: no-drag;
 }
 
+/* 顶部标题：行为上是「折叠/展开侧边栏」的按钮（chat/navigation.js 绑定），
+   在此补上按钮态的视觉反馈：hover 浮出色块、按压轻微回缩。
+   内边距用等量左负外边距抵消，文字视觉位置保持不动、也撑不破 48px 的 header；
+   颜色走主题变量，深浅主题自动适配 */
 .app-title {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
     letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px;
+    margin-left: -10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+/* hover：浮现与侧边栏导航项同源的浅色块，提示「这里可以点」 */
+.app-title:hover {
+    transform: scale(1.03);
+}
+
+/* 按压：背景加深一档 + 与 .btn:active 同款的轻微缩放，保持克制 */
+.app-title:active {
+    background: var(--bg-sidebar-active);
+    transform: scale(0.97);
+}
+
+/* 键盘聚焦：沿用项目统一的 accent 外描边风格 */
+.app-title:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* 标题左侧图标：assets/侧边栏.svg 作遮罩，颜色随标题文字（同侧栏导航图标的 mask 机制） */
+.app-title-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-image: url("../assets/侧边栏.svg");
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-image: url("../assets/侧边栏.svg");
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
 }
 
 /* ========== 按钮 (Apple 风格) ========== */
