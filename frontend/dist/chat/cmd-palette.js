@@ -6,7 +6,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, getCachedMessages, messageText } from '../core/utils.js';
+import { escapeHtml, showToast, getCachedMessages, messageText, bindOverlayClose } from '../core/utils.js';
 import { loadMessages, loadOlderMessages, isSessionLoadedAll } from './session.js';
 import { openSessionTab } from './tabs.js';
 import { buildTree } from './tree.js';
@@ -391,7 +391,6 @@ export function hideForkPicker() {
         renderForkList(s ? s.value : '');
     });
     const modal = document.getElementById('forkModal');
-    if (modal) modal.addEventListener('click', e => {
-        if (e.target === modal) hideForkPicker();
-    });
+    // 仅当按下与松开都在遮罩上才关闭（避免弹窗内拖选误关）
+    if (modal) bindOverlayClose(modal, hideForkPicker);
 })();

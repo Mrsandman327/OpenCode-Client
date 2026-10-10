@@ -7,7 +7,7 @@
 // 模块导入（依赖关系显式声明）
 // ============================
 import { toggleTheme } from './core/theme.js';
-import { isBrowserRuntimeForMain, showToast, isDesktopRuntime, loadWailsRuntime } from './core/utils.js';
+import { isBrowserRuntimeForMain, showToast, isDesktopRuntime, loadWailsRuntime, bindOverlayClose } from './core/utils.js';
 import { api } from './core/apicall.js';
 import { store } from './core/state.js';
 import {
@@ -234,26 +234,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 代理弹窗
-    document.getElementById('proxyModal').addEventListener('click', (e) => {
-        if (e.target.id === 'proxyModal') hideProxyModal();
-    });
-    document.getElementById('frontendWebModal').addEventListener('click', (e) => {
-        if (e.target.id === 'frontendWebModal') closeFrontendWebModal();
-    });
-    document.getElementById('dirBrowserModal').addEventListener('click', (e) => {
-        if (e.target.id === 'dirBrowserModal') closeDirBrowserModal();
-    });
+    // 代理弹窗（仅当按下与松开都在遮罩上才关闭，避免弹窗内拖选误关）
+    bindOverlayClose(document.getElementById('proxyModal'), hideProxyModal);
+    bindOverlayClose(document.getElementById('frontendWebModal'), closeFrontendWebModal);
+    bindOverlayClose(document.getElementById('dirBrowserModal'), closeDirBrowserModal);
     document.getElementById('btnDirBrowserClose').addEventListener('click', closeDirBrowserModal);
     document.getElementById('btnDirBrowserBack').addEventListener('click', goDirBrowserUp);
     document.getElementById('btnDirBrowserSelect').addEventListener('click', selectDirBrowserCurrent);
-    // 文件浏览弹窗 (Web 端)
-    document.getElementById('fileBrowserModal')?.addEventListener('click', function(e) {
-        if (e.target.id === 'fileBrowserModal') closeFileBrowserModal();
-    });
-    document.getElementById('fileBrowserUploadConflictModal')?.addEventListener('click', function(e) {
-        if (e.target.id === 'fileBrowserUploadConflictModal') closeFileBrowserUploadConflictModal();
-    });
+    // 文件浏览弹窗 (Web 端)：仅当按下与松开都在遮罩上才关闭
+    bindOverlayClose(document.getElementById('fileBrowserModal'), closeFileBrowserModal);
+    bindOverlayClose(document.getElementById('fileBrowserUploadConflictModal'), closeFileBrowserUploadConflictModal);
     document.getElementById('btnCloseFileBrowser')?.addEventListener('click', closeFileBrowserModal);
     document.getElementById('btnRefreshFiles')?.addEventListener('click', refreshFileBrowser);
     document.getElementById('btnFileBrowserUpload')?.addEventListener('click', openFileBrowserUploadPicker);

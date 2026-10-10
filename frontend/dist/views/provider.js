@@ -4,7 +4,7 @@
 // 说明：ES Modules 化改造。core 层依赖静态导入；filebrowser 依赖
 // 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import。
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { escapeHtml, showToast, bindOverlayClose } from '../core/utils.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 
 export let providerCache = [];
@@ -416,12 +416,9 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
     '</div>';
     document.body.appendChild(overlay);
     overlay.style.display = 'flex';
-    overlay.querySelector('.modal').addEventListener('click', function(e) { e.stopPropagation(); });
-
-    // 事件绑定
-    overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) closeModelListModal();
-    });
+    // 事件绑定：由 bindOverlayClose 统一处理「点击遮罩关闭」，
+    // 仅当按下与松开都在遮罩上才关闭（新机制不再需要子元素 stopPropagation）
+    bindOverlayClose(overlay, closeModelListModal);
     overlay.querySelector('#btnCloseModelList').addEventListener('click', closeModelListModal);
 
     overlay.querySelectorAll('[data-action]').forEach(function(actBtn) {

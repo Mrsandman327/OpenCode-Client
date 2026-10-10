@@ -6,7 +6,7 @@
 // 说明：P0 只做「主页 + 分类管理 + 编辑弹窗」，不含 @ 调用与转化（P1/P2）。
 // ============================================================
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { escapeHtml, showToast, bindOverlayClose } from '../core/utils.js';
 // 当前会话所在目录（转化弹窗的「目标项目」默认值）取自会话状态
 import { store } from '../core/state.js';
 // 复用文件浏览器的 Markdown 白名单清洗（与 project-config.js 的用法一致），不重复实现安全逻辑
@@ -1543,10 +1543,8 @@ export function bindKnowledgeEvents() {
 
     var modal = $('#kbEntryModal');
     if (modal) {
-        modal.addEventListener('click', function (e) {
-            // 点遮罩（面板之外的区域）关闭
-            if (e.target === modal) closeKbEntryModal();
-        });
+        // 点遮罩（面板之外的区域）关闭；仅当按下与松开都在遮罩上才触发
+        bindOverlayClose(modal, closeKbEntryModal);
     }
 
     // ---- 转化弹窗（P2）：入口在编辑弹窗底部 ----
@@ -1555,10 +1553,8 @@ export function bindKnowledgeEvents() {
 
     var convModal = $('#kbConvertModal');
     if (convModal) {
-        // 点遮罩关闭
-        convModal.addEventListener('click', function (e) {
-            if (e.target === convModal) closeKbConvertModal();
-        });
+        // 点遮罩关闭（仅当按下与松开都在遮罩上才触发）
+        bindOverlayClose(convModal, closeKbConvertModal);
         // 类型 / 作用域 / 同步方式 / 目标项目：change 后立即刷新预览
         convModal.addEventListener('change', function (e) {
             if (!e.target.closest('.kb-convert-modal')) return;

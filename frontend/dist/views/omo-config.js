@@ -5,7 +5,7 @@
 // filebrowser/chat 模块，无守卫调用。以下 modelEntries 等均为本
 // 文件内的模块级变量（非 core/state.js 的 store），保持局部。
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { escapeHtml, showToast, bindOverlayClose } from '../core/utils.js';
 import { store } from '../core/state.js';
 
 export let modelEntries = [];
@@ -396,8 +396,8 @@ export function showAddEntryModal(entryType) {
             <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAdd">取消</button><button class="btn btn-primary" id="btnConfirmAdd">💾 添加</button></div>
         </div>`;
     document.body.appendChild(overlay);
-    overlay.addEventListener('click', () => overlay.remove());
-    overlay.querySelector('.modal').addEventListener('click', (e) => e.stopPropagation());
+    // 点遮罩关闭（仅当按下与松开都在遮罩上才触发；新机制不再需要子元素 stopPropagation）
+    bindOverlayClose(overlay, () => overlay.remove());
     overlay.querySelector('#btnCancelAdd').addEventListener('click', () => overlay.remove());
     overlay.querySelector('#btnConfirmAdd').addEventListener('click', () => {
         const key = overlay.querySelector('#modalEntryKey').value.trim();
