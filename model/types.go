@@ -189,9 +189,59 @@ type Modalities struct {
 }
 
 // ModelDef 模型定义。
+// 除 name / modalities 外，opencode.jsonc 的模型条目还常带 limit（context/output）、
+// reasoning、tool_call、attachment 等字段。若只建模 name/modalities，一旦在「供应商
+// 管理」中保存就会把这些未建模字段整段抹掉。故这里用 Extra 原样保留所有未知键
+// （与顶层 OpenCodeConfig 同策略），保证保存不丢数据。
 type ModelDef struct {
 	Name       string      `json:"name"`
 	Modalities *Modalities `json:"modalities,omitempty"`
+	// Extra 保留未建模的模型键（如 limit / reasoning / tool_call / attachment 等），
+	// json 序列化由自定义 MarshalJSON/UnmarshalJSON 处理。
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON 自定义反序列化：分离已知字段，未知键原样保留到 Extra。
+func (m *ModelDef) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if v, ok := raw["name"]; ok {
+		if err := json.Unmarshal(v, &m.Name); err != nil {
+			return err
+		}
+		delete(raw, "name")
+	}
+	if v, ok := raw["modalities"]; ok {
+		if err := json.Unmarshal(v, &m.Modalities); err != nil {
+			return err
+		}
+		delete(raw, "modalities")
+	}
+	m.Extra = raw
+	return nil
+}
+
+// MarshalJSON 自定义序列化：已知字段与保留的未知键（Extra）合并输出。
+func (m ModelDef) MarshalJSON() ([]byte, error) {
+	out := make(map[string]json.RawMessage, len(m.Extra)+2)
+	for k, v := range m.Extra {
+		out[k] = v
+	}
+	nameJSON, err := json.Marshal(m.Name)
+	if err != nil {
+		return nil, err
+	}
+	out["name"] = nameJSON
+	if m.Modalities != nil {
+		b, err := json.Marshal(m.Modalities)
+		if err != nil {
+			return nil, err
+		}
+		out["modalities"] = b
+	}
+	return json.Marshal(out)
 }
 
 // ProviderInfo 前端展示用供应商信息。

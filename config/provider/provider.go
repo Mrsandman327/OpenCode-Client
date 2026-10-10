@@ -148,6 +148,13 @@ func SaveProvider(ps model.ProviderSave) error {
 		npm = "@ai-sdk/openai-compatible"
 	}
 
+	// 旧配置中该供应商已有的模型定义：用于继承未建模字段（limit/reasoning 等）的 Extra，
+	// 否则下面重建 ModelDef 时这些字段会被抹掉。
+	var oldModels map[string]*model.ModelDef
+	if prev := cfg.Provider[ps.Key]; prev != nil {
+		oldModels = prev.Models
+	}
+
 	entry := &model.ProviderEntry{
 		Npm:  npm,
 		Name: ps.Name,
@@ -160,7 +167,12 @@ func SaveProvider(ps model.ProviderSave) error {
 	if ps.Models != nil {
 		entry.Models = make(map[string]*model.ModelDef)
 		for _, m := range ps.Models {
-			entry.Models[m.ID] = &model.ModelDef{Name: m.Name, Modalities: m.Modalities}
+			def := &model.ModelDef{Name: m.Name, Modalities: m.Modalities}
+			// 同名模型已存在时继承其 Extra，保证 limit 等未建模字段在保存后不丢
+			if old, ok := oldModels[m.ID]; ok && old != nil {
+				def.Extra = old.Extra
+			}
+			entry.Models[m.ID] = def
 		}
 	}
 
