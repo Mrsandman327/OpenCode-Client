@@ -1436,6 +1436,7 @@ input::placeholder, textarea::placeholder {
 .oc-subtask-card.status-running   { border-left-color: var(--accent); }
 .oc-subtask-card.status-error     { border-left-color: var(--danger); }
 .oc-subtask-card.status-interrupt { border-left-color: var(--warning); }
+.oc-subtask-card.status-ended     { border-left-color: var(--text-muted); }
 .oc-subtask-card-title {
     font-size: 13px;
     font-weight: 500;
@@ -1488,6 +1489,7 @@ input::placeholder, textarea::placeholder {
 .oc-subtask-status-badge.status-error     { background: var(--danger-bg); color: var(--danger); }
 .oc-subtask-status-badge.status-interrupt { background: var(--warning-bg); color: var(--warning); }
 .oc-subtask-status-badge.status-pending   { background: var(--bg-input); color: var(--text-muted); }
+.oc-subtask-status-badge.status-ended     { background: var(--bg-input); color: var(--text-muted); }
 
 /* ==================== synthetic 系统通知（主消息流内，通用折叠块） ==================== */
 /* 由 render.js buildSyntheticNoticeCard 渲染：适用于全部 synthetic 消息

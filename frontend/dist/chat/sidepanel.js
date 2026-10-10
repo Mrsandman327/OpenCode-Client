@@ -187,7 +187,9 @@ export function mapChildSessionsToSummaries(list) {
             description: '',
             agent: s?.agent || 'unknown',
             model: modelRef ? modelDisplayLabel(modelRef) : 'unknown',
-            status: CHILD_SESSION_STATUS_MAP[s?.outcome] || 'running',
+            // outcome 缺失 = v1 时代继承过来的旧会话（outcome 是 v2 才有的字段）：
+            // 无法区分成功/失败，用中性终态「已结束」呈现，而非误报「运行中」。
+            status: s?.outcome ? (CHILD_SESSION_STATUS_MAP[s.outcome] || 'running') : 'ended',
             durationMs: hasTime ? (updated - created) : null,
             interrupted: s?.outcome === 'interrupted',
             startedAt: hasTime ? created : null,
@@ -329,7 +331,7 @@ export function renderSubtaskPanel() {
 /** 渲染单张子任务卡片 */
 export function renderSubtaskCard(s, idx) {
     const statusClass = 'status-' + (s.status || 'pending');
-    const statusLabels = { completed: '已完成', running: '运行中', error: '失败', interrupt: '已中断', pending: '等待中' };
+    const statusLabels = { completed: '已完成', running: '运行中', error: '失败', interrupt: '已中断', pending: '等待中', ended: '已结束' };
     const statusLabel = statusLabels[s.status] || s.status || '未知';
     const durationText = s.durationMs != null ? formatSubtaskDuration(s.durationMs) : (s.status === 'running' ? '运行中…' : '—');
 
@@ -546,7 +548,7 @@ export function fillModalSummary(s) {
 
     set('subtaskSid', s.childSessionId || '');
 
-    const statusLabels = { completed: '已完成', running: '运行中', error: '失败', interrupt: '已中断', pending: '等待中' };
+    const statusLabels = { completed: '已完成', running: '运行中', error: '失败', interrupt: '已中断', pending: '等待中', ended: '已结束' };
     const statusLabel = statusLabels[s.status] || s.status || '未知';
     const updateBadge = (el, text, st) => {
         if (!el) return;
