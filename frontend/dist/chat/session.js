@@ -3,7 +3,7 @@
 // 负责会话选择/创建/加载、Agent/Model 选择器、附件管理、消息发送、轮询与中止
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages）、
 //       core/apicall.js（api）、chat/mobile.js（isMobileTreeMode）、chat/tabs.js（openSessionTab, renderTabsBar, setTabActivationHandler）、
-//       chat/sidepanel.js（extractSubtaskSummaries, renderSubtaskPanel）、chat/events.js（loadSessionStatuses）、
+//       chat/sidepanel.js（refreshSubtaskPanel, scheduleSubtaskExtraction）、chat/events.js（loadSessionStatuses）、
 //       chat/render.js（isSessionBusy, smartScroll, updateSendButton, renderMessages）、chat/tree.js（rememberKnownDir）、
 //       chat/search.js（resetUserNav）、chat/cache.js（cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages）
 //       filebrowser/browser.js（openFileBrowserStandaloneFor）——保留全局守卫调用
@@ -18,7 +18,7 @@ import { store } from '../core/state.js';
 import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, resolveKnownValue, markManualSelection, restoreSessionSelection, hasManualSessionSelection, setSessionActionHandlers } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
-import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
+import { refreshSubtaskPanel, scheduleSubtaskExtraction } from './sidepanel.js';
 import { loadSessionStatuses } from './events.js';
 import { isSessionBusy, smartScroll, updateSendButton, renderMessages, ensureSelectOption } from './render.js';
 // 解环后与 cmd-palette 的依赖为单向：它经 core/utils.js 注册中心调用本模块的
@@ -299,8 +299,8 @@ export async function refreshCurrentSession() {
         if (refreshSessionId !== store.currentSessionId) return;
 
         if (!isMobileTreeMode()) {
-            extractSubtaskSummaries(store.currentSessionId);
-            renderSubtaskPanel();
+            // 子任务面板数据源为服务端 child sessions：刷新会话后立即重拉一次
+            refreshSubtaskPanel();
         }
 
         try {
@@ -420,8 +420,8 @@ export async function selectSession(id) {
     loadMessages(id).then(() => {
         if (id !== store.currentSessionId) return;
         if (!isMobileTreeMode()) {
-            extractSubtaskSummaries(store.currentSessionId);
-            renderSubtaskPanel();
+            // 子任务面板数据源为服务端 child sessions：选择会话后立即重拉一次
+            refreshSubtaskPanel();
         }
         smartScroll(sessBox || getActiveMessagesEl(), true);
     }).catch(() => {});
@@ -575,10 +575,6 @@ export async function loadMessages(sessionID) {
         // 残缺缓存永远无法通过刷新校正（只能重开会话），这正是本次修复的根因。
         // 这里继续往下走 API 拉取，用服务端权威数据修正缓存。
         renderMessages(existing, box);
-        if (!isMobileTreeMode()) {
-            extractSubtaskSummaries(targetId);
-            renderSubtaskPanel();
-        }
     } else {
         // 无缓存 = 全新加载（会话被关闭后重开、或刚 fork 出的新会话）：
         // 重置分页状态，防止 closeSessionTab 未清理的 loadedAll 残留（来自关闭前的滚动加载）
@@ -656,10 +652,6 @@ export async function loadMessages(sessionID) {
         // 校正后数据与校正前一致时跳过重渲染，避免多余的全量重建与闪烁
         if (!hasCache || JSON.stringify(after) !== beforeJson) {
             renderMessages(after, box);
-            if (!isMobileTreeMode()) {
-                extractSubtaskSummaries(targetId);
-                renderSubtaskPanel();
-            }
         }
     } catch (e) {
         if (seq !== store.sessionLoadSeq[targetId]) return;
@@ -670,6 +662,12 @@ export async function loadMessages(sessionID) {
     } finally {
         clearTimeout(inflightWatchdog);
         loadMessagesInflight[targetId] = false;
+        // 消息加载/校正完成后刷新子任务面板：数据源为服务端 child sessions，
+        // 经节流调度合并高频调用（4 秒轮询 / SSE 补齐 / 用户刷新都会经过这里），
+        // 不再依赖消息缓存——打开或刷新会话后子任务面板必然反映服务端最新列表。
+        if (!isMobileTreeMode()) {
+            scheduleSubtaskExtraction(targetId);
+        }
     }
 }
 

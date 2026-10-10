@@ -331,6 +331,21 @@ function filePartFromAttachment(f, sessionID, messageID, id) {
     return part;
 }
 
+/** 剥离服务端 synthetic 正文的包装标签：`<subagent ...>…</subagent>` 外层与 `<summary>` 包裹。
+ *  服务端落库文本形如 `<subagent ...>\n<summary>\n报告（markdown）\n</subagent>`，其中
+ *  `<summary>` 常未闭合——HTML 解析时会把后续所有内容吞进 summary 元素、导致正文被"压平"
+ *  （标题/列表等块级结构全部丢失、连成一段）。在适配层剥离包装，正文保持原始 markdown，
+ *  交给 render.js 的 renderTextPart（marked + 白名单清洗）正常渲染。
+ *  只锚定首尾，不误伤正文内部的同类标签。 */
+function stripSyntheticWrapper(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/^\s*<subagent\b[^>]*>\s*/i, '')
+        .replace(/<\/subagent>\s*$/i, '')
+        .replace(/^\s*<summary>\s*/i, '')
+        .replace(/<\/summary>\s*$/i, '');
+}
+
 /** v2 的单条消息 → v1 的 {info, parts}。 */
 function adaptMessage(msg, sessionID) {
     if (!msg || !msg.id) return null;
@@ -378,13 +393,32 @@ function adaptMessage(msg, sessionID) {
         return { info, parts };
     }
 
+    // synthetic 合成通知（子任务完成 / 回复中断自动继续 / 未来其它）：v2 的 synthetic
+    // 消息统一渲染为通用折叠通知块（render.js buildSyntheticNoticeCard），不做 source 专用识别。
+    // description 作为摘要行文案（info.syntheticNotice.description），
+    // metadata.state 作为摘要行状态（completed / failed / interrupted，其它值原样显示）；
+    // 正文只放 text（description 不再拼进正文，避免与摘要行重复）。
+    // 完全无 text 也无 description 的 synthetic 仍丢弃（与旧行为一致，避免空卡片）。
+    if (msg.type === 'synthetic') {
+        // 剥离服务端包装（<subagent ...>/<summary>）——正文保持 markdown，交由渲染层正常渲染
+        const body = stripSyntheticWrapper(msg.text);
+        if (!body && !msg.description) return null;
+        info.role = 'system'; // 保持 system 角色（渲染分发用；卡片外观仍是系统卡）
+        // 标记字段，供渲染层统一识别并渲染为通用折叠通知块
+        info.syntheticNotice = {
+            description: msg.description || '', // 摘要行后缀（有值时显示「系统通知：<description>」）
+            state: (msg.metadata && msg.metadata.state) || '', // 摘要行右侧状态；无 metadata/state 则不显示
+        };
+        return { info, parts: [{ id: msg.id + '_text', messageID: msg.id, sessionID, type: 'text', text: body }] };
+    }
+
     // v2 除 user/assistant 外还有若干消息类型。idle 是状态边界标记，必须丢弃
     // （否则界面上出现空卡片）；agent/model/location-switched 只是 UI 状态切换，
     // 没有可渲染内容，同样丢弃。其余类型按下表还原。
     switch (msg.type) {
-        case 'system':
-        case 'synthetic': {
+        case 'system': {
             // {id, time, type, text, description?} —— 服务端注入的说明性消息
+            // （instructions 更新通知等普通系统消息；synthetic 已在上方分支统一处理）
             const text = [msg.description, msg.text].filter(Boolean).join('\n');
             if (!text) return null;
             info.role = 'system';
@@ -731,18 +765,27 @@ export function adaptEvent(event) {
             }];
         }
 
-        // 合成消息（如「不完整流继续」提示）：服务端也会把它落库为 synthetic 消息，
+        // 合成通知（子任务完成 / 回复中断自动继续等）：服务端也会把它落库为 synthetic 消息，
         // 消息 id = msg_<事件 id>（message-updater 的 SessionMessage.ID.fromEvent），
         // 这里用同一规则生成，保证随后历史刷新按 id 合并、不重复。
-        // 正文与 adaptMessage 的 synthetic 分支同构（description + text）。
+        // 必须与 adaptMessage 的 synthetic 分支同构：info 带 syntheticNotice（description +
+        // metadata.state）、正文只放 text（不拼 description）——否则实时渲染与历史刷新后的
+        // 通用折叠通知块不一致，且 mergePart 的长文本保护会让正文残留 description。
         case 'session.synthetic': {
             const msgID = messageIDFromEvent(event);
             if (!msgID) return [];
-            const text = [data.description, data.text].filter(Boolean).join('\n');
-            if (!text) return [];
+            // 与历史路径同构：剥离服务端包装标签（<subagent ...>/<summary>），正文保持 markdown
+            const body = stripSyntheticWrapper(data.text);
+            if (!body && !data.description) return [];
             return [
-                { type: 'message.updated', info: { id: msgID, sessionID, role: 'system', time: { created: event.created } } },
-                { type: 'message.part.updated', part: { id: msgID + '_text', messageID: msgID, sessionID, type: 'text', text } },
+                { type: 'message.updated', info: {
+                    id: msgID, sessionID, role: 'system', time: { created: event.created },
+                    syntheticNotice: {
+                        description: data.description || '',
+                        state: (data.metadata && data.metadata.state) || '',
+                    },
+                } },
+                { type: 'message.part.updated', part: { id: msgID + '_text', messageID: msgID, sessionID, type: 'text', text: body } },
             ];
         }
 

@@ -94,6 +94,73 @@ function refreshLiveToolDurations() {
 // 秒表全局定时器：仅当页面存在运行中工具时才做实际更新，开销可忽略
 setInterval(refreshLiveToolDurations, 200);
 
+/** 构建 synthetic 系统通知的折叠块（主消息流内，所有 synthetic 消息统一使用）。
+ *  数据来源：v2compat.js adaptMessage / adaptEvent 对 synthetic 消息写入的
+ *  info.syntheticNotice（description 摘要 + state 终态），正文由该消息的 text part 提供。
+ *  外观：卡片本体是外层 .oc-message.system（系统卡，含「系统」角色行），
+ *  此函数只生成卡内折叠块 + 右下角时间（时间行复用 .oc-message-time 的样式与位置）。
+ *  折叠块视觉/交互对齐「思考过程」折叠款（.oc-reasoning）：标题行点击展开/收起，
+ *  展开态记忆在 store.expandedParts；摘要行右侧仅在 metadata.state 存在时显示状态
+ *  （completed→完成 / failed→失败 / interrupted→已中断，其它值原样）。
+ *  折叠块只做展开/收起，无任何点击定位交互。 */
+function buildSyntheticNoticeCard(info, partList) {
+    const notice = info.syntheticNotice || {};
+    const wrapper = document.createElement('div');
+    wrapper.className = 'oc-synthetic-notice';
+
+    const key = 'synthetic:' + (info.id || '');
+    const expanded = !!store.expandedParts[key];
+
+    const fold = document.createElement('div');
+    fold.className = 'oc-part oc-synthetic-fold';
+
+    // 摘要行：固定前缀「系统通知」；有 description 时以全角冒号拼接
+    const head = document.createElement('div');
+    head.className = 'oc-synthetic-head';
+    const label = document.createElement('span');
+    label.className = 'oc-synthetic-label';
+    label.textContent = '系统通知' + (notice.description ? '：' + notice.description : '');
+    head.appendChild(label);
+    // 状态徽章：仅有 metadata.state 时显示；中文映射，其它值原样
+    if (notice.state) {
+        const labelMap = { completed: '完成', failed: '失败', interrupted: '已中断' };
+        const clsMap = { completed: 'completed', failed: 'error', interrupted: 'interrupt' };
+        const stateEl = document.createElement('span');
+        stateEl.className = 'oc-synthetic-status status-' + (clsMap[notice.state] || 'pending');
+        stateEl.textContent = labelMap[notice.state] || notice.state;
+        head.appendChild(stateEl);
+    }
+    const toggle = document.createElement('span');
+    toggle.className = 'oc-synthetic-toggle';
+    toggle.textContent = expanded ? '收起' : '展开';
+    head.appendChild(toggle);
+
+    // 展开区：默认折叠；正文沿用既有文本渲染（renderTextPart），text 为空时渲染空内容
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'oc-synthetic-body' + (expanded ? '' : ' hidden');
+    const textPart = (Array.isArray(partList) ? partList : []).find(p => p && p.type === 'text');
+    if (textPart) bodyEl.appendChild(renderTextPart(textPart));
+    head.addEventListener('click', () => {
+        store.expandedParts[key] = !store.expandedParts[key];
+        bodyEl.classList.toggle('hidden', !store.expandedParts[key]);
+        toggle.textContent = store.expandedParts[key] ? '收起' : '展开';
+    });
+    fold.appendChild(head);
+    fold.appendChild(bodyEl);
+    wrapper.appendChild(fold);
+
+    // 底部右下角时间：与既有消息卡时间样式一致（.oc-message-time，text-align:right），
+    // 数据取该 synthetic 消息的 time.created（沿用 buildMessageNode 的取值兜底链）
+    const msgTime = formatDateTime(info.time?.created || info.time?.updated || info.createdAt);
+    if (msgTime) {
+        const timeEl = document.createElement('div');
+        timeEl.className = 'oc-message-time';
+        timeEl.textContent = '⏱ ' + msgTime;
+        wrapper.appendChild(timeEl);
+    }
+    return wrapper;
+}
+
 /** 构建单条消息节点（user/assistant 卡片），供 renderMessages 与分帧渲染复用 */
 export function buildMessageNode(item) {
     const info = item.info || item;
@@ -120,6 +187,14 @@ export function buildMessageNode(item) {
         errEl.className = 'oc-part error-msg';
         errEl.textContent = messageErrorText;
         body.appendChild(errEl);
+    }
+    // synthetic 系统通知（v2compat.js adaptMessage / adaptEvent 写入的通用标记）：
+    // 所有 synthetic 消息统一渲染为系统卡内的折叠通知块（摘要 + 状态 + 展开正文），
+    // 不再走普通系统文本渲染；折叠块只做展开/收起，无任何点击定位交互。
+    if (role === 'system' && info.syntheticNotice) {
+        body.appendChild(buildSyntheticNoticeCard(info, partList));
+        node.appendChild(body);
+        return node;
     }
     if (partList.length) {
         partList.forEach(part => body.appendChild(renderPart(part)));

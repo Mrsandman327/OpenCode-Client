@@ -6,9 +6,9 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { store } from '../core/state.js';
+import { store, currentDir } from '../core/state.js';
 import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, safeText, modelDisplayLabel, setTodoPanelRefreshHandler, copyToClipboard, bindOverlayClose } from '../core/utils.js';
-import { adaptMessages, formatApiError } from '../core/v2compat.js';
+import { adaptMessages, formatApiError, unwrapList, nextCursor } from '../core/v2compat.js';
 // 时间格式化统一走 core/format.js
 import { formatSubtaskDuration, formatMinuteTime } from '../core/format.js';
 import { renderPart, setRenderTodosHandler } from './render.js';
@@ -124,93 +124,180 @@ export function renderTodos() {
 
 
 // ============================================================
-// 子任务面板 — 摘要提取、渲染、详情弹窗
+// 子任务面板 — 数据源：服务端 child sessions 列表
+// 原实现扫描「消息缓存」里的 subagent/task tool parts，先天不足：
+//   1) 打开会话只拉最近 20 条消息（loadMessages），最近 20 条里没有 subagent 时
+//      面板为空——即使会话历史里有大量子任务；
+//   2) 滚动加载更早消息（loadOlderMessages）写入缓存后不会触发重新提取；
+//   3) 只有发送消息后的 SSE 流事件才重新提取，导致「发消息后历史子任务突然出现」。
+// 现改为直接查询服务端 child sessions 列表（GET /api/session?parentID=，权威全量、
+// 一次一请求按游标翻页），与消息缓存彻底解耦。
 // ============================================================
 
-/** 从缓存消息中提取子任务摘要列表 */
-/** 从消息索引中取某 part 所属消息的模型标识，取不到返回空串。
- *  v2 的 task 工具 state.metadata 里通常不含 model，
- *  但消息本身带 model（适配层已拍平成 v1 的 providerID/modelID 形态）。 */
-function partMessageModel(part, msgById) {
-    const msg = msgById && part?.messageID ? msgById.get(part.messageID) : null;
-    if (!msg) return '';
-    const info = msg.info || msg;
-    if (info.providerID && info.modelID) return info.providerID + '/' + info.modelID;
-    const ref = info.model;
-    if (ref && (ref.providerID || ref.id)) return (ref.providerID || '') + '/' + (ref.id || '');
-    return '';
+/** 子任务列表拉取节流窗口（毫秒）：消息 part 的 SSE 事件高频到来，
+ *  面板数据源改为网络请求后必须节流合并，避免请求风暴。 */
+const SUBTASK_REFRESH_THROTTLE_MS = 900;
+
+/** 子任务列表翻页上限（防御服务端游标异常导致死循环；默认 50 条/页，5 页 = 250 条） */
+const SUBTASK_MAX_PAGES = 5;
+
+/** 面板刷新节流状态：上次发起请求时间 / 请求在途 / 有待执行的新一轮刷新 / 等待定时器句柄 */
+let subtaskRefreshLastAt = 0;
+let subtaskRefreshInFlight = false;
+let subtaskRefreshQueued = false;
+let subtaskRefreshTimer = 0;
+/** 面板刷新轮次序号：用于丢弃过期请求的结果（快速切会话 / 连续刷新时） */
+let subtaskPanelRefreshSeq = 0;
+
+/** child session 的 outcome → 面板状态键（renderSubtaskCard/fillModalSummary 使用）：
+ *  服务端仅提供 succeeded / failed / interrupted；进行中的子任务没有 outcome 字段。 */
+const CHILD_SESSION_STATUS_MAP = {
+    succeeded: 'completed',
+    failed: 'error',
+    interrupted: 'interrupt',
+};
+
+/** 把服务端 child session 数组归一化为面板卡片摘要（纯函数，便于单测）。
+ *  字段逐一对应 renderSubtaskCard / fillModalSummary 的读取项：
+ *  - childSessionId/title/agent/model/status/durationMs 来自列表字段；
+ *  - 列表没有消息上下文（parentMessageId/taskPartId）与输入输出预览，置空串——
+ *    卡片点击改走「消息缓存反查」（findCachedSubtaskPart）定位父消息，
+ *    反查未命中时打开详情弹窗兜底，不再依赖这两个字段（见 onSubtaskCardClick）。
+ *  输出顺序：按 time.updated 升序（旧→新，最新在最下面）。 */
+export function mapChildSessionsToSummaries(list) {
+    const children = Array.isArray(list) ? list : [];
+    // 面板排序：按 time.updated 升序（旧在上、**最新在最下面**——用户明确要求）。
+    // 缺 time.updated 的项以 0 参与比较（排最前）；slice() 复制副本，避免修改调用方数组。
+    const sorted = children.slice().sort((a, b) => (Number(a?.time?.updated) || 0) - (Number(b?.time?.updated) || 0));
+    return sorted.map(s => {
+        const created = Number(s?.time?.created);
+        const updated = Number(s?.time?.updated);
+        const hasTime = Number.isFinite(created) && Number.isFinite(updated);
+        const providerID = s?.model?.providerID || '';
+        const modelID = s?.model?.id || '';
+        const modelRef = (providerID && modelID) ? (providerID + '/' + modelID) : '';
+        return {
+            childSessionId: s?.id || '',
+            title: s?.title || '未知任务',
+            description: '',
+            agent: s?.agent || 'unknown',
+            model: modelRef ? modelDisplayLabel(modelRef) : 'unknown',
+            status: CHILD_SESSION_STATUS_MAP[s?.outcome] || 'running',
+            durationMs: hasTime ? (updated - created) : null,
+            interrupted: s?.outcome === 'interrupted',
+            startedAt: hasTime ? created : null,
+            endedAt: hasTime ? updated : null,
+            outputPreview: '',
+            promptPreview: '',
+            parentMessageId: '',
+            taskPartId: '',
+        };
+    });
 }
 
-export function extractSubtaskSummaries(sessionID) {
-    const items = getCachedMessages(sessionID);
-    if (!items || !items.length) {
+/** 取子任务查询所需的当前会话目录：优先现有目录来源（store.sessionMap 等，见 currentDir()），
+ *  拿不到时兜底请求会话详情的 location.directory。
+ *  返回空串时调用方必须跳过请求——child sessions 查询缺 location 会回落到服务端进程
+ *  CWD（共享服务为 home）并把该目录误登记成项目。 */
+async function resolveSubtaskDirectory(sessionId) {
+    const dir = currentDir();
+    if (dir) return dir;
+    try {
+        const res = await api.OpenCodeCall('GET', '/api/session/' + encodeURIComponent(sessionId));
+        const data = (res && typeof res === 'object' && 'data' in res && res.data && typeof res.data === 'object')
+            ? res.data
+            : res;
+        const directory = data && data.location && data.location.directory;
+        return typeof directory === 'string' ? directory.trim() : '';
+    } catch (_) {
+        return '';
+    }
+}
+
+/** 拉取某父会话的全部 child sessions（服务端权威列表；按游标翻页，上限 SUBTASK_MAX_PAGES 页防御）。
+ *  响应形如 {data:[...], cursor:{next}}；实测数据已尽时仍可能签发 next，故「空页」同样终止翻页。 */
+async function fetchChildSessions(directory, parentSessionId) {
+    const all = [];
+    let cursor = '';
+    for (let page = 0; page < SUBTASK_MAX_PAGES; page++) {
+        let path = '/api/session?parentID=' + encodeURIComponent(parentSessionId);
+        if (cursor) path += '&cursor=' + encodeURIComponent(cursor);
+        // 第 4 参由 api.OpenCodeCall 统一追加 location[directory]（与 service.js 的调用风格一致）
+        const res = await api.OpenCodeCall('GET', path, null, directory);
+        const list = unwrapList(res);
+        if (!list.length) break; // 空页 = 已到末尾
+        all.push(...list);
+        cursor = nextCursor(res) || '';
+        if (!cursor) break;
+    }
+    return all;
+}
+
+/** 刷新子任务面板：拉取并渲染当前会话的 child sessions 列表。
+ *  调用方：会话打开/切换/刷新（session.js、tabs.js）与节流调度（scheduleSubtaskExtraction）。
+ *  失败静默：请求异常时保留面板现状（仅 console 记录），不弹 toast。 */
+export async function refreshSubtaskPanel() {
+    const sessionId = store.currentSessionId;
+    // 服务未运行 / 未选择会话：沿用既有空态（清空数据并渲染）
+    if (!store.webRunning || !sessionId) {
         store.subtaskSummaries = [];
+        renderSubtaskPanel();
         return;
     }
-    const summaries = [];
-    // 建立 messageID → 消息 索引：v2 的 task 工具 metadata 里没有 model，
-    // 需要回查到消息自身的模型（见 partMessageModel）。
-    const msgById = new Map();
-    const scanItems = items.length > 200 ? items.slice(-200) : items;
-    for (const msg of scanItems) {
-        const mid = (msg.info || msg || {}).id;
-        if (mid) msgById.set(mid, msg);
-        const parts = msg.parts || [];
-        for (const part of parts) {
-            // v1 的子任务工具名为 task，v2 改名为 subagent（见 V2 工具文档「Automation → Subagent」）
-            const toolName = part.tool || part.name || '';
-            if (part.type !== 'tool') continue;
-            if (toolName !== 'subagent' && toolName !== 'task') continue;
-            const st = part.state || {};
-            const meta = st.metadata || part.metadata || {};
-            const modelMeta = meta.model || {};
-            const hasEnd = st.time && st.time.end != null;
-            const hasStart = st.time && st.time.start != null;
-
-            let status = st.status || 'pending';
-            if (status === 'error' && meta.interrupted) status = 'interrupt';
-
-            // v2 把 agent / description / prompt 放在 state.input，
-            // state.metadata 只有 {sessionID, status, truncated}，两者都读以兼容 v1
-            const inp = st.input || {};
-            const childSessionId = meta.sessionID || meta.sessionId || null;
-            const description = inp.description || meta.description || st.title || '';
-            const agent = inp.agent || meta.agent || 'unknown';
-
-            summaries.push({
-                childSessionId: childSessionId,
-                title: st.title || description || toolName || '未知任务',
-                description: description,
-                agent: agent,
-                model: modelMeta.providerID && modelMeta.modelID
-                    ? modelDisplayLabel(modelMeta.providerID + '/' + modelMeta.modelID)
-                    : (partMessageModel(part, msgById) || 'unknown'),
-                status: status,
-                durationMs: (hasEnd && hasStart) ? (st.time.end - st.time.start) : null,
-                interrupted: !!meta.interrupted,
-                startedAt: hasStart ? st.time.start : null,
-                endedAt: hasEnd ? st.time.end : null,
-                outputPreview: (st.output || '').slice(0, 200),
-                promptPreview: (inp.prompt || meta.prompt || '').slice(0, 200),
-                parentMessageId: msg.info?.id || msg.id || '',
-                taskPartId: part.id || '',
-            });
-        }
+    const seq = ++subtaskPanelRefreshSeq;
+    try {
+        const dir = await resolveSubtaskDirectory(sessionId);
+        if (!dir) return; // 无目录不请求（避免服务端回落到 CWD=home）
+        const children = await fetchChildSessions(dir, sessionId);
+        // 竞态保护：结果返回时刷新目标已变化（切了会话 / 又发起了新一轮刷新）→ 丢弃本次结果
+        if (seq !== subtaskPanelRefreshSeq || sessionId !== store.currentSessionId) return;
+        store.subtaskSummaries = mapChildSessionsToSummaries(children);
+        renderSubtaskPanel();
+    } catch (err) {
+        console.warn('刷新子任务面板失败（保留面板现状）:', err);
     }
-    store.subtaskSummaries = summaries;
 }
 
-/** 调度子任务提取到下一帧 */
+/** 标记「面板需要刷新」，按节流窗口择机发起（合并高频事件） */
+function queueSubtaskPanelRefresh() {
+    subtaskRefreshQueued = true;
+    flushSubtaskPanelRefresh();
+}
+
+/** 尝试消耗「待刷新」标记：满足「无在途请求 + 距上次请求超过节流窗口」才真正发起；
+ *  否则等窗口到期（定时器）或当前请求结束（finally 回调）后再试，保证最后一次事件被拉取。 */
+function flushSubtaskPanelRefresh() {
+    if (!subtaskRefreshQueued || subtaskRefreshInFlight) return;
+    const wait = SUBTASK_REFRESH_THROTTLE_MS - (Date.now() - subtaskRefreshLastAt);
+    if (wait > 0) {
+        if (!subtaskRefreshTimer) {
+            subtaskRefreshTimer = setTimeout(() => {
+                subtaskRefreshTimer = 0;
+                flushSubtaskPanelRefresh();
+            }, wait);
+        }
+        return;
+    }
+    subtaskRefreshQueued = false;
+    subtaskRefreshInFlight = true;
+    subtaskRefreshLastAt = Date.now();
+    refreshSubtaskPanel().finally(() => {
+        subtaskRefreshInFlight = false;
+        flushSubtaskPanelRefresh(); // 在途期间又收到事件 → 尾随补拉一次
+    });
+}
+
+/** 调度子任务面板刷新到下一帧（对 events.js 的调用点保持原语义：传入会话 ID）。
+ *  相对旧实现的唯一变化：数据源从「消息缓存扫描」改为「服务端 child sessions 拉取」，
+ *  因此叠加了请求节流（见 queueSubtaskPanelRefresh），避免消息 part 高频事件轰炸 API。 */
 export function scheduleSubtaskExtraction(sessionID) {
     if (!sessionID || sessionID !== store.currentSessionId) return;
     if (store.subtaskExtractionPending) return;
     store.subtaskExtractionPending = true;
     store.subtaskExtractionFrame = requestAnimationFrame(() => {
-        const targetSid = store.currentSessionId;
         store.subtaskExtractionFrame = 0;
         store.subtaskExtractionPending = false;
-        extractSubtaskSummaries(targetSid);
-        renderSubtaskPanel();
+        queueSubtaskPanelRefresh();
     });
 }
 
@@ -262,6 +349,41 @@ export function attachSubtaskCardEvents() {
     box.addEventListener('click', onSubtaskCardClick);
 }
 
+/** 子任务工具名（消息缓存反查用）：v1 为 task，v2 为 subagent。 */
+const SUBTASK_TOOL_NAMES = ['subagent', 'task'];
+
+/** 判断单个 part 是否为指定子会话的 subagent/task 工具调用（纯函数，便于单测）。
+ *  metadata 兼容两种形态：state.metadata（历史适配层）、part.metadata（部分实时事件）。 */
+export function matchSubtaskPart(part, childId) {
+    if (!part || part.type !== 'tool') return false;
+    const toolName = part.tool || part.name || '';
+    if (!SUBTASK_TOOL_NAMES.includes(toolName)) return false;
+    if (!childId) return false;
+    const meta = (part.state && part.state.metadata) || part.metadata || {};
+    return !!meta && meta.sessionID === childId;
+}
+
+/** 在当前会话已加载的消息缓存中反查 childSessionId 对应的子任务工具 part。
+ *  从后往前扫（最新的调用优先命中）。命中返回 { parentMessageId, taskPartId }；
+ *  缓存中不存在（消息未加载）返回 null——调用方不得触发历史加载，改走弹窗兜底。 */
+export function findCachedSubtaskPart(childSessionId) {
+    if (!childSessionId) return null;
+    const items = getCachedMessages(store.currentSessionId);
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i] || {};
+        const info = item.info || item;
+        const parts = Array.isArray(item.parts) ? item.parts : [];
+        for (let j = parts.length - 1; j >= 0; j--) {
+            if (!matchSubtaskPart(parts[j], childSessionId)) continue;
+            return {
+                parentMessageId: info.id || '',
+                taskPartId: parts[j].id || '',
+            };
+        }
+    }
+    return null;
+}
+
 /** 子任务卡片点击处理 */
 export function onSubtaskCardClick(e) {
     const detailBtn = e.target.closest('.oc-subtask-detail-btn');
@@ -275,22 +397,35 @@ export function onSubtaskCardClick(e) {
         }
         return;
     }
-    // 卡片本身点击 → 定位主消息
+    // 卡片本身点击 → 定位优先（仅缓存反查，不自动加载历史）：
+    // 1) 在已加载的消息缓存里反查该子会话对应的 subagent/task tool part；
+    // 2) 命中且 DOM 中存在对应父消息 → 滚动定位（locateParentMessage 返回 true）；
+    // 3) 未命中（消息未加载进缓存 / 缓存有但 DOM 无）→ 打开子会话详情弹窗兜底。
     const card = e.target.closest('.oc-subtask-card');
     if (!card) return;
-    const msgId = card.dataset.parentMessageId;
-    if (!msgId) return;
-    locateParentMessage(msgId);
+    const childId = card.dataset.childSessionId;
+    if (!childId) return; // 无子会话 id（防御）：维持无操作
+    const hit = findCachedSubtaskPart(childId);
+    if (hit && locateParentMessage(hit.parentMessageId)) return;
+    const summary = store.subtaskSummaries.find(s => s.childSessionId === childId) || null;
+    openSubtaskModal(childId, summary);
 }
 
-/** 定位到父消息在消息列表中的位置 */
+/** 定位到父消息在消息列表中的位置。
+ *  返回是否命中：主分支按 data-message-id 精确查询；fallback 分支按子任务摘要
+ *  的 parentMessageId/taskPartId 匹配（兼容「消息卡片无父消息 id、但有 part id」的来源；
+ *  列表数据源下 parentMessageId 为空串，该分支不命中，仅作历史兼容保留）。
+ *  目标消息不在 DOM（未加载）时返回 false，由调用方决定兜底动作。 */
 export function locateParentMessage(msgId) {
     const box = getActiveMessagesEl();
-    if (!box) return;
+    if (!box) return false;
     const old = box.querySelectorAll('.oc-message.highlight');
     old.forEach(el => el.classList.remove('highlight'));
-    let target = box.querySelector('.oc-message[data-message-id="' + msgId + '"]');
-    if (!target) {
+    let target = null;
+    if (msgId) {
+        target = box.querySelector('.oc-message[data-message-id="' + msgId + '"]');
+    }
+    if (!target && msgId) {
         const allMsgs = box.querySelectorAll('.oc-message');
         for (let i = allMsgs.length - 1; i >= 0; i--) {
             const partIds = allMsgs[i].querySelectorAll('[data-part-id]');
@@ -307,7 +442,9 @@ export function locateParentMessage(msgId) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         target.classList.add('highlight');
         setTimeout(() => target.classList.remove('highlight'), 2500);
+        return true;
     }
+    return false;
 }
 
 /** 打开子任务详情弹窗 */
