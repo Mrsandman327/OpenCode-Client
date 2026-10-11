@@ -473,6 +473,35 @@ input::placeholder, textarea::placeholder {
     mask-image: url("../assets/终端.svg");
 }
 
+/* 右侧面板标题（服务状态/子任务/代办事项）图标：assets 下对应 SVG 作遮罩，固定 #8a8a8a 灰色（不随标题文字色） */
+.oc-panel-icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+
+.oc-panel-icon-service {
+    -webkit-mask-image: url("../assets/服务状态.svg");
+    mask-image: url("../assets/服务状态.svg");
+}
+
+.oc-panel-icon-subtask {
+    -webkit-mask-image: url("../assets/子任务.svg");
+    mask-image: url("../assets/子任务.svg");
+}
+
+.oc-panel-icon-todo {
+    -webkit-mask-image: url("../assets/代办事项.svg");
+    mask-image: url("../assets/代办事项.svg");
+}
+
 /* ========== 主布局 ========== */
 .main-layout {
     display: flex;
@@ -1679,9 +1708,66 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     white-space: nowrap;
     transition: background 0.12s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 .oc-tree-context-menu-item:hover {
     background: rgba(0,0,0,0.04);
+}
+
+/* 菜单项图标：assets 下对应 SVG 作遮罩，颜色随菜单文字（删除项 hover 变红时同步） */
+.oc-menu-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+
+.oc-menu-icon-new {
+    -webkit-mask-image: url("../assets/新建.svg");
+    mask-image: url("../assets/新建.svg");
+}
+
+.oc-menu-icon-project-config {
+    -webkit-mask-image: url("../assets/项目配置.svg");
+    mask-image: url("../assets/项目配置.svg");
+}
+
+.oc-menu-icon-open-dir {
+    -webkit-mask-image: url("../assets/打开目录.svg");
+    mask-image: url("../assets/打开目录.svg");
+}
+
+.oc-menu-icon-rename {
+    -webkit-mask-image: url("../assets/重命名.svg");
+    mask-image: url("../assets/重命名.svg");
+}
+
+.oc-menu-icon-delete {
+    -webkit-mask-image: url("../assets/删除.svg");
+    mask-image: url("../assets/删除.svg");
+}
+
+.oc-menu-icon-export {
+    -webkit-mask-image: url("../assets/导出.svg");
+    mask-image: url("../assets/导出.svg");
+}
+
+.oc-menu-icon-move {
+    -webkit-mask-image: url("../assets/移动.svg");
+    mask-image: url("../assets/移动.svg");
+}
+
+.oc-menu-icon-import {
+    -webkit-mask-image: url("../assets/导入.svg");
+    mask-image: url("../assets/导入.svg");
 }
 
 .oc-tree-context-menu-item[data-action="delete"]:hover {

@@ -83,14 +83,14 @@
                             <div class="oc-empty">启动服务后加载项目树</div>
                         </div>
                         <div class="oc-tree-context-menu" id="ocTreeContextMenu" style="display:none">
-                            <div class="oc-tree-context-menu-item" data-action="new-session">✨ 新建会话</div>
-                            <div class="oc-tree-context-menu-item" data-action="project-config">⚙️ 项目配置</div>
-                            <div class="oc-tree-context-menu-item" data-action="open-file-browser">📂 打开目录</div>
-                            <div class="oc-tree-context-menu-item" data-action="rename">✏️ 重命名</div>
-                            <div class="oc-tree-context-menu-item" data-action="delete">🗑️ 删除会话</div>
-                            <div class="oc-tree-context-menu-item" data-action="export">📤 导出会话</div>
-                            <div class="oc-tree-context-menu-item" data-action="move">📦 移动到…</div>
-                            <div class="oc-tree-context-menu-item" data-action="import">📥 导入会话…</div>
+                            <div class="oc-tree-context-menu-item" data-action="new-session"><span class="oc-menu-icon oc-menu-icon-new"></span><span>新建会话</span></div>
+                            <div class="oc-tree-context-menu-item" data-action="project-config"><span class="oc-menu-icon oc-menu-icon-project-config"></span><span>项目配置</span></div>
+                            <div class="oc-tree-context-menu-item" data-action="open-file-browser"><span class="oc-menu-icon oc-menu-icon-open-dir"></span><span>打开目录</span></div>
+                            <div class="oc-tree-context-menu-item" data-action="rename"><span class="oc-menu-icon oc-menu-icon-rename"></span><span>重命名</span></div>
+                            <div class="oc-tree-context-menu-item" data-action="delete"><span class="oc-menu-icon oc-menu-icon-delete"></span><span>删除会话</span></div>
+                            <div class="oc-tree-context-menu-item" data-action="export"><span class="oc-menu-icon oc-menu-icon-export"></span><span>导出会话</span></div>
+                            <div class="oc-tree-context-menu-item" data-action="move"><span class="oc-menu-icon oc-menu-icon-move"></span><span>移动到…</span></div>
+                            <div class="oc-tree-context-menu-item" data-action="import"><span class="oc-menu-icon oc-menu-icon-import"></span><span>导入会话…</span></div>
                         </div>
                         <div class="oc-sessions-footer">
                             <button type="button" class="btn btn-primary" id="btnNewSession" disabled>＋ 新建会话</button>
@@ -187,7 +187,7 @@
                         <div class="oc-sidepanel-content">
                         <div class="oc-panel-section" id="servicePanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
-                                <span class="oc-panel-arrow">▼</span><span>📊 服务状态</span>
+                                <span class="oc-panel-arrow">▼</span><span class="oc-panel-icon oc-panel-icon-service"></span><span>服务状态</span>
                                 <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshStatus" disabled>刷新</button>
                             </div>
                             <div class="oc-panel-body">
@@ -198,7 +198,7 @@
                         </div>
                         <div class="oc-panel-section" id="subtaskPanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
-                                <span class="oc-panel-arrow">▼</span><span>📋 子任务</span>
+                                <span class="oc-panel-arrow">▼</span><span class="oc-panel-icon oc-panel-icon-subtask"></span><span>子任务</span>
                             </div>
                             <div class="oc-panel-body">
                                 <div class="oc-subtasks" id="ocSubtasks">
@@ -210,7 +210,7 @@
                         <div class="oc-panel-resize-handle" id="ocPanelResizeHandleMid" title="拖动调整子任务高度（双击恢复默认）" aria-hidden="true"></div>
                         <div class="oc-panel-section" id="todoPanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
-                                <span class="oc-panel-arrow">▼</span><span>✅ 代办事项</span>
+                                <span class="oc-panel-arrow">▼</span><span class="oc-panel-icon oc-panel-icon-todo"></span><span>代办事项</span>
                             </div>
                             <div class="oc-panel-body">
                                 <div class="oc-todos" id="ocTodos">
