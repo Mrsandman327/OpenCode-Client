@@ -418,12 +418,26 @@ function createPresetGroup(preset) {
     const body = document.createElement('div');
     body.className = 'model-group-body' + (preset.collapsed ? ' collapsed' : '');
 
-    // 点击组头空白处折叠 / 展开（radio、按钮、全选区域不触发）
+    // 点击组头空白处折叠 / 展开（radio、按钮、全选区域不触发）。
+    const GROUP_BODY_ANIM_MS = 300;
     header.addEventListener('click', (e) => {
         if (e.target.closest('input, button, .model-group-actions')) return;
         preset.collapsed = !preset.collapsed;
         header.classList.toggle('collapsed');
-        body.classList.toggle('collapsed');
+        if (preset.collapsed) {
+            // 折叠：钉住当前实际高度为起点 → reflow → 切类过渡到 0
+            body.style.maxHeight = body.scrollHeight + 'px';
+            void body.offsetHeight;
+            body.style.maxHeight = '';
+            body.classList.add('collapsed');
+        } else {
+            // 展开：钉住 0 为起点 → reflow → 过渡到实际高度，结束后解除内联
+            body.classList.remove('collapsed');
+            body.style.maxHeight = '0px';
+            void body.offsetHeight;
+            body.style.maxHeight = body.scrollHeight + 'px';
+            setTimeout(() => { body.style.maxHeight = ''; }, GROUP_BODY_ANIM_MS + 40);
+        }
     });
 
     if (preset.agents.length === 0) {

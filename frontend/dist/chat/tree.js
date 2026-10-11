@@ -35,6 +35,25 @@ function toggleClass(expanded) {
     return expanded ? 'is-expanded' : 'is-collapsed';
 }
 
+/** 项目树子级折叠/展开动画：max-height 过渡（DOM 保留，双向平滑；折叠结束再 display:none） */
+function animateTreeChildren(el, open) {
+    if (!el) return;
+    if (open) {
+        el.style.display = '';
+        el.style.overflow = 'hidden';
+        el.style.maxHeight = '0px';
+        void el.offsetHeight;
+        el.style.maxHeight = el.scrollHeight + 'px';
+        setTimeout(function () { el.style.maxHeight = ''; el.style.overflow = ''; }, 450);
+    } else {
+        el.style.overflow = 'hidden';
+        el.style.maxHeight = el.scrollHeight + 'px';
+        void el.offsetHeight;
+        el.style.maxHeight = '0px';
+        setTimeout(function () { el.style.display = 'none'; el.style.maxHeight = ''; el.style.overflow = ''; }, 450);
+    }
+}
+
 // ============================
 // 项目树 — 构建、渲染、操作
 // ============================
@@ -202,7 +221,7 @@ export function renderTree(tree) {
             const children = node.querySelector('.oc-tree-children');
             if (!children) return;
             const isOpen = children.style.display !== 'none';
-            children.style.display = isOpen ? 'none' : '';
+            animateTreeChildren(children, !isOpen);
             var toggle = row.querySelector('.oc-tree-toggle');
             setToggleState(toggle, !isOpen);
         });
@@ -216,7 +235,7 @@ export function renderTree(tree) {
             const children = node.querySelector('.oc-tree-children');
             if (children) {
                 const isOpen = children.style.display !== 'none';
-                children.style.display = isOpen ? 'none' : '';
+                animateTreeChildren(children, !isOpen);
                 setToggleState(el, !isOpen);
             }
         });

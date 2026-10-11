@@ -521,7 +521,10 @@ input::placeholder, textarea::placeholder {
     display: flex;
     flex-direction: column;
     padding: 8px 6px;
+    overflow-x: hidden;
     overflow-y: auto;
+    /* 折叠/展开：宽度平滑过渡（与导航文字淡出/收窄联动） */
+    transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav-item {
@@ -599,6 +602,12 @@ input::placeholder, textarea::placeholder {
 .nav-label {
     flex: 1;
     font-size: 13px;
+    /* 折叠/展开：文字淡出 + 收窄过渡（替代 display:none 硬切） */
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 1;
+    max-width: 200px;
+    transition: opacity 0.16s ease, max-width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebar.collapsed {
@@ -612,7 +621,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .sidebar.collapsed .nav-label {
-    display: none;
+    opacity: 0;
+    max-width: 0;
 }
 
 .sidebar.collapsed .nav-icon {
@@ -648,6 +658,15 @@ input::placeholder, textarea::placeholder {
     mask-size: contain;
 }
 
+/* 版本号文字：同导航文字的淡出/收窄过渡 */
+.sidebar-version-text {
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 1;
+    max-width: 80px;
+    transition: opacity 0.16s ease, max-width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .sidebar.collapsed .sidebar-version {
     justify-content: center;
     gap: 0;
@@ -655,7 +674,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .sidebar.collapsed .sidebar-version-text {
-    display: none;
+    opacity: 0;
+    max-width: 0;
 }
 
 /* ========== 内容区域 ========== */
@@ -1929,6 +1949,8 @@ input::placeholder, textarea::placeholder {
 .oc-tree-children {
     border-left: 1px solid rgba(0,0,0,0.06);
     margin-left: 10px;
+    /* 折叠/展开：max-height 过渡（实际高度由 tree.js 驱动） */
+    transition: max-height 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .oc-tree-node .oc-tree-directory .oc-tree-children{
@@ -4006,12 +4028,13 @@ input::placeholder, textarea::placeholder {
 }
 
 .model-group-body {
-    transition: max-height 0.25s ease;
     overflow: hidden;
+    /* 折叠/展开：max-height 过渡（实际高度由 JS 驱动，见 omo-config.js） */
+    transition: max-height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .model-group-body.collapsed {
-    max-height: 0 !important;
+    max-height: 0;
 }
 
 .model-row {
