@@ -4,12 +4,16 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" />
-  <img src="https://img.shields.io/badge/Wails-v3.0.0--beta.23-DF0000?logo=wails" />
+  <img src="https://img.shields.io/badge/Wails-v3.0.0--beta.28-DF0000?logo=wails" />
   <img src="https://img.shields.io/badge/三端-Windows%20|%20Web%20|%20Mobile-0066cc" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
 </p>
 
 **OC Manager** 是一个精心打造的 [OpenCode](https://github.com/anomalyco/opencode) 可视化管理桌面应用。告别命令行，用直觉操作 AI。
+
+<p align="center">
+  <img src="./doc/image/工作区-light.png" width="100%" />
+</p>
 
 ---
 
