@@ -3297,9 +3297,10 @@ input::placeholder, textarea::placeholder {
 .oc-input-resize-handle {
     height: 6px;
     flex-shrink: 0;
-    cursor: ns-resize;
+    /* 鼠标样式与面板分区拖动条（.oc-panel-resize-handle）统一为 row-resize */
+    cursor: row-resize;
     position: relative;
-    background: transparent;
+    background: var(--bg-secondary);
     transition: background 0.15s ease;
     z-index: 2;
 }
@@ -3444,6 +3445,10 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-secondary);
     border-top: 1px solid var(--border);
     flex-shrink: 0;
+}
+/* 无附件时整块隐藏（避免残留空边带：padding / 边框 / 背景） */
+.oc-attach-list:empty {
+    display: none;
 }
 .oc-attach-chip {
     display: inline-flex;
@@ -3657,7 +3662,7 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
+    padding: 6px 12px 1px 12px;
     border-top: 1px solid var(--border);
     background: var(--bg-secondary);
     flex-shrink: 0;
