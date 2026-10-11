@@ -123,15 +123,15 @@
                             </div>
                         </div>
                         <div class="oc-model-info" id="ocModelInfo">
-                            <span class="oc-select-icon">🤖</span>
+                            <span class="oc-select-icon oc-select-icon-agent"></span>
                             <select class="oc-model-select" id="ocAgentSelect">
                                 <option value="">默认</option>
                             </select>
-                            <span class="oc-select-icon">🧠</span>
+                            <span class="oc-select-icon oc-select-icon-model"></span>
                             <select class="oc-model-select" id="ocModelSelect">
                                 <option value="">默认</option>
                             </select>
-                            <span class="oc-select-icon">⚡</span>
+                            <span class="oc-select-icon oc-select-icon-variant"></span>
                             <select class="oc-model-select" id="ocVariantSelect">
                                 <option value="">默认</option>
                                 <option value="minimal">Minimal</option>
@@ -220,7 +220,7 @@
                         </div>
                         </div>
                         <div class="oc-dir-bar" id="ocDirBar" title="打开文件浏览器">
-                            <span class="oc-dir-bar-icon">📂</span>
+                            <span class="oc-dir-bar-icon oc-fb-icon oc-fb-icon-folder"></span>
                             <span class="oc-dir-bar-path" id="ocSideDirPath">--</span>
                             <span class="oc-dir-open" aria-hidden="true">↗</span>
                         </div>
@@ -239,8 +239,8 @@
                                 <span class="omo-info-label">配置文件：</span>
                                 <span class="omo-info-value" id="configPath">加载中...</span>
                             </div>
-                            <button type="button" class="btn btn-sm btn-open" id="btnOpenSlimDir" title="在资源管理器中打开配置目录">📂 打开</button>
-                            <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshModels">🔄 刷新</button>
+                            <button type="button" class="btn btn-sm btn-open" id="btnOpenSlimDir" title="在资源管理器中打开配置目录"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开</button>
+                            <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshModels"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</button>
                         </div>
                     </section>
                 </div>
@@ -253,8 +253,8 @@
                 </div>
 
                 <div class="model-actions omo-bottom-bar" id="modelActions" style="display:none">
-                    <button type="button" class="btn btn-primary btn-add-type" id="btnAddModelType">➕ 新增方案</button>
-                    <button type="button" class="btn btn-primary btn-save" id="btnSaveModels">💾 保存配置</button>
+                    <button type="button" class="btn btn-primary btn-add-type" id="btnAddModelType"><span class="oc-fb-icon oc-fb-icon-add"></span>新增方案</button>
+                    <button type="button" class="btn btn-primary btn-save" id="btnSaveModels"><span class="oc-fb-icon oc-fb-icon-save"></span><span id="btnSaveModelsText">保存配置</span></button>
                     <span class="save-status" id="saveStatus"></span>
                 </div>
             </div>
@@ -268,7 +268,7 @@
                         <span class="stat-label">全局技能</span>
                     </div>
                     <div class="stats-spacer"></div>
-                    <button type="button" class="btn btn-sm btn-refresh" id="btnRefresh" title="刷新技能列表">🔄 刷新</button>
+                    <button type="button" class="btn btn-sm btn-refresh" id="btnRefresh" title="刷新技能列表"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</button>
                 </section>
 
                 <!-- L2: 配置状态行（常态形态）
@@ -416,7 +416,7 @@
                 <section class="path-bar">
                     <span class="path-label">配置文件：</span>
                     <span class="path-value" id="providerConfigPath">加载中...</span>
-                    <button type="button" class="btn btn-sm btn-open toolbar-spacer" id="btnOpenProviderConfigDir">📂 打开</button>
+                    <button type="button" class="btn btn-sm btn-open toolbar-spacer" id="btnOpenProviderConfigDir"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开</button>
                 </section>
                 <div class="providers-list" id="providersList">
                     <div class="loading"><div class="spinner"></div><p>正在加载供应商...</p></div>
@@ -541,21 +541,21 @@
             <div class="modal-header">
                 <h3 id="fileBrowserTitle">文件浏览</h3>
                 <div class="btn-group">
-                    <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshFiles">🔄 刷新</button>
+                    <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshFiles"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</button>
                     <button type="button" class="btn btn-sm" id="btnCloseFileBrowser">✕</button>
                 </div>
             </div>
             <div class="file-browser-body">
                 <div class="file-browser-mode-bar">
-                    <button type="button" class="file-browser-mode-btn active" id="btnFileBrowserModeFiles" title="会话目录">🗂️</button>
-                    <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeGit" title="Git 变更">🔀</button>
+                    <button type="button" class="file-browser-mode-btn active" id="btnFileBrowserModeFiles" title="会话目录"><span class="oc-fb-icon oc-fb-icon-session-dir"></span></button>
+                    <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeGit" title="Git 变更"><span class="oc-fb-icon oc-fb-icon-git"></span></button>
                 </div>
                     <aside class="file-browser-list-panel">
                         <div class="file-browser-files-panel" id="fileBrowserFilesPanel">
                             <div class="file-browser-list-header">
                                 <div class="file-browser-list-header-title">文件列表</div>
                                 <button type="button" class="btn btn-sm file-browser-create-dir-btn" id="btnFileBrowserCreateDir" title="新建文件夹">
-                                    <img src="/assets/新建文件夹.svg" alt="新建文件夹" aria-hidden="true" class="file-browser-create-dir-icon"/>
+                                    <span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-folder" aria-hidden="true"></span>
                                 </button>
                             </div>
                             <div class="file-browser-create-dir-inline" id="fileBrowserCreateDirInline" style="display:none">

@@ -23,7 +23,9 @@ var skillSchemes = [];
 var applyingScheme = '';
 
 // 配置区使用的内联 SVG 图标（禁用 emoji，统一线性 stroke 风格）
-var CFG_ICON_FOLDER = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>';
+// 文件夹图标改用 assets/文件夹.svg 遮罩（mask 机制，.oc-fb-icon 基类在 style.css）；
+// 尺寸由 #view-skills .cfg-folder-icon 覆盖为 14px（对齐原 .cfg-i）
+var CFG_ICON_FOLDER = '<span class="oc-fb-icon oc-fb-icon-folder cfg-folder-icon" aria-hidden="true"></span>';
 var CFG_ICON_X = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
 // 方案书签图标：与来源目录的文件夹图标对应，用于方案 chip 主体
 var CFG_ICON_BOOKMARK = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';

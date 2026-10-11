@@ -1035,6 +1035,12 @@ input::placeholder, textarea::placeholder {
     stroke-linejoin: round;
 }
 
+/* chip 内文件夹图标（mask 版）：尺寸对齐原 .cfg-i 的 14px */
+#view-skills .cfg-folder-icon {
+    width: 14px;
+    height: 14px;
+}
+
 /* OpenCode 视图：web 嵌入 */
 #view-opencode.active {
     display: flex !important;
@@ -1688,6 +1694,26 @@ input::placeholder, textarea::placeholder {
     font-size: 10px;
     vertical-align: middle;
     user-select: none;
+}
+/* 折叠/展开图标：assets/菜单折叠.svg、菜单展开.svg 作遮罩（mask 机制），颜色随文字 */
+.oc-tree-toggle.is-collapsed,
+.oc-tree-toggle.is-expanded {
+    height: 12px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.oc-tree-toggle.is-collapsed {
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
+}
+.oc-tree-toggle.is-expanded {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
 }
 /* ── 项目树右键菜单 ── */
 .oc-tree-context-menu {
@@ -2714,9 +2740,11 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card-hover);
     color: var(--text-primary);
 }
+/* 目录栏文件夹图标：沿用 .oc-fb-icon 基类（mask 机制），此处覆盖尺寸为 12px */
 .oc-dir-bar-icon {
     flex-shrink: 0;
-    font-size: 12px;
+    width: 12px;
+    height: 12px;
 }
 .oc-dir-bar-path {
     white-space: nowrap;
@@ -3612,10 +3640,30 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-secondary);
     flex-shrink: 0;
 }
+/* 输入栏选择器图标（agent / 模型 / 思考强度）：assets 下 SVG 作遮罩（mask 机制），颜色随文字 */
 .oc-select-icon {
-    font-size: 13px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
-    line-height: 1;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.oc-select-icon-agent {
+    -webkit-mask-image: url("../assets/agent.svg");
+    mask-image: url("../assets/agent.svg");
+}
+.oc-select-icon-model {
+    -webkit-mask-image: url("../assets/model.svg");
+    mask-image: url("../assets/model.svg");
+}
+.oc-select-icon-variant {
+    -webkit-mask-image: url("../assets/variant.svg");
+    mask-image: url("../assets/variant.svg");
 }
 .oc-model-select {
     font-size: 12px;
@@ -3703,9 +3751,8 @@ input::placeholder, textarea::placeholder {
     box-shadow: var(--shadow-lg);
 }
 .modal h3 {
-    font-size: 17px;
+    font-size: 13px;
     color: var(--text-primary);
-    margin-bottom: 17px;
     font-weight: 600;
 }
 .modal-field {
@@ -3888,11 +3935,23 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card-hover);
 }
 
+/* 折叠指示图标：assets/菜单展开.svg、菜单折叠.svg 作遮罩（mask 机制），灰阶与文字区分 */
 .model-group-title::before {
-    content: '▼';
-    font-size: 10px;
-    color: var(--text-muted);
-    transition: transform var(--transition);
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 5px;
+    vertical-align: -1px;
+    background: var(--text-muted);
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
 }
 
 .model-group-label {
@@ -3942,7 +4001,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .model-group-title.collapsed::before {
-    transform: rotate(-90deg);
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
 }
 
 .model-group-body {
@@ -4767,15 +4827,28 @@ input::placeholder, textarea::placeholder {
     overflow: auto;
 }
 
-/* 分组折叠 */
-.cmd-group-title.collapsed::before {
-    content: '⯈ ';
-    font-size: 11px;
+/* 分组折叠：图标改用 assets 下 SVG 遮罩（mask），伪元素只承载图形 */
+.cmd-group-title::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 5px;
+    vertical-align: -1px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
 }
 
 .cmd-group-title:not(.collapsed)::before {
-    content: '▼ ';
-    font-size: 11px;
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
 }
 
 .api-doc-grid.collapsed {
@@ -5469,6 +5542,12 @@ input::placeholder, textarea::placeholder {
     color: var(--accent);
     border-color: var(--accent) !important;
 }
+/* 卡片内图标与文字横向对齐 */
+.provider-card-add > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
 
 /* ============================================================
    响应式
@@ -5830,9 +5909,10 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-modal .modal-header {
     border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
 }
 .file-browser-modal .modal-header h3 {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
     letter-spacing: -0.022em;
@@ -5852,9 +5932,59 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card);
     border-right: 1px solid var(--border);
 }
+/* 文件浏览器工具栏图标（会话目录 / Git 变更 / 刷新）：assets 下 SVG 作遮罩，颜色随按钮文字 */
+.oc-fb-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.file-browser-mode-btn .oc-fb-icon {
+    width: 20px;
+    height: 20px;
+}
+.oc-fb-icon-refresh {
+    -webkit-mask-image: url("../assets/刷新.svg");
+    mask-image: url("../assets/刷新.svg");
+}
+.oc-fb-icon-session-dir {
+    -webkit-mask-image: url("../assets/会话目录.svg");
+    mask-image: url("../assets/会话目录.svg");
+}
+.oc-fb-icon-git {
+    -webkit-mask-image: url("../assets/Git变更.svg");
+    mask-image: url("../assets/Git变更.svg");
+}
+.oc-fb-icon-folder {
+    -webkit-mask-image: url("../assets/文件夹.svg");
+    mask-image: url("../assets/文件夹.svg");
+}
+.oc-fb-icon-new-folder {
+    -webkit-mask-image: url("../assets/新建文件夹.svg");
+    mask-image: url("../assets/新建文件夹.svg");
+}
+.oc-fb-icon-add {
+    -webkit-mask-image: url("../assets/新增.svg");
+    mask-image: url("../assets/新增.svg");
+}
+.oc-fb-icon-save {
+    -webkit-mask-image: url("../assets/保存.svg");
+    mask-image: url("../assets/保存.svg");
+}
+
 .file-browser-mode-btn {
     width: 36px;
     height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: 1px solid transparent;
     border-radius: 12px;
     background: transparent;
@@ -6408,9 +6538,40 @@ input::placeholder, textarea::placeholder {
     color: var(--text-muted);
     text-align: center;
 }
+/* 折叠/展开图标：SVG 遮罩（mask 机制），颜色随行文字 */
+.file-browser-git-tree-toggle.is-collapsed,
+.file-browser-git-tree-toggle.is-expanded {
+    height: 12px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.file-browser-git-tree-toggle.is-collapsed {
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
+}
+.file-browser-git-tree-toggle.is-expanded {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
+}
+/* Git 变更树的文件夹图标：assets/文件夹.svg 作遮罩（mask 机制），颜色随行文字 */
 .file-browser-git-tree-icon {
     flex-shrink: 0;
-    font-size: 12px;
+    width: 12px;
+    height: 12px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-image: url("../assets/文件夹.svg");
+    mask-image: url("../assets/文件夹.svg");
 }
 .file-browser-git-tree-name {
     min-width: 0;
@@ -6457,8 +6618,26 @@ input::placeholder, textarea::placeholder {
     background: var(--accent-ghost);
     color: var(--accent);
 }
+/* 文件列表的文件夹/文件图标：assets 下 SVG 作遮罩，颜色随行文字 */
 .file-browser-item-icon {
     flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.file-browser-item-icon.folder {
+    -webkit-mask-image: url("../assets/文件夹.svg");
+    mask-image: url("../assets/文件夹.svg");
+}
+.file-browser-item-icon.file {
+    -webkit-mask-image: url("../assets/文件.svg");
+    mask-image: url("../assets/文件.svg");
 }
 .file-browser-item-name {
     min-width: 0;
@@ -6507,6 +6686,25 @@ input::placeholder, textarea::placeholder {
     color: var(--text-muted);
     cursor: pointer;
     user-select: none;
+}
+/* 折叠/展开图标：SVG 遮罩，16px 容器内以 12px 呈现，颜色随 hover 变化 */
+.file-browser-tree-toggle.is-collapsed,
+.file-browser-tree-toggle.is-expanded {
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: 12px 12px;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: 12px 12px;
+}
+.file-browser-tree-toggle.is-collapsed {
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
+}
+.file-browser-tree-toggle.is-expanded {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
 }
 .file-browser-tree-toggle:hover {
     color: var(--text-primary);

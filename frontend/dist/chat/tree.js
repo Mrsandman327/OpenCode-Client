@@ -24,6 +24,17 @@ import { openDirBrowserModal } from '../filebrowser/dir.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { createBuildGate, createRecentlyDeleted, RECENTLY_DELETED_TTL_MS } from './tree-guard.js';
 
+// 折叠/展开图标：assets/菜单折叠.svg、菜单展开.svg（CSS mask 呈现）。
+// 元素不写字符，改挂状态类（is-expanded / is-collapsed），由 CSS 显示对应图标。
+function setToggleState(el, expanded) {
+    if (!el) return;
+    el.classList.toggle('is-expanded', !!expanded);
+    el.classList.toggle('is-collapsed', !expanded);
+}
+function toggleClass(expanded) {
+    return expanded ? 'is-expanded' : 'is-collapsed';
+}
+
 // ============================
 // 项目树 — 构建、渲染、操作
 // ============================
@@ -132,7 +143,7 @@ export function renderTree(tree) {
 
     store.sessionMap = {};
     let html = '';
-    const toggleIcon = (expanded) => expanded ? '▼' : '⯈';
+    // 图标状态类 helper 已提升到模块顶部（setToggleState / toggleClass）
 
     // 树容器顶部：独立的「添加工作目录」操作行。
     // 原实现在 global 项目行上挂 ＋ 按钮，项目层取消后改为常驻操作行，保证入口仍可用。
@@ -142,7 +153,7 @@ export function renderTree(tree) {
         // 目录行：分组标题 + 会话计数徽章（沿用原目录行标记与类名）
         const dirSesCount = (dir.children || []).length;
         html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
-        html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
+        html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle ${toggleClass(true)}"></div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
         html += `<div class="oc-tree-children">`;
         // 目录内会话按更新时间倒序，保持会话位置固定
         var sesList = (dir.children || []).slice();
@@ -175,7 +186,7 @@ export function renderTree(tree) {
                 if (children) {
                     children.style.display = 'none';
                     var toggle = node.querySelector('.oc-tree-toggle');
-                    if (toggle) toggle.textContent = toggleIcon(false);
+                    setToggleState(toggle, false);
                 }
             }
         });
@@ -193,7 +204,7 @@ export function renderTree(tree) {
             const isOpen = children.style.display !== 'none';
             children.style.display = isOpen ? 'none' : '';
             var toggle = row.querySelector('.oc-tree-toggle');
-            if (toggle) toggle.textContent = toggleIcon(!isOpen);
+            setToggleState(toggle, !isOpen);
         });
     });
 
@@ -206,7 +217,7 @@ export function renderTree(tree) {
             if (children) {
                 const isOpen = children.style.display !== 'none';
                 children.style.display = isOpen ? 'none' : '';
-                el.textContent = toggleIcon(!isOpen);
+                setToggleState(el, !isOpen);
             }
         });
     });
@@ -299,7 +310,7 @@ export function applyTreeSearchFilter() {
             var toggle = node.querySelector(':scope > .oc-tree-row .oc-tree-toggle');
             var children = node.querySelector(':scope > .oc-tree-children');
             if (toggle && children) {
-                toggle.textContent = children.style.display === 'none' ? '⯈' : '▼';
+                setToggleState(toggle, children.style.display !== 'none');
             }
         });
         updateTreeSearchStatus(0, totalCount);
@@ -341,7 +352,7 @@ export function applyTreeSearchFilter() {
         if (children) {
             children.style.display = visible ? '' : 'none';
             if (toggle) {
-                toggle.textContent = visible ? '▼' : '⯈';
+                setToggleState(toggle, !!visible);
             }
         }
         return visible;

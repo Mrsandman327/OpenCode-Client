@@ -151,12 +151,12 @@ export function emptyProvider() {
 export function renderProviders(providers) {
     const list = document.getElementById('providersList');
     const empty = (!providers || !providers.length)
-        ? '<div class="prov-empty">暂无供应商，点击下方「➕ 添加供应商」</div>'
+        ? '<div class="prov-empty">暂无供应商，点击下方「添加供应商」</div>'
         : '';
     const html = (providers || []).map(p => providerCardHtml(p)).join('');
     list.innerHTML = empty + html + `
         <div class="provider-card provider-card-add" id="btnAddCard">
-            <span>➕ 添加供应商</span>
+            <span><span class="oc-fb-icon oc-fb-icon-add"></span>添加供应商</span>
         </div>`;
     bindProviderEvents(providers);
     document.getElementById('btnAddCard').addEventListener('click', () => addNewCard());

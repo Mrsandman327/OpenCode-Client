@@ -219,7 +219,8 @@ export function createTreeNodeRow(node, depth) {
     var toggle = document.createElement('span');
     toggle.className = 'file-browser-tree-toggle';
     if (node.type === 'dir') {
-        toggle.textContent = node.expanded ? '▼' : '⯈';
+        // 折叠/展开图标：assets 下 SVG 遮罩（mask），类名切换状态
+        toggle.classList.add(node.expanded ? 'is-expanded' : 'is-collapsed');
     }
     row.appendChild(toggle);
 
@@ -229,9 +230,10 @@ export function createTreeNodeRow(node, depth) {
     btn.dataset.path = node.path;
     btn.dataset.type = node.type;
 
+    // 文件夹/文件图标改用 assets 下的 SVG 遮罩（mask 机制），颜色随行文字；
+    // class 决定具体图形，不再写入 emoji 文本。
     var icon = document.createElement('span');
-    icon.className = 'file-browser-item-icon';
-    icon.textContent = (node.type === 'dir') ? '📁' : '📄';
+    icon.className = 'file-browser-item-icon ' + (node.type === 'dir' ? 'folder' : 'file');
     btn.appendChild(icon);
 
     var name = document.createElement('span');
@@ -1086,8 +1088,9 @@ export function renderGitTreeNodes(node, groupName, depth) {
         var collapsed = !!(state.git.collapsedDirs && state.git.collapsedDirs[collapseKey]);
         html += '<div class="file-browser-git-tree-dir" data-tree-dir="' + escapeHtml(collapseKey) + '"' +
             ' style="padding-left:' + (depth * INDENT + 6) + 'px" title="' + escapeHtml(child.path) + '">' +
-            '<span class="file-browser-git-tree-toggle">' + (collapsed ? '⯈' : '▼') + '</span>' +
-            '<span class="file-browser-git-tree-icon">📁</span>' +
+            '<span class="file-browser-git-tree-toggle ' + (collapsed ? 'is-collapsed' : 'is-expanded') + '"></span>' +
+            // 文件夹图标：assets/文件夹.svg 作遮罩（mask 机制），颜色随行文字
+            '<span class="file-browser-git-tree-icon"></span>' +
             '<span class="file-browser-git-tree-name">' + escapeHtml(dirName) + '</span>' +
         '</div>';
         if (!collapsed) html += renderGitTreeNodes(child, groupName, depth + 1);

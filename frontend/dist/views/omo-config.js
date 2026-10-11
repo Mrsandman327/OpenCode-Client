@@ -224,7 +224,7 @@ export function renderModelConfig() {
     // 3) 空状态：文件不存在且没有任何方案（仍可用底部「新增方案」创建）
     if (!slimExists && visiblePresets.length === 0) {
         clearBatchBar();
-        container.innerHTML = '<div class="empty"><p>📭 未找到 oh-my-opencode-slim 配置文件</p><p class="empty-hint">点击底部「➕ 新增方案」创建第一个方案，保存后自动创建配置文件</p></div>';
+        container.innerHTML = '<div class="empty"><p>📭 未找到 oh-my-opencode-slim 配置文件</p><p class="empty-hint">点击底部「新增方案」创建第一个方案，保存后自动创建配置文件</p></div>';
         updateSaveStatus();
         return;
     }
@@ -567,7 +567,7 @@ function revertOverride(preset, agent) {
  *   1) 更新方案自身 name；
  *   2) 同步所有 extends === 旧名 的其它方案（否则继承引用断裂）；
  *   3) 若改的是当前激活方案，activePresetName 一并跟随；
- *   保存由「💾 保存配置」统一提交（后端会按新名重建 presets 块）。
+ *   保存由「保存配置」统一提交（后端会按新名重建 presets 块）。
  */
 function renamePreset(preset) {
     const oldName = preset.name;
@@ -796,9 +796,11 @@ export async function handleSlimSave() {
     };
 
     const btn = document.getElementById('btnSaveModels');
+    const btnText = document.getElementById('btnSaveModelsText');
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '⏳ 保存中...';
+        // 图标在按钮内独立 span，这里只改文字（保存中状态）
+        if (btnText) btnText.textContent = '保存中...';
     }
 
     try {
@@ -816,7 +818,7 @@ export async function handleSlimSave() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '💾 保存配置';
+            if (btnText) btnText.textContent = '保存配置';
         }
     }
 }
