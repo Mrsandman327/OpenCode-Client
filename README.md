@@ -243,13 +243,6 @@ go vet ./internal/... ./model/... ./service/... ./config/...   # 静态检查（
 
 详细操作手册见 **[doc/使用说明.md](doc/使用说明.md)**
 
----
-
-## 🤝 交流
-
-<p align="center">
-  <img src="./doc/image/wechat.png" width="30%" />
-</p>
 
 ---
 
