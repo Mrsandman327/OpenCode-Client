@@ -1647,6 +1647,14 @@ input::placeholder, textarea::placeholder {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* 头部左侧组：标题 + 状态徽章紧挨（配合公共 .modal-header 的两端对齐，关闭按钮靠右） */
+.subtask-head-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
 .subtask-status-badge {
     display: inline-block;
     font-size: 11px;
@@ -3928,6 +3936,38 @@ input::placeholder, textarea::placeholder {
     justify-content: center;
     height: 34px;
 }
+/* Modal 头部关闭按钮：透明底图标按钮（关闭.svg 遮罩，颜色随主题文字色）。
+   通用类，不限于 .modal-card——项目配置 / 知识库等头部同样使用。 */
+.modal-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.modal-close-btn:hover {
+    /* 悬停反馈按主题取"可见对比色"：
+       light 主题下 --bg-card-hover(#f5f5f7) 与弹窗头部底色(--bg-secondary)完全相同、
+       叠上去看不见，故默认(light)用黑色 6% 叠加（浅灰块）；
+       dark 下原变量 #242426→#303032 本就可见，保持现状。 */
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-primary);
+}
+[data-theme="dark"] .modal-close-btn:hover {
+    background: var(--bg-card-hover);
+}
+.modal-close-btn .oc-fb-icon {
+    width: 14px;
+    height: 14px;
+}
 .proxy-separator {
     border: none;
     border-top: 1px solid var(--border);
@@ -6107,6 +6147,10 @@ input::placeholder, textarea::placeholder {
     -webkit-mask-image: url("../assets/搜索.svg");
     mask-image: url("../assets/搜索.svg");
 }
+.oc-fb-icon-close {
+    -webkit-mask-image: url("../assets/关闭.svg");
+    mask-image: url("../assets/关闭.svg");
+}
 
 .file-browser-mode-btn {
     width: 36px;
@@ -7884,12 +7928,6 @@ input.toolbar-input {
     overflow-y: auto;
     min-height: 0;
     padding: 12px 20px;
-}
-.subtask-modal-footer {
-    flex-shrink: 0;
-    padding: 10px 20px;
-    border-top: 1px solid var(--border);
-    text-align: right;
 }
 /* 标题行（flex 布局） */
 .subtask-title-row {

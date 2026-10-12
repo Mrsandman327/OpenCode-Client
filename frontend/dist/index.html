@@ -450,7 +450,7 @@
         <div class="modal modal-card proxy-modal">
             <div class="modal-header">
                 <h3>网络配置</h3>
-                <button type="button" class="btn btn-sm" id="btnCloseProxyHead">✕</button>
+                <button type="button" class="modal-close-btn" id="btnCloseProxyHead" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
             <div class="modal-body">
                 <div class="oc-service-group-title">OpenCode 服务地址</div>
@@ -498,7 +498,7 @@
         <div class="modal modal-card proxy-modal">
             <div class="modal-header">
                 <h3>Web服务配置</h3>
-                <button type="button" class="btn btn-sm" id="btnCloseFrontendWebHead">✕</button>
+                <button type="button" class="modal-close-btn" id="btnCloseFrontendWebHead" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
             <div class="modal-body">
                 <div class="modal-field">
@@ -685,11 +685,13 @@
 
     <!-- ===== 子任务详情弹窗 ===== -->
     <div class="modal-overlay" id="subtaskModal" style="display:none">
-        <div class="modal subtask-modal" onclick="event.stopPropagation()">
-            <div class="subtask-modal-header">
-                <h3 id="subtaskModalTitle">子任务详情</h3>
-                <span class="subtask-status-badge" id="subtaskStatusBadge"></span>
-                <button type="button" class="btn btn-sm toolbar-spacer" id="subtaskModalCloseBtn">✕</button>
+        <div class="modal subtask-modal modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header subtask-modal-header">
+                <div class="subtask-head-left">
+                    <h3 id="subtaskModalTitle">子任务详情</h3>
+                    <span class="subtask-status-badge" id="subtaskStatusBadge"></span>
+                </div>
+                <button type="button" class="modal-close-btn" id="subtaskModalCloseBtn" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
             <div class="subtask-modal-section" id="subtaskModalSummary">
                 <div class="subtask-title-row">
@@ -724,9 +726,6 @@
             <div class="subtask-modal-body" id="subtaskMessages">
                 <div class="oc-empty">正在加载子任务详情...</div>
             </div>
-            <div class="subtask-modal-footer">
-                <button type="button" class="btn btn-sm" id="subtaskModalCancelBtn">关闭</button>
-            </div>
         </div>
     </div>
 
@@ -735,7 +734,7 @@
         <div class="modal project-config-modal" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <h3 id="projectConfigTitle">项目配置</h3>
-                <button type="button" class="btn btn-sm" id="btnCloseProjectConfig">✕</button>
+                <button type="button" class="modal-close-btn" id="btnCloseProjectConfig" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
             <div class="project-config-tabs" id="projectConfigTabs">
                 <button type="button" class="pc-tab active" data-pc-tab="coreConfig">核心配置</button>
@@ -758,7 +757,7 @@
             <!-- 头部：弹窗标题 + 关闭 -->
             <div class="modal-header kb-entry-head">
                 <h3 id="kbEntryModalTitle">新建条目</h3>
-                <button type="button" class="btn btn-sm" id="kbEntryCloseBtn" title="关闭弹窗">✕</button>
+                <button type="button" class="modal-close-btn" id="kbEntryCloseBtn" title="关闭弹窗"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
 
             <!-- 中部：三个独立必填区 -->
@@ -851,7 +850,7 @@
         <div class="modal kb-convert-modal" onclick="event.stopPropagation()">
             <div class="modal-header kb-entry-head">
                 <h3>转化为 OpenCode 资产</h3>
-                <button type="button" class="btn btn-sm" id="kbConvertCloseBtn" title="关闭弹窗">✕</button>
+                <button type="button" class="modal-close-btn" id="kbConvertCloseBtn" title="关闭弹窗"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
 
             <div class="kb-convert-body">

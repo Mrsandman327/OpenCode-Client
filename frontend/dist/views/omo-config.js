@@ -631,7 +631,7 @@ export function showAddEntryModal(presetName) {
         <div class="modal modal-card proxy-modal">
             <div class="modal-header">
                 <h3>添加条目 · ${escapeAttr(presetName)}</h3>
-                <button type="button" class="btn btn-sm" id="btnCloseAddEntry">✕</button>
+                <button type="button" class="modal-close-btn" id="btnCloseAddEntry" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
             <div class="modal-body">
                 <div class="modal-field">

@@ -435,7 +435,7 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
     overlay.id = 'modelListModal';
     overlay.innerHTML = '<div class="modal modal-card proxy-modal" style="max-width:420px">' +
         '<div class="modal-header"><h3>' + escapeHtml(name) + '-模型</h3>' +
-        '<button type="button" class="btn btn-sm" id="btnCloseModelList">✕</button></div>' +
+        '<button type="button" class="modal-close-btn" id="btnCloseModelList" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button></div>' +
         '<div class="modal-body">' + html + '</div>' +
         '</div>';
     document.body.appendChild(overlay);
