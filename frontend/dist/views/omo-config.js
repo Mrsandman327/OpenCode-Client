@@ -628,33 +628,41 @@ export function showAddEntryModal(presetName) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal">
-            <h3>添加条目 · ${escapeAttr(presetName)}</h3>
-            <div class="modal-field">
-                <label>Agent 名</label>
-                <select id="modalEntryKey" class="modal-select">
-                    <option value="">（选择内置 agent）</option>
-                    ${SLIM_AGENT_KEYS.map(k => `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`).join('')}
-                    <option value="__custom__">自定义…</option>
-                </select>
-                <input id="modalEntryKeyCustom" placeholder="输入自定义 agent 名" style="display:none;margin-top:6px" />
+        <div class="modal modal-card proxy-modal">
+            <div class="modal-header">
+                <h3>添加条目 · ${escapeAttr(presetName)}</h3>
+                <button type="button" class="btn btn-sm" id="btnCloseAddEntry">✕</button>
             </div>
-            <div class="modal-field">
-                <label>模型</label>
-                <select id="modalEntryModel" class="modal-select">${modelOptionsHtml('')}</select>
+            <div class="modal-body">
+                <div class="modal-field">
+                    <label>Agent 名</label>
+                    <select id="modalEntryKey" class="modal-select">
+                        <option value="">（选择内置 agent）</option>
+                        ${SLIM_AGENT_KEYS.map(k => `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`).join('')}
+                        <option value="__custom__">自定义…</option>
+                    </select>
+                    <input id="modalEntryKeyCustom" placeholder="输入自定义 agent 名" style="display:none;margin-top:6px" />
+                </div>
+                <div class="modal-field">
+                    <label>模型</label>
+                    <select id="modalEntryModel" class="modal-select">${modelOptionsHtml('')}</select>
+                </div>
+                <div class="modal-field">
+                    <label>variant（思考力度）</label>
+                    <select id="modalEntryVariant" class="modal-select">${variantOptionsHtml('')}</select>
+                </div>
             </div>
-            <div class="modal-field">
-                <label>variant（思考力度）</label>
-                <select id="modalEntryVariant" class="modal-select">${variantOptionsHtml('')}</select>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-cancel" id="btnCancelAddEntry">取消</button>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="btnCancelAddEntry">取消</button>
                 <button class="btn btn-primary" id="btnConfirmAddEntry">确定</button>
             </div>
         </div>`;
     document.body.appendChild(overlay);
     // 点遮罩关闭（仅当按下与松开都在遮罩上才触发；新机制不再需要子元素 stopPropagation）
     bindOverlayClose(overlay, () => overlay.remove());
+
+    // 头部关闭按钮：移除当前弹窗
+    overlay.querySelector('#btnCloseAddEntry').addEventListener('click', () => overlay.remove());
 
     const keySelect = overlay.querySelector('#modalEntryKey');
     const keyCustom = overlay.querySelector('#modalEntryKeyCustom');

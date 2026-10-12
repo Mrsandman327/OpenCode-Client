@@ -161,8 +161,7 @@ export function showProxyModal() {
     const proxyHostEl = document.getElementById('proxyHost');
     const proxyPortEl = document.getElementById('proxyPort');
     const servicePwdEl = document.getElementById('servicePassword');
-    const saveBtn = document.getElementById('btnSaveProxy');
-    const cancelBtn = document.getElementById('btnCancelProxy');
+    const actionsEl = document.getElementById('proxyModalActions');
     serviceHostEl.value = config.serviceHost;
     servicePortEl.value = config.servicePort;
     if (servicePwdEl) servicePwdEl.value = config.servicePassword || '';
@@ -193,8 +192,9 @@ export function showProxyModal() {
     proxyEnabledEl.disabled = readonly;
     proxyHostEl.readOnly = readonly;
     proxyPortEl.readOnly = readonly;
-    saveBtn.style.display = readonly ? 'none' : '';
-    cancelBtn.textContent = readonly ? '关闭' : '取消';
+    // 只读（服务运行中）：整个操作区隐藏——保存不可用、也不再显示「关闭」按钮（点弹窗遮罩即可关闭）；
+    // 编辑态显示「取消 + 保存」。
+    if (actionsEl) actionsEl.style.display = readonly ? 'none' : '';
     if (readonly) {
         serviceHostEl.style.opacity = '0.6';
         servicePortEl.style.opacity = '0.6';

@@ -447,78 +447,87 @@
 
     <!-- 配置弹窗 -->
     <div class="modal-overlay" id="proxyModal" style="display:none">
-        <div class="modal proxy-modal">
-            <h3>网络配置</h3>
-            <div class="oc-service-group-title">OpenCode 服务地址</div>
-            <div class="modal-field">
-                <label for="serviceHost">服务地址</label>
-                <input id="serviceHost" placeholder="127.0.0.1" />
+        <div class="modal modal-card proxy-modal">
+            <div class="modal-header">
+                <h3>网络配置</h3>
+                <button type="button" class="btn btn-sm" id="btnCloseProxyHead">✕</button>
             </div>
-            <div class="modal-field">
-                <label for="servicePort">服务端口</label>
-                <input id="servicePort" inputmode="numeric" placeholder="49374" />
-            </div>
-            <div class="modal-field">
-                <label for="servicePassword">服务访问口令</label>
-                <div class="pwd-row">
-                    <input id="servicePassword" type="password" placeholder="12345678" autocomplete="off" />
-                    <button class="btn-eye" type="button" id="btnToggleServicePwd" title="显示明文">👁</button>
+            <div class="modal-body">
+                <div class="oc-service-group-title">OpenCode 服务地址</div>
+                <div class="modal-field">
+                    <label for="serviceHost">服务地址</label>
+                    <input id="serviceHost" placeholder="127.0.0.1" />
                 </div>
+                <div class="modal-field">
+                    <label for="servicePort">服务端口</label>
+                    <input id="servicePort" inputmode="numeric" placeholder="49374" />
+                </div>
+                <div class="modal-field">
+                    <label for="servicePassword">服务访问口令</label>
+                    <div class="pwd-row">
+                        <input id="servicePassword" type="password" placeholder="12345678" autocomplete="off" />
+                        <button class="btn-eye" type="button" id="btnToggleServicePwd" title="显示明文">👁</button>
+                    </div>
+                </div>
+                <hr class="proxy-separator" />
+                <div class="oc-service-group-title">代理设置</div>
+                <label class="proxy-switch-row">
+                    <span>
+                        <strong>启用代理</strong>
+                        <small>启动 OpenCode 前注入代理环境变量</small>
+                    </span>
+                    <input type="checkbox" id="proxyEnabled" />
+                </label>
+                <div class="modal-field">
+                    <label for="proxyHost">代理地址</label>
+                    <input id="proxyHost" placeholder="127.0.0.1" />
+                </div>
+                <div class="modal-field">
+                    <label for="proxyPort">代理端口</label>
+                    <input id="proxyPort" inputmode="numeric" placeholder="7897" />
+                </div>
+                <div class="proxy-preview" id="proxyPreview"></div>
             </div>
-            <hr class="proxy-separator" />
-            <div class="oc-service-group-title">代理设置</div>
-            <label class="proxy-switch-row">
-                <span>
-                    <strong>启用代理</strong>
-                    <small>启动 OpenCode 前注入代理环境变量</small>
-                </span>
-                <input type="checkbox" id="proxyEnabled" />
-            </label>
-            <div class="modal-field">
-                <label for="proxyHost">代理地址</label>
-                <input id="proxyHost" placeholder="127.0.0.1" />
-            </div>
-            <div class="modal-field">
-                <label for="proxyPort">代理端口</label>
-                <input id="proxyPort" inputmode="numeric" placeholder="7897" />
-            </div>
-            <div class="proxy-preview" id="proxyPreview"></div>
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" id="btnCancelProxy">取消</button>
+            <div class="modal-footer" id="proxyModalActions">
                 <button type="button" class="btn btn-primary" id="btnSaveProxy">保存</button>
             </div>
         </div>
     </div>
 
     <div class="modal-overlay" id="frontendWebModal" style="display:none">
-        <div class="modal proxy-modal">
-            <h3>Web服务配置</h3>
-            <div class="modal-field">
-                <label for="frontendWebHost">监听地址</label>
-                <input id="frontendWebHost" placeholder="127.0.0.1" />
+        <div class="modal modal-card proxy-modal">
+            <div class="modal-header">
+                <h3>Web服务配置</h3>
+                <button type="button" class="btn btn-sm" id="btnCloseFrontendWebHead">✕</button>
             </div>
-            <div class="modal-field">
-                <label for="frontendWebPort">监听端口</label>
-                <input id="frontendWebPort" inputmode="numeric" placeholder="8081" />
-            </div>
-            <div class="path-bar path-bar-inline">
-                <span class="path-label">服务状态：</span>
-                <span class="path-value" id="frontendWebStatus">未启动</span>
-            </div>
-            <div class="path-bar path-bar-inline-compact">
-                <span class="path-label">访问地址：</span>
-                <div class="frontend-web-url-wrap">
-                    <a class="path-value frontend-web-url disabled" id="frontendWebUrl" href="#" target="_blank" rel="noopener noreferrer">--</a>
-                    <button type="button" class="btn btn-sm" id="btnCopyFrontendWebUrl" disabled>复制</button>
+            <div class="modal-body">
+                <div class="modal-field">
+                    <label for="frontendWebHost">监听地址</label>
+                    <input id="frontendWebHost" placeholder="127.0.0.1" />
+                </div>
+                <div class="modal-field">
+                    <label for="frontendWebPort">监听端口</label>
+                    <input id="frontendWebPort" inputmode="numeric" placeholder="8081" />
+                </div>
+                <div class="path-bar path-bar-inline">
+                    <span class="path-label">服务状态：</span>
+                    <span class="path-value" id="frontendWebStatus">未启动</span>
+                </div>
+                <div class="path-bar path-bar-inline-compact">
+                    <span class="path-label">访问地址：</span>
+                    <div class="frontend-web-url-wrap">
+                        <a class="path-value frontend-web-url disabled" id="frontendWebUrl" href="#" target="_blank" rel="noopener noreferrer">--</a>
+                        <button type="button" class="btn btn-sm" id="btnCopyFrontendWebUrl" disabled>复制</button>
+                    </div>
+                </div>
+                <div class="frontend-web-qr-section">
+                    <div class="frontend-web-qr-box" id="frontendWebQrBox">
+                        <div class="frontend-web-qr-empty" id="frontendWebQrEmpty">启动服务后显示二维码</div>
+                    </div>
+                    <div class="frontend-web-qr-hint" id="frontendWebQrHint">手机扫码打开此页面</div>
                 </div>
             </div>
-            <div class="frontend-web-qr-section">
-                <div class="frontend-web-qr-box" id="frontendWebQrBox">
-                    <div class="frontend-web-qr-empty" id="frontendWebQrEmpty">启动服务后显示二维码</div>
-                </div>
-                <div class="frontend-web-qr-hint" id="frontendWebQrHint">手机扫码打开此页面</div>
-            </div>
-            <div class="modal-actions frontend-web-actions">
+            <div class="modal-footer frontend-web-actions">
                 <button type="button" class="btn btn-primary" id="btnToggleFrontendWeb" data-mode="start">▶ 启动 Web服务</button>
             </div>
         </div>
@@ -726,7 +735,7 @@
         <div class="modal project-config-modal" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <h3 id="projectConfigTitle">项目配置</h3>
-                <button type="button" class="btn btn-sm" id="btnCloseProjectConfig">✕ 关闭</button>
+                <button type="button" class="btn btn-sm" id="btnCloseProjectConfig">✕</button>
             </div>
             <div class="project-config-tabs" id="projectConfigTabs">
                 <button type="button" class="pc-tab active" data-pc-tab="coreConfig">核心配置</button>
@@ -749,7 +758,7 @@
             <!-- 头部：弹窗标题 + 关闭 -->
             <div class="modal-header kb-entry-head">
                 <h3 id="kbEntryModalTitle">新建条目</h3>
-                <button type="button" class="btn btn-sm" id="kbEntryCloseBtn" title="关闭弹窗">✕ 关闭</button>
+                <button type="button" class="btn btn-sm" id="kbEntryCloseBtn" title="关闭弹窗">✕</button>
             </div>
 
             <!-- 中部：三个独立必填区 -->
@@ -842,7 +851,7 @@
         <div class="modal kb-convert-modal" onclick="event.stopPropagation()">
             <div class="modal-header kb-entry-head">
                 <h3>转化为 OpenCode 资产</h3>
-                <button type="button" class="btn btn-sm" id="kbConvertCloseBtn" title="关闭弹窗">✕ 关闭</button>
+                <button type="button" class="btn btn-sm" id="kbConvertCloseBtn" title="关闭弹窗">✕</button>
             </div>
 
             <div class="kb-convert-body">

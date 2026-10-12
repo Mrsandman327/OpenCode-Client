@@ -433,11 +433,11 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'modelListModal';
-    overlay.innerHTML = '<div class="modal proxy-modal" style="max-width:420px">' +
-        '<h3>' + escapeHtml(name) + '-模型</h3>' +
-        html +
-        '<div class="modal-actions"><button class="btn btn-sm" id="btnCloseModelList">关闭</button></div>' +
-    '</div>';
+    overlay.innerHTML = '<div class="modal modal-card proxy-modal" style="max-width:420px">' +
+        '<div class="modal-header"><h3>' + escapeHtml(name) + '-模型</h3>' +
+        '<button type="button" class="btn btn-sm" id="btnCloseModelList">✕</button></div>' +
+        '<div class="modal-body">' + html + '</div>' +
+        '</div>';
     document.body.appendChild(overlay);
     overlay.style.display = 'flex';
     // 事件绑定：由 bindOverlayClose 统一处理「点击遮罩关闭」，

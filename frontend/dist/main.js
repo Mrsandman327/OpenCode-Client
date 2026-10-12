@@ -102,7 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnProxySettings').addEventListener('click', showProxyModal);
     document.getElementById('btnFrontendWebConfig').addEventListener('click', showFrontendWebModal);
     document.getElementById('btnToggleFrontendWeb').addEventListener('click', toggleFrontendWeb);
-    document.getElementById('btnCopyFrontendWebUrl').addEventListener('click', copyFrontendWebUrl);
+    document.getElementById('btnCloseFrontendWebHead').addEventListener('click', closeFrontendWebModal);
+    document.getElementById('btnCloseProxyHead').addEventListener('click', hideProxyModal);
     ['frontendWebHost', 'frontendWebPort'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -283,7 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnFileBrowserModeSearch')?.addEventListener('click', function() {
         switchFileBrowserMode('search');
     });
-    document.getElementById('btnCancelProxy').addEventListener('click', hideProxyModal);
     document.getElementById('btnSaveProxy').addEventListener('click', applyProxyConfig);
     ['proxyEnabled', 'proxyHost', 'proxyPort', 'serviceHost', 'servicePort'].forEach(id => {
         const el = document.getElementById(id);

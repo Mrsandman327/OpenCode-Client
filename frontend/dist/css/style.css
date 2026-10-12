@@ -3826,8 +3826,8 @@ input::placeholder, textarea::placeholder {
     justify-content: flex-end;
     margin-top: 20px;
 }
-/* Web服务弹窗：操作区只有一个启停按钮，居中对齐（其余弹窗保持靠右） */
-.frontend-web-actions {
+
+.modal-card .modal-footer.frontend-web-actions {
     justify-content: center;
 }
 .frontend-web-url-wrap {
@@ -3866,6 +3866,67 @@ input::placeholder, textarea::placeholder {
 .frontend-web-qr-hint.warn { color: #d97706; }
 .proxy-modal {
     width: 460px;
+}
+/* ============================================================
+   公共 Modal 控件（标准卡片弹窗）
+   基准来源：知识库条目编辑弹窗视觉规范。
+   用法：容器加 .modal-card，内部三段式 .modal-header / .modal-body / .modal-footer。
+   注意：全部规则以 .modal-card 作用域限定，避免影响 file-browser / project-config / kb 等已有弹窗。
+   ============================================================ */
+.modal-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    max-height: 90vh;
+    animation: modalPopIn 0.18s ease;
+}
+@keyframes modalPopIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.modal-card .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+.modal-card .modal-header h3 {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+.modal-card .modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 18px;
+    background: var(--bg-primary);
+}
+.modal-card .modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+/* 底部按钮统一高度，保证同一行严格对齐（同知识库方案） */
+.modal-card .modal-footer .btn,
+.modal-card .modal-footer .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
 }
 .proxy-separator {
     border: none;
@@ -3919,10 +3980,16 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-input);
     color: var(--text-secondary);
     border: 1px solid var(--border);
-    padding: 8px 18px;
+    padding: 7px 17px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ============================================================
@@ -7777,11 +7844,16 @@ input.toolbar-input {
     margin: 12px 0 0 0;
     padding: 0;
     border: none;
+    /* 内联变体不显示底条：透明后直接透出父容器底色。
+       此前未重置 background，继承 .path-bar 的 bg-secondary——
+       在弹窗内容区换用 bg-primary 后会显示为不协调的色带，故显式透明化。 */
+    background: transparent;
 }
 .path-bar-inline-compact {
     margin: 8px 0 0 0;
     padding: 0;
     border: none;
+    background: transparent;
 }
 
 /* 目录选择列表 */
