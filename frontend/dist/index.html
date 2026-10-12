@@ -6,6 +6,7 @@
     <title>🧩 OpenCode 工作台</title>
     <link rel="stylesheet" href="/css/style.css" />
     <script src="/lib/marked.min.js"></script>
+    <script src="/lib/qrcode.min.js"></script>
 </head>
 <body>
     <!-- ======== 顶部导航栏 ======== -->
@@ -511,10 +512,14 @@
                     <button type="button" class="btn btn-sm" id="btnCopyFrontendWebUrl" disabled>复制</button>
                 </div>
             </div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-primary" id="btnSaveFrontendWeb">启动服务</button>
-                <button type="button" class="btn btn-danger-outline" id="btnStopFrontendWeb">停止服务</button>
-                <button type="button" class="btn-cancel" id="btnCloseFrontendWebModal">关闭</button>
+            <div class="frontend-web-qr-section">
+                <div class="frontend-web-qr-box" id="frontendWebQrBox">
+                    <div class="frontend-web-qr-empty" id="frontendWebQrEmpty">启动服务后显示二维码</div>
+                </div>
+                <div class="frontend-web-qr-hint" id="frontendWebQrHint">手机扫码打开此页面</div>
+            </div>
+            <div class="modal-actions frontend-web-actions">
+                <button type="button" class="btn btn-primary" id="btnToggleFrontendWeb" data-mode="start">▶ 启动 Web服务</button>
             </div>
         </div>
     </div>

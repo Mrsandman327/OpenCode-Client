@@ -3826,6 +3826,10 @@ input::placeholder, textarea::placeholder {
     justify-content: flex-end;
     margin-top: 20px;
 }
+/* Web服务弹窗：操作区只有一个启停按钮，居中对齐（其余弹窗保持靠右） */
+.frontend-web-actions {
+    justify-content: center;
+}
 .frontend-web-url-wrap {
     display: inline-flex;
     align-items: center;
@@ -3853,6 +3857,13 @@ input::placeholder, textarea::placeholder {
     color: var(--success);
     font-weight: 600;
 }
+/* Web服务二维码：白底卡片保证扫码识别率（深色主题下不随主题变暗） */
+.frontend-web-qr-section { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.frontend-web-qr-box { background: #ffffff; border-radius: var(--radius-md); padding: 10px; min-width: 176px; min-height: 176px; display: flex; align-items: center; justify-content: center; }
+.frontend-web-qr-box canvas, .frontend-web-qr-box img { display: block; }
+.frontend-web-qr-empty { color: #9a9a9a; font-size: 12px; text-align: center; line-height: 1.6; }
+.frontend-web-qr-hint { font-size: 11px; color: var(--text-muted); text-align: center; }
+.frontend-web-qr-hint.warn { color: #d97706; }
 .proxy-modal {
     width: 460px;
 }

@@ -17,9 +17,9 @@ import {
 } from './chat/mobile.js';
 import {
     showProxyModal, hideProxyModal, applyProxyConfig, updateProxyPreview, updateProxyButton,
-    showFrontendWebModal, closeFrontendWebModal, startFrontendWeb, stopFrontendWeb,
+    showFrontendWebModal, closeFrontendWebModal, toggleFrontendWeb,
     copyFrontendWebUrl, persistFrontendWebConfigFromInputs, loadFrontendWebConfigToInputs,
-    checkFrontendWebStatus,
+    checkFrontendWebStatus, ensureLanIPv4,
 } from './chat/config.js';
 import {
     toggleWeb, checkWebStatus, loadServiceStatus, launchTerminal,
@@ -101,10 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnToggleWeb').addEventListener('click', toggleWeb);
     document.getElementById('btnProxySettings').addEventListener('click', showProxyModal);
     document.getElementById('btnFrontendWebConfig').addEventListener('click', showFrontendWebModal);
-    document.getElementById('btnSaveFrontendWeb').addEventListener('click', startFrontendWeb);
-    document.getElementById('btnStopFrontendWeb').addEventListener('click', stopFrontendWeb);
+    document.getElementById('btnToggleFrontendWeb').addEventListener('click', toggleFrontendWeb);
     document.getElementById('btnCopyFrontendWebUrl').addEventListener('click', copyFrontendWebUrl);
-    document.getElementById('btnCloseFrontendWebModal').addEventListener('click', closeFrontendWebModal);
     ['frontendWebHost', 'frontendWebPort'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -452,6 +450,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSkillsData();
     checkWebStatus();
     checkFrontendWebStatus();
+    // 启动时探测本机局域网 IPv4（缓存供 Web 服务监听地址默认值与二维码使用；失败不影响启动）
+    ensureLanIPv4();
 
     // ============ 独立文件浏览器窗口模式 ============
     // 桌面端多窗口 / 浏览器新标签页通过 ?view=filebrowser&root=...&git=1 进入：
