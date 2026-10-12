@@ -409,7 +409,7 @@ func unmarshalSessionList(body []byte) ([]treeSession, string, error) {
 
 // maxSessionPages 翻页防御上限：最多请求的页数，避免服务端异常（持续签发 next）时死循环。
 const maxSessionPages = 20
-//
+
 // 分页：v2 的列表接口默认只返回最新 50 条，并提供 cursor.next/previous。
 // 这里把 limit 当作「每页条数」，循环带上 &cursor= 直到某一页为空。两个要点：
 //  1. 终止条件用「空页」——服务端数据已尽时仍可能签发 next，不能只看 cursor 是否为空；
@@ -483,7 +483,7 @@ func GetProjectTree(knownDirs string) string {
 		password = sess.password
 	}
 
-	sessions := fetchSessionList(base, "", password, 10)
+	sessions := fetchSessionList(base, "", password, 1000)
 	return buildTreeJSON(sessions)
 }
 
