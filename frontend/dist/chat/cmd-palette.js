@@ -12,6 +12,7 @@ import { escapeHtml, showToast, showApiError, getCachedMessages, messageText, lo
 import { openSessionTab } from './tabs.js';
 import { buildTree } from './tree.js';
 import { unwrap, unwrapList, formatApiError } from '../core/v2compat.js';
+import { askBtw } from './btw.js';
 
 let cmdPaletteItems = [];
 let skillItems = [];
@@ -26,6 +27,7 @@ const FIXED_COMMANDS = [
     { name: 'revert',    description: '撤销最后消息（需 Git 仓库）', source: 'fixed' },
     { name: 'unrevert',  description: '取消撤销（清除暂存的撤销；需 Git 仓库）', source: 'fixed' },
     { name: 'fork',      description: '从消息创建新会话（分叉）', source: 'fixed' },
+    { name: 'btw',       description: '侧问：一次性回答，不写入会话', source: 'fixed' },
 ];
 
 const cmdPaletteEl = document.getElementById('ocCmdPalette');
@@ -120,6 +122,16 @@ export function hideCmdPalette() {
     cmdPaletteVisible = false;
     cmdPaletteIndex = -1;
     cmdPaletteEl.style.display = 'none';
+    // 键位表（mod+k,mod+shift+p）调起时会给空输入框补一个 '/'；
+    // 未选中任何命令就关面板时把它清掉，避免输入框里残留一个孤零零的斜杠。
+    if (cmdInputEl.value === '/') cmdInputEl.value = '';
+}
+
+/** 由键位表调起命令面板：给空输入框补 '/' 后走原显示流程（过滤条件为空 = 全量列表）。 */
+export async function openCmdPaletteByKeybind() {
+    if (!cmdInputEl.value) cmdInputEl.value = '/';
+    cmdInputEl.focus();
+    await showCmdPalette();
 }
 
 // ============================
@@ -258,14 +270,15 @@ export function selectCmdItem(cmdName, source) {
     }
 }
 
-export async function executeFixedCmd(cmdName) {
+export async function executeFixedCmd(cmdName, args) {
     if (!store.webRunning || !store.currentSessionId) {
         showToast('请先启动服务并选择会话', 'error');
         return;
     }
     const sid = store.currentSessionId;
     hideCmdPalette();
-    showToast(`执行 /${cmdName}...`, 'info');
+    // btw 自带「正在生成」与失败提示，不再叠一句「执行 /btw...」
+    if (cmdName !== 'btw') showToast(`执行 /${cmdName}...`, 'info');
 
     try {
         switch (cmdName) {
@@ -306,6 +319,17 @@ export async function executeFixedCmd(cmdName) {
                 // 弹出消息选择（选一条用户消息作为分叉点），成功后新建 tab + 刷新树
                 await showForkMessagePicker(sid);
                 break;
+            case 'btw': {
+                // 侧问：一次性回答，**绝不写入会话历史**。
+                // 从命令面板选中（无参数）时把 "/btw " 放回输入框，让用户接着敲问题
+                // ——此时 return，跳过函数末尾的清空，否则刚放回去的前缀会被抹掉。
+                if (!args || !String(args).trim()) {
+                    insertCmdToPrompt('btw');
+                    return;
+                }
+                await askBtw(String(args));
+                break;
+            }
         }
     } catch (e) {
         showApiError(`/${cmdName} 失败: `, e);

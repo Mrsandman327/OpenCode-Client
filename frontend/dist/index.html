@@ -445,6 +445,26 @@
         </div>
     </div>
 
+    <!-- 侧问面板（/btw：一次性回答，不写入会话历史） -->
+    <div class="modal-overlay" id="btwModal" style="display:none">
+        <div class="modal btw-modal">
+            <div class="btw-header">
+                <span class="btw-title">侧问</span>
+                <span class="btw-head-actions">
+                    <button type="button" class="btw-icon-btn btw-copy" title="复制回答" style="display:none">📋</button>
+                    <button type="button" class="btw-icon-btn btw-close" title="关闭">✕</button>
+                </span>
+            </div>
+            <div class="btw-question-wrap">
+                <span class="btw-question" style="display:none"></span>
+            </div>
+            <div class="btw-body"></div>
+            <div class="btw-foot">
+                <button type="button" class="btn btn-sm btw-retry" style="display:none">重试</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 配置弹窗 -->
     <div class="modal-overlay" id="proxyModal" style="display:none">
         <div class="modal modal-card proxy-modal">

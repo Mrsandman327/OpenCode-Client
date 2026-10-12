@@ -53,6 +53,9 @@ import { bindKnowledgeEvents } from './views/knowledge.js';
 import { loadProviders } from './views/provider.js';
 // 知识库 @ 引用：输入框输入 @ 弹出知识库搜索面板（需 DOM 就绪后显式初始化）
 import { initKnowledgeRef } from './chat/knowledge-ref.js';
+// 侧问面板（/btw）：事件绑定 + 全局声明式键位表（集中在这两个模块，不再散落监听）
+import { bindBtwPanelEvents } from './chat/btw.js';
+import { initKeybinds } from './chat/keybinds.js';
 // 副作用模块：聊天命令面板在模块顶层自绑定键盘/输入事件（无导出符号被消费）
 import './chat/cmd-palette.js';
 // 副作用模块：侧边栏导航在模块顶层绑定点击事件并恢复折叠状态
@@ -452,6 +455,12 @@ document.addEventListener('DOMContentLoaded', () => {
     checkFrontendWebStatus();
     // 启动时探测本机局域网 IPv4（缓存供 Web 服务监听地址默认值与二维码使用；失败不影响启动）
     ensureLanIPv4();
+
+    // ============ 侧问面板 + 全局键位表 ============
+    // 两者都要 DOM 就绪后才能绑定（#btwModal / body 存在），故放在这里初始化一次。
+    // 键位表是**唯一**的全局快捷键入口（声明式表见 chat/keybinds.js）。
+    bindBtwPanelEvents();
+    initKeybinds();
 
     // ============ 独立文件浏览器窗口模式 ============
     // 桌面端多窗口 / 浏览器新标签页通过 ?view=filebrowser&root=...&git=1 进入：

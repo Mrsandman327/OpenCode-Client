@@ -23,8 +23,9 @@ import { loadSessionStatuses } from './events.js';
 import { isSessionBusy, smartScroll, updateSendButton, renderMessages, ensureSelectOption } from './render.js';
 // 解环后与 cmd-palette 的依赖为单向：它经 core/utils.js 注册中心调用本模块的
 // loadMessages 等动作（见 setSessionActionHandlers），本模块只在发送流程运行时
-// 调用它的 isKnownCommand/isKnownSkill。
-import { isKnownCommand, isKnownSkill } from './cmd-palette.js';
+// 调用它的 isKnownCommand/isKnownSkill/executeFixedCmd（/btw 拦截）。
+import { isKnownCommand, isKnownSkill, executeFixedCmd } from './cmd-palette.js';
+import { parseBtwCommand } from '../core/btw.js';
 import { rememberKnownDir } from './tree.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
 import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
@@ -1214,6 +1215,21 @@ export async function sendPrompt() {
         // 立即清空输入框（不等请求返回）：即使发送中锁已复位，
         // 重复触发（键盘抖动/双击）也因无文本而被拦截，不会发两条一样的。
         input.value = '';
+        // ===== /btw 侧问：命中面板固定命令时**不进会话消息流** =====
+        // 普通 prompt 会走「乐观用户消息 → prompt 端点 → 写入历史」；/btw 必须在此
+        // 之前拦下：问题打给无状态的 /api/experimental/generate，答案只进侧问面板。
+        // 若不拦，/btw 会因 isKnownCommand('btw') 为真（FIXED_COMMANDS 已并入
+        // 命令面板列表）而被当成服务端命令 POST 出去，而服务端并不认识 btw。
+        // 注意插在「乐观消息」之前：晚一步就会先看到一条假用户消息。
+        const btwCmd = parseBtwCommand(text);
+        if (btwCmd) {
+            if (!store.currentSessionId) {
+                showToast('请先选择会话', 'error');
+                return;
+            }
+            await executeFixedCmd('btw', btwCmd.args);
+            return;
+        }
     const btn = document.getElementById('btnSendPrompt');
     btn.disabled = true;
     const isNew = !store.currentSessionId;
