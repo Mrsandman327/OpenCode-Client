@@ -419,12 +419,15 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
     var html = '<div class="model-list-body">';
     models.forEach(function(m) {
         var escaped = escapeHtml(m);
+        // 状态圆点：蓝=可新增（未添加）/ 红=可删除（已添加），与按钮悬停语义色对应
         html += '<div class="model-list-row">' +
+            '<span class="model-list-dot ' + (existingSet[m] ? 'del' : 'add') + '"></span>' +
             '<span class="model-list-name">' + escaped + '</span>';
         if (existingSet[m]) {
-            html += '<button class="btn btn-sm btn-del" data-action="del" data-model="' + escaped + '">删除</button>';
+            // 行内操作按钮图标化：删除用「关闭.svg」（保留红色语义），title 提供可读提示
+            html += '<button class="btn btn-sm btn-del" data-action="del" data-model="' + escaped + '" title="删除"><span class="oc-fb-icon oc-fb-icon-minus" aria-hidden="true"></span></button>';
         } else {
-            html += '<button class="btn btn-sm btn-add" data-action="add" data-model="' + escaped + '">增加</button>';
+            html += '<button class="btn btn-sm btn-add" data-action="add" data-model="' + escaped + '" title="增加"><span class="oc-fb-icon oc-fb-icon-add" aria-hidden="true"></span></button>';
         }
         html += '</div>';
     });

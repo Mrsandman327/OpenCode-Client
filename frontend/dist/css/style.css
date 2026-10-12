@@ -6151,6 +6151,10 @@ input::placeholder, textarea::placeholder {
     -webkit-mask-image: url("../assets/关闭.svg");
     mask-image: url("../assets/关闭.svg");
 }
+.oc-fb-icon-minus {
+    -webkit-mask-image: url("../assets/减去.svg");
+    mask-image: url("../assets/减去.svg");
+}
 
 .file-browser-mode-btn {
     width: 36px;
@@ -7332,6 +7336,20 @@ body.file-browser-diff-dragging {
 .model-list-row:last-child {
     border-bottom: none;
 }
+/* 状态圆点：蓝=可新增（未添加）/ 红=可删除（已添加），与按钮悬停语义色对应 */
+.model-list-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+.model-list-dot.add {
+    background: var(--accent);
+}
+.model-list-dot.del {
+    background: var(--danger);
+}
 .model-list-name {
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     font-size: 12px;
@@ -7342,29 +7360,45 @@ body.file-browser-diff-dragging {
     flex: 1;
     margin-right: 12px;
 }
-.model-list-row .btn-add {
-    background: var(--success-bg);
-    color: var(--success);
-    border: 1px solid var(--success);
-    padding: 2px 12px;
-    font-size: 11px;
-    flex-shrink: 0;
-}
-.model-list-row .btn-add:hover {
-    background: var(--success);
-    color: #fff;
-}
+/* 模型列表行内操作按钮：中性极简（与弹窗关闭按钮同一套交互语言）——
+   平时灰色图标、无框透明，融入列表；悬停出现浅色背景块 + 语义色
+   （增加→主色蓝、删除→危险色红；语义色只在悬停时出现，避免常驻红绿的廉价感） */
+.model-list-row .btn-add,
 .model-list-row .btn-del {
-    background: var(--danger-bg);
-    color: var(--danger);
-    border: 1px solid var(--danger);
-    padding: 2px 12px;
-    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
     flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.model-list-row .btn-add .oc-fb-icon,
+.model-list-row .btn-del .oc-fb-icon {
+    width: 13px;
+    height: 13px;
+}
+/* 悬停背景块：light 用黑色 6% 叠加 / dark 用白色 8%（与 modal-close-btn 同款双主题方案，保证两主题下都可见） */
+.model-list-row .btn-add:hover,
+.model-list-row .btn-del:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+[data-theme="dark"] .model-list-row .btn-add:hover,
+[data-theme="dark"] .model-list-row .btn-del:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+/* 悬停语义色：增加→主色；删除→危险色 */
+.model-list-row .btn-add:hover {
+    color: var(--accent);
 }
 .model-list-row .btn-del:hover {
-    background: var(--danger);
-    color: #fff;
+    color: var(--danger);
 }
 
 
