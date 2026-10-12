@@ -14,7 +14,7 @@ import { loadMessages, refreshSessionTitle, selectSession } from './session.js';
 import { updateSendButton } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
-import { buildTree } from './tree.js';
+import { buildTree, wasSessionDeletedLocally } from './tree.js';
 import { showPermissionRequest, closePermissionModal } from './permission.js';
 
 // ============================
@@ -213,11 +213,14 @@ export function handleOcEvent(event) {
         return;
     }
     if (type === 'session.deleted') {
-        if (window._skipSessionDeletedRebuild) {
-            window._skipSessionDeletedRebuild = false;
-        } else {
-            buildTree();
+        // 严格取「被删除那个会话」的 ID（不用 currentSessionId 兜底）：
+        // 本地刚删的会话，其节点已被 deleteSession 直接摘除，跳过整树重建，
+        // 避免多条 session.deleted 引发连番全量重建（连续闪烁 + 卡顿）。
+        const deletedId = props.sessionID || props.sessionId || props.info?.sessionID || props.part?.sessionID || '';
+        if (deletedId && wasSessionDeletedLocally(deletedId)) {
+            return;
         }
+        buildTree();
         return;
     }
     if (type === 'session.updated') {

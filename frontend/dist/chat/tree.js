@@ -17,6 +17,7 @@ import { closeSessionTab, renderTabsBar } from './tabs.js';
 import { resetUserNav } from './search.js';
 import { openProjectConfig } from '../views/project-config.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
+import { createBuildGate, createRecentlyDeleted, RECENTLY_DELETED_TTL_MS } from './tree-guard.js';
 
 // 折叠/展开图标：assets/菜单折叠.svg、菜单展开.svg（CSS mask 呈现）。
 // 元素不写字符，改挂状态类（is-expanded / is-collapsed），由 CSS 显示对应图标。
@@ -29,21 +30,27 @@ function toggleClass(expanded) {
     return expanded ? 'is-expanded' : 'is-collapsed';
 }
 
-/** 项目树子级折叠/展开动画：max-height 过渡（DOM 保留，双向平滑；折叠结束再 display:none） */
+/** 项目树子级折叠/展开动画：max-height 过渡（DOM 保留，双向平滑；折叠结束再 display:none）。
+ *  性能：子节点过多时直接切换（大树逐帧重排开销大、易掉帧）；
+ *       用 requestAnimationFrame 替代 void offsetHeight（避免强制同步布局）。 */
 function animateTreeChildren(el, open) {
     if (!el) return;
+    if (el.childElementCount > 80) {
+        el.style.maxHeight = '';
+        el.style.overflow = '';
+        el.style.display = open ? '' : 'none';
+        return;
+    }
     if (open) {
         el.style.display = '';
         el.style.overflow = 'hidden';
         el.style.maxHeight = '0px';
-        void el.offsetHeight;
-        el.style.maxHeight = el.scrollHeight + 'px';
+        requestAnimationFrame(function () { el.style.maxHeight = el.scrollHeight + 'px'; });
         setTimeout(function () { el.style.maxHeight = ''; el.style.overflow = ''; }, 450);
     } else {
         el.style.overflow = 'hidden';
         el.style.maxHeight = el.scrollHeight + 'px';
-        void el.offsetHeight;
-        el.style.maxHeight = '0px';
+        requestAnimationFrame(function () { el.style.maxHeight = '0px'; });
         setTimeout(function () { el.style.display = 'none'; el.style.maxHeight = ''; el.style.overflow = ''; }, 450);
     }
 }
@@ -56,9 +63,33 @@ let treeSearchQuery = '';
 let treeSearchDebounceTimer = null;
 let treeSearchSnapshotTaken = false;
 
-/** 构建项目树（从后端获取项目→目录→会话三层结构） */
+// 重建并发闸门 + 「本地已删会话」记账（见 tree-guard.js）：
+// buildTree 原本无并发保护，每次调用都重建整树；会话多时多个 SSE 事件
+// 会引发连番全量重建（肉眼连续闪烁 + 卡顿）。闸门把它们合并成一次。
+const treeGate = createBuildGate();
+const recentlyDeleted = createRecentlyDeleted(RECENTLY_DELETED_TTL_MS, null);
+
+/** 记下「这个会话已被本地删除」，让随之而来的 session.deleted 事件跳过整树重建。 */
+export function markSessionDeletedLocally(id) {
+    return recentlyDeleted.mark(id);
+}
+
+/** 该会话是否刚被本地删除（供 chat/events.js 判定是否跳过重建） */
+export function wasSessionDeletedLocally(id) {
+    return recentlyDeleted.has(id);
+}
+
+/** 构建项目树（从后端获取项目→目录→会话三层结构）
+ *
+ *  并发请求会被闸门合并：执行期间再来的请求只补跑一次，且所有调用方
+ *  await 到的是同一个结果。**所有入口都必须走这里**，不要直接调 buildTreeOnce。 */
 export async function buildTree() {
-    if (!store.webRunning) return;
+    if (!store.webRunning) return false;
+    return treeGate(buildTreeOnce);
+}
+
+/** 单次重建：拉全量树 + 整树渲染。不对外。 */
+async function buildTreeOnce() {
     try {
         const knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
         const json = await api.GetProjectTree(JSON.stringify(knownDirs));
@@ -489,8 +520,8 @@ export async function deleteSession(id) {
     if (!id) return;
     if (!confirm('确定要删除该会话吗？此操作不可撤销。')) return;
     try {
-        window._skipSessionDeletedRebuild = true;
-        setTimeout(function() { window._skipSessionDeletedRebuild = false; }, 2000);
+        // 记账「本地已删」：随之而来的 session.deleted 事件据此跳过整树重建
+        markSessionDeletedLocally(id);
         await api.OpenCodeCall('DELETE', `/session/${encodeURIComponent(id)}`);
         showToast('已删除', 'success');
         if (id === store.currentSessionId) {
