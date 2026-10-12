@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -242,9 +243,22 @@ type treeSession struct {
 	Time      sessionTime `json:"time"`
 }
 
+// projectSessionLimit 每个项目一次性拉取的会话上限。
+// opencode /session 的默认 limit 是 100，超限会按 time_updated 倒序截断（丢掉最旧的），
+// 因此这里显式给一个足够大的值（当前最大项目约 174 条，1000 有充足余量）。
+const projectSessionLimit = 1000
+
 // GetProjectTree 获取项目→目录→会话的树形结构 JSON。
-// knownDirs 是前端记录的所有建过会话的目录（JSON 字符串数组），用于查询 global 项目会话。
+//
+// 算法：先取 /project，再对**每个项目**用其 worktree 作为锚点请求
+// /session?directory=<worktree>&scope=project —— scope=project 会返回该项目下
+// **所有目录**的会话（不再受单个 directory 精确匹配限制），从而覆盖全部目录，
+// 包括未注册为项目、或历史遗留被归到 global 的目录；也不再依赖前端 knownDirs。
+//
+// knownDirs 参数仅为兼容既有 Wails 绑定签名而保留，当前实现不再使用。
 func GetProjectTree(knownDirs string) string {
+	_ = knownDirs // 保留入参以兼容绑定签名；按项目全量拉取后不再需要
+
 	base, err := getWebSessionBase()
 	if err != nil {
 		return "[]"
@@ -258,91 +272,52 @@ func GetProjectTree(knownDirs string) string {
 		},
 	}
 
-	var projects []ProjectInfo
-	var extraDirs []string
-	if knownDirs != "" {
-		json.Unmarshal([]byte(knownDirs), &extraDirs)
-	}
-
 	// 获取项目列表
-	resp1, err := client.Get(base + "/project")
-	if err == nil {
-		defer resp1.Body.Close()
-		body, _ := io.ReadAll(resp1.Body)
+	var projects []ProjectInfo
+	if resp, err := client.Get(base + "/project"); err == nil {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		json.Unmarshal(body, &projects)
 	} else {
+		// /project 不可用时退回 global，至少把 global 会话拉出来
 		projects = []ProjectInfo{{ID: "global", Name: "全局项目", Worktree: "/"}}
 	}
 
+	// 并发按项目拉取会话：每个项目一次 scope=project 请求，覆盖其全部目录
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 	var allSessions []treeSession
 	seen := map[string]bool{}
 
 	for _, project := range projects {
-		extraDirs = append(extraDirs, project.Worktree)
-	}
-
-	// 自动发现所有会话目录：从全量会话列表提取 directory 字段。
-	// 必要性：Web 端浏览器的 localStorage 与桌面 WebView2 隔离，knownDirs 为空；
-	// 若不自动发现，未注册为 opencode 项目、但建过会话的目录（如当前工作目录）的会话将丢失。
-	if respAll, errAll := client.Get(base + "/session?limit=1000"); errAll == nil {
-		bodyAll, _ := io.ReadAll(respAll.Body)
-		respAll.Body.Close()
-		var discovered []treeSession
-		if json.Unmarshal(bodyAll, &discovered) == nil {
-			for _, s := range discovered {
-				if s.Directory != "" {
-					extraDirs = append(extraDirs, s.Directory)
-				}
-			}
-		}
-	}
-	//去重
-	deduplicateInPlace := func(s []string) []string {
-		if len(s) == 0 {
-			return s
-		}
-		seen := make(map[string]struct{}, len(s)) // 预分配容量，避免 map 扩容
-		j := 0
-		for i := 0; i < len(s); i++ {
-			v := s[i]
-			if _, ok := seen[v]; !ok {
-				seen[v] = struct{}{}
-				s[j] = v
-				j++
-			}
-		}
-		return s[:j]
-	}
-	extraDirs = deduplicateInPlace(extraDirs)
-
-	// 并发查询已知 global 目录下的会话
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	for _, dir := range extraDirs {
-		dir := strings.TrimSpace(dir)
-		if dir == "" {
+		anchor := strings.TrimSpace(project.Worktree)
+		if anchor == "" {
 			continue
 		}
 		wg.Add(1)
-		go func(d string) {
+		go func(dir string) {
 			defer wg.Done()
-			resp, err := client.Get(base + "/session?directory=" + url.QueryEscape(d) + "&roots=true&limit=200")
+			u := base + "/session?directory=" + url.QueryEscape(dir) +
+				"&scope=project&roots=true&limit=" + strconv.Itoa(projectSessionLimit)
+			resp, err := client.Get(u)
 			if err != nil {
 				return
 			}
 			defer resp.Body.Close()
-			var batch []treeSession
 			body, _ := io.ReadAll(resp.Body)
-			json.Unmarshal(body, &batch)
+			var batch []treeSession
+			if json.Unmarshal(body, &batch) != nil {
+				return
+			}
 			mu.Lock()
 			for _, s := range batch {
-				if !seen[s.ID] {
+				if s.ID != "" && !seen[s.ID] {
 					seen[s.ID] = true
 					allSessions = append(allSessions, s)
 				}
 			}
 			mu.Unlock()
-		}(dir)
+		}(anchor)
 	}
 	wg.Wait()
 

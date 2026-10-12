@@ -91,8 +91,7 @@ export async function buildTree() {
 /** 单次重建：拉全量树 + 整树渲染。不对外。 */
 async function buildTreeOnce() {
     try {
-        const knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
-        const json = await api.GetProjectTree(JSON.stringify(knownDirs));
+        const json = await api.GetProjectTree('');
         if (json && json !== '[]') {
             const tree = JSON.parse(json);
             window._lastProjectTree = tree;
@@ -173,11 +172,7 @@ export function renderTree(tree) {
     for (const proj of tree) {
         html += `<div class="oc-tree-node oc-tree-project" data-id="${escapeHtml(proj.id)}">`;
         // 项目行：Apple 分组标题风格（弱化，仅作最外层分组标签）
-        // 仅 global 项目显示"添加工作目录"按钮
-        var addDirBtn = proj.id === 'global'
-            ? `<button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button>`
-            : '';
-        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle ${toggleClass(true)}"></div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.id + (proj.updatedAt ? '\n⏰ ' + proj.updatedAt : ''))}">${escapeHtml(proj.title)}</span>${addDirBtn}</div>`;
+        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle ${toggleClass(true)}"></div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.id + (proj.updatedAt ? '\n⏰ ' + proj.updatedAt : ''))}">${escapeHtml(proj.title)}</span></div>`;
         html += `<div class="oc-tree-children">`;
         for (const dir of (proj.children || [])) {
             // 目录行：次级分组标题 + 会话计数徽章
@@ -269,12 +264,6 @@ export function renderTree(tree) {
             if (isMobileTreeMode()) {
                 closeMobileTree();
             }
-        });
-    });
-    container.querySelectorAll('.oc-tree-add-dir').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            await addDirectoryToProject(btn.dataset.projectId || '');
         });
     });
     container.querySelectorAll('.oc-tree-del').forEach(btn => {
@@ -455,55 +444,6 @@ export function initTreeSearch() {
 }
 
 initTreeSearch();
-
-/** 记住用户添加过的目录（存 localStorage 以便下次自动加载） */
-export function rememberKnownDir(dir) {
-    if (!dir) return;
-    try {
-        const dirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
-        if (!dirs.includes(dir)) {
-            dirs.push(dir);
-            localStorage.setItem('oc-known-dirs', JSON.stringify(dirs));
-        }
-    } catch (_) {}
-}
-
-/** 检测指定目录下项目树中是否有会话记录 */
-export function treeHasSessionsForDir(tree, dir) {
-    const target = String(dir || '').replace(/\\+$/).toLowerCase();
-    for (const proj of (tree || [])) {
-        for (const child of (proj.children || [])) {
-            const title = String(child.title || '').replace(/\\+$/).toLowerCase();
-            if (title === target && (child.children || []).length > 0) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-/** 向全局项目中添加工作目录：无会话记录时仅 toast 提示，不引导新建会话 */
-export async function addDirectoryToProject() {
-    if (!store.webRunning) return;
-    try {
-        let dir = ''
-        if (isBrowserRuntimeForMain()) {
-            dir = await openDirBrowserModal();
-        } else {
-            dir = await api.OpenDirectoryDialog();
-        }
-        if (!dir) return;
-        rememberKnownDir(dir);
-        const ok = await buildTree();
-        if (!ok || !treeHasSessionsForDir(window._lastProjectTree, dir)) {
-            showToast('该目录下没有会话记录', 'warning');
-            return;
-        }
-        showToast('已加载目录会话: ' + dir, 'success');
-    } catch (e) {
-        showToast('选择目录失败: ' + (e.message || e), 'error');
-    }
-}
 
 // ============================
 // 会话 CRUD

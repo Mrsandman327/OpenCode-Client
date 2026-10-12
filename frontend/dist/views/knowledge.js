@@ -1044,8 +1044,7 @@ async function kbLoadConvertProjects() {
     if (kbConv.projects) return kbConv.projects;
     var dirs = [];
     try {
-        var knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
-        var raw = await api.GetProjectTree(JSON.stringify(knownDirs));
+        var raw = await api.GetProjectTree('');
         var tree = raw ? JSON.parse(raw) : [];
         (tree || []).forEach(function (proj) {
             (proj.children || []).forEach(function (dir) {

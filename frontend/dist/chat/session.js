@@ -4,7 +4,7 @@
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages）、
 //       core/apicall.js（api）、chat/mobile.js（isMobileTreeMode）、chat/tabs.js（openSessionTab, renderTabsBar, setTabActivationHandler）、
 //       chat/sidepanel.js（extractSubtaskSummaries, renderSubtaskPanel）、chat/events.js（loadSessionStatuses）、
-//       chat/render.js（isSessionBusy, smartScroll, updateSendButton, renderMessages）、chat/tree.js（rememberKnownDir）、
+//       chat/render.js（isSessionBusy, smartScroll, updateSendButton, renderMessages）、
 //       chat/search.js（resetUserNav）、chat/cache.js（cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages）
 //       filebrowser/browser.js（openFileBrowserModal）——尚未改造，保留全局守卫调用
 // 解环说明：updateSendButton 已移入 chat/render.js；pendingWorkDir 已移入 core/state.js 的 store；
@@ -19,7 +19,6 @@ import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.j
 import { extractSubtaskSummaries, renderSubtaskPanel } from './sidepanel.js';
 import { loadSessionStatuses } from './events.js';
 import { isSessionBusy, smartScroll, updateSendButton, renderMessages } from './render.js';
-import { rememberKnownDir } from './tree.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
 import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
 import { openFileBrowserModal, openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
@@ -325,7 +324,6 @@ export async function selectSession(id) {
 /** 用指定目录创建会话 */
 export async function createSessionWithDir(dir) {
     const session = await api.OpenCodeCall('POST', '/session?directory=' + encodeURIComponent(dir));
-    rememberKnownDir(dir);
     return session;
 }
 
