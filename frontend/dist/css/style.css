@@ -85,7 +85,7 @@
 
     /* 布局 */
     --header-height: 48px;
-    --sidebar-width: 160px;
+    --sidebar-width: 140px;
 }
 
 /* ========== CSS 变量 — 深色主题 (Apple 暗色覆盖) ========== */
@@ -442,6 +442,66 @@ input::placeholder, textarea::placeholder {
     border-color: var(--success);
 }
 
+/* 工具按钮图标：assets SVG 作遮罩，颜色随按钮文字（全站统一的 mask 机制） */
+.btn-proxy-icon,
+.btn-frontend-web-icon,
+.btn-terminal-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+
+.btn-proxy-icon {
+    -webkit-mask-image: url("../assets/网络配置.svg");
+    mask-image: url("../assets/网络配置.svg");
+}
+
+.btn-frontend-web-icon {
+    -webkit-mask-image: url("../assets/web服务.svg");
+    mask-image: url("../assets/web服务.svg");
+}
+
+.btn-terminal-icon {
+    -webkit-mask-image: url("../assets/终端.svg");
+    mask-image: url("../assets/终端.svg");
+}
+
+/* 右侧面板标题（服务状态/子任务/代办事项）图标：assets 下对应 SVG 作遮罩，固定 #8a8a8a 灰色（不随标题文字色） */
+.oc-panel-icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+
+.oc-panel-icon-service {
+    -webkit-mask-image: url("../assets/服务状态.svg");
+    mask-image: url("../assets/服务状态.svg");
+}
+
+.oc-panel-icon-subtask {
+    -webkit-mask-image: url("../assets/子任务.svg");
+    mask-image: url("../assets/子任务.svg");
+}
+
+.oc-panel-icon-todo {
+    -webkit-mask-image: url("../assets/代办事项.svg");
+    mask-image: url("../assets/代办事项.svg");
+}
+
 /* ========== 主布局 ========== */
 .main-layout {
     display: flex;
@@ -461,7 +521,10 @@ input::placeholder, textarea::placeholder {
     display: flex;
     flex-direction: column;
     padding: 8px 6px;
+    overflow-x: hidden;
     overflow-y: auto;
+    /* 折叠/展开：宽度平滑过渡（与导航文字淡出/收窄联动） */
+    transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav-item {
@@ -538,6 +601,13 @@ input::placeholder, textarea::placeholder {
 
 .nav-label {
     flex: 1;
+    font-size: 13px;
+    /* 折叠/展开：文字淡出 + 收窄过渡（替代 display:none 硬切） */
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 1;
+    max-width: 200px;
+    transition: opacity 0.16s ease, max-width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebar.collapsed {
@@ -551,7 +621,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .sidebar.collapsed .nav-label {
-    display: none;
+    opacity: 0;
+    max-width: 0;
 }
 
 .sidebar.collapsed .nav-icon {
@@ -587,6 +658,15 @@ input::placeholder, textarea::placeholder {
     mask-size: contain;
 }
 
+/* 版本号文字：同导航文字的淡出/收窄过渡 */
+.sidebar-version-text {
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 1;
+    max-width: 80px;
+    transition: opacity 0.16s ease, max-width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .sidebar.collapsed .sidebar-version {
     justify-content: center;
     gap: 0;
@@ -594,7 +674,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .sidebar.collapsed .sidebar-version-text {
-    display: none;
+    opacity: 0;
+    max-width: 0;
 }
 
 /* ========== 内容区域 ========== */
@@ -972,6 +1053,12 @@ input::placeholder, textarea::placeholder {
     stroke-width: 1.8;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+/* chip 内文件夹图标（mask 版）：尺寸对齐原 .cfg-i 的 14px */
+#view-skills .cfg-folder-icon {
+    width: 14px;
+    height: 14px;
 }
 
 /* OpenCode 视图：web 嵌入 */
@@ -1366,9 +1453,14 @@ input::placeholder, textarea::placeholder {
 .collapsed .oc-panel-body {
     display: none;
 }
+/* 折叠时高度收缩到只剩标题栏：!important 用于覆盖拖动逻辑写入的 inline
+   height / min-height / flex（见 main.js「右侧面板分区高度拖动条」模块），
+   避免折叠后仍保留拖动固定高（或 flex 拉伸）留出大面积空白；
+   展开后折叠类移除，inline 固定高自动恢复生效。 */
 .oc-panel-section.collapsed {
-    min-height: 0;
-    flex: 0 0 auto;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
 }
 .oc-panel-section.collapsed .oc-panel-head {
     border-bottom: none;
@@ -1377,8 +1469,10 @@ input::placeholder, textarea::placeholder {
 /* ==================== 子任务面板 ==================== */
 .oc-subtasks {
     flex: 1;
+    min-height: 0; /* 与 .oc-todos 对齐：滚动容器最小高度归零，高度完全跟随分区 */
     overflow-y: auto;
-    max-height: 400px;
+    /* 原 max-height: 400px 已移除：遗留的固定上限会截断拖动调整后的分区高度
+       （列表滞留在 400px 不再跟随拖动条，下方留空白）。 */
     padding: 6px 8px;
 }
 .oc-subtask-card {
@@ -1398,6 +1492,7 @@ input::placeholder, textarea::placeholder {
 .oc-subtask-card.status-running   { border-left-color: var(--accent); }
 .oc-subtask-card.status-error     { border-left-color: var(--danger); }
 .oc-subtask-card.status-interrupt { border-left-color: var(--warning); }
+.oc-subtask-card.status-ended     { border-left-color: var(--text-muted); }
 .oc-subtask-card-title {
     font-size: 13px;
     font-weight: 500;
@@ -1450,6 +1545,71 @@ input::placeholder, textarea::placeholder {
 .oc-subtask-status-badge.status-error     { background: var(--danger-bg); color: var(--danger); }
 .oc-subtask-status-badge.status-interrupt { background: var(--warning-bg); color: var(--warning); }
 .oc-subtask-status-badge.status-pending   { background: var(--bg-input); color: var(--text-muted); }
+.oc-subtask-status-badge.status-ended     { background: var(--bg-input); color: var(--text-muted); }
+
+/* ==================== synthetic 系统通知（主消息流内，通用折叠块） ==================== */
+/* 由 render.js buildSyntheticNoticeCard 渲染：适用于全部 synthetic 消息
+   （子任务完成 / 回复中断自动继续 / 未来其它），不做专用识别。
+   卡片外观为系统卡（由外层 .oc-message.system 提供），此处只定义折叠块与时间行：
+   折叠块视觉对齐 .oc-reasoning（思考过程）折叠款；时间行直接复用 .oc-message-time。 */
+.oc-synthetic-notice { min-width: 0; }
+.oc-synthetic-fold {
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.oc-synthetic-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-secondary);
+    user-select: none;
+    overflow: hidden;
+    min-width: 0;
+}
+.oc-synthetic-head:hover { background: var(--bg-card-hover); }
+.oc-synthetic-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.oc-synthetic-status {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    font-weight: 600;
+    line-height: 1.4;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+.oc-synthetic-status.status-completed { background: var(--success-bg); color: var(--success); }
+.oc-synthetic-status.status-error     { background: var(--danger-bg); color: var(--danger); }
+.oc-synthetic-status.status-interrupt { background: var(--warning-bg); color: var(--warning); }
+.oc-synthetic-status.status-pending   { background: var(--bg-input); color: var(--text-muted); }
+.oc-synthetic-toggle {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.oc-synthetic-body {
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    max-height: 360px;
+    overflow-y: auto;
+}
+/* 展开区内文本沿用 .oc-text 排版，仅去掉首尾多余外边距 */
+.oc-synthetic-body .oc-text > :first-child { margin-top: 0; }
+.oc-synthetic-body .oc-text > :last-child { margin-bottom: 0; }
 
 /* 主消息高亮动画 */
 .oc-message.highlight {
@@ -1486,6 +1646,14 @@ input::placeholder, textarea::placeholder {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+/* 头部左侧组：标题 + 状态徽章紧挨（配合公共 .modal-header 的两端对齐，关闭按钮靠右） */
+.subtask-head-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
 }
 .subtask-status-badge {
     display: inline-block;
@@ -1555,6 +1723,26 @@ input::placeholder, textarea::placeholder {
     vertical-align: middle;
     user-select: none;
 }
+/* 折叠/展开图标：assets/菜单折叠.svg、菜单展开.svg 作遮罩（mask 机制），颜色随文字 */
+.oc-tree-toggle.is-collapsed,
+.oc-tree-toggle.is-expanded {
+    height: 12px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.oc-tree-toggle.is-collapsed {
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
+}
+.oc-tree-toggle.is-expanded {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
+}
 /* ── 项目树右键菜单 ── */
 .oc-tree-context-menu {
     position: fixed;
@@ -1574,9 +1762,81 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     white-space: nowrap;
     transition: background 0.12s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 .oc-tree-context-menu-item:hover {
     background: rgba(0,0,0,0.04);
+}
+
+/* 菜单项图标：assets 下对应 SVG 作遮罩，颜色随菜单文字（删除项 hover 变红时同步） */
+.oc-menu-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+
+.oc-menu-icon-new {
+    -webkit-mask-image: url("../assets/新建.svg");
+    mask-image: url("../assets/新建.svg");
+}
+
+.oc-menu-icon-project-config {
+    -webkit-mask-image: url("../assets/项目配置.svg");
+    mask-image: url("../assets/项目配置.svg");
+}
+
+.oc-menu-icon-open-dir {
+    -webkit-mask-image: url("../assets/打开目录.svg");
+    mask-image: url("../assets/打开目录.svg");
+}
+
+.oc-menu-icon-new-file {
+    -webkit-mask-image: url("../assets/新建文件.svg");
+    mask-image: url("../assets/新建文件.svg");
+}
+
+.oc-menu-icon-new-folder {
+    -webkit-mask-image: url("../assets/新建文件夹.svg");
+    mask-image: url("../assets/新建文件夹.svg");
+}
+
+.oc-menu-icon-copy-path {
+    -webkit-mask-image: url("../assets/复制路径.svg");
+    mask-image: url("../assets/复制路径.svg");
+}
+
+.oc-menu-icon-rename {
+    -webkit-mask-image: url("../assets/重命名.svg");
+    mask-image: url("../assets/重命名.svg");
+}
+
+.oc-menu-icon-delete {
+    -webkit-mask-image: url("../assets/删除.svg");
+    mask-image: url("../assets/删除.svg");
+}
+
+.oc-menu-icon-export {
+    -webkit-mask-image: url("../assets/导出.svg");
+    mask-image: url("../assets/导出.svg");
+}
+
+.oc-menu-icon-move {
+    -webkit-mask-image: url("../assets/移动.svg");
+    mask-image: url("../assets/移动.svg");
+}
+
+.oc-menu-icon-import {
+    -webkit-mask-image: url("../assets/导入.svg");
+    mask-image: url("../assets/导入.svg");
 }
 
 .oc-tree-context-menu-item[data-action="delete"]:hover {
@@ -1644,6 +1904,27 @@ input::placeholder, textarea::placeholder {
     opacity: 1;
 }
 
+/* ── 添加工作目录操作行：常驻树顶部（原挂在 global 项目行，项目层取消后独立成行） ── */
+.oc-tree-add-dir-row {
+    padding: 0 6px 6px;
+}
+.oc-tree-add-dir-row .oc-tree-add-dir {
+    display: block;
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px dashed rgba(0, 0, 0, 0.15);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+}
+.oc-tree-add-dir-row .oc-tree-add-dir:hover {
+    color: var(--text-secondary);
+    background: var(--bg-sidebar-hover);
+}
+
 /* ── 目录行：次级分组标题 + 会话计数徽章 ── */
 .oc-tree-dir-row {
     display: flex;
@@ -1691,6 +1972,8 @@ input::placeholder, textarea::placeholder {
 .oc-tree-children {
     border-left: 1px solid rgba(0,0,0,0.06);
     margin-left: 10px;
+    /* 折叠/展开：max-height 过渡（实际高度由 tree.js 驱动） */
+    transition: max-height 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .oc-tree-node .oc-tree-directory .oc-tree-children{
@@ -1984,6 +2267,15 @@ input::placeholder, textarea::placeholder {
     border: 1px solid var(--border);
     border-bottom-left-radius: var(--radius-xs);
 }
+/* 系统消息（压缩标记 / 技能激活 / 合成说明等）：与助手卡片完全一致（靠左）。
+   注意：.oc-message 基类本身没有背景与边框，若不单独给 system 定义，
+   它会显示成一行没有卡片的裸文本。 */
+.oc-message.system {
+    align-self: flex-start;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: var(--radius-xs);
+}
 .oc-message-role {
     font-size: 10px;
     color: var(--text-muted);
@@ -2001,8 +2293,26 @@ input::placeholder, textarea::placeholder {
 .oc-message-time {
     font-size: 10px;
     color: var(--text-muted);
-    text-align: right;
     margin-top: 4px;
+    text-align: right;
+    font-family: "SF Mono", "Cascadia Code", monospace;
+}
+/* 卡片底部一行：token 统计靠左、时间靠右（space-between）。
+   间距/字体对齐老项目：token 文字同 .oc-step-cost（等宽 10px），行间距同 .oc-step-divider 的 gap:12px */
+.oc-message-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-top: 4px;
+}
+.oc-message-footer .oc-message-time { margin-top: 0; }
+.oc-message-footer .oc-message-usage { margin-top: 0; }
+/* 助手卡片的 token 统计：靠左；字体沿用老项目 .oc-step-cost 的等宽体 */
+.oc-message-usage {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: left;
     font-family: "SF Mono", "Cascadia Code", monospace;
 }
 .oc-message pre {
@@ -2455,7 +2765,9 @@ input::placeholder, textarea::placeholder {
     border-left: none;
 }
 
-/* 目录栏 */
+/* 目录栏（属性面板最底部）：方案 A —— 整行可点击（点击 → 独立窗口打开文件浏览器）；
+   悬浮时整行背景浮起、文字/图标变亮，右侧「↗」常显并点亮为 accent。
+   注：path 上的 title 由 JS 写入完整路径（省略截断时悬浮可预览）。 */
 .oc-dir-bar {
     display: flex;
     align-items: center;
@@ -2466,23 +2778,42 @@ input::placeholder, textarea::placeholder {
     color: var(--text-muted);
     flex-shrink: 0;
     overflow: hidden;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
 }
+.oc-dir-bar:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+}
+/* 目录栏文件夹图标：沿用 .oc-fb-icon 基类（mask 机制），此处覆盖尺寸为 12px */
 .oc-dir-bar-icon {
     flex-shrink: 0;
-    font-size: 12px;
+    width: 12px;
+    height: 12px;
 }
 .oc-dir-bar-path {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    cursor: pointer;
-    transition: color 0.15s;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Hiragino Sans GB", sans-serif;
+    transition: color var(--transition);
 }
-
-.oc-dir-bar-path:hover {
+.oc-dir-bar:hover .oc-dir-bar-path {
     color: var(--accent);
     text-decoration: underline;
+    font-weight: bold;
+}
+/* 右侧常显「↗」：暗示"会打开（新窗口）"；悬浮时点亮 */
+.oc-dir-open {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: color var(--transition);
+    font-weight: bold;
+}
+.oc-dir-bar:hover .oc-dir-open {
+    color: var(--accent);
 }
 
 .oc-panel-section {
@@ -2491,10 +2822,75 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     border-bottom: 1px solid var(--border);
 }
-.oc-services {
-    flex: 1;
+/* ========== 右侧面板分区高度拖动条 ==========
+   仅「子任务 ↔ 代办事项」分界处一条（服务状态区不参与固定高度分配）；
+   视觉与交互对齐输入区域拖动条（.oc-input-resize-handle）：
+   默认透明，hover / 拖动时显示居中指示条，垂直拖动调整子任务高度 */
+.oc-panel-resize-handle {
+    height: 6px;
+    flex-shrink: 0;
+    align-self: stretch;
+    cursor: row-resize;
+    position: relative;
+    background: transparent;
+    transition: background 0.15s ease;
+    z-index: 2;
+}
+.oc-panel-resize-handle::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+.oc-panel-resize-handle:hover::before,
+.oc-panel-resize-handle.dragging::before {
+    opacity: 1;
+    background: var(--accent);
+}
+.oc-panel-resize-handle.dragging {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+/* 拖动面板高度期间禁止文本选中（与输入框拖动条一致） */
+.oc-sidepanel-content.panel-resizing {
+    user-select: none;
+    -webkit-user-select: none;
+}
+/* 服务状态区：不参与拖动固定高度分配，section / body / 列表整条链路
+   高度均由内容撑开（MCP/LSP/插件等分组折叠、展开时高度实时跟随）；
+   flex-shrink:0 保证内容较长时不被压缩，交给外层整体滚动 */
+#servicePanelSection {
     min-height: 0;
-    overflow: auto;
+    flex-shrink: 0;
+}
+#servicePanelSection .oc-panel-body {
+    flex: 0 0 auto;
+}
+/* 代办事项区高度规则：
+   1) 优先吃满面板剩余高度（flex-grow）；
+   2) 内容高于剩余时由内容撑开（min-content 沿 flex 链冒泡 → 分区不被压到内容以下，
+      超出部分由整体面板滚动兜底，无内部滚动条）；
+   3) 没有内容时最小高度 100px 保底。 */
+#todoPanelSection {
+    flex: 1 1 auto;
+    min-height: 100px;
+}
+#todoPanelSection .oc-panel-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+/* 服务状态列表：取消内部滚动（原 overflow:auto），高度由内容决定；
+   内容很长时由外层 .oc-sidepanel-content（已有 overflow:auto）整体滚动兜底 */
+.oc-services {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
     padding: 8px;
 }
 
@@ -2564,6 +2960,59 @@ input::placeholder, textarea::placeholder {
 .oc-service-card .oc-service-item {
     border-bottom: 1px solid var(--border);
 }
+/* MCP 服务行内的操作按钮区（重连 / 断开）：
+ * 按钮保留全局类（.btn-sm 重连 / .btn-del 断开）以沿用既定 hover 语义，
+ * 这里把二者统一收成 26×26 的 ghost 图标按钮（图标 .oc-service-icon，内联 SVG）。
+ * 按钮只显示图标：文案写入原生 title，由浏览器默认气泡呈现。 */
+.oc-service-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+}
+.oc-service-actions .btn {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+}
+/* 悬停配色沿用原语义：重连 → 品牌蓝；断开（.btn-del）→ 危险红 */
+.oc-service-actions .btn:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+}
+.oc-service-actions .btn-del:hover:not(:disabled) {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+/* 图标本体：线性 stroke 风格（与 .kb-i / .cfg-i 同一语言），
+ * 颜色继承按钮 currentColor，尺寸固定 14px，不改动按钮布局。 */
+.oc-service-actions .oc-service-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+/* 请求在途（handleMcpAction 期间按钮被禁用）：刷新图标自旋作为进度反馈。
+ * 注意这里覆盖全局 .btn:disabled 的整按钮 opacity 0.4——禁用时保留整按钮可见
+ * （只降低图标透明度），让图标自旋反馈清晰可见。 */
+.oc-service-actions .btn:disabled {
+    opacity: 1;
+    cursor: not-allowed;
+}
+.oc-service-actions .btn:disabled .oc-service-icon {
+    opacity: 0.45;
+    animation: spin 0.8s linear infinite;
+}
+
 .oc-service-field {
     display: flex;
     align-items: flex-start;
@@ -2605,9 +3054,9 @@ input::placeholder, textarea::placeholder {
     text-decoration: underline;
 }
 .oc-todos {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
+    flex: 1 1 auto;          /* 吃满剩余高度 */
+    min-height: min-content; /* 内容高于剩余时撑开分区（整体面板滚动），不产生内部滚动条 */
+    overflow: visible;
     padding: 8px;
 }
 
@@ -2871,9 +3320,10 @@ input::placeholder, textarea::placeholder {
 .oc-input-resize-handle {
     height: 6px;
     flex-shrink: 0;
-    cursor: ns-resize;
+    /* 鼠标样式与面板分区拖动条（.oc-panel-resize-handle）统一为 row-resize */
+    cursor: row-resize;
     position: relative;
-    background: transparent;
+    background: var(--bg-secondary);
     transition: background 0.15s ease;
     z-index: 2;
 }
@@ -3018,6 +3468,10 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-secondary);
     border-top: 1px solid var(--border);
     flex-shrink: 0;
+}
+/* 无附件时整块隐藏（避免残留空边带：padding / 边框 / 背景） */
+.oc-attach-list:empty {
+    display: none;
 }
 .oc-attach-chip {
     display: inline-flex;
@@ -3231,15 +3685,35 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
+    padding: 6px 12px 1px 12px;
     border-top: 1px solid var(--border);
     background: var(--bg-secondary);
     flex-shrink: 0;
 }
+/* 输入栏选择器图标（agent / 模型 / 思考强度）：assets 下 SVG 作遮罩（mask 机制），颜色随文字 */
 .oc-select-icon {
-    font-size: 13px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
-    line-height: 1;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.oc-select-icon-agent {
+    -webkit-mask-image: url("../assets/agent.svg");
+    mask-image: url("../assets/agent.svg");
+}
+.oc-select-icon-model {
+    -webkit-mask-image: url("../assets/model.svg");
+    mask-image: url("../assets/model.svg");
+}
+.oc-select-icon-variant {
+    -webkit-mask-image: url("../assets/variant.svg");
+    mask-image: url("../assets/variant.svg");
 }
 .oc-model-select {
     font-size: 12px;
@@ -3327,9 +3801,8 @@ input::placeholder, textarea::placeholder {
     box-shadow: var(--shadow-lg);
 }
 .modal h3 {
-    font-size: 17px;
+    font-size: 13px;
     color: var(--text-primary);
-    margin-bottom: 17px;
     font-weight: 600;
 }
 .modal-field {
@@ -3361,6 +3834,10 @@ input::placeholder, textarea::placeholder {
     justify-content: flex-end;
     margin-top: 20px;
 }
+
+.modal-card .modal-footer.frontend-web-actions {
+    justify-content: center;
+}
 .frontend-web-url-wrap {
     display: inline-flex;
     align-items: center;
@@ -3388,8 +3865,108 @@ input::placeholder, textarea::placeholder {
     color: var(--success);
     font-weight: 600;
 }
+/* Web服务二维码：白底卡片保证扫码识别率（深色主题下不随主题变暗） */
+.frontend-web-qr-section { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.frontend-web-qr-box { background: #ffffff; border-radius: var(--radius-md); padding: 10px; min-width: 176px; min-height: 176px; display: flex; align-items: center; justify-content: center; }
+.frontend-web-qr-box canvas, .frontend-web-qr-box img { display: block; }
+.frontend-web-qr-empty { color: #9a9a9a; font-size: 12px; text-align: center; line-height: 1.6; }
+.frontend-web-qr-hint { font-size: 11px; color: var(--text-muted); text-align: center; }
+.frontend-web-qr-hint.warn { color: #d97706; }
 .proxy-modal {
     width: 460px;
+}
+/* ============================================================
+   公共 Modal 控件（标准卡片弹窗）
+   基准来源：知识库条目编辑弹窗视觉规范。
+   用法：容器加 .modal-card，内部三段式 .modal-header / .modal-body / .modal-footer。
+   注意：全部规则以 .modal-card 作用域限定，避免影响 file-browser / project-config / kb 等已有弹窗。
+   ============================================================ */
+.modal-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    max-height: 90vh;
+    animation: modalPopIn 0.18s ease;
+}
+@keyframes modalPopIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.modal-card .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+.modal-card .modal-header h3 {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+.modal-card .modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 18px;
+    background: var(--bg-primary);
+}
+.modal-card .modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+/* 底部按钮统一高度，保证同一行严格对齐（同知识库方案） */
+.modal-card .modal-footer .btn,
+.modal-card .modal-footer .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+}
+/* Modal 头部关闭按钮：透明底图标按钮（关闭.svg 遮罩，颜色随主题文字色）。
+   通用类，不限于 .modal-card——项目配置 / 知识库等头部同样使用。 */
+.modal-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.modal-close-btn:hover {
+    /* 悬停反馈按主题取"可见对比色"：
+       light 主题下 --bg-card-hover(#f5f5f7) 与弹窗头部底色(--bg-secondary)完全相同、
+       叠上去看不见，故默认(light)用黑色 6% 叠加（浅灰块）；
+       dark 下原变量 #242426→#303032 本就可见，保持现状。 */
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-primary);
+}
+[data-theme="dark"] .modal-close-btn:hover {
+    background: var(--bg-card-hover);
+}
+.modal-close-btn .oc-fb-icon {
+    width: 14px;
+    height: 14px;
 }
 .proxy-separator {
     border: none;
@@ -3443,10 +4020,16 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-input);
     color: var(--text-secondary);
     border: 1px solid var(--border);
-    padding: 8px 18px;
+    padding: 7px 17px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ============================================================
@@ -3512,11 +4095,23 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card-hover);
 }
 
+/* 折叠指示图标：assets/菜单展开.svg、菜单折叠.svg 作遮罩（mask 机制），灰阶与文字区分 */
 .model-group-title::before {
-    content: '▼';
-    font-size: 10px;
-    color: var(--text-muted);
-    transition: transform var(--transition);
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 5px;
+    vertical-align: -1px;
+    background: var(--text-muted);
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
 }
 
 .model-group-label {
@@ -3566,16 +4161,18 @@ input::placeholder, textarea::placeholder {
 }
 
 .model-group-title.collapsed::before {
-    transform: rotate(-90deg);
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
 }
 
 .model-group-body {
-    transition: max-height 0.25s ease;
     overflow: hidden;
+    /* 折叠/展开：max-height 过渡（实际高度由 JS 驱动，见 omo-config.js） */
+    transition: max-height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .model-group-body.collapsed {
-    max-height: 0 !important;
+    max-height: 0;
 }
 
 .model-row {
@@ -4391,15 +4988,28 @@ input::placeholder, textarea::placeholder {
     overflow: auto;
 }
 
-/* 分组折叠 */
-.cmd-group-title.collapsed::before {
-    content: '⯈ ';
-    font-size: 11px;
+/* 分组折叠：图标改用 assets 下 SVG 遮罩（mask），伪元素只承载图形 */
+.cmd-group-title::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 5px;
+    vertical-align: -1px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
 }
 
 .cmd-group-title:not(.collapsed)::before {
-    content: '▼ ';
-    font-size: 11px;
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
 }
 
 .api-doc-grid.collapsed {
@@ -4796,7 +5406,8 @@ input::placeholder, textarea::placeholder {
     appearance: none;
 }
 .mod-chip:has(.mod-input:checked),
-.mod-chip:has(.mod-output:checked) {
+.mod-chip:has(.mod-output:checked),
+.mod-chip:has(.mod-tools:checked) {
     border: 1px solid var(--accent);
     padding: 2px 8px;
     color: var(--accent);
@@ -5052,9 +5663,25 @@ input::placeholder, textarea::placeholder {
     flex-shrink: 0;
     transition: color 0.15s ease;
 }
-.btn-eye:hover {
+.btn-eye:hover:not(:disabled) {
     color: var(--accent);
     background: var(--bg-card-hover);
+}
+/* 只读期间（服务运行中）"显示明文"按钮的禁用态 */
+.btn-eye:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+/* 网络配置：服务口令输入行（输入框 + 显示明文按钮，复用 .btn-eye） */
+.modal-field .pwd-row {
+    display: flex;
+    gap: 0;
+}
+.modal-field .pwd-row input {
+    flex: 1;
+    width: auto;
+    border-right: none;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 /* 添加卡片虚线占位 */
 .provider-card-add {
@@ -5075,6 +5702,12 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card-hover);
     color: var(--accent);
     border-color: var(--accent) !important;
+}
+/* 卡片内图标与文字横向对齐 */
+.provider-card-add > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 /* ============================================================
@@ -5437,9 +6070,10 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-modal .modal-header {
     border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
 }
 .file-browser-modal .modal-header h3 {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
     letter-spacing: -0.022em;
@@ -5459,9 +6093,75 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card);
     border-right: 1px solid var(--border);
 }
+/* 文件浏览器工具栏图标（会话目录 / Git 变更 / 刷新）：assets 下 SVG 作遮罩，颜色随按钮文字 */
+.oc-fb-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.file-browser-mode-btn .oc-fb-icon {
+    width: 20px;
+    height: 20px;
+}
+.oc-fb-icon-refresh {
+    -webkit-mask-image: url("../assets/刷新.svg");
+    mask-image: url("../assets/刷新.svg");
+}
+.oc-fb-icon-session-dir {
+    -webkit-mask-image: url("../assets/会话目录.svg");
+    mask-image: url("../assets/会话目录.svg");
+}
+.oc-fb-icon-git {
+    -webkit-mask-image: url("../assets/Git变更.svg");
+    mask-image: url("../assets/Git变更.svg");
+}
+.oc-fb-icon-folder {
+    -webkit-mask-image: url("../assets/文件夹.svg");
+    mask-image: url("../assets/文件夹.svg");
+}
+.oc-fb-icon-new-folder {
+    -webkit-mask-image: url("../assets/新建文件夹.svg");
+    mask-image: url("../assets/新建文件夹.svg");
+}
+.oc-fb-icon-new-file {
+    -webkit-mask-image: url("../assets/新建文件.svg");
+    mask-image: url("../assets/新建文件.svg");
+}
+.oc-fb-icon-add {
+    -webkit-mask-image: url("../assets/新增.svg");
+    mask-image: url("../assets/新增.svg");
+}
+.oc-fb-icon-save {
+    -webkit-mask-image: url("../assets/保存.svg");
+    mask-image: url("../assets/保存.svg");
+}
+.oc-fb-icon-search {
+    -webkit-mask-image: url("../assets/搜索.svg");
+    mask-image: url("../assets/搜索.svg");
+}
+.oc-fb-icon-close {
+    -webkit-mask-image: url("../assets/关闭.svg");
+    mask-image: url("../assets/关闭.svg");
+}
+.oc-fb-icon-minus {
+    -webkit-mask-image: url("../assets/减去.svg");
+    mask-image: url("../assets/减去.svg");
+}
+
 .file-browser-mode-btn {
     width: 36px;
     height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: 1px solid transparent;
     border-radius: 12px;
     background: transparent;
@@ -5504,6 +6204,8 @@ input::placeholder, textarea::placeholder {
     color: var(--text-primary);
 }
 .file-browser-list-header-title {
+    /* 标题撑满剩余空间，把两个新建按钮推到最右侧并紧靠相邻排列 */
+    flex: 1;
     font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
@@ -5516,6 +6218,41 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     background-color: transparent;
 }
+
+/* ── 文件浏览器：内容搜索模式 ── */
+.file-browser-search-panel { display: none; flex-direction: column; min-height: 0; height: 100%; }
+.file-browser-search-panel.active { display: flex; }
+
+.file-browser-search-top { padding: 8px 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; background: var(--bg-input); }
+.file-browser-search-input-row { display: flex; align-items: center; gap: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 8px; height: 30px; }
+.file-browser-search-input-row:focus-within { border-color: var(--accent); }
+.file-browser-search-input-row input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 12px; }
+.file-browser-search-input-row input::placeholder { color: var(--text-muted); }
+.file-browser-search-input-ic { width: 12px; height: 12px; flex-shrink: 0; }
+.file-browser-search-clear { color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 2px; user-select: none; }
+.file-browser-search-clear:hover { color: var(--text-primary); }
+.file-browser-search-opts { display: flex; align-items: center; gap: 4px; }
+.file-browser-search-opt { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 10.5px; cursor: pointer; font-family: Consolas, monospace; }
+.file-browser-search-opt:hover { background: var(--bg-card-hover); }
+.file-browser-search-opt.active { background: var(--accent-ghost); color: var(--accent); border-color: rgba(10, 132, 255, 0.25); }
+
+.file-browser-search-results { flex: 1; overflow-y: auto; min-height: 0; padding: 2px 0; }
+.file-browser-search-group-head { display: flex; align-items: center; gap: 5px; padding: 4px 10px; cursor: pointer; user-select: none; }
+.file-browser-search-group-head:hover { background: var(--bg-card-hover); }
+.file-browser-search-group-head .arrow { color: var(--text-muted); font-size: 8px; width: 9px; text-align: center; }
+.file-browser-search-group-head .fname { font-size: 12px; font-weight: 600; color: var(--text-primary); font-family: Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-browser-search-group-head .badge { margin-left: auto; flex-shrink: 0; font-size: 10px; color: var(--text-muted); background: var(--bg-input); border-radius: 8px; padding: 0 6px; }
+.file-browser-search-group.collapsed .file-browser-search-group-rows { display: none; }
+.file-browser-search-row { display: flex; align-items: baseline; gap: 7px; padding: 1px 10px 1px 24px; cursor: pointer; font-family: Consolas, "Cascadia Code", monospace; font-size: 11.5px; line-height: 18px; }
+.file-browser-search-row:hover { background: var(--bg-card-hover); }
+.file-browser-search-row.selected { background: var(--accent-ghost); }
+.file-browser-search-row .ln { width: 34px; flex-shrink: 0; text-align: right; color: var(--text-muted); font-size: 10.5px; user-select: none; }
+.file-browser-search-row .txt { white-space: pre; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
+.file-browser-search-row .txt mark { background: rgba(10, 132, 255, 0.28); color: #7ab8ff; border-radius: 2px; padding: 0 1px; }
+.file-browser-search-empty { padding: 36px 16px; text-align: center; color: var(--text-muted); font-size: 12px; }
+.file-browser-search-empty .big { font-size: 22px; margin-bottom: 8px; opacity: .5; }
+.file-browser-search-stats { flex-shrink: 0; height: 26px; display: flex; align-items: center; gap: 5px; padding: 0 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted); background: var(--bg-input); }
+.file-browser-search-stats .warn { color: #d4a017; margin-left: auto; font-size: 10px; }
 
 .file-browser-create-dir-icon {
     width: 22px;
@@ -6015,9 +6752,40 @@ input::placeholder, textarea::placeholder {
     color: var(--text-muted);
     text-align: center;
 }
+/* 折叠/展开图标：SVG 遮罩（mask 机制），颜色随行文字 */
+.file-browser-git-tree-toggle.is-collapsed,
+.file-browser-git-tree-toggle.is-expanded {
+    height: 12px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.file-browser-git-tree-toggle.is-collapsed {
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
+}
+.file-browser-git-tree-toggle.is-expanded {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
+}
+/* Git 变更树的文件夹图标：assets/文件夹.svg 作遮罩（mask 机制），颜色随行文字 */
 .file-browser-git-tree-icon {
     flex-shrink: 0;
-    font-size: 12px;
+    width: 12px;
+    height: 12px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-image: url("../assets/文件夹.svg");
+    mask-image: url("../assets/文件夹.svg");
 }
 .file-browser-git-tree-name {
     min-width: 0;
@@ -6064,36 +6832,32 @@ input::placeholder, textarea::placeholder {
     background: var(--accent-ghost);
     color: var(--accent);
 }
+/* 文件列表的文件夹/文件图标：assets 下 SVG 作遮罩，颜色随行文字 */
 .file-browser-item-icon {
     flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.file-browser-item-icon.folder {
+    -webkit-mask-image: url("../assets/文件夹.svg");
+    mask-image: url("../assets/文件夹.svg");
+}
+.file-browser-item-icon.file {
+    -webkit-mask-image: url("../assets/文件.svg");
+    mask-image: url("../assets/文件.svg");
 }
 .file-browser-item-name {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-.file-browser-item-delete {
-	display: none;
-	flex-shrink: 0;
-	background: none;
-	border: none;
-	color: var(--text-muted);
-	cursor: pointer;
-	font-size: 11px;
-	padding: 3px 6px;
-	line-height: 1;
-	border-radius: var(--radius-sm);
-}
-
-.file-browser-item-row:hover .file-browser-item-delete {
-	display: inline;
-}
-
-.file-browser-item-delete:hover {
-    border-color: var(--danger);
-    color: var(--danger);
-    background: var(--danger-bg);
 }
 /* ── 文件树样式 ── */
 .file-browser-tree-row {
@@ -6114,6 +6878,25 @@ input::placeholder, textarea::placeholder {
     color: var(--text-muted);
     cursor: pointer;
     user-select: none;
+}
+/* 折叠/展开图标：SVG 遮罩，16px 容器内以 12px 呈现，颜色随 hover 变化 */
+.file-browser-tree-toggle.is-collapsed,
+.file-browser-tree-toggle.is-expanded {
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: 12px 12px;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: 12px 12px;
+}
+.file-browser-tree-toggle.is-collapsed {
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
+}
+.file-browser-tree-toggle.is-expanded {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
 }
 .file-browser-tree-toggle:hover {
     color: var(--text-primary);
@@ -6506,21 +7289,6 @@ body.file-browser-diff-dragging {
     transition: top 0.05s linear;
 }
 
-/* 方案管理 + 来源目录按钮 Apple 风格 */
-#btnDeleteSkillScheme { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-sm); }
-#btnDeleteSkillScheme:hover { background: var(--danger-bg); }
-#btnDeleteSkillScheme:active { transform: scale(0.97); }
-#btnSaveSkillScheme { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); }
-#btnSaveSkillScheme:hover { background: var(--accent-hover); }
-#btnSaveSkillScheme:active { transform: scale(0.97); }
-#btnAddSourceDir { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); }
-#btnAddSourceDir:hover { background: var(--accent-hover); }
-#btnAddSourceDir:active { transform: scale(0.97); }
-#btnRemoveSourceDir { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-sm); }
-#btnRemoveSourceDir:hover { background: var(--danger-bg); }
-#btnRemoveSourceDir:active { transform: scale(0.97); }
-#btnOpenSourceDir { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); }
-#btnOpenSourceDir:hover { background: var(--accent-hover); }
 
 
 /* 开关整合到技能卡片 */
@@ -6568,6 +7336,20 @@ body.file-browser-diff-dragging {
 .model-list-row:last-child {
     border-bottom: none;
 }
+/* 状态圆点：蓝=可新增（未添加）/ 红=可删除（已添加），与按钮悬停语义色对应 */
+.model-list-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+.model-list-dot.add {
+    background: var(--accent);
+}
+.model-list-dot.del {
+    background: var(--danger);
+}
 .model-list-name {
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     font-size: 12px;
@@ -6578,29 +7360,45 @@ body.file-browser-diff-dragging {
     flex: 1;
     margin-right: 12px;
 }
-.model-list-row .btn-add {
-    background: var(--success-bg);
-    color: var(--success);
-    border: 1px solid var(--success);
-    padding: 2px 12px;
-    font-size: 11px;
-    flex-shrink: 0;
-}
-.model-list-row .btn-add:hover {
-    background: var(--success);
-    color: #fff;
-}
+/* 模型列表行内操作按钮：中性极简（与弹窗关闭按钮同一套交互语言）——
+   平时灰色图标、无框透明，融入列表；悬停出现浅色背景块 + 语义色
+   （增加→主色蓝、删除→危险色红；语义色只在悬停时出现，避免常驻红绿的廉价感） */
+.model-list-row .btn-add,
 .model-list-row .btn-del {
-    background: var(--danger-bg);
-    color: var(--danger);
-    border: 1px solid var(--danger);
-    padding: 2px 12px;
-    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
     flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.model-list-row .btn-add .oc-fb-icon,
+.model-list-row .btn-del .oc-fb-icon {
+    width: 13px;
+    height: 13px;
+}
+/* 悬停背景块：light 用黑色 6% 叠加 / dark 用白色 8%（与 modal-close-btn 同款双主题方案，保证两主题下都可见） */
+.model-list-row .btn-add:hover,
+.model-list-row .btn-del:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+[data-theme="dark"] .model-list-row .btn-add:hover,
+[data-theme="dark"] .model-list-row .btn-del:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+/* 悬停语义色：增加→主色；删除→危险色 */
+.model-list-row .btn-add:hover {
+    color: var(--accent);
 }
 .model-list-row .btn-del:hover {
-    background: var(--danger);
-    color: #fff;
+    color: var(--danger);
 }
 
 
@@ -7124,11 +7922,16 @@ input.toolbar-input {
     margin: 12px 0 0 0;
     padding: 0;
     border: none;
+    /* 内联变体不显示底条：透明后直接透出父容器底色。
+       此前未重置 background，继承 .path-bar 的 bg-secondary——
+       在弹窗内容区换用 bg-primary 后会显示为不协调的色带，故显式透明化。 */
+    background: transparent;
 }
 .path-bar-inline-compact {
     margin: 8px 0 0 0;
     padding: 0;
     border: none;
+    background: transparent;
 }
 
 /* 目录选择列表 */
@@ -7159,12 +7962,6 @@ input.toolbar-input {
     overflow-y: auto;
     min-height: 0;
     padding: 12px 20px;
-}
-.subtask-modal-footer {
-    flex-shrink: 0;
-    padding: 10px 20px;
-    border-top: 1px solid var(--border);
-    text-align: right;
 }
 /* 标题行（flex 布局） */
 .subtask-title-row {
@@ -8310,3 +9107,137 @@ input.toolbar-input {
     /* 标签区独占一行，避免与分类下拉挤压 */
     .kb-meta-tags { flex-basis: 100%; }
 }
+
+/* ============================================================
+   OMO 配置（oh-my-opencode-slim 方案管理）— 视图专属样式
+   ------------------------------------------------------------
+   改造说明：本视图复用 .model-group / .model-row / .batch-* /
+   .btn* 等既有组件，仅补充少量「方案 radio 与继承标记」样式；
+   全部沿用现有 CSS 变量，克制、朴素，不引入新的视觉语言。
+   ============================================================ */
+/* 方案单选按钮（组头最左；radio 是唯一表达「启用」的元素） */
+#view-omo .preset-radio {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+}
+/* 方案名：默认中等字重；选中的方案加粗（唯一的高亮差异） */
+#view-omo .model-group-title .model-group-label {
+    flex: 0 0 auto;
+    font-weight: 500;
+}
+#view-omo .model-group.active .model-group-label {
+    font-weight: 600;
+}
+/* 灰色小字标记：「启用中」「继承自 X」「继承」「已覆盖」 */
+#view-omo .active-tag,
+#view-omo .inherit-note,
+#view-omo .inherit-tag {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+/* 行内「继承 / 已覆盖」标记紧跟 agent 名（收紧与名字的间距） */
+#view-omo .inherit-tag {
+    margin-left: -4px;
+}
+/* 继承异常警示（继承环 / 继承源缺失；此类方案禁止保存） */
+#view-omo .inherit-error {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--danger);
+    white-space: nowrap;
+}
+/* 纯继承行：左边缘一条浅灰竖线（padding 补偿 2px，保持内容对齐） */
+#view-omo .model-row.inherited {
+    border-left: 2px solid var(--border);
+    padding-left: 18px;
+}
+/* 组头「✎ 重命名方案」按钮（圆形中性色；不吃 .btn-add-entry 的 auto 外边距） */
+#view-omo .btn-rename-preset {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#view-omo .btn-rename-preset:hover {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+/* 顶部覆盖提示条：环境变量 / 项目级配置优先、本文件可能不生效时的提示 */
+#view-omo .slim-override-hint {
+    padding: 8px 12px;
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-sm);
+    background: var(--warning-bg);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* ===== 以下为 v1 特有规则（整体对齐 opencode2 样式时保留，避免丢失 v1 功能样式）===== */
+
+.file-browser-item-delete {
+	display: none;
+	flex-shrink: 0;
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 11px;
+	padding: 3px 6px;
+	line-height: 1;
+	border-radius: var(--radius-sm);
+}
+
+.file-browser-item-delete:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--danger-bg);
+}
+
+.file-browser-item-row:hover .file-browser-item-delete {
+	display: inline;
+}
+
+.subtask-modal-footer {
+    flex-shrink: 0;
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    text-align: right;
+}
+
+.btn-eye:hover {
+    color: var(--accent);
+    background: var(--bg-card-hover);
+}
+
+.mod-chip:has(.mod-output:checked) {
+    border: 1px solid var(--accent);
+    padding: 2px 8px;
+    color: var(--accent);
+    background: var(--bg-secondary);
+}
+
+.oc-dir-bar-path:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.cmd-group-title.collapsed::before {
+    content: '⯈ ';
+    font-size: 11px;
+}
+

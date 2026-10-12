@@ -653,6 +653,11 @@ func (a *App) GetFrontendWebStatus(hostname string, port int) model.WebResult {
 	return web.FrontendWebStatus(hostname, port)
 }
 
+// GetLanIPv4 返回本机局域网 IPv4 地址（Web服务默认监听地址与二维码使用）。
+func (a *App) GetLanIPv4() string {
+	return web.GetLanIPv4()
+}
+
 // GetCommands 返回所有常用命令分组数据。
 func (a *App) GetCommands() []model.CmdGroup {
 	return commands.GetCommands()

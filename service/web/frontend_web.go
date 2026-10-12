@@ -121,6 +121,70 @@ func FrontendWebStatus(hostname string, port int) model.WebResult {
 	return model.WebResult{URL: fmt.Sprintf("http://%s:%d", hostname, port), Health: "离线"}
 }
 
+// GetLanIPv4 返回本机用于对外通信的局域网 IPv4 地址（供 Web 服务监听地址默认值与手机扫码访问使用）。
+// 策略：
+//  1. 优先用「默认路由出口法」探测：系统实际对外通信使用的本机 IP，
+//     可自动排除 VMware / Hyper-V / WSL / 热点等虚拟网卡的干扰；
+//  2. 若失败（如无默认路由），回退为遍历网卡取第一个私有网段 IPv4。
+//
+// 找不到时返回空字符串。
+func GetLanIPv4() string {
+	if ip := defaultRouteIPv4(); ip != "" {
+		return ip
+	}
+	return firstPrivateIPv4()
+}
+
+// defaultRouteIPv4 通过 UDP Dial 探测默认路由对应的本机 IPv4。
+// UDP 的 "connect" 不会真正发出数据包，仅让系统按路由表选择一个源地址，
+// 因此不会产生任何网络流量，也不依赖目标地址可达。
+func defaultRouteIPv4() string {
+	conn, err := net.Dial("udp4", "223.5.5.5:80")
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+	if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+		ip := addr.IP.To4()
+		if ip != nil && !ip.IsLoopback() {
+			return ip.String()
+		}
+	}
+	return ""
+}
+
+// firstPrivateIPv4 遍历网卡返回第一个私有网段 IPv4（回退策略）。
+// 注意：接口遍历顺序不保证稳定，多虚拟网卡机器上可能取到虚拟地址，故仅作兜底。
+func firstPrivateIPv4() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		// 跳过未启用（down）和回环接口，避免取到无效地址。
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, a := range addrs {
+			ipnet, ok := a.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			ip := ipnet.IP.To4()
+			// 仅接受私有网段 IPv4（10.x / 172.16-31.x / 192.168.x）。
+			if ip == nil || !ip.IsPrivate() {
+				continue
+			}
+			return ip.String()
+		}
+	}
+	return ""
+}
+
 type frontendWebHandler struct {
 	bridge FrontendWebBridge
 	fs     fs.FS

@@ -299,7 +299,6 @@ export function bindSubtaskModalEvents() {
     // 仅当按下与松开都在遮罩上才关闭（避免弹窗内拖选误关）
     bindOverlayClose(modal, closeSubtaskModal);
     document.getElementById('subtaskModalCloseBtn')?.addEventListener('click', closeSubtaskModal);
-    document.getElementById('subtaskModalCancelBtn')?.addEventListener('click', closeSubtaskModal);
 
     const promptToggle = document.getElementById('subtaskPromptToggle');
     const promptText = document.getElementById('subtaskPromptText');

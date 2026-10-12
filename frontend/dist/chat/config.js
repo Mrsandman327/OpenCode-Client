@@ -66,14 +66,32 @@ export function saveFrontendWebConfig(config) {
     return next;
 }
 
-/** 将 Web 服务配置加载到弹窗输入框 */
-export function loadFrontendWebConfigToInputs() {
+/** 将 Web 服务配置加载到弹窗输入框
+ *  监听地址优先使用后端探测的本机局域网 IPv4（启动时已探测并缓存）；
+ *  后端未探测到时回退到 localStorage 中保存的监听地址。 */
+export async function loadFrontendWebConfigToInputs() {
     const hostEl = document.getElementById('frontendWebHost');
     const portEl = document.getElementById('frontendWebPort');
     const config = getFrontendWebConfig();
-    if (hostEl) hostEl.value = config.host;
+    const lan = await ensureLanIPv4();
+    if (hostEl) hostEl.value = lan || config.host;
     if (portEl) portEl.value = config.port;
     return config;
+}
+
+// 本机局域网 IPv4 缓存（软件启动时探测；用于监听地址默认值与二维码）
+let lanIPv4Cache = null;
+
+/** 探测并缓存本机局域网 IPv4（force=true 强制重新探测）。失败时缓存为空串。 */
+export async function ensureLanIPv4(force) {
+    if (!force && lanIPv4Cache !== null) return lanIPv4Cache;
+    try {
+        const ip = await api.GetLanIPv4();
+        lanIPv4Cache = ip || '';
+    } catch (e) {
+        lanIPv4Cache = '';
+    }
+    return lanIPv4Cache;
 }
 
 /** 从弹窗输入框读取并持久化 Web 服务配置 */
@@ -151,8 +169,7 @@ export function showProxyModal() {
     const proxyEnabledEl = document.getElementById('proxyEnabled');
     const proxyHostEl = document.getElementById('proxyHost');
     const proxyPortEl = document.getElementById('proxyPort');
-    const saveBtn = document.getElementById('btnSaveProxy');
-    const cancelBtn = document.getElementById('btnCancelProxy');
+    const actionsEl = document.getElementById('proxyModalActions');
     serviceHostEl.value = config.serviceHost;
     const randomEl = document.getElementById('servicePortRandom');
     const isRandom = config.servicePort === '0';
@@ -180,8 +197,7 @@ export function showProxyModal() {
     proxyEnabledEl.disabled = readonly;
     proxyHostEl.readOnly = readonly;
     proxyPortEl.readOnly = readonly;
-    saveBtn.style.display = readonly ? 'none' : '';
-    cancelBtn.textContent = readonly ? '关闭' : '取消';
+    if (actionsEl) actionsEl.style.display = readonly ? 'none' : '';
     if (readonly) {
         serviceHostEl.style.opacity = '0.6';
         servicePortEl.style.opacity = '0.6';
@@ -248,24 +264,95 @@ export async function checkFrontendWebStatus() {
 export function renderFrontendWebStatus() {
     const statusEl = document.getElementById('frontendWebStatus');
     const urlEl = document.getElementById('frontendWebUrl');
-    const btnStart = document.getElementById('btnSaveFrontendWeb');
-    const btnStop = document.getElementById('btnStopFrontendWeb');
+    const btnToggle = document.getElementById('btnToggleFrontendWeb');
     const btnCopy = document.getElementById('btnCopyFrontendWebUrl');
     const btnToolbar = document.getElementById('btnFrontendWebConfig');
     const toolbarDot = document.getElementById('frontendWebToolbarDot');
-    if (!statusEl || !urlEl || !btnStart || !btnStop || !btnCopy || !btnToolbar || !toolbarDot) return;
+    if (!statusEl || !urlEl || !btnToggle || !btnCopy || !btnToolbar || !toolbarDot) return;
     statusEl.textContent = store.frontendWebRunning ? '运行中' : '未启动';
     statusEl.classList.toggle('frontend-web-status-running', store.frontendWebRunning);
     urlEl.textContent = store.frontendWebURL || '--';
     urlEl.title = store.frontendWebURL || '';
     urlEl.href = store.frontendWebURL || '#';
     urlEl.classList.toggle('disabled', !store.frontendWebURL);
-    btnStart.disabled = store.frontendWebRunning;
-    btnStop.disabled = !store.frontendWebRunning;
+    // 二合一按钮（参照 OpenCode 启停按钮）：运行态显示「停止」（danger 样式），停止态显示「启动」（主操作样式）
+    if (store.frontendWebRunning) {
+        btnToggle.disabled = false;
+        btnToggle.dataset.mode = 'stop';
+        btnToggle.textContent = '■ 停止 WEB服务';
+        btnToggle.classList.add('btn-danger-outline');
+        btnToggle.classList.remove('btn-primary');
+    } else {
+        btnToggle.disabled = false;
+        btnToggle.dataset.mode = 'start';
+        btnToggle.textContent = '▶ 启动 WEB服务';
+        btnToggle.classList.add('btn-primary');
+        btnToggle.classList.remove('btn-danger-outline');
+    }
     btnCopy.disabled = !store.frontendWebURL;
     toolbarDot.classList.toggle('on', store.frontendWebRunning);
     toolbarDot.classList.toggle('off', !store.frontendWebRunning);
     btnToolbar.title = store.frontendWebRunning && store.frontendWebURL ? `Web服务运行中: ${store.frontendWebURL}` : 'Web服务';
+    // 与状态同步刷新二维码（fire-and-forget，内部自行探测局域网地址）
+    renderFrontendWebQr();
+}
+
+/** 计算二维码应指向的访问地址：
+ *  host 已是私有局域网 IP 时直接使用；否则用启动时探测的本机局域网 IP 替换（手机需要局域网可访问地址）。
+ *  端口为空时按 8081 处理；探测失败且 host 非局域网时返回空串（由调用方提示）。 */
+async function resolveFrontendWebQrUrl(host, port) {
+    const p = port || '8081';
+    const isPrivate = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host || '');
+    if (isPrivate) return 'http://' + host + ':' + p;
+    const lan = await ensureLanIPv4();
+    return lan ? 'http://' + lan + ':' + p : '';
+}
+
+/** 渲染 Web 服务二维码（常驻）：
+ *  - 未运行：直接用弹窗输入框的监听地址/端口生成预览二维码，提示「启动服务后生效」；
+ *  - 运行中：用实际生效的访问地址；监听本机/通配地址时给黄色提示（建议改 0.0.0.0）。
+ *  启动/停止服务后由 renderFrontendWebStatus 触发重新生成。 */
+async function renderFrontendWebQr() {
+    const box = document.getElementById('frontendWebQrBox');
+    const hint = document.getElementById('frontendWebQrHint');
+    if (!box || !hint) return;
+    hint.classList.remove('warn');
+    const running = !!(store.frontendWebRunning && store.frontendWebURL);
+    let host = '', port = '';
+    if (running) {
+        // 运行中：以实际生效的访问地址为准
+        try {
+            const u = new URL(store.frontendWebURL);
+            host = u.hostname; port = u.port;
+        } catch (e) { /* 解析失败按不可用处理 */ }
+    } else {
+        // 未运行：用弹窗输入框当前值（弹窗未打开过时为空，将走"探测 IP + 默认端口"分支）
+        host = (document.getElementById('frontendWebHost')?.value || '').trim();
+        port = (document.getElementById('frontendWebPort')?.value || '').trim();
+    }
+    if (typeof QRCode === 'undefined') {
+        box.innerHTML = '<div class="frontend-web-qr-empty">二维码库未加载</div>';
+        return;
+    }
+    const qrUrl = await resolveFrontendWebQrUrl(host, port);
+    if (!qrUrl) {
+        box.innerHTML = '<div class="frontend-web-qr-empty">未能探测到局域网地址<br>请检查网络连接</div>';
+        hint.textContent = running ? '手机扫码打开此页面' : '启动服务后生效';
+        return;
+    }
+    const isPrivate = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host || '');
+    if (!running) {
+        hint.textContent = '启动服务后生效';
+    } else if (!isPrivate) {
+        // 运行中但监听本机/通配地址：二维码已用探测的局域网 IP，提示需改为对外监听
+        hint.textContent = '提示：服务监听 ' + (host || '本机') + '，手机可能无法访问；建议将监听地址改为 0.0.0.0 后重启';
+        hint.classList.add('warn');
+    } else {
+        hint.textContent = '手机扫码打开此页面';
+    }
+    // 幂等刷新：清空容器后重建实例（简单可靠，避免多实例叠加）
+    box.innerHTML = '';
+    new QRCode(box, { text: qrUrl, width: 176, height: 176, correctLevel: QRCode.CorrectLevel.M });
 }
 
 /** 显示页面 Web 服务配置弹窗 */
@@ -285,8 +372,6 @@ export function closeFrontendWebModal() {
 
 /** 启动页面 Web 服务 */
 export async function startFrontendWeb() {
-    const btn = document.getElementById('btnSaveFrontendWeb');
-    if (!btn) return;
     const config = persistFrontendWebConfigFromInputs();
     const host = config.host;
     const portText = config.port;
@@ -295,8 +380,6 @@ export async function startFrontendWeb() {
         return;
     }
     const port = parseInt(portText, 10) || 8081;
-    btn.disabled = true;
-    btn.textContent = '⏳ 启动中...';
     try {
         const result = await api.StartFrontendWeb(port, host);
         store.frontendWebRunning = !!result.running;
@@ -310,16 +393,11 @@ export async function startFrontendWeb() {
     } catch (e) {
         showToast('Web服务启动失败: ' + (e.message || e), 'error');
     }
-    btn.textContent = '启动服务';
     checkFrontendWebStatus();
 }
 
 /** 停止页面 Web 服务 */
 export async function stopFrontendWeb() {
-    const btn = document.getElementById('btnStopFrontendWeb');
-    if (!btn) return;
-    btn.disabled = true;
-    btn.textContent = '⏳ 停止中...';
     try {
         await api.StopFrontendWeb();
         store.frontendWebRunning = false;
@@ -329,6 +407,21 @@ export async function stopFrontendWeb() {
     } catch (e) {
         showToast('Web服务停止失败: ' + (e.message || e), 'error');
     }
-    btn.textContent = '停止服务';
     checkFrontendWebStatus();
+}
+
+/** 启动/停止二合一开关：按当前运行状态分派到 startFrontendWeb / stopFrontendWeb；
+ *  在途禁用按钮并显示进度文案，结束后由 renderFrontendWebStatus 统一恢复文案与样式。 */
+export async function toggleFrontendWeb() {
+    const btn = document.getElementById('btnToggleFrontendWeb');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    const wasRunning = !!store.frontendWebRunning;
+    btn.textContent = wasRunning ? '⏳ 停止中...' : '⏳ 启动中...';
+    if (wasRunning) {
+        await stopFrontendWeb();
+    } else {
+        await startFrontendWeb();
+    }
+    renderFrontendWebStatus();
 }

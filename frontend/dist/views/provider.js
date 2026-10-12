@@ -136,12 +136,12 @@ export function emptyProvider() {
 export function renderProviders(providers) {
     const list = document.getElementById('providersList');
     const empty = (!providers || !providers.length)
-        ? '<div class="prov-empty">暂无供应商，点击下方「➕ 添加供应商」</div>'
+        ? '<div class="prov-empty">暂无供应商，点击下方「添加供应商」</div>'
         : '';
     const html = (providers || []).map(p => providerCardHtml(p)).join('');
     list.innerHTML = empty + html + `
         <div class="provider-card provider-card-add" id="btnAddCard">
-            <span>➕ 添加供应商</span>
+            <span><span class="oc-fb-icon oc-fb-icon-add"></span>添加供应商</span>
         </div>`;
     bindProviderEvents(providers);
     document.getElementById('btnAddCard').addEventListener('click', () => addNewCard());
@@ -395,12 +395,15 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
     var html = '<div class="model-list-body">';
     models.forEach(function(m) {
         var escaped = escapeHtml(m);
+        // 状态圆点：蓝=可新增（未添加）/ 红=可删除（已添加），与按钮悬停语义色对应
         html += '<div class="model-list-row">' +
+            '<span class="model-list-dot ' + (existingSet[m] ? 'del' : 'add') + '"></span>' +
             '<span class="model-list-name">' + escaped + '</span>';
         if (existingSet[m]) {
-            html += '<button class="btn btn-sm btn-del" data-action="del" data-model="' + escaped + '">删除</button>';
+            // 行内操作按钮图标化：删除用「关闭.svg」（保留红色语义），title 提供可读提示
+            html += '<button class="btn btn-sm btn-del" data-action="del" data-model="' + escaped + '" title="删除"><span class="oc-fb-icon oc-fb-icon-minus" aria-hidden="true"></span></button>';
         } else {
-            html += '<button class="btn btn-sm btn-add" data-action="add" data-model="' + escaped + '">增加</button>';
+            html += '<button class="btn btn-sm btn-add" data-action="add" data-model="' + escaped + '" title="增加"><span class="oc-fb-icon oc-fb-icon-add" aria-hidden="true"></span></button>';
         }
         html += '</div>';
     });
@@ -409,10 +412,10 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'modelListModal';
-    overlay.innerHTML = '<div class="modal proxy-modal" style="max-width:420px">' +
-        '<h3>' + escapeHtml(name) + '-模型</h3>' +
-        html +
-        '<div class="modal-actions"><button class="btn btn-sm" id="btnCloseModelList">关闭</button></div>' +
+    overlay.innerHTML = '<div class="modal modal-card proxy-modal" style="max-width:420px">' +
+        '<div class="modal-header"><h3>' + escapeHtml(name) + '-模型</h3>' +
+        '<button type="button" class="modal-close-btn" id="btnCloseModelList" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button></div>' +
+        '<div class="modal-body">' + html + '</div>' +
     '</div>';
     document.body.appendChild(overlay);
     overlay.style.display = 'flex';

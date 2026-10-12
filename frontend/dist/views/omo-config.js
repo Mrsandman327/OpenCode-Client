@@ -251,10 +251,26 @@ export function createModelGroup(title, entries, entryType) {
         await deleteModelType(entryType, entries.length);
     });
 
+    // 点击组头空白处折叠 / 展开（按钮、全选区域不触发），带 max-height 过渡动画
+    const GROUP_BODY_ANIM_MS = 300;
     header.addEventListener('click', (e) => {
         if (e.target.closest('.model-group-actions')) return;
         header.classList.toggle('collapsed');
-        body.classList.toggle('collapsed');
+        const nowCollapsed = header.classList.contains('collapsed');
+        if (nowCollapsed) {
+            // 折叠：钉住当前实际高度为起点 → reflow → 切类过渡到 0
+            body.style.maxHeight = body.scrollHeight + 'px';
+            void body.offsetHeight;
+            body.style.maxHeight = '';
+            body.classList.add('collapsed');
+        } else {
+            // 展开：钉住 0 为起点 → reflow → 过渡到实际高度，结束后解除内联
+            body.classList.remove('collapsed');
+            body.style.maxHeight = '0px';
+            void body.offsetHeight;
+            body.style.maxHeight = body.scrollHeight + 'px';
+            setTimeout(() => { body.style.maxHeight = ''; }, GROUP_BODY_ANIM_MS + 40);
+        }
     });
 
     const body = document.createElement('div');
@@ -387,17 +403,24 @@ export function showAddEntryModal(entryType) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-        <div class="modal">
-            <h3>添加 ${modelTypeTitle(entryType).replace(/^[^\w\u4e00-\u9fa5]+\s*/, '')}</h3>
-            <div class="modal-field"><label>Key（唯一标识）</label><input id="modalEntryKey" placeholder="如 my-agent" /></div>
+        <div class="modal modal-card proxy-modal">
+            <div class="modal-header">
+                <h3>添加 ${modelTypeTitle(entryType).replace(/^[^\w\u4e00-\u9fa5]+\s*/, '')}</h3>
+                <button type="button" class="modal-close-btn" id="btnCloseAdd" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
+            </div>
+            <div class="modal-body">
+            <div class="modal-field"><label>Agent（唯一标识）</label><input id="modalEntryKey" placeholder="如 my-agent" /></div>
             <div class="modal-field"><label>模型</label><select id="modalEntryModel" class="modal-select">${store.availableModels.map(m => `<option value="${m.value}">${m.label}</option>`).join('')}</select></div>
             <div class="modal-field"><label>Reasoning</label><select id="modalEntryReasoning" class="modal-select">${REASONING_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('')}</select></div>
             <div class="modal-field"><label>描述（作为注释）</label><input id="modalEntryComment" placeholder="简要描述用途" /></div>
-            <div class="modal-actions"><button class="btn btn-cancel" id="btnCancelAdd">取消</button><button class="btn btn-primary" id="btnConfirmAdd">💾 添加</button></div>
+            </div>
+            <div class="modal-footer"><button class="btn-cancel" id="btnCancelAdd">取消</button><button class="btn btn-primary" id="btnConfirmAdd">添加</button></div>
         </div>`;
     document.body.appendChild(overlay);
     // 点遮罩关闭（仅当按下与松开都在遮罩上才触发；新机制不再需要子元素 stopPropagation）
     bindOverlayClose(overlay, () => overlay.remove());
+    // 头部关闭按钮：移除当前弹窗
+    overlay.querySelector('#btnCloseAdd').addEventListener('click', () => overlay.remove());
     overlay.querySelector('#btnCancelAdd').addEventListener('click', () => overlay.remove());
     overlay.querySelector('#btnConfirmAdd').addEventListener('click', () => {
         const key = overlay.querySelector('#modalEntryKey').value.trim();
@@ -637,9 +660,11 @@ export async function handleSchemeApply() {
     }
 
     const btn = document.getElementById('btnSaveModels');
+    const btnText = document.getElementById('btnSaveModelsText');
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '⏳ 保存中...';
+        // 图标在按钮内独立 span，这里只改文字（保存中状态）
+        if (btnText) btnText.textContent = '保存中...';
     }
     showToast('保存中...', 'info');
 
@@ -663,7 +688,7 @@ export async function handleSchemeApply() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '💾 保存';
+            if (btnText) btnText.textContent = '保存配置';
         }
     }
 }

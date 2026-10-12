@@ -32,6 +32,8 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.GetFrontendWebStatus(hostname, port), nil
+	case "GetLanIPv4":
+		return a.GetLanIPv4(), nil
 	case "GetSkillConfig":
 		return a.GetSkillConfig(), nil
 	case "GetDirEnabledSkills":

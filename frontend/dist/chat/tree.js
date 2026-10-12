@@ -18,6 +18,36 @@ import { resetUserNav } from './search.js';
 import { openProjectConfig } from '../views/project-config.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
 
+// 折叠/展开图标：assets/菜单折叠.svg、菜单展开.svg（CSS mask 呈现）。
+// 元素不写字符，改挂状态类（is-expanded / is-collapsed），由 CSS 显示对应图标。
+function setToggleState(el, expanded) {
+    if (!el) return;
+    el.classList.toggle('is-expanded', !!expanded);
+    el.classList.toggle('is-collapsed', !expanded);
+}
+function toggleClass(expanded) {
+    return expanded ? 'is-expanded' : 'is-collapsed';
+}
+
+/** 项目树子级折叠/展开动画：max-height 过渡（DOM 保留，双向平滑；折叠结束再 display:none） */
+function animateTreeChildren(el, open) {
+    if (!el) return;
+    if (open) {
+        el.style.display = '';
+        el.style.overflow = 'hidden';
+        el.style.maxHeight = '0px';
+        void el.offsetHeight;
+        el.style.maxHeight = el.scrollHeight + 'px';
+        setTimeout(function () { el.style.maxHeight = ''; el.style.overflow = ''; }, 450);
+    } else {
+        el.style.overflow = 'hidden';
+        el.style.maxHeight = el.scrollHeight + 'px';
+        void el.offsetHeight;
+        el.style.maxHeight = '0px';
+        setTimeout(function () { el.style.display = 'none'; el.style.maxHeight = ''; el.style.overflow = ''; }, 450);
+    }
+}
+
 // ============================
 // 项目树 — 构建、渲染、操作
 // ============================
@@ -89,7 +119,6 @@ export function renderTree(tree) {
 
     window._sessionMap = {};
     let html = '';
-    const toggleIcon = (expanded) => expanded ? '▼' : '⯈';
 
     /** 把 "YYYY-MM-DD HH:MM" 转成相对时间（如 "3分钟前"/"昨天"），无法解析时原样返回 */
     const formatRelativeTime = (t) => {
@@ -117,13 +146,13 @@ export function renderTree(tree) {
         var addDirBtn = proj.id === 'global'
             ? `<button class="oc-tree-add-dir" data-project-id="${escapeHtml(proj.id)}" title="添加工作目录">＋</button>`
             : '';
-        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.id + (proj.updatedAt ? '\n⏰ ' + proj.updatedAt : ''))}">${escapeHtml(proj.title)}</span>${addDirBtn}</div>`;
+        html += `<div class="oc-tree-row oc-tree-project-row"><div class="oc-tree-toggle ${toggleClass(true)}"></div><span class="oc-tree-label oc-tree-project-label" title="${escapeHtml(proj.id + (proj.updatedAt ? '\n⏰ ' + proj.updatedAt : ''))}">${escapeHtml(proj.title)}</span>${addDirBtn}</div>`;
         html += `<div class="oc-tree-children">`;
         for (const dir of (proj.children || [])) {
             // 目录行：次级分组标题 + 会话计数徽章
             const dirSesCount = (dir.children || []).length;
             html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
-            html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle">${toggleIcon(true)}</div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
+            html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle ${toggleClass(true)}"></div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
             html += `<div class="oc-tree-children">`;
             // 按更新时间稳定排序，保持会话位置固定
             var sesList = (dir.children || []).slice();
@@ -158,7 +187,7 @@ export function renderTree(tree) {
                 if (children) {
                     children.style.display = 'none';
                     var toggle = node.querySelector('.oc-tree-toggle');
-                    if (toggle) toggle.textContent = toggleIcon(false);
+                    if (toggle) setToggleState(toggle, false);
                 }
             }
         });
@@ -174,9 +203,9 @@ export function renderTree(tree) {
             const children = node.querySelector('.oc-tree-children');
             if (!children) return;
             const isOpen = children.style.display !== 'none';
-            children.style.display = isOpen ? 'none' : '';
+            animateTreeChildren(children, !isOpen);
             var toggle = row.querySelector('.oc-tree-toggle');
-            if (toggle) toggle.textContent = toggleIcon(!isOpen);
+            if (toggle) setToggleState(toggle, !isOpen);
         });
     });
 
@@ -188,8 +217,8 @@ export function renderTree(tree) {
             const children = node.querySelector('.oc-tree-children');
             if (children) {
                 const isOpen = children.style.display !== 'none';
-                children.style.display = isOpen ? 'none' : '';
-                el.textContent = toggleIcon(!isOpen);
+                animateTreeChildren(children, !isOpen);
+                setToggleState(el, !isOpen);
             }
         });
     });
@@ -287,7 +316,7 @@ export function applyTreeSearchFilter() {
             var toggle = node.querySelector(':scope > .oc-tree-row .oc-tree-toggle');
             var children = node.querySelector(':scope > .oc-tree-children');
             if (toggle && children) {
-                toggle.textContent = children.style.display === 'none' ? '⯈' : '▼';
+                setToggleState(toggle, children.style.display !== 'none');
             }
         });
         updateTreeSearchStatus(0, totalCount);
@@ -329,7 +358,7 @@ export function applyTreeSearchFilter() {
         if (children) {
             children.style.display = visible ? '' : 'none';
             if (toggle) {
-                toggle.textContent = visible ? '▼' : '⯈';
+                setToggleState(toggle, !!visible);
             }
         }
         return visible;
