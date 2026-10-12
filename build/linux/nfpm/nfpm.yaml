@@ -3,26 +3,26 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "demo-w3.exe"
+name: "oc-manager"
 arch: ${GOARCH}
 platform: "linux"
-version: "0.1.0"
+version: "1.0.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "A demo-w3 application"
-vendor: "My Company"
-homepage: "https://wails.io"
-license: "MIT"
+description: "OpenCode 全能工作台"
+vendor: "Linsn"
+# homepage: ""   ← 按需填写项目主页（原模板值 wails.io 已移除）
+# license: ""    ← 按需填写许可证（仓库暂无 LICENSE 文件）
 release: "1"
 
 contents:
-  - src: "./bin/demo-w3.exe"
-    dst: "/usr/local/bin/demo-w3.exe"
+  - src: "./bin/oc-manager"
+    dst: "/usr/local/bin/oc-manager"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/demo-w3.exe.png"
-  - src: "./build/linux/demo-w3.exe.desktop"
-    dst: "/usr/share/applications/demo-w3.exe.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/oc-manager.png"
+  - src: "./build/linux/oc-manager.desktop"
+    dst: "/usr/share/applications/oc-manager.desktop"
 
 # Default dependencies for Debian 12/Ubuntu 22.04+ with WebKit 4.1
 depends:
@@ -36,7 +36,7 @@ overrides:
     depends:
       - gtk3
       - webkit2gtk4.1
-  
+
   # Arch Linux packages (WebKit 4.1)  
   archlinux:
     depends:

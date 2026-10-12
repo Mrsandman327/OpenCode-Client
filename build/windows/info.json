@@ -1,15 +1,15 @@
 {
 	"fixed": {
-		"file_version": "0.1.0"
+		"file_version": "2.0.1"
 	},
 	"info": {
-		"0000": {
-			"ProductVersion": "0.1.0",
-			"CompanyName": "My Company",
-			"FileDescription": "A demo-w3 application",
-			"LegalCopyright": "© 2026, My Company",
-			"ProductName": "My Product",
-			"Comments": "This is a comment"
+		"0409": {
+			"ProductVersion": "2.0.1",
+			"CompanyName": "Linsn",
+			"FileDescription": "OpenCode 全能工作台",
+			"LegalCopyright": "(c) 2026, Linsn",
+			"ProductName": "OC Manager",
+			"Comments": "OC Manager"
 		}
 	}
 }
