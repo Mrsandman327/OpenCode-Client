@@ -55,6 +55,7 @@ import { loadProviders } from './views/provider.js';
 import { initKnowledgeRef } from './chat/knowledge-ref.js';
 // 侧问面板（/btw）：事件绑定 + 全局声明式键位表（集中在这两个模块，不再散落监听）
 import { bindBtwPanelEvents } from './chat/btw.js';
+import { bindKeysHelpEvents } from './chat/keys-help.js';
 import { initKeybinds } from './chat/keybinds.js';
 // 副作用模块：聊天命令面板在模块顶层自绑定键盘/输入事件（无导出符号被消费）
 import './chat/cmd-palette.js';
@@ -460,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 两者都要 DOM 就绪后才能绑定（#btwModal / body 存在），故放在这里初始化一次。
     // 键位表是**唯一**的全局快捷键入口（声明式表见 chat/keybinds.js）。
     bindBtwPanelEvents();
+    bindKeysHelpEvents();
     initKeybinds();
 
     // ============ 独立文件浏览器窗口模式 ============

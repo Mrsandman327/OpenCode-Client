@@ -132,6 +132,61 @@ export function isEditableTarget(target) {
 }
 
 /**
+ * 把键位 spec 渲染成给人看的标签。
+ *
+ * spec 里 `mod` 是平台无关写法（对齐官方）：Windows/Linux 显示 Ctrl、
+ * macOS 显示 ⌘；`shift`/`alt`/`ctrl` 原样翻译。多键序列（`,` 分隔）与
+ * 反斜杠等单字符按官方风格输出，如 `mod+shift+s` → `Ctrl+Shift+S`。
+ *
+ * 纯函数：不含 DOM、不含 navigator，平台由调用方传入，便于单测。
+ *
+ * @param {string} spec 例：'mod+k,mod+shift+p' / 'ctrl+b' / 'mod+\\'
+ * @param {boolean} [isMac] 是否为 macOS
+ * @returns {string} 例：'Ctrl+K 或 Ctrl+Shift+P'（空 spec 返回 ''）
+ */
+export function formatKeybind(spec, isMac) {
+    const raw = String(spec == null ? '' : spec).trim();
+    if (!raw) return '';
+
+    const translate = function (part) {
+        const steps = part
+            .split('+')
+            .map(function (s) { return s.trim(); })
+            .filter(Boolean);
+        const out = [];
+        for (let i = 0; i < steps.length; i++) {
+            const k = steps[i];
+            if (k === 'mod') out.push(isMac ? '⌘' : 'Ctrl');
+            else if (k === 'shift') out.push(isMac ? '⇧' : 'Shift');
+            else if (k === 'alt') out.push(isMac ? '⌥' : 'Alt');
+            else if (k === 'ctrl') out.push(isMac ? '⌃' : 'Ctrl');
+            else if (k === 'meta') out.push(isMac ? '⌘' : 'Win');
+            else if (k.length === 1) out.push(k.toUpperCase());
+            else out.push(k.charAt(0).toUpperCase() + k.slice(1));
+        }
+        return out.join(isMac ? '' : '+');
+    };
+
+    // spec 上逗号分隔表示「序列」（先按第一组，再按第二组）
+    const groups = raw
+        .split(',')
+        .map(function (s) { return s.trim(); })
+        .filter(Boolean)
+        .map(translate);
+
+    return groups.join(' 或 ');
+}
+
+/**
+ * 当前平台是否为 macOS（读 navigator 的薄封装）。
+ * 纯判定在 isMacPlatform(platform)，这里只负责取平台串，便于单测替换。
+ * @returns {boolean}
+ */
+export function isMacPlatformNow() {
+    return isMacPlatform((typeof navigator === 'object' && navigator !== null && navigator.platform) || '');
+}
+
+/**
  * 当前是否有模态弹窗打开。
  *
  * 约定沿用仓内既有实现：`.modal-overlay` 元素 display 为 flex 即视为打开。

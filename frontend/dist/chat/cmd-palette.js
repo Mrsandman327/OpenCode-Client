@@ -13,6 +13,8 @@ import { openSessionTab } from './tabs.js';
 import { buildTree } from './tree.js';
 import { unwrap, unwrapList, formatApiError } from '../core/v2compat.js';
 import { askBtw } from './btw.js';
+import { openKeysHelp } from './keys-help.js';
+import { keybindLabelForCommand } from './keybinds.js';
 
 let cmdPaletteItems = [];
 let skillItems = [];
@@ -28,6 +30,7 @@ const FIXED_COMMANDS = [
     { name: 'unrevert',  description: '取消撤销（清除暂存的撤销；需 Git 仓库）', source: 'fixed' },
     { name: 'fork',      description: '从消息创建新会话（分叉）', source: 'fixed' },
     { name: 'btw',       description: '侧问：一次性回答，不写入会话', source: 'fixed' },
+    { name: 'keys',      description: '快捷键与命令速查', source: 'fixed' },
 ];
 
 const cmdPaletteEl = document.getElementById('ocCmdPalette');
@@ -151,9 +154,14 @@ export function renderCmdPalette(query) {
     filtered.forEach((item, i) => {
         const active = i === cmdPaletteIndex ? ' active' : '';
         const sourceTag = item.source === 'fixed' ? '<span class="oc-cmd-source fixed">内置</span>' : `<span class="oc-cmd-source">${escapeHtml(item.source || '')}</span>`;
+        // 键位角标：有绑定才渲染（当前固定命令官方均未分配默认键位，故多为空）；
+        // 机制留在模板上，以后任何命令绑了键位会自动显示，不用改这里。
+        const keyLabel = item.source === 'fixed' ? keybindLabelForCommand(item.name) : '';
+        const keyTag = keyLabel ? `<span class="oc-cmd-key">${escapeHtml(keyLabel)}</span>` : '';
         html += `<div class="oc-cmd-item${active}" data-cmd="${escapeHtml(item.name)}" data-source="${escapeHtml(item.source || '')}" data-idx="${i}">
             <span class="oc-cmd-name">/${escapeHtml(item.name)}</span>
             <span class="oc-cmd-desc">${escapeHtml(item.description || '')}</span>
+            ${keyTag}
             ${sourceTag}
         </div>`;
     });
@@ -271,6 +279,14 @@ export function selectCmdItem(cmdName, source) {
 }
 
 export async function executeFixedCmd(cmdName, args) {
+    // 本地命令前置 switch：纯界面动作，不碰服务端、不需要会话，
+    // 必须在「请先启动服务并选择会话」校验**之前**处理，否则没选会话就看不了快捷键。
+    switch (cmdName) {
+        case 'keys':
+            hideCmdPalette();
+            openKeysHelp(FIXED_COMMANDS);
+            return;
+    }
     if (!store.webRunning || !store.currentSessionId) {
         showToast('请先启动服务并选择会话', 'error');
         return;

@@ -22,7 +22,7 @@
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
 import { showToast, markManualSelection } from '../core/utils.js';
-import { parseKeybind, eventMatchesStep, isEditableTarget, hasOpenModal, isMacPlatform } from '../core/keybinds.js';
+import { parseKeybind, eventMatchesStep, isEditableTarget, hasOpenModal, isMacPlatform, formatKeybind, isMacPlatformNow } from '../core/keybinds.js';
 import { createNewSession } from './tree.js';
 import { toggleSessions, toggleSidepanel } from './mobile.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
@@ -314,6 +314,50 @@ export function initKeybinds() {
     if (document.body && document.body.dataset.ocKeybindsBound) return;
     if (document.body) document.body.dataset.ocKeybindsBound = '1';
     document.addEventListener('keydown', onKeydown);
+}
+
+/**
+ * 键位速查表用的展示数据（界面显示用，不参与匹配）。
+ *
+ * 为什么单独给：界面要「看得见有哪些快捷键」，而 KEYBINDS 里的 run 是函数、
+ * spec 是平台无关写法，直接渲染给用户看不懂（mod/ctrl 混用）。
+ * 这里统一翻译成当前平台标签，并按官方分组排序。
+ *
+ * @returns {Array<{id: string, title: string, label: string}>}
+ */
+export function keybindDisplayList() {
+    return KEYBINDS.map(function (item) {
+        return {
+            id: item.id,
+            title: item.title,
+            label: formatKeybind(item.spec, isMacPlatformNow()),
+        };
+    });
+}
+
+/**
+ * 面板命令名 → 键位 spec 的显式映射。
+ *
+ * ⚠️ 当前固定命令（summarize/revert/unrevert/fork/btw/keys）**官方均未分配
+ * 默认键位**（见官方 use-session-commands.tsx：它们只有 slash，没有 keybind），
+ * 故这里全部留空——宁可不显示，也不凭空造一个会和既有键撞车的组合。
+ * 新的键位（session.new 等）走的是另一套键位表，不属于面板命令。
+ */
+const COMMAND_KEYBIND = {
+    summarize: '',
+    revert: '',
+    unrevert: '',
+    fork: '',
+    btw: '',
+    keys: '',
+};
+
+/** 某个面板命令对应的键位标签；未绑定返回 ''。 */
+export function keybindLabelForCommand(name) {
+    const want = String(name || '').trim();
+    if (!Object.prototype.hasOwnProperty.call(COMMAND_KEYBIND, want)) return '';
+    const spec = COMMAND_KEYBIND[want];
+    return spec ? formatKeybind(spec, isMacPlatformNow()) : '';
 }
 
 // ============================

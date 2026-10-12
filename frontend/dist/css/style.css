@@ -3195,6 +3195,62 @@ input::placeholder, textarea::placeholder {
 .btw-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 12px; }
 .btw-foot { flex-shrink: 0; padding: 8px 16px 12px; display: flex; justify-content: flex-end; gap: 8px; }
 .btw-answer { font-size: 14px; line-height: 1.6; color: var(--text-primary); word-break: break-word; }
+
+/* 快捷键与命令速查（C+B 界面可见性） */
+.oc-keys-help { width: 480px; max-width: calc(100vw - 48px); height: 520px; max-height: calc(100vh - 48px); display: flex; flex-direction: column; padding: 0; border-radius: var(--radius-md); overflow: hidden; }
+.oc-keys-help-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.oc-keys-help-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.oc-keys-help-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 14px; }
+.oc-keys-help-group {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 12px 0 6px;
+}
+.oc-keys-help-group:first-child { margin-top: 4px; }
+.oc-keys-help-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.oc-keys-help-label {
+    flex-shrink: 0;
+    min-width: 108px;
+    text-align: right;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    color: var(--text-primary);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    padding: 2px 7px;
+    white-space: nowrap;
+}
+.oc-keys-help-label.none { color: var(--text-muted); background: none; border-style: dashed; }
+/* 命令行的键位 chip 在行尾，不强制对齐宽度 */
+#ocKeysHelpCmds .oc-keys-help-label { min-width: 0; }
+.oc-keys-help-desc { color: var(--text-secondary); flex: 1; min-width: 0; }
+.oc-keys-help-name {
+    color: var(--accent);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-weight: 600;
+    flex-shrink: 0;
+    min-width: 108px;
+    text-align: right;
+    font-size: 12px;
+}
 .fork-msg-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px; }
 .fork-msg-row {
     display: flex;
@@ -3463,6 +3519,18 @@ input::placeholder, textarea::placeholder {
 .oc-cmd-source.fixed {
     color: var(--accent);
     background: var(--accent-ghost);
+}
+/* 面板条目的键位角标：等宽字体 chip，未绑定时不渲染 */
+.oc-cmd-key {
+    color: var(--text-primary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 10px;
+    flex-shrink: 0;
+    padding: 1px 5px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    white-space: nowrap;
 }
 .oc-cmd-empty {
     color: var(--text-muted);

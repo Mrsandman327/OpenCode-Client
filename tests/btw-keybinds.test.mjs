@@ -17,7 +17,7 @@ import {
 } from "../frontend/dist/core/btw.js";
 import {
     parseKeybind, parseKeybindStep, stepMatches, isEditableTarget,
-    isMacPlatform, hasOpenModal,
+    isMacPlatform, hasOpenModal, formatKeybind,
 } from "../frontend/dist/core/keybinds.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -326,6 +326,75 @@ test("侧问面板 DOM 与样式已就位（复用既有 modal 范式）", () =>
 });
 
 // ============ 跑 ============
+// ============ 键位的界面显示（C+B 可见性）============
+
+test("formatKeybind：Windows 上 mod 渲染成 Ctrl、单键大写", () => {
+    assert.equal(formatKeybind("ctrl+b", false), "Ctrl+B");
+    assert.equal(formatKeybind("mod+shift+s", false), "Ctrl+Shift+S");
+    assert.equal(formatKeybind("mod+alt+[", false), "Ctrl+Alt+[");
+    assert.equal(formatKeybind("mod+\\", false), "Ctrl+\\");
+    assert.equal(formatKeybind("mod+;", false), "Ctrl+;");
+    assert.equal(formatKeybind("mod+'", false), "Ctrl+'");
+    assert.equal(formatKeybind("mod+w", false), "Ctrl+W");
+});
+
+test("formatKeybind：macOS 上用符号且不加 +（⌘⇧P）", () => {
+    assert.equal(formatKeybind("mod+shift+p", true), "⌘⇧P");
+    assert.equal(formatKeybind("mod+k", true), "⌘K");
+    assert.equal(formatKeybind("ctrl+b", true), "⌃B");
+    assert.equal(formatKeybind("shift+mod+d", true), "⇧⌘D");
+    assert.equal(formatKeybind("mod+\\", true), "⌘\\");
+});
+
+test("formatKeybind：多键序列用「或」连接；空 spec 返回空串", () => {
+    assert.equal(formatKeybind("mod+k,mod+shift+p", false), "Ctrl+K 或 Ctrl+Shift+P");
+    assert.equal(formatKeybind("mod+k,mod+shift+p", true), "⌘K 或 ⌘⇧P");
+    assert.equal(formatKeybind("", false), "");
+    assert.equal(formatKeybind("   ", true), "");
+    assert.equal(formatKeybind(undefined, false), "");
+});
+
+test("formatKeybind：shift/alt/ctrl/meta 全都有平台化译法", () => {
+    assert.equal(formatKeybind("alt+f4", false), "Alt+F4");
+    assert.equal(formatKeybind("meta+a", false), "Win+A");
+    assert.equal(formatKeybind("meta+a", true), "⌘A");
+});
+
+test("界面显示：键位速查表数据已导出（id/title/label 三字段齐全）", () => {
+    const src = read("chat/keybinds.js");
+    assert.match(src, /export function keybindDisplayList\(/, "必须导出 keybindDisplayList 供界面渲染");
+    assert.match(src, /label:\s*formatKeybind\(/, "label 必须走 formatKeybind 平台化，不能把 mod 原样显示给用户");
+    // 速查表条目数必须与键位表一致，避免显示与实现漂移
+    const specCount = (src.match(/^\s*\{ id: '/gm) || []).length;
+    assert.ok(specCount >= 16, "键位表至少 16 条，实际 " + specCount);
+});
+
+test("界面显示：5 条固定命令均未绑定键位（宁可不显示也不造假）", () => {
+    const src = read("chat/keybinds.js");
+    assert.match(src, /export function keybindLabelForCommand\(/, "必须导出 keybindLabelForCommand 供面板角标查询");
+    // COMMAND_KEYBIND 里 5 条命令必须全部为空串：官方未给默认键位，不能瞎编
+    const block = /const COMMAND_KEYBIND = \{([\s\S]*?)\};/.exec(src);
+    assert.ok(block, "COMMAND_KEYBIND 映射表必须存在");
+    for (const name of ["summarize", "revert", "unrevert", "fork", "btw"]) {
+        const row = new RegExp(name + ":\\s*'([^']*)'").exec(block[1]);
+        assert.ok(row, "映射表缺少 " + name);
+        assert.equal(row[1], "", name + " 不应绑定键位（官方无默认值）");
+    }
+    // 未登记的命令名必须返回空串，不得抛错
+    assert.match(src, /hasOwnProperty\.call\(COMMAND_KEYBIND, want\)/, "未登记命令要安全返回空串");
+});
+
+test("界面显示：速查面板已接进命令面板与 DOM", () => {
+    const pal = read("chat/cmd-palette.js");
+    assert.match(pal, /case 'keys'/, "命令面板要有打开速查面板的入口");
+    assert.match(pal, /oc-cmd-key/, "面板条目要渲染键位角标");
+    assert.match(pal, /\$\{keyTag\}/, "角标必须真的插值进条目 HTML（光定义 keyTag 不用等于没显示）");
+    const html = read("index.html");
+    assert.match(html, /id="ocKeysHelp"/, "速查面板 DOM 必须就位");
+    const css = read("css/style.css");
+    assert.match(css, /\.oc-keys-help\b/, "速查面板样式必须就位");
+});
+
 for (const [name, fn] of tests) {
     try {
         fn();

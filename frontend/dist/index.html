@@ -465,6 +465,22 @@
         </div>
     </div>
 
+    <!-- 快捷键与命令速查（C+B 界面可见性：键位表 16 条 + 面板命令 5 条） -->
+    <div class="modal-overlay" id="ocKeysHelp" style="display:none">
+        <div class="modal oc-keys-help">
+            <div class="oc-keys-help-header">
+                <span class="oc-keys-help-title">快捷键与命令</span>
+                <button type="button" class="btw-icon-btn oc-keys-help-close" title="关闭">✕</button>
+            </div>
+            <div class="oc-keys-help-body">
+                <div class="oc-keys-help-group">快捷键</div>
+                <div class="oc-keys-help-list" id="ocKeysHelpList"></div>
+                <div class="oc-keys-help-group">命令（在输入框键入 / 或按 Ctrl+K 打开面板）</div>
+                <div class="oc-keys-help-list" id="ocKeysHelpCmds"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- 配置弹窗 -->
     <div class="modal-overlay" id="proxyModal" style="display:none">
         <div class="modal modal-card proxy-modal">
