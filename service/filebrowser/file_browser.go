@@ -241,6 +241,96 @@ func CreateBrowserDir(rootDir, relPath, dirName string) (model.SaveResult, error
 	return model.SaveResult{Success: true}, nil
 }
 
+// CreateBrowserFile 在文件浏览器 relPath 指向的目录下创建一个空文件。
+// 关键行为：
+//   - fileName 会先去除首尾空白，然后进行空值、Windows 非法字符以及 "." / ".." 校验；
+//   - 目标目录（relPath）必须已存在且确实是目录，否则返回失败结果或错误；
+//   - 若同目录下已存在同名文件或文件夹，则返回冲突提示而不覆盖；
+//   - 空文件为 0 字节，而项目中 AtomicWriteRaw 拒绝零字节写入，故这里直接调用 os.WriteFile 落盘。
+func CreateBrowserFile(rootDir, relPath, fileName string) (model.SaveResult, error) {
+	relPath = normalizeBrowserRelPath(relPath)
+	fileName = strings.TrimSpace(fileName)
+	if fileName == "" {
+		return model.SaveResult{Success: false, Error: "文件名不能为空"}, nil
+	}
+	if strings.ContainsAny(fileName, `\\/:*?"<>|`) {
+		return model.SaveResult{Success: false, Error: "文件名包含非法字符（\\ / : * ? \" < > |）"}, nil
+	}
+	if fileName == "." || fileName == ".." {
+		return model.SaveResult{Success: false, Error: "文件名不合法"}, nil
+	}
+	absDir, _, err := resolveBrowserPath(rootDir, relPath)
+	if err != nil {
+		return model.SaveResult{}, err
+	}
+	info, err := os.Stat(absDir)
+	if err != nil {
+		return model.SaveResult{}, fmt.Errorf("读取目录失败: %w", err)
+	}
+	if !info.IsDir() {
+		return model.SaveResult{Success: false, Error: "目标不是目录"}, nil
+	}
+	targetPath := filepath.Join(absDir, fileName)
+	// 同名冲突检查：目标已存在则拒绝创建；Stat 返回非“不存在”错误时视为检查失败。
+	if _, err := os.Stat(targetPath); err == nil {
+		return model.SaveResult{Success: false, Error: "同名文件或文件夹已存在"}, nil
+	} else if !os.IsNotExist(err) {
+		return model.SaveResult{}, fmt.Errorf("检查文件失败: %w", err)
+	}
+	// 空文件是 0 字节，项目中 AtomicWriteRaw 拒绝零字节写入，所以这里直接用 os.WriteFile 落盘
+	//（该理由与 SaveBrowserFile / UploadBrowserFile 中的既有注释一致）。
+	if err := os.WriteFile(targetPath, []byte{}, 0644); err != nil {
+		return model.SaveResult{}, fmt.Errorf("创建文件失败: %w", err)
+	}
+	return model.SaveResult{Success: true}, nil
+}
+
+// RenameBrowserEntry 重命名文件浏览器中的文件或目录（仅限同目录内改名）。
+// 关键行为：
+//   - 禁止重命名根目录（relPath == "/"）；
+//   - newName 会先去除首尾空白，然后进行空值、Windows 非法字符以及 "." / ".." 校验；
+//   - 新旧名称一致时不做任何实际操作，直接视为成功；
+//   - 目标目录下已存在同名文件或文件夹时返回冲突提示而不覆盖。
+func RenameBrowserEntry(rootDir, relPath, newName string) (model.SaveResult, error) {
+	relPath = normalizeBrowserRelPath(relPath)
+	if relPath == "/" {
+		return model.SaveResult{Success: false, Error: "禁止重命名根目录"}, nil
+	}
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return model.SaveResult{Success: false, Error: "名称不能为空"}, nil
+	}
+	if strings.ContainsAny(newName, `\\/:*?"<>|`) {
+		return model.SaveResult{Success: false, Error: "名称包含非法字符（\\ / : * ? \" < > |）"}, nil
+	}
+	if newName == "." || newName == ".." {
+		return model.SaveResult{Success: false, Error: "名称不合法"}, nil
+	}
+	absPath, _, err := resolveBrowserPath(rootDir, relPath)
+	if err != nil {
+		return model.SaveResult{}, err
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return model.SaveResult{}, fmt.Errorf("目标不存在: %w", err)
+	}
+	// 名称未变化：无需任何文件系统操作，直接按成功返回。
+	if newName == info.Name() {
+		return model.SaveResult{Success: true}, nil
+	}
+	targetPath := filepath.Join(filepath.Dir(absPath), newName)
+	// 同名冲突检查：目标已存在则拒绝重命名；Stat 返回非“不存在”错误时视为检查失败。
+	if _, err := os.Stat(targetPath); err == nil {
+		return model.SaveResult{Success: false, Error: "同名文件或文件夹已存在"}, nil
+	} else if !os.IsNotExist(err) {
+		return model.SaveResult{}, fmt.Errorf("检查文件失败: %w", err)
+	}
+	if err := os.Rename(absPath, targetPath); err != nil {
+		return model.SaveResult{}, fmt.Errorf("重命名失败: %w", err)
+	}
+	return model.SaveResult{Success: true}, nil
+}
+
 // DeleteBrowserEntry 删除文件浏览器中的单个文件或目录。
 // 为了避免误删根目录，本函数禁止删除 relPath == "/" 的目标。
 func DeleteBrowserEntry(rootDir, relPath string) (model.SaveResult, error) {

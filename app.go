@@ -166,6 +166,16 @@ func (a *App) CreateBrowserDir(rootDir, path, dirName string) (model.SaveResult,
 	return filebrowser.CreateBrowserDir(rootDir, path, dirName)
 }
 
+// CreateBrowserFile 在文件浏览器指定目录下创建空文件。
+func (a *App) CreateBrowserFile(rootDir, path, dirName string) (model.SaveResult, error) {
+	return filebrowser.CreateBrowserFile(rootDir, path, dirName)
+}
+
+// RenameBrowserEntry 重命名文件浏览器中的文件或目录。
+func (a *App) RenameBrowserEntry(rootDir, path, newName string) (model.SaveResult, error) {
+	return filebrowser.RenameBrowserEntry(rootDir, path, newName)
+}
+
 // DeleteBrowserEntry 删除文件浏览器中的文件或目录。
 func (a *App) DeleteBrowserEntry(rootDir, path string) (model.SaveResult, error) {
 	return filebrowser.DeleteBrowserEntry(rootDir, path)

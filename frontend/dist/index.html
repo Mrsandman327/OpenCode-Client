@@ -555,13 +555,16 @@
                         <div class="file-browser-files-panel" id="fileBrowserFilesPanel">
                             <div class="file-browser-list-header">
                                 <div class="file-browser-list-header-title">文件列表</div>
+                                <button type="button" class="btn btn-sm file-browser-create-dir-btn" id="btnFileBrowserCreateFile" title="新建文件">
+                                    <span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-file" aria-hidden="true"></span>
+                                </button>
                                 <button type="button" class="btn btn-sm file-browser-create-dir-btn" id="btnFileBrowserCreateDir" title="新建文件夹">
                                     <span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-folder" aria-hidden="true"></span>
                                 </button>
                             </div>
                             <div class="file-browser-create-dir-inline" id="fileBrowserCreateDirInline" style="display:none">
                                 <input type="text" id="fileBrowserCreateDirInput" placeholder="输入文件夹名称" maxlength="120" />
-                                <button type="button" class="btn btn-sm file-browser-create-dir-confirm" id="btnFileBrowserCreateDirConfirm">创建</button>
+                                <button type="button" class="btn btn-sm file-browser-create-dir-confirm" id="btnFileBrowserCreateDirConfirm">确定</button>
                                 <button type="button" class="btn btn-sm" id="btnFileBrowserCreateDirCancel">取消</button>
                             </div>
                             <div class="file-browser-empty" id="fileBrowserListEmpty">请选择目录</div>
@@ -569,6 +572,13 @@
                             <div class="file-browser-files-toolbar">
                                 <button type="button" class="btn file-browser-upload-plus" id="btnFileBrowserUpload" title="上传文件">⬆上传文件</button>
                         </div>
+                    </div>
+                    <div class="oc-tree-context-menu" id="fileBrowserContextMenu" style="display:none">
+                        <div class="oc-tree-context-menu-item" data-action="new-file"><span class="oc-menu-icon oc-menu-icon-new-file"></span><span>新建文件</span></div>
+                        <div class="oc-tree-context-menu-item" data-action="new-folder"><span class="oc-menu-icon oc-menu-icon-new-folder"></span><span>新建文件夹</span></div>
+                        <div class="oc-tree-context-menu-item" data-action="copy-path"><span class="oc-menu-icon oc-menu-icon-copy-path"></span><span>复制路径</span></div>
+                        <div class="oc-tree-context-menu-item" data-action="rename"><span class="oc-menu-icon oc-menu-icon-rename"></span><span>重命名</span></div>
+                        <div class="oc-tree-context-menu-item" data-action="delete"><span class="oc-menu-icon oc-menu-icon-delete"></span><span>删除</span></div>
                     </div>
                     <div class="file-browser-git-panel" id="fileBrowserGitPanel" style="display:none">
                         <div class="file-browser-git-section file-browser-git-current-section">

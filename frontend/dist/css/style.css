@@ -1791,6 +1791,21 @@ input::placeholder, textarea::placeholder {
     mask-image: url("../assets/打开目录.svg");
 }
 
+.oc-menu-icon-new-file {
+    -webkit-mask-image: url("../assets/新建文件.svg");
+    mask-image: url("../assets/新建文件.svg");
+}
+
+.oc-menu-icon-new-folder {
+    -webkit-mask-image: url("../assets/新建文件夹.svg");
+    mask-image: url("../assets/新建文件夹.svg");
+}
+
+.oc-menu-icon-copy-path {
+    -webkit-mask-image: url("../assets/复制路径.svg");
+    mask-image: url("../assets/复制路径.svg");
+}
+
 .oc-menu-icon-rename {
     -webkit-mask-image: url("../assets/重命名.svg");
     mask-image: url("../assets/重命名.svg");
@@ -5998,6 +6013,10 @@ input::placeholder, textarea::placeholder {
     -webkit-mask-image: url("../assets/新建文件夹.svg");
     mask-image: url("../assets/新建文件夹.svg");
 }
+.oc-fb-icon-new-file {
+    -webkit-mask-image: url("../assets/新建文件.svg");
+    mask-image: url("../assets/新建文件.svg");
+}
 .oc-fb-icon-add {
     -webkit-mask-image: url("../assets/新增.svg");
     mask-image: url("../assets/新增.svg");
@@ -6059,6 +6078,8 @@ input::placeholder, textarea::placeholder {
     color: var(--text-primary);
 }
 .file-browser-list-header-title {
+    /* 标题撑满剩余空间，把两个新建按钮推到最右侧并紧靠相邻排列 */
+    flex: 1;
     font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
@@ -6711,28 +6732,6 @@ input::placeholder, textarea::placeholder {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-.file-browser-item-delete {
-	display: none;
-	flex-shrink: 0;
-	background: none;
-	border: none;
-	color: var(--text-muted);
-	cursor: pointer;
-	font-size: 11px;
-	padding: 3px 6px;
-	line-height: 1;
-	border-radius: var(--radius-sm);
-}
-
-.file-browser-item-row:hover .file-browser-item-delete {
-	display: inline;
-}
-
-.file-browser-item-delete:hover {
-    border-color: var(--danger);
-    color: var(--danger);
-    background: var(--danger-bg);
 }
 /* ── 文件树样式 ── */
 .file-browser-tree-row {
