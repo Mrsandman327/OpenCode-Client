@@ -29,6 +29,40 @@ export function escapeHtml(text) {
     return div.innerHTML;
 }
 
+/** 复制文本到剪贴板，返回 Promise<boolean>（true 表示复制成功）。
+ *  优先使用异步剪贴板 API；在非安全上下文（http 页面）或旧内核中该 API 可能不可用，
+ *  此时回退到临时 textarea + document.execCommand('copy')。 */
+export function copyToClipboard(text) {
+    const value = text == null ? '' : String(text);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(value)
+            .then(() => true)
+            .catch(() => legacyCopyToClipboard(value));
+    }
+    return Promise.resolve(legacyCopyToClipboard(value));
+}
+
+/** 旧式剪贴板回退实现：创建屏幕外的只读 textarea，选中后执行复制命令 */
+function legacyCopyToClipboard(value) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.setAttribute('readonly', '');
+        // 固定在视口外，避免复制时页面滚动或闪烁
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        ta.style.left = '-1000px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch (_) {
+        return false;
+    }
+}
+
 // ============================
 // Agent / Model 选择值校验
 // ============================

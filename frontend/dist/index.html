@@ -574,19 +574,23 @@
             <div class="file-browser-body">
                 <div class="file-browser-mode-bar">
                     <button type="button" class="file-browser-mode-btn active" id="btnFileBrowserModeFiles" title="会话目录"><span class="oc-fb-icon oc-fb-icon-session-dir"></span></button>
+                    <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeSearch" title="搜索"><span class="oc-fb-icon oc-fb-icon-search"></span></button>
                     <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeGit" title="Git 变更"><span class="oc-fb-icon oc-fb-icon-git"></span></button>
                 </div>
                     <aside class="file-browser-list-panel">
                         <div class="file-browser-files-panel" id="fileBrowserFilesPanel">
                             <div class="file-browser-list-header">
                                 <div class="file-browser-list-header-title">文件列表</div>
+                                <button type="button" class="btn btn-sm file-browser-create-dir-btn" id="btnFileBrowserCreateFile" title="新建文件">
+                                    <span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-file" aria-hidden="true"></span>
+                                </button>
                                 <button type="button" class="btn btn-sm file-browser-create-dir-btn" id="btnFileBrowserCreateDir" title="新建文件夹">
-                                    <img src="/assets/新建文件夹.svg" alt="新建文件夹" aria-hidden="true" class="file-browser-create-dir-icon"/>
+                                    <span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-folder" aria-hidden="true"></span>
                                 </button>
                             </div>
                             <div class="file-browser-create-dir-inline" id="fileBrowserCreateDirInline" style="display:none">
                                 <input type="text" id="fileBrowserCreateDirInput" placeholder="输入文件夹名称" maxlength="120" />
-                                <button type="button" class="btn btn-sm file-browser-create-dir-confirm" id="btnFileBrowserCreateDirConfirm">创建</button>
+                                <button type="button" class="btn btn-sm file-browser-create-dir-confirm" id="btnFileBrowserCreateDirConfirm">确定</button>
                                 <button type="button" class="btn btn-sm" id="btnFileBrowserCreateDirCancel">取消</button>
                             </div>
                             <div class="file-browser-empty" id="fileBrowserListEmpty">请选择目录</div>
@@ -594,6 +598,13 @@
                             <div class="file-browser-files-toolbar">
                                 <button type="button" class="btn file-browser-upload-plus" id="btnFileBrowserUpload" title="上传文件">⬆上传文件</button>
                         </div>
+                    </div>
+                    <div class="oc-tree-context-menu" id="fileBrowserContextMenu" style="display:none">
+                        <div class="oc-tree-context-menu-item" data-action="new-file"><span class="oc-menu-icon oc-menu-icon-new-file"></span><span>新建文件</span></div>
+                        <div class="oc-tree-context-menu-item" data-action="new-folder"><span class="oc-menu-icon oc-menu-icon-new-folder"></span><span>新建文件夹</span></div>
+                        <div class="oc-tree-context-menu-item" data-action="copy-path"><span class="oc-menu-icon oc-menu-icon-copy-path"></span><span>复制路径</span></div>
+                        <div class="oc-tree-context-menu-item" data-action="rename"><span class="oc-menu-icon oc-menu-icon-rename"></span><span>重命名</span></div>
+                        <div class="oc-tree-context-menu-item" data-action="delete"><span class="oc-menu-icon oc-menu-icon-delete"></span><span>删除</span></div>
                     </div>
                     <div class="file-browser-git-panel" id="fileBrowserGitPanel" style="display:none">
                         <div class="file-browser-git-section file-browser-git-current-section">
@@ -619,6 +630,24 @@
                                 <div class="file-browser-empty">正在读取提交历史...</div>
                             </div>
                         </div>
+                    </div>
+                    <div class="file-browser-search-panel" id="fileBrowserSearchPanel">
+                        <div class="file-browser-search-top">
+                            <div class="file-browser-search-input-row">
+                                <span class="file-browser-search-input-ic oc-fb-icon oc-fb-icon-search"></span>
+                                <input type="text" id="fileBrowserSearchInput" placeholder="搜索内容（在会话目录内全文检索）" spellcheck="false" autocomplete="off" />
+                                <span class="file-browser-search-clear" id="btnFileBrowserSearchClear" title="清空">✕</span>
+                            </div>
+                            <div class="file-browser-search-opts">
+                                <button type="button" class="file-browser-search-opt" id="btnFbSearchCase" title="区分大小写">Aa</button>
+                                <button type="button" class="file-browser-search-opt" id="btnFbSearchRegex" title="正则表达式">.*</button>
+                                <button type="button" class="file-browser-search-opt" id="btnFbSearchWord" title="全词匹配">W</button>
+                            </div>
+                        </div>
+                        <div class="file-browser-search-results" id="fileBrowserSearchResults">
+                            <div class="file-browser-search-empty">输入关键字，在会话目录内搜索文件内容</div>
+                        </div>
+                        <div class="file-browser-search-stats" id="fileBrowserSearchStats"></div>
                     </div>
                 </aside>
                 <div class="file-browser-resize-handle" id="fileBrowserResizeHandle" aria-hidden="true"></div>

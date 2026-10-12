@@ -62,6 +62,13 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.ListBrowserFiles(rootDir, path)
+	case "SearchBrowserFiles":
+		var rootDir, path, query string
+		var caseSensitive, useRegex, wholeWord bool
+		if err := decodeArgs(args, &rootDir, &path, &query, &caseSensitive, &useRegex, &wholeWord); err != nil {
+			return nil, err
+		}
+		return a.SearchBrowserFiles(rootDir, path, query, caseSensitive, useRegex, wholeWord)
 	case "StatBrowserFile":
 		var rootDir, path string
 		if err := decodeArgs(args, &rootDir, &path); err != nil {
@@ -99,6 +106,18 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.CreateBrowserDir(rootDir, path, dirName)
+	case "CreateBrowserFile":
+		var rootDir, path, dirName string
+		if err := decodeArgs(args, &rootDir, &path, &dirName); err != nil {
+			return nil, err
+		}
+		return a.CreateBrowserFile(rootDir, path, dirName)
+	case "RenameBrowserEntry":
+		var rootDir, path, newName string
+		if err := decodeArgs(args, &rootDir, &path, &newName); err != nil {
+			return nil, err
+		}
+		return a.RenameBrowserEntry(rootDir, path, newName)
 	case "DeleteBrowserEntry":
 		var rootDir, path string
 		if err := decodeArgs(args, &rootDir, &path); err != nil {

@@ -144,6 +144,11 @@ func (a *App) ListBrowserFiles(rootDir, path string) (model.FileBrowserListResul
 	return filebrowser.ListBrowserFiles(rootDir, path)
 }
 
+// SearchBrowserFiles 在会话目录内做文件内容搜索（类 VSCode 全局搜索）。
+func (a *App) SearchBrowserFiles(rootDir, path, query string, caseSensitive, useRegex, wholeWord bool) (model.FileBrowserSearchResult, error) {
+	return filebrowser.SearchBrowserFiles(rootDir, path, query, caseSensitive, useRegex, wholeWord)
+}
+
 // StatBrowserFile 返回站内文件浏览器文件信息。
 func (a *App) StatBrowserFile(rootDir, path string) (model.FileBrowserStatResult, error) {
 	return filebrowser.StatBrowserFile(rootDir, path)
@@ -172,6 +177,16 @@ func (a *App) UploadBrowserFile(rootDir, path, fileName, base64Data string, over
 // CreateBrowserDir 在当前文件浏览器目录下创建文件夹。
 func (a *App) CreateBrowserDir(rootDir, path, dirName string) (model.SaveResult, error) {
 	return filebrowser.CreateBrowserDir(rootDir, path, dirName)
+}
+
+// CreateBrowserFile 在文件浏览器指定目录下创建空文件。
+func (a *App) CreateBrowserFile(rootDir, path, dirName string) (model.SaveResult, error) {
+	return filebrowser.CreateBrowserFile(rootDir, path, dirName)
+}
+
+// RenameBrowserEntry 重命名文件浏览器中的文件或目录。
+func (a *App) RenameBrowserEntry(rootDir, path, newName string) (model.SaveResult, error) {
+	return filebrowser.RenameBrowserEntry(rootDir, path, newName)
 }
 
 // DeleteBrowserEntry 删除文件浏览器中的文件或目录。

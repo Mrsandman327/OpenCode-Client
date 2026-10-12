@@ -288,6 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnFileBrowserModeGit')?.addEventListener('click', function() {
         switchFileBrowserMode('git');
     });
+    document.getElementById('btnFileBrowserModeSearch')?.addEventListener('click', function() {
+        switchFileBrowserMode('search');
+    });
     document.getElementById('btnSaveProxy').addEventListener('click', applyProxyConfig);
     ['proxyEnabled', 'proxyHost', 'proxyPort', 'serviceHost', 'servicePort'].forEach(id => {
         const el = document.getElementById(id);

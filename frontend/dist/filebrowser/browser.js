@@ -6,7 +6,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml, isDesktopRuntime } from '../core/utils.js';
+import { showToast, escapeHtml, isDesktopRuntime, copyToClipboard } from '../core/utils.js';
 import {
     fileBrowserClearObjectURL,
     destroyFileBrowserEditor,
@@ -15,7 +15,8 @@ import {
     fileBrowserOpenGitTab,
     fileBrowserOpenGitHistoryTab,
     renderFileBrowserTabs,
-    clearFileBrowserPreview
+    clearFileBrowserPreview,
+    fileBrowserOpenFileAtLine
 } from './preview.js';
 
 window.fileBrowserState = {
@@ -124,9 +125,13 @@ export function fileBrowserGetProxy() {
 
 /** 将后端文件项转为树节点 */
 export function createTreeNode(item) {
+    // 后端目录的 path 以 / 结尾（如 /src/），统一去掉尾斜杠：
+    // 保证「删除/重命名后计算父目录路径」与「树内 findNodeByPath 查找」一致（根目录保留 "/"）。
+    var p = String(item.path || '/');
+    if (p.length > 1) p = p.replace(/\/+$/, '');
     return {
         title: item.name || '',
-        path: item.path || '/',
+        path: p || '/',
         type: (item.type === 'dir') ? 'dir' : 'file',
         children: [],
         expanded: false,
@@ -143,6 +148,14 @@ export function findNodeByPath(node, path) {
         if (found) return found;
     }
     return null;
+}
+
+/** 由节点路径计算父目录路径：结果以 / 开头且无尾斜杠，根目录的父级仍返回 "/"。
+ *  说明：兼容带尾斜杠的输入（目录节点的后端原始格式），避免 substring 误算。 */
+function fileBrowserParentPath(p) {
+    var clean = String(p || '').replace(/\/+$/, '');
+    var idx = clean.lastIndexOf('/');
+    return idx <= 0 ? '/' : clean.substring(0, idx);
 }
 
 /** 加载目录节点的 children（懒加载） */
@@ -240,14 +253,6 @@ export function createTreeNodeRow(node, depth) {
 
     row.appendChild(btn);
 
-    var delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'file-browser-item-delete';
-    delBtn.dataset.deletePath = node.path;
-    delBtn.title = '删除';
-    delBtn.textContent = '✕';
-    row.appendChild(delBtn);
-
     return row;
 }
 
@@ -276,18 +281,6 @@ export function bindFileTreeEvents(container) {
             if (!row) return;
             var path = row.dataset.path;
             if (path) handleTreeDirClick(path);
-        });
-    });
-
-    // 删除按钮
-    container.querySelectorAll('.file-browser-item-delete').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var path = this.dataset.deletePath || '/';
-            var node = findNodeByPath(state.rootNode, path);
-            if (node) {
-                deleteBrowserTreeItem(node);
-            }
         });
     });
 }
@@ -350,8 +343,7 @@ export function getCurrentDirPath() {
     var node = findNodeByPath(state.rootNode, state.selectedPath);
     if (!node) return '/';
     if (node.type === 'dir') return node.path;
-    var parentPath = node.path.substring(0, node.path.lastIndexOf('/'));
-    return parentPath || '/';
+    return fileBrowserParentPath(node.path);
 }
 
 /** 删除树节点（文件或空目录） */
@@ -372,10 +364,8 @@ export async function deleteBrowserTreeItem(node) {
             clearFileBrowserPreview();
         }
         showToast('已删除' + (node.type === 'dir' ? '文件夹' : '文件') + '：' + node.title, 'success');
-        // 重新加载父目录
-        var parentPath = node.path.substring(0, node.path.lastIndexOf('/'));
-        if (parentPath === '') parentPath = '/';
-        await reloadDirChildren(parentPath);
+        // 重新加载父目录（用统一 helper 计算，避免目录路径尾斜杠导致查找失败后静默跳过刷新）
+        await reloadDirChildren(fileBrowserParentPath(node.path));
         renderFileTree(state.rootNode);
     } catch (err) {
         showToast(err.message || '删除失败', 'error');
@@ -400,6 +390,14 @@ export async function fileBrowserApiUpload(rootDir, path, fileName, base64Data, 
 
 export async function fileBrowserApiCreateDir(rootDir, path, dirName) {
     return await api.CreateBrowserDir(rootDir, path, dirName);
+}
+
+export async function fileBrowserApiCreateFile(rootDir, path, fileName) {
+    return await api.CreateBrowserFile(rootDir, path, fileName);
+}
+
+export async function fileBrowserApiRename(rootDir, path, newName) {
+    return await api.RenameBrowserEntry(rootDir, path, newName);
 }
 
 export async function fileBrowserApiDelete(rootDir, path) {
@@ -446,46 +444,126 @@ export function closeFileBrowserCreateDirInline() {
     setFileBrowserCreateDirLoading(false);
     if (input) input.value = '';
     if (wrap) wrap.style.display = 'none';
+    fileBrowserInlineOp = null;
 }
 
+// 内联输入框当前操作：{ mode: 'create-dir'|'create-file'|'rename', dirPath, targetPath, initialName }
+var fileBrowserInlineOp = null;
+
 export function openFileBrowserCreateDirInline() {
+    // 兼容旧调用：等价于在「当前目录」新建文件夹
+    openFileBrowserInlineInput({ mode: 'create-dir', dirPath: getCurrentDirPath() });
+}
+
+/** 打开内联输入框（新建文件夹 / 新建文件 / 重命名共用）
+ *  op: { mode, dirPath, targetPath, initialName } */
+export function openFileBrowserInlineInput(op) {
     var wrap = document.getElementById('fileBrowserCreateDirInline');
     var input = document.getElementById('fileBrowserCreateDirInput');
+    fileBrowserInlineOp = op || { mode: 'create-dir', dirPath: '/' };
+    if (input) {
+        if (fileBrowserInlineOp.mode === 'rename') {
+            input.placeholder = '输入新名称';
+        } else if (fileBrowserInlineOp.mode === 'create-file') {
+            input.placeholder = '输入文件名称';
+        } else {
+            input.placeholder = '输入文件夹名称';
+        }
+    }
     if (wrap) wrap.style.display = 'flex';
     if (input) {
-        input.value = '';
+        // 先写值再聚焦选中，重命名时可覆盖预填名称
+        input.value = fileBrowserInlineOp.mode === 'rename' ? String(fileBrowserInlineOp.initialName || '') : '';
         input.focus();
         input.select();
     }
 }
 
 export async function submitFileBrowserCreateDir() {
+    return submitFileBrowserInline();
+}
+
+/** 提交内联输入框：按当前操作类型分派到 新建文件夹 / 新建文件 / 重命名 */
+export async function submitFileBrowserInline() {
     var state = window.fileBrowserState;
     var input = document.getElementById('fileBrowserCreateDirInput');
-    var dirName = input ? String(input.value || '').trim() : '';
-    var targetDirPath = getCurrentDirPath();
-    if (!dirName) {
-        showToast('请输入文件夹名称', 'error');
+    var name = input ? String(input.value || '').trim() : '';
+    var op = fileBrowserInlineOp || { mode: 'create-dir', dirPath: '/' };
+    var emptyMsg = op.mode === 'create-file' ? '请输入文件名称' : (op.mode === 'rename' ? '请输入新名称' : '请输入文件夹名称');
+    if (!name) {
+        showToast(emptyMsg, 'error');
         if (input) input.focus();
         return;
     }
     setFileBrowserCreateDirLoading(true);
     try {
-        var result = await fileBrowserApiCreateDir(state.rootDir, targetDirPath, dirName);
+        var result;
+        if (op.mode === 'create-file') {
+            result = await fileBrowserApiCreateFile(state.rootDir, op.dirPath || '/', name);
+        } else if (op.mode === 'rename') {
+            result = await fileBrowserApiRename(state.rootDir, op.targetPath, name);
+        } else {
+            result = await fileBrowserApiCreateDir(state.rootDir, op.dirPath || '/', name);
+        }
         if (!result.success) {
-            showToast(result.error || '创建文件夹失败', 'error');
+            var failMsg = op.mode === 'create-file' ? '创建文件失败' : (op.mode === 'rename' ? '重命名失败' : '创建文件夹失败');
+            showToast(result.error || failMsg, 'error');
             if (input) input.focus();
             return;
         }
         closeFileBrowserCreateDirInline();
-        showToast('已创建文件夹：' + dirName, 'success');
-        await reloadDirChildren(targetDirPath);
+        if (op.mode === 'create-file') {
+            showToast('已创建文件：' + name, 'success');
+            await reloadDirChildren(op.dirPath || '/');
+        } else if (op.mode === 'rename') {
+            showToast('已重命名：' + name, 'success');
+            // 先清理被重命名项相关的选中与打开标签，再刷新其父目录
+            handleFileBrowserRenamed(op.targetPath);
+            await reloadDirChildren(fileBrowserParentPath(op.targetPath));
+        } else {
+            showToast('已创建文件夹：' + name, 'success');
+            await reloadDirChildren(op.dirPath || '/');
+        }
         renderFileTree(state.rootNode);
         markTreeSelection(state.rootNode, state.selectedPath);
     } catch (err) {
-        showToast(err.message || '创建文件夹失败', 'error');
+        showToast('操作失败: ' + (err.message || err), 'error');
     } finally {
         setFileBrowserCreateDirLoading(false);
+    }
+}
+
+/** 重命名成功后清理失效的选中与打开标签（被重命名项及其后代路径已失效） */
+function handleFileBrowserRenamed(oldPath) {
+    var state = window.fileBrowserState;
+    var hit = function(p) { return p === oldPath || p.indexOf(oldPath + '/') === 0; };
+    if (state.selectedPath && hit(state.selectedPath)) {
+        state.selectedPath = '';
+        state.selectedItem = null;
+        clearFileBrowserPreview();
+    }
+    if (Array.isArray(state.fileTabs)) {
+        var removedActive = false;
+        var remain = state.fileTabs.filter(function(tab) {
+            if (hit(tab.path || '')) {
+                if (tab.path === state.activeFileTabPath) removedActive = true;
+                return false;
+            }
+            return true;
+        });
+        state.fileTabs = remain;
+        if (removedActive) {
+            var last = remain[remain.length - 1];
+            state.activeFileTabPath = last ? last.path : '';
+            if (last) {
+                state.selectedItem = last;
+                fileBrowserOpenFileTab(last);
+            } else {
+                state.selectedItem = null;
+                clearFileBrowserPreview();
+            }
+        }
+        if (typeof renderFileBrowserTabs === 'function') renderFileBrowserTabs();
     }
 }
 
@@ -1411,27 +1489,177 @@ export async function gitCommit() {
 export function switchFileBrowserMode(mode) {
     var state = window.fileBrowserState;
     if (mode === 'git' && (!state.features || state.features.indexOf('git') < 0)) return;
-    state.mode = mode === 'git' ? 'git' : 'files';
+    state.mode = (mode === 'git' || mode === 'search') ? mode : 'files';
     renderFileBrowserMode();
     if (state.mode === 'git' && !state.git.historyItems.length && !state.git.historyLoading) {
         loadFileBrowserGitHistory(false);
     }
+    if (state.mode === 'search') {
+        initFileBrowserSearch();
+        var input = document.getElementById('fileBrowserSearchInput');
+        if (input) input.focus();
+    }
+}
+
+// ============================================================
+// 内容搜索（文件浏览器"搜索"模式）
+// ============================================================
+var fbSearchTimer = null;
+var fbSearchSeq = 0;
+var fbSearchInited = false;
+
+/** 绑定搜索面板交互（幂等；首次进入搜索模式时调用） */
+export function initFileBrowserSearch() {
+    if (fbSearchInited) return;
+    fbSearchInited = true;
+    var input = document.getElementById('fileBrowserSearchInput');
+    var clearBtn = document.getElementById('btnFileBrowserSearchClear');
+    if (input) {
+        input.addEventListener('input', function () {
+            if (fbSearchTimer) clearTimeout(fbSearchTimer);
+            fbSearchTimer = setTimeout(runFileBrowserSearch, 300); // 防抖
+        });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && clearBtn) clearBtn.click();
+        });
+    }
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            if (input) { input.value = ''; input.focus(); }
+            runFileBrowserSearch();
+        });
+    }
+    ['btnFbSearchCase', 'btnFbSearchRegex', 'btnFbSearchWord'].forEach(function (id) {
+        var btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', function () {
+            btn.classList.toggle('active');
+            runFileBrowserSearch();
+        });
+    });
+}
+
+/** 执行搜索（过期结果丢弃） */
+async function runFileBrowserSearch() {
+    var input = document.getElementById('fileBrowserSearchInput');
+    var results = document.getElementById('fileBrowserSearchResults');
+    var stats = document.getElementById('fileBrowserSearchStats');
+    if (!input || !results || !stats) return;
+    var q = input.value.trim();
+    var seq = ++fbSearchSeq;
+    if (!q) {
+        results.innerHTML = '<div class="file-browser-search-empty"><div class="big">⌕</div>输入关键字，在会话目录内搜索文件内容</div>';
+        stats.innerHTML = '';
+        return;
+    }
+    var state = window.fileBrowserState;
+    var rootDir = state.rootDir || '';
+    if (!rootDir) {
+        results.innerHTML = '<div class="file-browser-search-empty">请先选择会话目录</div>';
+        stats.innerHTML = '';
+        return;
+    }
+    var caseBtn = document.getElementById('btnFbSearchCase');
+    var regexBtn = document.getElementById('btnFbSearchRegex');
+    var wordBtn = document.getElementById('btnFbSearchWord');
+    var caseSensitive = !!(caseBtn && caseBtn.classList.contains('active'));
+    var useRegex = !!(regexBtn && regexBtn.classList.contains('active'));
+    var wholeWord = !!(wordBtn && wordBtn.classList.contains('active'));
+    results.innerHTML = '<div class="file-browser-search-empty">搜索中…</div>';
+    try {
+        var res = await api.SearchBrowserFiles(rootDir, '/', q, caseSensitive, useRegex, wholeWord);
+        if (seq !== fbSearchSeq) return; // 过期结果丢弃
+        renderFileBrowserSearchResults(res || {}, q);
+    } catch (err) {
+        if (seq !== fbSearchSeq) return;
+        results.innerHTML = '<div class="file-browser-search-empty">搜索失败：' + escapeHtml((err && err.message) || err || '未知错误') + '</div>';
+        stats.innerHTML = '';
+    }
+}
+
+/** 渲染搜索结果（按文件分组 + 高亮 + 折叠 + 行选中） */
+function renderFileBrowserSearchResults(res, query) {
+    var results = document.getElementById('fileBrowserSearchResults');
+    var stats = document.getElementById('fileBrowserSearchStats');
+    if (!results || !stats) return;
+    var files = Array.isArray(res.files) ? res.files : [];
+    if (!files.length) {
+        results.innerHTML = '<div class="file-browser-search-empty"><div class="big">∅</div>未找到匹配项</div>';
+        stats.innerHTML = '共 0 个文件 · 0 处匹配 · ' + (res.elapsedMs || 0) + 'ms';
+        return;
+    }
+    var qEsc = String(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var re = null;
+    try { re = new RegExp(qEsc, 'gi'); } catch (e) { re = null; }
+    var html = '';
+    files.forEach(function (f) {
+        var rows = (f.matches || []).map(function (m) {
+            var text = String(m.text || '');
+            var display = escapeHtml(text);
+            if (re) {
+                re.lastIndex = 0;
+                // 仅对纯文本段做高亮：先按匹配位置切分再逐段 escape，避免破坏 HTML 实体
+                var out = '', last = 0, hit;
+                while ((hit = re.exec(text)) !== null) {
+                    if (!hit[0].length) { re.lastIndex++; continue; }
+                    out += escapeHtml(text.slice(last, hit.index)) + '<mark>' + escapeHtml(hit[0]) + '</mark>';
+                    last = hit.index + hit[0].length;
+                }
+                out += escapeHtml(text.slice(last));
+                display = out;
+            }
+            return '<div class="file-browser-search-row" data-path="' + escapeHtml(f.path || '') + '" data-rel-path="' + escapeHtml(f.relPath || '') + '" data-line="' + (m.line || 0) + '">'
+                + '<span class="ln">' + (m.line || '') + '</span>'
+                + '<span class="txt">' + display + '</span></div>';
+        }).join('');
+        var rel = String(f.relPath || f.path || '');
+        var name = rel.split('/').pop();
+        html += '<div class="file-browser-search-group">'
+            + '<div class="file-browser-search-group-head">'
+            + '<span class="arrow">▼</span>'
+            + '<span class="fname" title="' + escapeHtml(rel) + '">' + escapeHtml(name) + '</span>'
+            + '<span class="badge">' + (f.matches || []).length + '</span></div>'
+            + '<div class="file-browser-search-group-rows">' + rows + '</div></div>';
+    });
+    results.innerHTML = html;
+    var elapsed = res.elapsedMs != null ? ' · ' + res.elapsedMs + 'ms' : '';
+    stats.innerHTML = '共 ' + (res.fileCount || 0) + ' 个文件 · ' + (res.matchCount || 0) + ' 处匹配' + elapsed
+        + (res.truncated ? '<span class="warn">（结果已达上限，已截断）</span>' : '');
+
+    results.querySelectorAll('.file-browser-search-group-head').forEach(function (head) {
+        head.addEventListener('click', function () {
+            head.parentElement.classList.toggle('collapsed');
+        });
+    });
+    results.querySelectorAll('.file-browser-search-row').forEach(function (row) {
+        row.addEventListener('click', function () {
+            results.querySelectorAll('.file-browser-search-row.selected').forEach(function (r) { r.classList.remove('selected'); });
+            row.classList.add('selected');
+            // 直接在搜索模式内打开到右侧预览面板（不切换左侧模式，保留搜索结果）
+            var rel = row.dataset.relPath || '';
+            var line = parseInt(row.dataset.line || '0', 10);
+            if (rel) fileBrowserOpenFileAtLine(rel, line);
+        });
+    });
 }
 
 export function renderFileBrowserMode() {
     var state = window.fileBrowserState;
     var filesBtn = document.getElementById('btnFileBrowserModeFiles');
     var gitBtn = document.getElementById('btnFileBrowserModeGit');
+    var searchBtn = document.getElementById('btnFileBrowserModeSearch');
     var filesPanel = document.getElementById('fileBrowserFilesPanel');
     var gitPanel = document.getElementById('fileBrowserGitPanel');
+    var searchPanel = document.getElementById('fileBrowserSearchPanel');
     var hasGit = state.features && state.features.indexOf('git') >= 0;
     if (filesBtn) filesBtn.classList.toggle('active', state.mode === 'files');
     if (gitBtn) {
         gitBtn.style.display = hasGit ? '' : 'none';
         gitBtn.classList.toggle('active', state.mode === 'git');
     }
+    if (searchBtn) searchBtn.classList.toggle('active', state.mode === 'search');
     if (filesPanel) filesPanel.style.display = state.mode === 'files' ? 'flex' : 'none';
     if (gitPanel) gitPanel.style.display = state.mode === 'git' ? 'flex' : 'none';
+    if (searchPanel) searchPanel.classList.toggle('active', state.mode === 'search');
 }
 
 export function refreshFileBrowser() {
@@ -1451,6 +1679,111 @@ export function refreshFileBrowser() {
 }
 
 // ============================================================
+// 文件列表右键菜单
+// 说明：委托绑定在 #fileBrowserList 静态容器上（行 DOM 动态重建不影响）；
+//       目录行显示全部 5 项，文件行仅显示「复制路径 / 重命名 / 删除」。
+// ============================================================
+var fileBrowserContextTarget = null;
+
+/** 相对路径转系统原生绝对路径（rootDir + relPath 拼接为系统原生分隔符）。 */
+function fileBrowserAbsolutePath(relPath) {
+    var root = String(window.fileBrowserState.rootDir || '').replace(/[\\/]+$/, '');
+    var sep = root.indexOf('\\') >= 0 ? '\\' : '/';
+    var rel = String(relPath || '/').replace(/^\/+/, '').replace(/\//g, sep);
+    return rel ? root + sep + rel : root;
+}
+
+/** 显示文件列表右键菜单：按目标类型（dir/file）显示或隐藏菜单项。 */
+function showFileBrowserContextMenu(e, target) {
+    var menu = document.getElementById('fileBrowserContextMenu');
+    if (!menu) return;
+    fileBrowserContextTarget = target;
+    menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
+        var action = item.dataset.action;
+        if (target.type === 'dir') {
+            // 目录行：新建文件 / 新建文件夹 / 复制路径 / 重命名 / 删除 全显
+            item.style.display = '';
+        } else {
+            // 文件行：仅保留复制路径 / 重命名 / 删除
+            item.style.display = (action === 'copy-path' || action === 'rename' || action === 'delete') ? '' : 'none';
+        }
+    });
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+    menu.style.display = 'block';
+}
+
+/** 隐藏文件列表右键菜单 */
+export function hideFileBrowserContextMenu() {
+    var menu = document.getElementById('fileBrowserContextMenu');
+    if (menu) menu.style.display = 'none';
+    fileBrowserContextTarget = null;
+}
+
+/** 初始化文件列表右键菜单事件（只需绑定一次） */
+export function initFileBrowserContextMenu() {
+    var list = document.getElementById('fileBrowserList');
+    if (!list || list.dataset.ctxBound) return;
+    list.dataset.ctxBound = 'true';
+    list.addEventListener('contextmenu', function(e) {
+        var row = e.target.closest('.file-browser-item-row');
+        if (!row) return;
+        var path = row.dataset.path;
+        if (!path) return;
+        var state = window.fileBrowserState;
+        var node = findNodeByPath(state.rootNode, path);
+        if (!node) return;
+        e.preventDefault();
+        showFileBrowserContextMenu(e, { type: node.type, path: node.path, title: node.title });
+    });
+
+    var menu = document.getElementById('fileBrowserContextMenu');
+    if (!menu || menu.dataset.ctxBound) return;
+    menu.dataset.ctxBound = 'true';
+    menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            var action = item.dataset.action;
+            var target = fileBrowserContextTarget;
+            if (!target) return;
+            hideFileBrowserContextMenu();
+            if (action === 'new-file') {
+                // 右键菜单的新建文件作用于被右键的目录
+                openFileBrowserInlineInput({ mode: 'create-file', dirPath: target.path });
+            } else if (action === 'new-folder') {
+                // 右键菜单的新建文件夹作用于被右键的目录
+                openFileBrowserInlineInput({ mode: 'create-dir', dirPath: target.path });
+            } else if (action === 'copy-path') {
+                copyToClipboard(fileBrowserAbsolutePath(target.path)).then(function() {
+                    showToast('已复制路径', 'success');
+                }).catch(function() {
+                    showToast('复制路径失败', 'error');
+                });
+            } else if (action === 'rename') {
+                openFileBrowserInlineInput({ mode: 'rename', targetPath: target.path, initialName: target.title });
+            } else if (action === 'delete') {
+                var node = findNodeByPath(window.fileBrowserState.rootNode, target.path);
+                if (node) deleteBrowserTreeItem(node);
+            }
+        });
+    });
+
+    // 点击菜单外部任意处关闭：用 pointerdown + 捕获阶段
+    // 原因：文件浏览器模态根节点在冒泡阶段执行 stopPropagation（防点击穿透），
+    //       依赖 document 冒泡的 click 监听收不到模态内的点击；捕获阶段先于冒泡执行。
+    document.addEventListener('pointerdown', function(e) {
+        if (menu.style.display !== 'none' && !menu.contains(e.target)) {
+            hideFileBrowserContextMenu();
+        }
+    }, true);
+    // Escape 键关闭菜单（与内联输入框的 Escape 互不冲突）
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && menu.style.display !== 'none') {
+            hideFileBrowserContextMenu();
+        }
+    });
+}
+
+// ============================================================
 // 文件浏览器事件绑定（IIFE，模块加载时执行）
 // 说明：btnCloseFileBrowser / btnRefreshFiles / btnFileBrowserDownload /
 //       btnFileBrowserModeFiles / btnFileBrowserModeGit / btnFileBrowserUpload /
@@ -1461,11 +1794,21 @@ export function refreshFileBrowser() {
 //       本 IIFE 仅保留 main.js 未覆盖的「创建目录」系列绑定。
 // ============================================================
 (function initFileBrowserActions() {
+    // 新建文件按钮：固定作用于会话根目录
+    var createFileBtn = document.getElementById('btnFileBrowserCreateFile');
+    if (createFileBtn && !createFileBtn.dataset.bound) {
+        createFileBtn.dataset.bound = 'true';
+        createFileBtn.addEventListener('click', function() {
+            openFileBrowserInlineInput({ mode: 'create-file', dirPath: '/' });
+        });
+    }
+
+    // 新建文件夹按钮：固定作用于会话根目录
     var createDirBtn = document.getElementById('btnFileBrowserCreateDir');
     if (createDirBtn && !createDirBtn.dataset.bound) {
         createDirBtn.dataset.bound = 'true';
         createDirBtn.addEventListener('click', function() {
-            openFileBrowserCreateDirInline();
+            openFileBrowserInlineInput({ mode: 'create-dir', dirPath: '/' });
         });
     }
 
@@ -1473,7 +1816,7 @@ export function refreshFileBrowser() {
     if (createDirConfirmBtn && !createDirConfirmBtn.dataset.bound) {
         createDirConfirmBtn.dataset.bound = 'true';
         createDirConfirmBtn.addEventListener('click', function() {
-            submitFileBrowserCreateDir();
+            submitFileBrowserInline();
         });
     }
 
@@ -1491,7 +1834,7 @@ export function refreshFileBrowser() {
         createDirInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                submitFileBrowserCreateDir();
+                submitFileBrowserInline();
                 return;
             }
             if (e.key === 'Escape') {
@@ -1500,4 +1843,7 @@ export function refreshFileBrowser() {
             }
         });
     }
+
+    // 初始化文件列表右键菜单
+    initFileBrowserContextMenu();
 })();
