@@ -4,7 +4,7 @@
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages）、
 //       core/apicall.js（api）、chat/mobile.js（isMobileTreeMode）、chat/tabs.js（openSessionTab, renderTabsBar, setTabActivationHandler）、
 //       chat/sidepanel.js（refreshSubtaskPanel, scheduleSubtaskExtraction）、chat/events.js（loadSessionStatuses）、
-//       chat/render.js（isSessionBusy, smartScroll, updateSendButton, renderMessages）、chat/tree.js（rememberKnownDir）、
+//       chat/render.js（isSessionBusy, smartScroll, updateSendButton, renderMessages）、
 //       chat/search.js（resetUserNav）、chat/cache.js（cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages）
 //       filebrowser/browser.js（openFileBrowserStandaloneFor）——保留全局守卫调用
 // 解环说明：updateSendButton 已移入 chat/render.js；pendingWorkDir 已移入 core/state.js 的 store；
@@ -25,7 +25,6 @@ import { isSessionBusy, smartScroll, updateSendButton, renderMessages, ensureSel
 // loadMessages 等动作（见 setSessionActionHandlers），本模块只在发送流程运行时
 // 调用它的 isKnownCommand/isKnownSkill。
 import { isKnownCommand, isKnownSkill } from './cmd-palette.js';
-import { rememberKnownDir } from './tree.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
 import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
@@ -434,7 +433,6 @@ export async function selectSession(id) {
 export async function createSessionWithDir(dir) {
     const res = await api.OpenCodeCall('POST', '/api/session', dir ? { location: { directory: dir } } : {});
     const session = unwrap(res);
-    rememberKnownDir(dir);
     return session;
 }
 

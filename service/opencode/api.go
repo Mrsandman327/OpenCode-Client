@@ -387,53 +387,72 @@ func (s treeSession) Dir() string {
 	return s.Directory
 }
 
-// unmarshalSessionList 解析 v2 的会话列表：{data:[...], cursor:{...}} 信封。
+// unmarshalSessionList 解析 v2 的会话列表：{data:[...], cursor:{next}} 信封。
+// 返回 data 与 cursor.next（无下一页时 next 为空串）。
 // 若 data 缺失则尝试按裸数组解析（兼容旧形态）。
-func unmarshalSessionList(body []byte) ([]treeSession, error) {
+func unmarshalSessionList(body []byte) ([]treeSession, string, error) {
 	var envelope struct {
-		Data []treeSession `json:"data"`
+		Data   []treeSession `json:"data"`
+		Cursor struct {
+			Next string `json:"next"`
+		} `json:"cursor"`
 	}
 	if err := json.Unmarshal(body, &envelope); err == nil && envelope.Data != nil {
-		return envelope.Data, nil
+		return envelope.Data, envelope.Cursor.Next, nil
 	}
 	var bare []treeSession
 	if err := json.Unmarshal(body, &bare); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return bare, nil
+	return bare, "", nil
 }
 
-// fetchSessionList 查询会话列表。
+// maxSessionPages 翻页防御上限：最多请求的页数，避免服务端异常（持续签发 next）时死循环。
+const maxSessionPages = 20
 //
-// v1 是 ?directory=&roots=true，roots=true 表示「只要根会话」。
-// v2 取消了 roots，改为 ?parentID=null（官方文档：Use null to return only root sessions）。
-// 不加该参数时，子代理（subagent）会话会混在结果里——实测占比极高
-// （本机 500 条会话里 444 条是子会话），若直接渲染会让会话树被子会话淹没。
-//
-// directory 为空串时**不拼 directory 参数**：实测 v2 在不传 directory 时返回全部根会话
-// （本机 50 条、横跨 17 个目录，约 437ms），目录分组交给调用方在本地按 location.directory 完成。
-// 不要依赖服务端的 directory= 过滤：它对路径格式敏感（会话里存的是 Windows 反斜杠，
-// 用正斜杠查询会返回 0 条）；更不能用空 directory=（空路径会被按 CWD 解析）。
-//
-// 这里显式传 parentID=null 只取根会话，与 v1 的 roots=true 语义保持一致；
-// 同时仍在客户端二次过滤，以防服务端忽略该参数。
+// 分页：v2 的列表接口默认只返回最新 50 条，并提供 cursor.next/previous。
+// 这里把 limit 当作「每页条数」，循环带上 &cursor= 直到某一页为空。两个要点：
+//  1. 终止条件用「空页」——服务端数据已尽时仍可能签发 next，不能只看 cursor 是否为空；
+//  2. 每页都要带 limit——带 cursor 时服务端回放的只有 cursor 里存的 query
+//     （parentID/directory/order），limit 仍取本次请求，不传会回落到默认 50。
 func fetchSessionList(base, directory, password string, limit int) []treeSession {
-	urlstr := fmt.Sprintf("%s/api/session?parentID=null&limit=%d", base, limit)
-	if directory != "" {
-		urlstr = fmt.Sprintf("%s/api/session?directory=%s&parentID=null&limit=%d",
-			base, url.QueryEscape(directory), limit)
+	if limit <= 0 {
+		limit = 100
 	}
-	body, err := apiGet(urlstr, password)
-	if err != nil {
-		return nil
+
+	var all []treeSession
+	cursor := ""
+	for page := 0; page < maxSessionPages; page++ {
+		urlstr := fmt.Sprintf("%s/api/session?parentID=null&limit=%d", base, limit)
+		if directory != "" {
+			urlstr = fmt.Sprintf("%s/api/session?directory=%s&parentID=null&limit=%d",
+				base, url.QueryEscape(directory), limit)
+		}
+		if cursor != "" {
+			urlstr += "&cursor=" + url.QueryEscape(cursor)
+		}
+
+		body, err := apiGet(urlstr, password)
+		if err != nil {
+			break
+		}
+		sessions, next, err := unmarshalSessionList(body)
+		if err != nil {
+			break
+		}
+		if len(sessions) == 0 {
+			break // 空页 = 已到末尾
+		}
+		all = append(all, sessions...)
+		if next == "" {
+			break
+		}
+		cursor = next
 	}
-	sessions, err := unmarshalSessionList(body)
-	if err != nil {
-		return nil
-	}
+
 	// 二次过滤：子会话（parentID 非空）不进会话树
-	roots := sessions[:0]
-	for _, s := range sessions {
+	roots := all[:0]
+	for _, s := range all {
 		if s.IsRoot() {
 			roots = append(roots, s)
 		}
@@ -443,7 +462,8 @@ func fetchSessionList(base, directory, password string, limit int) []treeSession
 
 // GetProjectTree 获取「目录 → 会话」两层树形结构 JSON。
 //
-// 数据来源：GET /api/session?parentID=null&limit=1000（**不传 directory**）。
+// 数据来源：GET /api/session?parentID=null&limit=1000（**不传 directory**；
+// 由 fetchSessionList 按 cursor 自动翻页直到取尽）。
 // 实测 v2 在不传 directory 时返回全部根会话（本机 50 条、横跨 17 个目录，约 437ms），
 // 目录分组在本函数返回前由 buildTreeJSON 按 location.directory 在本地完成。
 //
@@ -463,7 +483,7 @@ func GetProjectTree(knownDirs string) string {
 		password = sess.password
 	}
 
-	sessions := fetchSessionList(base, "", password, 1000)
+	sessions := fetchSessionList(base, "", password, 10)
 	return buildTreeJSON(sessions)
 }
 

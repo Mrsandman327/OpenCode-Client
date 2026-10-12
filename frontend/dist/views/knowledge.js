@@ -1037,8 +1037,7 @@ async function kbLoadConvertProjects() {
     if (kbConv.projects) return kbConv.projects;
     var dirs = [];
     try {
-        var knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
-        var raw = await api.GetProjectTree(JSON.stringify(knownDirs));
+        var raw = await api.GetProjectTree('');
         var tree = raw ? JSON.parse(raw) : [];
         // 两层树：顶层节点就是目录，直接用其 title 作为候选
         (tree || []).forEach(function (dir) {

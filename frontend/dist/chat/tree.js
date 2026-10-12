@@ -93,13 +93,9 @@ export async function buildTree() {
 /** 单次重建：拉全量树 + 整树渲染。不对外。 */
 async function buildTreeOnce() {
     try {
-        // dirs 仍按既有绑定签名传给 Go（GetProjectTree(string)），但 v2 侧已忽略该参数：
+        // 绑定签名仍是 GetProjectTree(string)，但 v2 侧已忽略该参数：
         // 后端不传 directory 直接返回全部根会话，再在本地按 location.directory 分组。
-        const knownDirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
-        const dirs = Array.isArray(knownDirs) ? knownDirs.slice() : [];
-        const cur = currentDir();
-        if (cur && !dirs.includes(cur)) dirs.unshift(cur);
-        const json = await api.GetProjectTree(JSON.stringify(dirs));
+        const json = await api.GetProjectTree('');
         if (json && json !== '[]') {
             const tree = JSON.parse(json);
             window._lastProjectTree = tree;
@@ -126,20 +122,9 @@ export async function refreshTree() {
 /** 渲染会话树 DOM（「目录 → 会话」两层：顶层即目录节点） */
 export function renderTree(tree) {
     const container = document.getElementById('ocTree');
-    /** 绑定「添加工作目录」按钮（空树与非空树分支共用） */
-    const bindAddDirButton = () => {
-        container.querySelectorAll('.oc-tree-add-dir').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                await addDirectoryToProject();
-            });
-        });
-    };
 
     if (!tree || tree.length === 0) {
-        container.innerHTML = '<div class="oc-tree-add-dir-row"><button class="oc-tree-add-dir" title="添加工作目录">＋ 添加工作目录</button></div>'
-            + '<div class="oc-empty">暂无会话</div>';
-        bindAddDirButton();
+        container.innerHTML = '<div class="oc-empty">暂无会话</div>';
         updateTreeSearchStatus(0, 0);
         return;
     }
@@ -164,9 +149,6 @@ export function renderTree(tree) {
     let html = '';
     // 图标状态类 helper 已提升到模块顶部（setToggleState / toggleClass）
 
-    // 树容器顶部：独立的「添加工作目录」操作行。
-    // 原实现在 global 项目行上挂 ＋ 按钮，项目层取消后改为常驻操作行，保证入口仍可用。
-    html += `<div class="oc-tree-add-dir-row"><button class="oc-tree-add-dir" title="添加工作目录">＋ 添加工作目录</button></div>`;
 
     for (const dir of tree) {
         // 目录行：分组标题 + 会话计数徽章（沿用原目录行标记与类名）
@@ -258,7 +240,6 @@ export function renderTree(tree) {
             }
         });
     });
-    bindAddDirButton();
     container.querySelectorAll('.oc-tree-del').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -438,31 +419,6 @@ export function initTreeSearch() {
 
 initTreeSearch();
 
-/** 记住用户添加过的目录（存 localStorage 以便下次自动加载） */
-export function rememberKnownDir(dir) {
-    if (!dir) return;
-    try {
-        const dirs = JSON.parse(localStorage.getItem('oc-known-dirs') || '[]');
-        if (!dirs.includes(dir)) {
-            dirs.push(dir);
-            localStorage.setItem('oc-known-dirs', JSON.stringify(dirs));
-        }
-    } catch (_) {}
-}
-
-/** 检测指定目录下会话树中是否有会话记录（两层：顶层即目录节点） */
-export function treeHasSessionsForDir(tree, dir) {
-    const target = String(dir || '').replace(/\\+$/).toLowerCase();
-    for (const node of (tree || [])) {
-        const title = String(node.title || '').replace(/\\+$/).toLowerCase();
-        if (title === target && (node.children || []).length > 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-/** 添加工作目录：选择已有会话的目录并加载；无会话记录时仅 toast 提示，不引导新建会话 */
 /** 选择目录（供「新建会话 / 添加工作目录 / 移动会话」等入口复用）。
  *  Web 端 → 站内目录浏览器；桌面端 → 系统原生目录对话框。用户取消时返回 ''。 */
 export async function pickDirectory() {
@@ -472,22 +428,6 @@ export async function pickDirectory() {
     return (await api.OpenDirectoryDialog()) || '';
 }
 
-export async function addDirectoryToProject() {
-    if (!store.webRunning) return;
-    try {
-        let dir = await pickDirectory();
-        if (!dir) return;
-        rememberKnownDir(dir);
-        const ok = await buildTree();
-        if (!ok || !treeHasSessionsForDir(window._lastProjectTree, dir)) {
-            showToast('该目录下没有会话记录', 'warning');
-            return;
-        }
-        showToast('已加载目录会话: ' + dir, 'success');
-    } catch (e) {
-        showApiError('选择目录失败: ', e);
-    }
-}
 
 // ============================
 // 会话 CRUD
