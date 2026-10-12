@@ -36922,7 +36922,28 @@
       function isDirty(instance) {
         return !!instance && getValue(instance) !== instance.cleanValue;
       }
-      window.ProjectConfigCodeEditor = { create, createDiff, setReadOnly, destroy, getValue, setTheme, focus, openSearch, closeSearch, toggleSearch, isSearchOpen, markClean, isDirty };
+      /** 定位到指定行（1 起）并滚动到视野中央（搜索结果跳转用）。
+       *  instance 为 create() 返回的封装对象（真正的 EditorView 在 instance.view）。
+       *  注意：该打包作用域内 Number/Math 可能被局部遮蔽，行号处理不用它们；
+       *  scrollIntoView 用 dispatch 顶层选项（实测可靠）。 */
+      function gotoLine(instance, lineNumber) {
+        if (!instance || !instance.view || !instance.view.state) return;
+        var view = instance.view;
+        var doc = view.state.doc;
+        var ln = lineNumber || 1;
+        if (typeof ln !== 'number' || ln < 1) ln = 1;
+        ln = ln - (ln % 1); // 取整（不用 Math/Number，规避作用域遮蔽）
+        if (ln > doc.lines) ln = doc.lines;
+        var line = doc.line(ln);
+        try {
+          view.dispatch({
+            selection: { anchor: line.from, head: line.to },
+            effects: EditorView.scrollIntoView(line.from, { y: "center" })
+          });
+          view.focus();
+        } catch (_) {}
+      }
+      window.ProjectConfigCodeEditor = { create, createDiff, setReadOnly, destroy, getValue, setTheme, focus, openSearch, closeSearch, toggleSearch, isSearchOpen, markClean, isDirty, gotoLine };
     }
   });
   require_project_config_codemirror_entry();

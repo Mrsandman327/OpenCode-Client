@@ -346,7 +346,13 @@ export function renderFilePreviewEditor(item, meta, readData) {
     if ((state.previewEditorValue || '') === (state.previewOriginalContent || '')) {
         window.ProjectConfigCodeEditor.markClean(state.previewEditorInstance);
     }
-    window.ProjectConfigCodeEditor.focus(state.previewEditorInstance);
+    if (pendingGotoLine > 0 && window.ProjectConfigCodeEditor.gotoLine) {
+        // 搜索跳转：定位到目标行并滚动到视野中央（消费一次）
+        window.ProjectConfigCodeEditor.gotoLine(state.previewEditorInstance, pendingGotoLine);
+        pendingGotoLine = 0;
+    } else {
+        window.ProjectConfigCodeEditor.focus(state.previewEditorInstance);
+    }
     startFileBrowserSearchButtonSync();
     renderFilePreviewToolbar();
 }
@@ -711,6 +717,17 @@ export function renderFileBrowserTabs() {
  * 保存当前 tab 状态 → 销毁旧编辑器 → 更新 tab 列表并激活目标 →
  * 从缓存恢复目标文件的编辑状态 → 渲染预览。
  */
+// 搜索结果跳转：待定位行（文件渲染+编辑器创建后消费一次，见 renderFilePreviewEditor）
+var pendingGotoLine = 0;
+
+/** 打开文件并定位到指定行（搜索结果点击跳转用）。
+ *  relPath 为搜索结果里的相对路径（/ 开头，与文件树 path 同格式）；行号 1 起。 */
+export function fileBrowserOpenFileAtLine(relPath, line) {
+    if (!relPath) return;
+    pendingGotoLine = Number(line) || 0;
+    fileBrowserOpenFileTab({ type: 'file', path: relPath, name: String(relPath).split('/').pop() });
+}
+
 export function fileBrowserOpenFileTab(item) {
     var state = store.fileBrowserState;
     if (!state || !item || (item.type !== 'file' && item.type !== 'git-file' && item.type !== 'git-history-file')) return;

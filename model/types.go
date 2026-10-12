@@ -485,6 +485,34 @@ type FileBrowserRawResult struct {
 	Base64  string `json:"base64"`
 }
 
+// ========== 文件内容搜索相关 ==========
+
+// FileSearchLineMatch 表示搜索结果中的一行命中。
+type FileSearchLineMatch struct {
+	Line int    `json:"line"` // 行号（1 起）
+	Text string `json:"text"` // 该行内容（超长已截断）
+}
+
+// FileSearchFileResult 表示一个文件内的全部命中。
+type FileSearchFileResult struct {
+	Path    string               `json:"path"`    // 绝对路径
+	RelPath string               `json:"relPath"` // 相对搜索根目录（/ 开头）
+	Matches []FileSearchLineMatch `json:"matches"`
+}
+
+// FileBrowserSearchResult 表示内容搜索接口返回。
+type FileBrowserSearchResult struct {
+	RootDir      string                 `json:"rootDir"`
+	Query        string                 `json:"query"`
+	Files        []FileSearchFileResult `json:"files"`
+	FileCount    int                    `json:"fileCount"`    // 命中文件数
+	MatchCount   int                    `json:"matchCount"`   // 总命中行数
+	ScannedFiles int                    `json:"scannedFiles"` // 实际扫描文件数
+	SkippedFiles int                    `json:"skippedFiles"` // 被排除规则跳过的文件数
+	Truncated    bool                   `json:"truncated"`    // 是否因上限截断
+	ElapsedMs    int64                  `json:"elapsedMs"`
+}
+
 // FileBrowserUploadResult 表示文件浏览器上传结果。
 type FileBrowserUploadResult struct {
 	Success  bool   `json:"success"`

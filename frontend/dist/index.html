@@ -548,6 +548,7 @@
             <div class="file-browser-body">
                 <div class="file-browser-mode-bar">
                     <button type="button" class="file-browser-mode-btn active" id="btnFileBrowserModeFiles" title="会话目录"><span class="oc-fb-icon oc-fb-icon-session-dir"></span></button>
+                    <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeSearch" title="搜索"><span class="oc-fb-icon oc-fb-icon-search"></span></button>
                     <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeGit" title="Git 变更"><span class="oc-fb-icon oc-fb-icon-git"></span></button>
                 </div>
                     <aside class="file-browser-list-panel">
@@ -593,6 +594,24 @@
                                 <div class="file-browser-empty">正在读取提交历史...</div>
                             </div>
                         </div>
+                    </div>
+                    <div class="file-browser-search-panel" id="fileBrowserSearchPanel">
+                        <div class="file-browser-search-top">
+                            <div class="file-browser-search-input-row">
+                                <span class="file-browser-search-input-ic oc-fb-icon oc-fb-icon-search"></span>
+                                <input type="text" id="fileBrowserSearchInput" placeholder="搜索内容（在会话目录内全文检索）" spellcheck="false" autocomplete="off" />
+                                <span class="file-browser-search-clear" id="btnFileBrowserSearchClear" title="清空">✕</span>
+                            </div>
+                            <div class="file-browser-search-opts">
+                                <button type="button" class="file-browser-search-opt" id="btnFbSearchCase" title="区分大小写">Aa</button>
+                                <button type="button" class="file-browser-search-opt" id="btnFbSearchRegex" title="正则表达式">.*</button>
+                                <button type="button" class="file-browser-search-opt" id="btnFbSearchWord" title="全词匹配">W</button>
+                            </div>
+                        </div>
+                        <div class="file-browser-search-results" id="fileBrowserSearchResults">
+                            <div class="file-browser-search-empty">输入关键字，在会话目录内搜索文件内容</div>
+                        </div>
+                        <div class="file-browser-search-stats" id="fileBrowserSearchStats"></div>
                     </div>
                 </aside>
                 <div class="file-browser-resize-handle" id="fileBrowserResizeHandle" aria-hidden="true"></div>

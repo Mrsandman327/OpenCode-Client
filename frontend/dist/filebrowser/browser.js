@@ -17,7 +17,8 @@ import {
     fileBrowserOpenGitTab,
     fileBrowserOpenGitHistoryTab,
     renderFileBrowserTabs,
-    clearFileBrowserPreview
+    clearFileBrowserPreview,
+    fileBrowserOpenFileAtLine
 } from './preview.js';
 
 store.fileBrowserState = {
@@ -1415,27 +1416,177 @@ export async function gitCommit() {
 export function switchFileBrowserMode(mode) {
     var state = store.fileBrowserState;
     if (mode === 'git' && (!state.features || state.features.indexOf('git') < 0)) return;
-    state.mode = mode === 'git' ? 'git' : 'files';
+    state.mode = (mode === 'git' || mode === 'search') ? mode : 'files';
     renderFileBrowserMode();
     if (state.mode === 'git' && !state.git.historyItems.length && !state.git.historyLoading) {
         loadFileBrowserGitHistory(false);
     }
+    if (state.mode === 'search') {
+        initFileBrowserSearch();
+        var input = document.getElementById('fileBrowserSearchInput');
+        if (input) input.focus();
+    }
+}
+
+// ============================================================
+// 内容搜索（文件浏览器"搜索"模式）
+// ============================================================
+var fbSearchTimer = null;
+var fbSearchSeq = 0;
+var fbSearchInited = false;
+
+/** 绑定搜索面板交互（幂等；首次进入搜索模式时调用） */
+export function initFileBrowserSearch() {
+    if (fbSearchInited) return;
+    fbSearchInited = true;
+    var input = document.getElementById('fileBrowserSearchInput');
+    var clearBtn = document.getElementById('btnFileBrowserSearchClear');
+    if (input) {
+        input.addEventListener('input', function () {
+            if (fbSearchTimer) clearTimeout(fbSearchTimer);
+            fbSearchTimer = setTimeout(runFileBrowserSearch, 300); // 防抖
+        });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && clearBtn) clearBtn.click();
+        });
+    }
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            if (input) { input.value = ''; input.focus(); }
+            runFileBrowserSearch();
+        });
+    }
+    ['btnFbSearchCase', 'btnFbSearchRegex', 'btnFbSearchWord'].forEach(function (id) {
+        var btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', function () {
+            btn.classList.toggle('active');
+            runFileBrowserSearch();
+        });
+    });
+}
+
+/** 执行搜索（过期结果丢弃） */
+async function runFileBrowserSearch() {
+    var input = document.getElementById('fileBrowserSearchInput');
+    var results = document.getElementById('fileBrowserSearchResults');
+    var stats = document.getElementById('fileBrowserSearchStats');
+    if (!input || !results || !stats) return;
+    var q = input.value.trim();
+    var seq = ++fbSearchSeq;
+    if (!q) {
+        results.innerHTML = '<div class="file-browser-search-empty"><div class="big">⌕</div>输入关键字，在会话目录内搜索文件内容</div>';
+        stats.innerHTML = '';
+        return;
+    }
+    var state = store.fileBrowserState;
+    var rootDir = state.rootDir || '';
+    if (!rootDir) {
+        results.innerHTML = '<div class="file-browser-search-empty">请先选择会话目录</div>';
+        stats.innerHTML = '';
+        return;
+    }
+    var caseBtn = document.getElementById('btnFbSearchCase');
+    var regexBtn = document.getElementById('btnFbSearchRegex');
+    var wordBtn = document.getElementById('btnFbSearchWord');
+    var caseSensitive = !!(caseBtn && caseBtn.classList.contains('active'));
+    var useRegex = !!(regexBtn && regexBtn.classList.contains('active'));
+    var wholeWord = !!(wordBtn && wordBtn.classList.contains('active'));
+    results.innerHTML = '<div class="file-browser-search-empty">搜索中…</div>';
+    try {
+        var res = await api.SearchBrowserFiles(rootDir, '/', q, caseSensitive, useRegex, wholeWord);
+        if (seq !== fbSearchSeq) return; // 过期结果丢弃
+        renderFileBrowserSearchResults(res || {}, q);
+    } catch (err) {
+        if (seq !== fbSearchSeq) return;
+        results.innerHTML = '<div class="file-browser-search-empty">搜索失败：' + escapeHtml(formatApiError(err) || '未知错误') + '</div>';
+        stats.innerHTML = '';
+    }
+}
+
+/** 渲染搜索结果（按文件分组 + 高亮 + 折叠 + 行选中） */
+function renderFileBrowserSearchResults(res, query) {
+    var results = document.getElementById('fileBrowserSearchResults');
+    var stats = document.getElementById('fileBrowserSearchStats');
+    if (!results || !stats) return;
+    var files = Array.isArray(res.files) ? res.files : [];
+    if (!files.length) {
+        results.innerHTML = '<div class="file-browser-search-empty"><div class="big">∅</div>未找到匹配项</div>';
+        stats.innerHTML = '共 0 个文件 · 0 处匹配 · ' + (res.elapsedMs || 0) + 'ms';
+        return;
+    }
+    var qEsc = String(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var re = null;
+    try { re = new RegExp(qEsc, 'gi'); } catch (e) { re = null; }
+    var html = '';
+    files.forEach(function (f) {
+        var rows = (f.matches || []).map(function (m) {
+            var text = String(m.text || '');
+            var display = escapeHtml(text);
+            if (re) {
+                re.lastIndex = 0;
+                // 仅对纯文本段做高亮：先按匹配位置切分再逐段 escape，避免破坏 HTML 实体
+                var out = '', last = 0, hit;
+                while ((hit = re.exec(text)) !== null) {
+                    if (!hit[0].length) { re.lastIndex++; continue; }
+                    out += escapeHtml(text.slice(last, hit.index)) + '<mark>' + escapeHtml(hit[0]) + '</mark>';
+                    last = hit.index + hit[0].length;
+                }
+                out += escapeHtml(text.slice(last));
+                display = out;
+            }
+            return '<div class="file-browser-search-row" data-path="' + escapeHtml(f.path || '') + '" data-rel-path="' + escapeHtml(f.relPath || '') + '" data-line="' + (m.line || 0) + '">'
+                + '<span class="ln">' + (m.line || '') + '</span>'
+                + '<span class="txt">' + display + '</span></div>';
+        }).join('');
+        var rel = String(f.relPath || f.path || '');
+        var name = rel.split('/').pop();
+        html += '<div class="file-browser-search-group">'
+            + '<div class="file-browser-search-group-head">'
+            + '<span class="arrow">▼</span>'
+            + '<span class="fname" title="' + escapeHtml(rel) + '">' + escapeHtml(name) + '</span>'
+            + '<span class="badge">' + (f.matches || []).length + '</span></div>'
+            + '<div class="file-browser-search-group-rows">' + rows + '</div></div>';
+    });
+    results.innerHTML = html;
+    var elapsed = res.elapsedMs != null ? ' · ' + res.elapsedMs + 'ms' : '';
+    stats.innerHTML = '共 ' + (res.fileCount || 0) + ' 个文件 · ' + (res.matchCount || 0) + ' 处匹配' + elapsed
+        + (res.truncated ? '<span class="warn">（结果已达上限，已截断）</span>' : '');
+
+    results.querySelectorAll('.file-browser-search-group-head').forEach(function (head) {
+        head.addEventListener('click', function () {
+            head.parentElement.classList.toggle('collapsed');
+        });
+    });
+    results.querySelectorAll('.file-browser-search-row').forEach(function (row) {
+        row.addEventListener('click', function () {
+            results.querySelectorAll('.file-browser-search-row.selected').forEach(function (r) { r.classList.remove('selected'); });
+            row.classList.add('selected');
+            // 直接在搜索模式内打开到右侧预览面板（不切换左侧模式，保留搜索结果）
+            var rel = row.dataset.relPath || '';
+            var line = parseInt(row.dataset.line || '0', 10);
+            if (rel) fileBrowserOpenFileAtLine(rel, line);
+        });
+    });
 }
 
 export function renderFileBrowserMode() {
     var state = store.fileBrowserState;
     var filesBtn = document.getElementById('btnFileBrowserModeFiles');
     var gitBtn = document.getElementById('btnFileBrowserModeGit');
+    var searchBtn = document.getElementById('btnFileBrowserModeSearch');
     var filesPanel = document.getElementById('fileBrowserFilesPanel');
     var gitPanel = document.getElementById('fileBrowserGitPanel');
+    var searchPanel = document.getElementById('fileBrowserSearchPanel');
     var hasGit = state.features && state.features.indexOf('git') >= 0;
     if (filesBtn) filesBtn.classList.toggle('active', state.mode === 'files');
     if (gitBtn) {
         gitBtn.style.display = hasGit ? '' : 'none';
         gitBtn.classList.toggle('active', state.mode === 'git');
     }
+    if (searchBtn) searchBtn.classList.toggle('active', state.mode === 'search');
     if (filesPanel) filesPanel.style.display = state.mode === 'files' ? 'flex' : 'none';
     if (gitPanel) gitPanel.style.display = state.mode === 'git' ? 'flex' : 'none';
+    if (searchPanel) searchPanel.classList.toggle('active', state.mode === 'search');
 }
 
 export function refreshFileBrowser() {

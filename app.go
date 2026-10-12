@@ -131,6 +131,11 @@ func (a *App) ListBrowserFiles(rootDir, path string) (model.FileBrowserListResul
 	return filebrowser.ListBrowserFiles(rootDir, path)
 }
 
+// SearchBrowserFiles 在会话目录内做文件内容搜索（类 VSCode 全局搜索）。
+func (a *App) SearchBrowserFiles(rootDir, path, query string, caseSensitive, useRegex, wholeWord bool) (model.FileBrowserSearchResult, error) {
+	return filebrowser.SearchBrowserFiles(rootDir, path, query, caseSensitive, useRegex, wholeWord)
+}
+
 // StatBrowserFile 返回站内文件浏览器文件信息。
 func (a *App) StatBrowserFile(rootDir, path string) (model.FileBrowserStatResult, error) {
 	return filebrowser.StatBrowserFile(rootDir, path)

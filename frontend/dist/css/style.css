@@ -6006,6 +6006,10 @@ input::placeholder, textarea::placeholder {
     -webkit-mask-image: url("../assets/保存.svg");
     mask-image: url("../assets/保存.svg");
 }
+.oc-fb-icon-search {
+    -webkit-mask-image: url("../assets/搜索.svg");
+    mask-image: url("../assets/搜索.svg");
+}
 
 .file-browser-mode-btn {
     width: 36px;
@@ -6067,6 +6071,41 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     background-color: transparent;
 }
+
+/* ── 文件浏览器：内容搜索模式 ── */
+.file-browser-search-panel { display: none; flex-direction: column; min-height: 0; height: 100%; }
+.file-browser-search-panel.active { display: flex; }
+
+.file-browser-search-top { padding: 8px 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; background: var(--bg-input); }
+.file-browser-search-input-row { display: flex; align-items: center; gap: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 8px; height: 30px; }
+.file-browser-search-input-row:focus-within { border-color: var(--accent); }
+.file-browser-search-input-row input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 12px; }
+.file-browser-search-input-row input::placeholder { color: var(--text-muted); }
+.file-browser-search-input-ic { width: 12px; height: 12px; flex-shrink: 0; }
+.file-browser-search-clear { color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 2px; user-select: none; }
+.file-browser-search-clear:hover { color: var(--text-primary); }
+.file-browser-search-opts { display: flex; align-items: center; gap: 4px; }
+.file-browser-search-opt { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 10.5px; cursor: pointer; font-family: Consolas, monospace; }
+.file-browser-search-opt:hover { background: var(--bg-card-hover); }
+.file-browser-search-opt.active { background: var(--accent-ghost); color: var(--accent); border-color: rgba(10, 132, 255, 0.25); }
+
+.file-browser-search-results { flex: 1; overflow-y: auto; min-height: 0; padding: 2px 0; }
+.file-browser-search-group-head { display: flex; align-items: center; gap: 5px; padding: 4px 10px; cursor: pointer; user-select: none; }
+.file-browser-search-group-head:hover { background: var(--bg-card-hover); }
+.file-browser-search-group-head .arrow { color: var(--text-muted); font-size: 8px; width: 9px; text-align: center; }
+.file-browser-search-group-head .fname { font-size: 12px; font-weight: 600; color: var(--text-primary); font-family: Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-browser-search-group-head .badge { margin-left: auto; flex-shrink: 0; font-size: 10px; color: var(--text-muted); background: var(--bg-input); border-radius: 8px; padding: 0 6px; }
+.file-browser-search-group.collapsed .file-browser-search-group-rows { display: none; }
+.file-browser-search-row { display: flex; align-items: baseline; gap: 7px; padding: 1px 10px 1px 24px; cursor: pointer; font-family: Consolas, "Cascadia Code", monospace; font-size: 11.5px; line-height: 18px; }
+.file-browser-search-row:hover { background: var(--bg-card-hover); }
+.file-browser-search-row.selected { background: var(--accent-ghost); }
+.file-browser-search-row .ln { width: 34px; flex-shrink: 0; text-align: right; color: var(--text-muted); font-size: 10.5px; user-select: none; }
+.file-browser-search-row .txt { white-space: pre; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
+.file-browser-search-row .txt mark { background: rgba(10, 132, 255, 0.28); color: #7ab8ff; border-radius: 2px; padding: 0 1px; }
+.file-browser-search-empty { padding: 36px 16px; text-align: center; color: var(--text-muted); font-size: 12px; }
+.file-browser-search-empty .big { font-size: 22px; margin-bottom: 8px; opacity: .5; }
+.file-browser-search-stats { flex-shrink: 0; height: 26px; display: flex; align-items: center; gap: 5px; padding: 0 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted); background: var(--bg-input); }
+.file-browser-search-stats .warn { color: #d4a017; margin-left: auto; font-size: 10px; }
 
 .file-browser-create-dir-icon {
     width: 22px;
