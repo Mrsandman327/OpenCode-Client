@@ -446,6 +446,26 @@
     </div>
 
     <!-- 配置弹窗 -->
+    <!-- 侧问面板（/btw：一次性回答，不写入会话历史；关闭后由悬浮按钮接续入口）
+         弹窗复用 .modal-card 公共样式；内部按会话区卡片渲染（用户靠右 / 助手靠左） -->
+    <div class="modal-overlay" id="btwModal" style="display:none">
+        <div class="modal modal-card btw-modal">
+            <div class="modal-header">
+                <h3>侧问</h3>
+                <button type="button" class="modal-close-btn btw-close" title="关闭">
+                    <span class="oc-fb-icon oc-fb-icon-close"></span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="btw-thread" id="btwThread"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btw-copy" style="display:none">复制回答</button>
+                <button type="button" class="btn btn-sm btw-retry" style="display:none">重试</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="proxyModal" style="display:none">
         <div class="modal modal-card proxy-modal">
             <div class="modal-header">

@@ -12,6 +12,7 @@ import { escapeHtml, showToast, showApiError, getCachedMessages, messageText, lo
 import { openSessionTab } from './tabs.js';
 import { buildTree } from './tree.js';
 import { unwrap, unwrapList, formatApiError } from '../core/v2compat.js';
+import { askBtw, hasActiveBtw, openBtwPanel } from './btw.js';
 
 let cmdPaletteItems = [];
 let skillItems = [];
@@ -26,6 +27,7 @@ const FIXED_COMMANDS = [
     { name: 'revert',    description: '撤销最后消息（需 Git 仓库）', source: 'fixed' },
     { name: 'unrevert',  description: '取消撤销（清除暂存的撤销；需 Git 仓库）', source: 'fixed' },
     { name: 'fork',      description: '从消息创建新会话（分叉）', source: 'fixed' },
+    { name: 'btw',       description: '侧问：一次性回答，不写入会话', source: 'fixed' },
 ];
 
 const cmdPaletteEl = document.getElementById('ocCmdPalette');
@@ -258,14 +260,15 @@ export function selectCmdItem(cmdName, source) {
     }
 }
 
-export async function executeFixedCmd(cmdName) {
+export async function executeFixedCmd(cmdName, args) {
     if (!store.webRunning || !store.currentSessionId) {
         showToast('请先启动服务并选择会话', 'error');
         return;
     }
     const sid = store.currentSessionId;
     hideCmdPalette();
-    showToast(`执行 /${cmdName}...`, 'info');
+    // btw 自带「正在生成」与失败提示，不再叠一句「执行 /btw...」
+    if (cmdName !== 'btw') showToast(`执行 /${cmdName}...`, 'info');
 
     try {
         switch (cmdName) {
@@ -306,6 +309,19 @@ export async function executeFixedCmd(cmdName) {
                 // 弹出消息选择（选一条用户消息作为分叉点），成功后新建 tab + 刷新树
                 await showForkMessagePicker(sid);
                 break;
+            case 'btw': {
+                // 侧问：一次性回答，**绝不写入会话历史**。
+                // 无参数（从命令面板选中）：已有侧问（生成中/有结果/失败）→ 直接恢复面板
+                //（改进点：重开入口打不丢结果）；否则把 "/btw " 放回输入框让用户接着敲问题
+                // ——此时 return 跳过函数末尾的清空，否则刚放回去的前缀会被抹掉。
+                if (!args || !String(args).trim()) {
+                    if (hasActiveBtw()) { openBtwPanel(); return; }
+                    insertCmdToPrompt('btw');
+                    return;
+                }
+                await askBtw(String(args));
+                break;
+            }
         }
     } catch (e) {
         showApiError(`/${cmdName} 失败: `, e);
