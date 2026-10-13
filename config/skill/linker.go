@@ -10,11 +10,20 @@ import (
 	"oc-manager/internal/symlink"
 )
 
-// IsLinked 检查指定技能名称是否已在全局目录中存在链接。
+// isLinkedEntry 判断全局目录中的条目是否代表「技能已启用」：
+// 符号链接（有开发者权限的机器）、目录联接 Junction（无权限机器的回退，
+// os.Lstat 对其返回 ModeIrregular——既非 ModeSymlink 也非目录）、
+// 真实目录（用户手动放置的技能）均视为已启用。
+// 历史 bug：无权限机器回退 Junction 后，顶层技能被误判为「未启用」。
+func isLinkedEntry(info os.FileInfo) bool {
+	return info.Mode()&os.ModeSymlink != 0 || info.IsDir() || info.Mode()&os.ModeIrregular != 0
+}
+
+// IsLinked 检查指定技能名称是否已在全局目录中存在链接。 
 func (m *Manager) IsLinked(skillName string) bool {
 	linkPath := filepath.Join(m.globalDir, skillName)
 	if info, err := os.Lstat(linkPath); err == nil {
-		return (info.Mode()&os.ModeSymlink != 0) || info.IsDir()
+		return isLinkedEntry(info)
 	}
 	return false
 }

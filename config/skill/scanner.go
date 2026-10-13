@@ -220,7 +220,7 @@ func (m *Manager) scanDir(dir, source, prefix string, depth int) []model.SkillIn
 		linked := true
 		linkPath := filepath.Join(m.globalDir, relName)
 		if info, err := os.Lstat(linkPath); err == nil {
-			linked = (info.Mode()&os.ModeSymlink != 0) || info.IsDir()
+			linked = isLinkedEntry(info)
 		}
 		skills = append(skills, model.SkillInfo{
 			Name:        displayName,
