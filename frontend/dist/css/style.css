@@ -5075,11 +5075,16 @@ input::placeholder, textarea::placeholder {
     position: fixed;
     bottom: 24px;
     left: 50%;
-    transform: translateX(-50%) translateY(100px);
+    /* 隐藏位按【自身高度】平移（100% + 32px）：内容再长（多行错误）也能完整滑出屏幕。
+       此前固定 100px，高 toast 会露头（底部残留）。 */
+    transform: translateX(-50%) translateY(calc(100% + 32px));
     padding: 12px 24px;
     border-radius: var(--radius-pill);
     font-size: 14px;
     font-weight: 500;
+    max-width: min(640px, calc(100vw - 48px));
+    line-height: 1.5;
+    text-align: center;
     z-index: 1000;
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     pointer-events: none;
