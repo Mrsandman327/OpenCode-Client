@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnProxySettings').addEventListener('click', showProxyModal);
     document.getElementById('btnFrontendWebConfig').addEventListener('click', showFrontendWebModal);
     document.getElementById('btnToggleFrontendWeb').addEventListener('click', toggleFrontendWeb);
+    document.getElementById('btnCopyFrontendWebUrl').addEventListener('click', copyFrontendWebUrl);
     document.getElementById('btnCloseFrontendWebHead').addEventListener('click', closeFrontendWebModal);
     document.getElementById('btnCloseProxyHead').addEventListener('click', hideProxyModal);
     ['frontendWebHost', 'frontendWebPort'].forEach(id => {
@@ -164,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePromptPlaceholder() {
         var ta = document.getElementById('ocPrompt');
         if (!ta) return;
-        ta.placeholder = isMobileTreeMode() ? '输入内容' : '输入内容，Enter 发送，Ctrl+Enter 换行';
+        ta.placeholder = isMobileTreeMode() ? '输入内容' : '输入内容，/ 调用命令 ，@ 调用知识库，Enter 发送，Ctrl+Enter 换行';
     }
     updatePromptPlaceholder();
     window.addEventListener('resize', updatePromptPlaceholder);
