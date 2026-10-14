@@ -444,19 +444,27 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
                 var row = temp.firstElementChild;
                 row.querySelector('.btn-del-model').addEventListener('click', function() { row.remove(); });
                 list.appendChild(row);
-                this.textContent = '删除';
+                // 切换删除态图标（不能用 textContent，会清掉图标 span 变纯文字）
+                this.innerHTML = '<span class="oc-fb-icon oc-fb-icon-minus" aria-hidden="true"></span>';
                 this.className = 'btn btn-sm btn-del';
                 this.dataset.action = 'del';
+                this.title = '删除';
             } else if (action === 'del') {
                 list.querySelectorAll('.model-edit-id').forEach(function(input) {
                     if (input.value.trim() === modelId) {
                         input.closest('.model-subcard').remove();
                     }
                 });
-                this.textContent = '增加';
+                // 切换增加态图标（不能用 textContent，会清掉图标 span 变纯文字）
+                this.innerHTML = '<span class="oc-fb-icon oc-fb-icon-add" aria-hidden="true"></span>';
                 this.className = 'btn btn-sm btn-add';
                 this.dataset.action = 'add';
+                this.title = '增加';
             }
+            // 圆点跟随按钮状态（add=未添加蓝 / del=已添加红）
+            var rowEl = this.closest('.model-list-row');
+            var dotEl = rowEl ? rowEl.querySelector('.model-list-dot') : null;
+            if (dotEl) dotEl.className = 'model-list-dot ' + this.dataset.action;
         });
     });
 }
