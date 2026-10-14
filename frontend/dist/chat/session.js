@@ -38,7 +38,9 @@ export async function loadAgentModelSelectors() {
             api.OpenCodeCall('GET', '/agent').catch(() => []),
             api.OpenCodeCall('GET', '/provider').catch(() => []),
         ]);
-        store.agentList = agents || [];
+        // 过滤子 agent（mode==='subagent'）与显式隐藏的 agent（hidden:true）：
+        // 下拉只列可直接作为会话主体运行的 primary agent（与 V2 行为一致）。
+        store.agentList = (agents || []).filter(a => a && a.mode !== 'subagent' && !a.hidden);
         store.modelList = models || [];
     } catch (_) {
         store.agentList = [];
