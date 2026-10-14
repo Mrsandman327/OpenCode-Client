@@ -8,6 +8,7 @@ import (
 
 	"oc-manager/internal/fileutil"
 	"oc-manager/internal/logger"
+	"oc-manager/internal/portable"
 	"oc-manager/internal/symlink"
 	"oc-manager/model"
 )
@@ -68,7 +69,7 @@ func NewConverterWithRoot(store *Store, globalRoot string) *Converter {
 // globalOpenCodeDir 解析全局 opencode 配置目录：
 // 优先 XDG_CONFIG_HOME，其次 ~/.config；与 config/skill 的全局技能目录约定保持一致。
 func globalOpenCodeDir() (string, error) {
-	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
+	if dir := portable.ConfigHome(); dir != "" {
 		return filepath.Join(dir, "opencode"), nil
 	}
 	home, err := os.UserHomeDir()

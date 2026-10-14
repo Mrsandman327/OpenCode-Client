@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"oc-manager/internal/portable"
 )
 
 // launchTerminal 启动外部终端模拟器打开 opencode；依次探测常见终端。
@@ -28,9 +30,8 @@ func launchTerminal(args []string, env []string) (*exec.Cmd, error) {
 			// x-terminal-emulator / xfce4-terminal 用 -e
 			cmd = exec.Command(path, "-e", "bash", "-lc", cmdLine)
 		}
-		if len(env) > 0 {
-			cmd.Env = append(os.Environ(), env...)
-		}
+		// 终端里的 opencode 同样使用便携目录（ChildEnvFrom 负责去重 XDG；env 里可能有口令等）
+		cmd.Env = portable.ChildEnvFrom(append(os.Environ(), env...))
 		return cmd, nil
 	}
 	return nil, fmt.Errorf("未找到可用的终端模拟器（尝试了 x-terminal-emulator/gnome-terminal/konsole/xfce4-terminal）")

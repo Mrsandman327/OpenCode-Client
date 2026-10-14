@@ -10,6 +10,7 @@ import (
 	"oc-manager/config/skill"
 	"oc-manager/internal/fileutil"
 	"oc-manager/internal/pathutil"
+	"oc-manager/internal/portable"
 	"oc-manager/internal/symlink"
 	"oc-manager/model"
 )
@@ -187,7 +188,7 @@ func DeleteProjectEntry(rootDir, category, relPath string) error {
 
 // GetGlobalOpenCodeConfig 返回全局 ~/.config/opencode/opencode.jsonc 的路径和内容。
 func GetGlobalOpenCodeConfig() model.GlobalConfigInfo {
-	dir := os.Getenv("XDG_CONFIG_HOME")
+	dir := portable.ConfigHome()
 	if dir == "" {
 		home, _ := os.UserHomeDir()
 		dir = filepath.Join(home, ".config")

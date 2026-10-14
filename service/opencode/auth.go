@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"oc-manager/internal/portable"
 )
 
 // ============================================================================
@@ -40,7 +42,7 @@ type serviceInfo struct {
 // 参考 @opencode/client 的 Service.discover()：默认取 XDG state 目录下的
 // opencode/service.json；XDG_STATE_HOME 未设置时按平台惯例推导。
 func serviceRegistrationPath() string {
-	if dir := strings.TrimSpace(os.Getenv("XDG_STATE_HOME")); dir != "" {
+	if dir := portable.StateHome(); dir != "" {
 		return filepath.Join(dir, "opencode", "service.json")
 	}
 	home, err := os.UserHomeDir()
@@ -126,7 +128,7 @@ type serviceConfig struct {
 // serviceConfigPath 返回 V2 服务配置文件路径（config 侧）。
 // 与 @opencode/client 的 ServiceConfig 一致：XDG_CONFIG_HOME 下的 opencode/service.json。
 func serviceConfigPath() string {
-	if dir := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); dir != "" {
+	if dir := portable.ConfigHome(); dir != "" {
 		return filepath.Join(dir, "opencode", "service.json")
 	}
 	home, err := os.UserHomeDir()

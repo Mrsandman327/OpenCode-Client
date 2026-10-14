@@ -8,6 +8,7 @@ import (
 	"os/exec"
 
 	"oc-manager/internal/executil"
+	"oc-manager/internal/portable"
 )
 
 // launchTerminal 启动外部终端打开 opencode；优先 Windows Terminal，回退 cmd /c start。
@@ -23,9 +24,8 @@ func launchTerminal(args []string, env []string) (*exec.Cmd, error) {
 		cmd = exec.Command("cmd", cmdArgs...)
 	}
 	executil.SetHideWindow(cmd, false)
-	if len(env) > 0 {
-		cmd.Env = append(os.Environ(), env...)
-	}
+	// 终端里的 opencode 同样使用便携目录（ChildEnvFrom 负责去重 XDG；env 里可能有口令等）
+	cmd.Env = portable.ChildEnvFrom(append(os.Environ(), env...))
 	return cmd, nil
 }
 

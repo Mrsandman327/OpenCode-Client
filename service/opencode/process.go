@@ -21,6 +21,7 @@ import (
 
 	"oc-manager/internal/executil"
 	"oc-manager/internal/jsonutil"
+	"oc-manager/internal/portable"
 	"oc-manager/model"
 )
 
@@ -74,6 +75,8 @@ func resolveOpencodeBin() string {
 // 可执行文件优先取程序目录下的 tools/opencode.exe（见 resolveOpencodeBin）。
 func runOpencodeService(args ...string) (string, error) {
 	cmd := exec.Command(resolveOpencodeBin(), append([]string{"service"}, args...)...)
+	// 子进程需要便携 XDG 变量，opencode 才会把配置/数据写进 agentdatas。
+	cmd.Env = portable.ChildEnvFrom(os.Environ())
 	executil.SetHideWindow(cmd, true)
 	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err

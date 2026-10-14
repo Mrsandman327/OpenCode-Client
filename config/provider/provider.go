@@ -13,6 +13,7 @@ import (
 
 	"oc-manager/internal/fileutil"
 	"oc-manager/internal/jsonutil"
+	"oc-manager/internal/portable"
 	"oc-manager/model"
 )
 
@@ -26,7 +27,7 @@ const defaultProviderPackage = "aisdk:@ai-sdk/openai-compatible"
 
 // OpenCodeConfigPath 返回 opencode.jsonc 的完整路径（不存在时回退同名 .json）。
 func OpenCodeConfigPath() string {
-	dir := os.Getenv("XDG_CONFIG_HOME")
+	dir := portable.ConfigHome()
 	if dir != "" {
 		return fileutil.ResolveJSONC(filepath.Join(dir, "opencode", "opencode.jsonc"))
 	}

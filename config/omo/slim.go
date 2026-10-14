@@ -46,6 +46,7 @@ import (
 	"sync"
 
 	"oc-manager/internal/fileutil"
+	"oc-manager/internal/portable"
 )
 
 var (
@@ -68,7 +69,7 @@ func SlimConfigPath() string {
 		return slimPathOverride
 	}
 	var dir string
-	if xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); xdg != "" {
+	if xdg := portable.ConfigHome(); xdg != "" {
 		dir = filepath.Join(xdg, "opencode")
 	} else {
 		home, _ := os.UserHomeDir()
