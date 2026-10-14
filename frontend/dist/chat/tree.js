@@ -17,6 +17,7 @@ import { closeSessionTab, renderTabsBar } from './tabs.js';
 import { resetUserNav } from './search.js';
 import { openProjectConfig } from '../views/project-config.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
+import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { createBuildGate, createRecentlyDeleted, RECENTLY_DELETED_TTL_MS } from './tree-guard.js';
 
 // 折叠/展开图标：assets/菜单折叠.svg、菜单展开.svg（CSS mask 呈现）。
@@ -561,7 +562,7 @@ export function showTreeContextMenu(e, type, data) {
     menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
         var action = item.dataset.action;
         if (type === 'dir') {
-            item.style.display = (action === 'new-session' || action === 'project-config') ? '' : 'none';
+            item.style.display = (action === 'new-session' || action === 'project-config' || action === 'open-file-browser') ? '' : 'none';
         } else if (type === 'session') {
             item.style.display = (action === 'rename' || action === 'delete') ? '' : 'none';
         } else if (type === 'project') {
@@ -629,6 +630,8 @@ export function initTreeContextMenu() {
                 createNewSession(data.title);
             } else if (type === 'dir' && action === 'project-config') {
                 openProjectConfig(data.title);
+            } else if (type === 'dir' && action === 'open-file-browser') {
+                if (data.title) openFileBrowserStandaloneFor(data.title, { features: ['git'] });
             } else if (type === 'session' && action === 'rename') {
                 renameSession(data.sid);
             } else if (type === 'session' && action === 'delete') {
