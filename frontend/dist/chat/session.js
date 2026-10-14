@@ -76,7 +76,9 @@ export async function loadAgentModelSelectors(dir, force) {
             api.OpenCodeCall('GET', '/api/agent', null, directory).catch(() => []),
             api.OpenCodeCall('GET', '/api/model', null, directory).catch(() => []),
         ]);
-        const agents = unwrapList(agentsRes);
+        const agentsAll = unwrapList(agentsRes);
+        // 只保留可直选的主代理：过滤子代理与隐藏项（title/summary 等内部 agent）
+        const agents = agentsAll.filter(a => a && a.mode !== 'subagent' && !a.hidden);
         const models = toModelOptions(modelsRes);
         // 空响应不得覆盖已有非空列表：v2 的 /api/agent、/api/model 是「逐步就绪」的，
         // 实测存在「先 29 条 → 紧接着 0 条 → 随后又 29 条」的中间态；若把 0 条写回 store，
@@ -89,9 +91,9 @@ export async function loadAgentModelSelectors(dir, force) {
         store.agentModelSelectorsDir = directory;
         // 懒加载冷启动：为空、或数量相比上次仍在增长（说明其余供应商尚未就绪）时复查，
         // 直到连续一轮不再增长（视为已齐全）或达到上限，避免下拉停在「部分模型」状态。
-        const grew = agents.length > agentModelLastCounts.agents || models.length > agentModelLastCounts.models;
-        const empty = !agents.length || !models.length;
-        agentModelLastCounts = { agents: agents.length, models: models.length };
+        const grew = agentsAll.length > agentModelLastCounts.agents || models.length > agentModelLastCounts.models;
+        const empty = !agentsAll.length || !models.length;
+        agentModelLastCounts = { agents: agentsAll.length, models: models.length };
         if ((empty || grew) && agentModelRetryAttempt < 8) {
             agentModelRetryAttempt++;
             clearTimeout(agentModelRetryTimer);
