@@ -10,7 +10,7 @@
 
 import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
-import { showToast, showApiError, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop, todoPluginAvailable, refreshTodoPanel } from '../core/utils.js';
+import { showToast, showApiError, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop, todoPluginAvailable, refreshTodoPanel, rebuildVariantSelect } from '../core/utils.js';
 import { getNetworkConfig } from './config.js';
 import { startEventStream, loadSessionStatuses } from './events.js';
 import { buildTree } from './tree.js';
@@ -633,8 +633,8 @@ export async function stopWeb() {
         refreshTodoPanel();
         // 清理 Agent/Model 选择器：清空列表与选中值，并重置加载守卫，
         // 使下次启动时 loadAgentModelSelectors 重新获取列表。
-        // 注意：不清空下拉框的 <option>——ocVariantSelect 的选项是 index.html
-        // 静态定义的（Minimal/Low/...），清空后无法恢复；只重置选中值即可。
+        // 注意：不清空下拉框的 <option>——ocVariantSelect 的选项是静态快照或按模型
+        // 动态重建的（见 rebuildVariantSelect），清空后无法恢复；只重置选中值即可。
         store.agentList = [];
         store.modelList = [];
         serviceDefaultDir = '';
@@ -650,6 +650,8 @@ export async function stopWeb() {
             var sel = document.getElementById(id);
             if (sel) sel.value = '';
         });
+        // 变体下拉恢复静态全量（selectedModel 已清空，重建走静态分支）
+        rebuildVariantSelect();
         clearInterval(store.refreshTimer);
         clearTimeout(store.sessionRefreshTimer);
         updateWebUI();

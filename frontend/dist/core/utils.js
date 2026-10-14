@@ -204,7 +204,38 @@ export function restoreSessionSelection(sessionID) {
     const variantSel = document.getElementById('ocVariantSelect');
     if (agentSel) agentSel.value = store.selectedAgent;
     if (modelSel) modelSel.value = store.selectedModel;
+    rebuildVariantSelect();
     if (variantSel) variantSel.value = store.selectedVariant;
+}
+
+/** 变体 id → 展示名（与 index.html 静态列表风格一致；未知 id 原样显示） */
+const VARIANT_LABELS = { minimal: 'Minimal', low: 'Low', medium: 'Medium', high: 'High', xhigh: 'xHigh', max: 'Max' };
+
+/** 变体下拉静态选项快照（首次调用时保存，供未选模型时恢复） */
+let variantStaticOptions = null;
+
+/** 按当前所选模型重建变体下拉：选中具体模型时只显示该模型支持的档位（variants）；
+ *  未选模型 / 数据缺失时恢复静态全量；当前值不在新列表里则回退默认（含手选标记同步）。 */
+export function rebuildVariantSelect() {
+    const sel = document.getElementById('ocVariantSelect');
+    if (!sel) return;
+    if (variantStaticOptions === null) variantStaticOptions = sel.innerHTML;
+    const model = (store.modelList || []).find(m => m.value === store.selectedModel);
+    const variants = model && Array.isArray(model.variants) ? model.variants : null;
+    if (!store.selectedModel || !variants) {
+        sel.innerHTML = variantStaticOptions;
+    } else {
+        sel.innerHTML = '<option value="">默认</option>' + variants.map(function (v) {
+            return '<option value="' + escapeHtml(v) + '">' + escapeHtml(VARIANT_LABELS[v] || v) + '</option>';
+        }).join('');
+    }
+    // 当前值不在新选项里：回退默认，并同步手选标记（避免切回会话时恢复出无效档位）
+    const valid = Array.from(sel.options).some(function (o) { return o.value === store.selectedVariant; });
+    if (!valid) {
+        store.selectedVariant = '';
+        if (hasManualSessionSelection('variant')) markManualSelection('variant', '');
+    }
+    sel.value = store.selectedVariant;
 }
 
 /** 模型 ID（providerID/modelID）→ 显示名（providerID/name）；查不到时原样返回。
