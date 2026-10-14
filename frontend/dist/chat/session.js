@@ -15,7 +15,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, resolveKnownValue, markManualSelection, restoreSessionSelection, hasManualSessionSelection, setSessionActionHandlers, rebuildVariantSelect } from '../core/utils.js';
+import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, resolveKnownValue, markManualSelection, restoreSessionSelection, hasManualSessionSelection, setSessionActionHandlers } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { refreshSubtaskPanel, scheduleSubtaskExtraction } from './sidepanel.js';
@@ -143,8 +143,6 @@ export async function loadAgentModelSelectors(dir, force) {
     // 与 agent 同一口径：列表不可用时补齐手选的模型项
     if (!store.modelList.length && store.selectedModel) ensureSelectOption(modelSel, store.selectedModel, store.selectedModel);
     modelSel.value = store.selectedModel;
-    // 按所选模型重建变体选项（只显示该模型支持的档位）
-    rebuildVariantSelect();
 
     // change 事件（带绑定守卫：启停多次只绑一次，避免重复监听）
     // 用户手动选择后立即标记「本会话已完成同步」，阻止后续重渲染用消息历史覆盖该选择；
@@ -163,7 +161,6 @@ export async function loadAgentModelSelectors(dir, force) {
         modelSel.addEventListener('change', () => {
             store.selectedModel = modelSel.value;
             markManualSelection('model', modelSel.value);
-            rebuildVariantSelect();
             store.agentModelSyncedSession = store.currentSessionId || '';
         });
     }
@@ -1357,7 +1354,6 @@ export async function sendPrompt() {
                 store.selectedModel = '';
                 const modelSelEl = document.getElementById('ocModelSelect');
                 if (modelSelEl) modelSelEl.value = '';
-                rebuildVariantSelect();
                 showToast('原模型 `' + rawModel + '` 已不存在，已回退默认', 'warning');
             }
         }

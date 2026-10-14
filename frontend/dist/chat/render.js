@@ -10,7 +10,7 @@
 // ============================================================
 
 import { store } from '../core/state.js';
-import { escapeHtml, getActiveMessagesEl, showToast, showApiError, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler, modelDisplayLabel, resolveKnownValue, rebuildVariantSelect } from '../core/utils.js';
+import { escapeHtml, getActiveMessagesEl, showToast, showApiError, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler, modelDisplayLabel, resolveKnownValue } from '../core/utils.js';
 // Markdown 清洗统一走 core/sanitize.js 的白名单实现（含 href 协议校验）
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 // 时间/数字格式化统一走 core/format.js
@@ -458,13 +458,11 @@ function doUpdateModelInfo(items) {
             modelSel.value = nextModel;
             store.selectedModel = nextModel;
         }
-        // 模型变化后同步变体选项：只保留该模型支持的档位
-        rebuildVariantSelect();
     }
     const variantSel = document.getElementById('ocVariantSelect');
     if (variant && variantSel && !isManual('variant')) {
         variantSel.value = variant;
-        // 与 agent / model 同理：若历史值不在当前选项里（未选模型=静态列表 / 选了模型=该模型档位），
+        // 与 agent / model 同理：variant 选项是 index.html 静态定义的，若历史值与之不匹配，
         // 浏览器会把 select.value 置为空串；此处同步回 store，避免「显示 ≠ 发送」。
         store.selectedVariant = variantSel.value;
     }
