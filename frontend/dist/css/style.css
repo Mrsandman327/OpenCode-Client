@@ -6254,6 +6254,7 @@ input::placeholder, textarea::placeholder {
 .file-browser-search-row .ln { width: 34px; flex-shrink: 0; text-align: right; color: var(--text-muted); font-size: 10.5px; user-select: none; }
 .file-browser-search-row .txt { white-space: pre; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
 .file-browser-search-row .txt mark { background: rgba(10, 132, 255, 0.28); color: #7ab8ff; border-radius: 2px; padding: 0 1px; }
+.file-browser-search-row .ellipsis { color: var(--text-muted); }
 .file-browser-search-empty { padding: 36px 16px; text-align: center; color: var(--text-muted); font-size: 12px; }
 .file-browser-search-empty .big { font-size: 22px; margin-bottom: 8px; opacity: .5; }
 .file-browser-search-stats { flex-shrink: 0; height: 26px; display: flex; align-items: center; gap: 5px; padding: 0 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted); background: var(--bg-input); }

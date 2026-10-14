@@ -4,4 +4,4 @@ agent: build
 ---
 
 编译命令：
-!`wails build`
+!`wails3 build`
