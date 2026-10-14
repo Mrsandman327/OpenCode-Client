@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"oc-manager/internal/fileutil"
+	"oc-manager/internal/portable"
 	"oc-manager/model"
 )
 
@@ -35,7 +36,7 @@ func ConfigPath() string {
 		filepath.Join(home, ".omo", "omo.jsonc"),
 		filepath.Join(home, ".omo", "omo.json"),
 	}
-	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
+	if dir := portable.ConfigHome(); dir != "" {
 		candidates = append(candidates,
 			filepath.Join(dir, "opencode", "oh-my-openagent.jsonc"),
 			filepath.Join(dir, "opencode", "oh-my-openagent.json"),

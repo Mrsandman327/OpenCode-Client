@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"oc-manager/internal/executil"
+	"oc-manager/internal/portable"
 	"oc-manager/model"
 )
 
@@ -93,6 +94,8 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 		"--port", strconv.Itoa(port),
 		"--hostname", hostname,
 	)
+	// 子进程需要便携 XDG 变量，opencode 才会把配置/数据写进 agentdatas。
+	cmd.Env = portable.ChildEnvFrom(os.Environ())
 	if proxy.ProxyEnabled {
 		host := strings.TrimSpace(proxy.ProxyHost)
 		proxyPort := strings.TrimSpace(proxy.ProxyPort)
@@ -103,7 +106,7 @@ func StartOpenCodeWeb(port int, hostname string, proxy model.ProxyConfig) model.
 			proxyPort = "7897"
 		}
 		proxyURL := fmt.Sprintf("http://%s:%s", host, proxyPort)
-		cmd.Env = append(os.Environ(),
+		cmd.Env = append(cmd.Env,
 			"HTTP_PROXY="+proxyURL,
 			"HTTPS_PROXY="+proxyURL,
 			"ALL_PROXY="+proxyURL,
@@ -380,6 +383,8 @@ func LaunchWindowsTerminal(mode, webURL, dir string) model.WebResult {
 	if err != nil {
 		return model.WebResult{Error: err.Error()}
 	}
+	// 终端里的 opencode 同样使用便携目录。
+	cmd.Env = portable.ChildEnvFrom(os.Environ())
 	if err := cmd.Start(); err != nil {
 		return model.WebResult{Error: fmt.Sprintf("启动终端失败: %v", err)}
 	}

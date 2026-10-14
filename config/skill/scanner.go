@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"oc-manager/internal/portable"
 	"oc-manager/model"
 )
 
@@ -16,7 +17,7 @@ type Manager struct {
 
 // NewManager 创建新的 Manager 实例，指向全局 opencode 技能目录。
 func NewManager() *Manager {
-	dir := os.Getenv("XDG_CONFIG_HOME")
+	dir := portable.ConfigHome()
 	if dir != "" {
 		return &Manager{globalDir: filepath.Join(dir, "opencode", "skills")}
 	}

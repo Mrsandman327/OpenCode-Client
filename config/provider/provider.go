@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"oc-manager/internal/fileutil"
+	"oc-manager/internal/portable"
 	"oc-manager/model"
 )
 
@@ -33,12 +34,12 @@ func resolvePath(jsoncPath string) string {
 
 // OpenCodeConfigPath 返回 opencode.jsonc 的完整路径。
 func OpenCodeConfigPath() string {
-	dir := os.Getenv("XDG_CONFIG_HOME")
-	if dir != "" {
-		return resolvePath(filepath.Join(dir, "opencode", "opencode.jsonc"))
+	dir := portable.ConfigHome()
+	if dir == "" {
+		home, _ := os.UserHomeDir()
+		dir = filepath.Join(home, ".config")
 	}
-	home, _ := os.UserHomeDir()
-	return resolvePath(filepath.Join(home, ".config", "opencode", "opencode.jsonc"))
+	return resolvePath(filepath.Join(dir, "opencode", "opencode.jsonc"))
 }
 
 func loadOpenCodeConfig() (*model.OpenCodeConfig, error) {
