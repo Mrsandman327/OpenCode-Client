@@ -6254,10 +6254,11 @@ input::placeholder, textarea::placeholder {
 .file-browser-search-results { flex: 1; overflow-y: auto; min-height: 0; padding: 2px 0; }
 .file-browser-search-group-head { display: flex; align-items: center; gap: 5px; padding: 4px 10px; cursor: pointer; user-select: none; }
 .file-browser-search-group-head:hover { background: var(--bg-card-hover); }
-.file-browser-search-group-head .arrow { color: var(--text-muted); font-size: 8px; width: 9px; text-align: center; }
+.file-browser-search-group-head .arrow { display: inline-block; color: var(--text-muted); font-size: 8px; width: 9px; text-align: center; }
 .file-browser-search-group-head .fname { font-size: 12px; font-weight: 600; color: var(--text-primary); font-family: Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .file-browser-search-group-head .badge { margin-left: auto; flex-shrink: 0; font-size: 10px; color: var(--text-muted); background: var(--bg-input); border-radius: 8px; padding: 0 6px; }
 .file-browser-search-group.collapsed .file-browser-search-group-rows { display: none; }
+.file-browser-search-group.collapsed .file-browser-search-group-head .arrow { transform: rotate(-90deg); }
 .file-browser-search-row { display: flex; align-items: baseline; gap: 7px; padding: 1px 10px 1px 24px; cursor: pointer; font-family: Consolas, "Cascadia Code", monospace; font-size: 11.5px; line-height: 18px; }
 .file-browser-search-row:hover { background: var(--bg-card-hover); }
 .file-browser-search-row.selected { background: var(--accent-ghost); }
