@@ -1591,8 +1591,26 @@ function renderFileBrowserSearchResults(res, query) {
     try { re = new RegExp(qEsc, 'gi'); } catch (e) { re = null; }
     var html = '';
     files.forEach(function (f) {
+        // 命中行上下文窗口：超长行只截命中前后一段，两端加省略号
+        var CTX_BEFORE = 30;
+        var CTX_AFTER = 60;
         var rows = (f.matches || []).map(function (m) {
-            var text = String(m.text || '');
+            // 去行首空白；超长行围绕首处命中裁剪
+            var raw = String(m.text || '').replace(/^\s+/, '');
+            var text = raw;
+            var leadCut = false, tailCut = false;
+            if (re) {
+                re.lastIndex = 0;
+                var firstHit = re.exec(raw);
+                if (firstHit !== null) {
+                    // 前/后各自独立判断：命中前超 30 字裁前、后超 60 字裁后
+                    var s = Math.max(0, firstHit.index - CTX_BEFORE);
+                    var e2 = Math.min(raw.length, firstHit.index + firstHit[0].length + CTX_AFTER);
+                    leadCut = s > 0;
+                    tailCut = e2 < raw.length;
+                    if (leadCut || tailCut) text = raw.slice(s, e2);
+                }
+            }
             var display = escapeHtml(text);
             if (re) {
                 re.lastIndex = 0;
@@ -1606,6 +1624,8 @@ function renderFileBrowserSearchResults(res, query) {
                 out += escapeHtml(text.slice(last));
                 display = out;
             }
+            if (leadCut) display = '<span class="ellipsis">…</span>' + display;
+            if (tailCut) display = display + '<span class="ellipsis">…</span>';
             return '<div class="file-browser-search-row" data-path="' + escapeHtml(f.path || '') + '" data-rel-path="' + escapeHtml(f.relPath || '') + '" data-line="' + (m.line || 0) + '">'
                 + '<span class="ln">' + (m.line || '') + '</span>'
                 + '<span class="txt">' + display + '</span></div>';
