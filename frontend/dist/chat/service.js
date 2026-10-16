@@ -768,6 +768,8 @@ export function updateWebUI() {
 
 var updateStatusTimer = null; // 状态轮询句柄（仅 downloading/preparing 期间）
 var updateLastPhase = '';     // 相位跃迁检测（下载完成 → toast 通知）
+var updateSpeedText = '';     // 最近一次采样计算的下载速度（前端按轮询间隔差分）
+var updateLastSample = { bytes: 0, ts: 0 }; // 上次采样的已下载字节与时刻
 
 /** 渲染版本行：检测入口 + 更新横幅容器（服务面板每次渲染时调用）。 */
 export function renderVersionCheck(version) {
@@ -829,9 +831,16 @@ function renderUpdateBanner(kind, data) {
     if (kind === 'hidden') {
         el.style.display = 'none';
         el.innerHTML = '';
+        delete el.dataset.kind;
         return;
     }
     el.style.display = 'block';
+    // 下载中每秒轮询：同状态只做增量更新（整块重建会导致文字/按钮闪烁）
+    if (el.dataset.kind === kind && (kind === 'downloading' || kind === 'preparing')) {
+        updateDownloadingNumbers(el, kind, data);
+        return;
+    }
+    el.dataset.kind = kind;
     var ver = '<b class="oc-update-ver">v' + escapeHtml(data.version || '') + '</b>';
     if (kind === 'found') {
         el.className = 'oc-update-banner found';
@@ -846,11 +855,12 @@ function renderUpdateBanner(kind, data) {
         var pct = data.total > 0 ? Math.floor(data.downloaded / data.total * 100) : 0;
         el.className = 'oc-update-banner downloading';
         el.innerHTML = '<div class="oc-update-line1">'
-            + '<span class="oc-update-grow">正在后台下载 ' + ver + (kind === 'preparing' ? ' … 准备中' : ' … ' + pct + '%') + '</span>'
+            + '<span class="oc-update-grow">正在后台下载 ' + ver + '<span id="ocUpdateDlPct">' + (kind === 'preparing' ? ' … 准备中' : ' … ' + pct + '%') + '</span></span>'
             + '<a href="javascript:void(0)" class="oc-version-check-btn" id="ocUpdateCancelBtn">取消下载</a></div>'
             + (kind === 'preparing' ? ''
-                : '<div class="oc-update-mini-bar"><div class="oc-update-mini-fill" style="width:' + pct + '%"></div></div>'
-                + '<div class="oc-update-meta"><span>' + mbText(data.downloaded) + ' / ' + mbText(data.total) + '</span><span></span></div>')
+                : '<div class="oc-update-mini-bar"><div class="oc-update-mini-fill" id="ocUpdateDlFill" style="width:' + pct + '%"></div></div>'
+                + '<div class="oc-update-meta"><span id="ocUpdateDlSize">' + mbText(data.downloaded) + ' / ' + mbText(data.total) + '</span><span id="ocUpdateDlSpeed">' + (updateSpeedText || '—') + '</span></div>')
+            + '<div class="oc-update-line2">可以继续使用其他功能，下载完成后会通知你。</div>';
         bindUpdateClick('ocUpdateCancelBtn', function () { cancelUpdateDownload(); });
         return;
     }
@@ -874,6 +884,19 @@ function renderUpdateBanner(kind, data) {
     }
 }
 
+/** 下载中横幅的数值增量刷新（不重建 DOM，避免每秒轮询引起闪烁）。 */
+function updateDownloadingNumbers(el, kind, data) {
+    var pct = data.total > 0 ? Math.floor(data.downloaded / data.total * 100) : 0;
+    var pctEl = el.querySelector('#ocUpdateDlPct');
+    if (pctEl) pctEl.textContent = kind === 'preparing' ? ' … 准备中' : ' … ' + pct + '%';
+    var fillEl = el.querySelector('#ocUpdateDlFill');
+    if (fillEl) fillEl.style.width = pct + '%';
+    var sizeEl = el.querySelector('#ocUpdateDlSize');
+    if (sizeEl) sizeEl.textContent = mbText(data.downloaded) + ' / ' + mbText(data.total);
+    var speedEl = el.querySelector('#ocUpdateDlSpeed');
+    if (speedEl) speedEl.textContent = updateSpeedText || '—';
+}
+
 function bindUpdateClick(id, fn) {
     var b = document.getElementById(id);
     if (b) b.addEventListener('click', fn);
@@ -886,6 +909,8 @@ function mbText(bytes) {
 
 /** 发起后台下载（立即返回；轮询接管进度显示）。 */
 async function startUpdateDownload(version) {
+    updateSpeedText = '';
+    updateLastSample = { bytes: 0, ts: 0 };
     try {
         var st = await api.StartOpenCodeUpdate(version, getNetworkConfig());
         applyUpdateStatusToBanner(st);
@@ -923,6 +948,19 @@ function applyUpdateStatusToBanner(st) {
         showToast('新版本 v' + (st.version || '') + ' 已就绪，可一键完成更新', 'success');
     }
     updateLastPhase = phase;
+    // 网速：按轮询间隔对已下载字节差分（前端计算，后端状态无需提供）
+    if (phase === 'downloading' && st.downloaded > 0) {
+        var nowTs = Date.now();
+        if (updateLastSample.ts && st.downloaded >= updateLastSample.bytes) {
+            var dt = (nowTs - updateLastSample.ts) / 1000;
+            if (dt >= 0.2) {
+                updateSpeedText = ((st.downloaded - updateLastSample.bytes) / dt / 1048576).toFixed(1) + ' MB/s';
+            }
+        }
+        updateLastSample = { bytes: st.downloaded, ts: nowTs };
+    } else if (phase !== 'downloading') {
+        updateSpeedText = '';
+    }
     switch (phase) {
         case 'downloading':
         case 'preparing':
