@@ -3,7 +3,7 @@
 // 依赖：core/state.js（openTabs, activeTabId, tabCacheVersion 等）、core/utils.js（escapeHtml, getTabMessagesEl, ensureTabMessagesEl）、
 //       chat/mobile.js（isMobileTreeMode）、chat/render.js（updateScrollBottomButton, updateSendButton）、
 //       chat/events.js（loadSessionStatuses）、chat/sidepanel.js（refreshSubtaskPanel）、
-//       chat/search.js（resetUserNav, updateUserNav）
+//       chat/search.js（resetUserNav, updateUserNav）、chat/btw.js（syncBtwToSession）
 //       filebrowser/browser.js（openFileBrowserStandaloneFor）——保留全局守卫调用
 // 解环说明：本文件不得 import chat/session.js。原 activateTabContainer 中 loadMessages() 调用
 //           改为回调注入 tabActivationHandler，由 session.js 在模块加载时通过 setTabActivationHandler 注入。
@@ -18,6 +18,7 @@ import { refreshSubtaskPanel } from './sidepanel.js';
 import { resetUserNav, updateUserNav } from './search.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { updateTreeActiveSession } from '../core/utils.js';
+import { syncBtwToSession } from './btw.js';
 
 /**
  * 会话激活时的加载回调（由 session.js 通过 setTabActivationHandler 注入）。
@@ -135,6 +136,8 @@ export function switchTab(sessionID) {
     if (!sessionID) return;
     store.activeTabId = sessionID;
     store.currentSessionId = sessionID;
+    // 侧问悬浮按钮/面板跟随会话：容器已有内容时不会走 loadMessages，必须在此同步（幂等）
+    syncBtwToSession(sessionID);
     // 切到该会话目录：刷新服务状态面板的 MCP/插件（按 location[directory] 作用域）
     refreshServiceStatus();
     activateTabContainer(sessionID);

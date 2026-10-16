@@ -267,6 +267,8 @@ export async function executeFixedCmd(cmdName, args) {
     }
     const sid = store.currentSessionId;
     hideCmdPalette();
+    // 发起时清空输入框（命令已进入执行流程）：不能在末尾清——等待期间用户输入的内容会被误删
+    cmdInputEl.value = '';
     // btw 自带「正在生成」与失败提示，不再叠一句「执行 /btw...」
     if (cmdName !== 'btw') showToast(`执行 /${cmdName}...`, 'info');
 
@@ -312,12 +314,11 @@ export async function executeFixedCmd(cmdName, args) {
             case 'btw': {
                 // 侧问：一次性回答，**绝不写入会话历史**。
                 // 无参数（从命令面板选中）：已有侧问（生成中/有结果/失败）→ 直接恢复面板
-                //（改进点：重开入口打不丢结果）；否则把 "/btw " 放回输入框让用户接着敲问题
-                // ——此时 return 跳过函数末尾的清空，否则刚放回去的前缀会被抹掉。
+                //（改进点：重开入口打不丢结果）；否则把 "/btw " 放回输入框让用户接着敲问题。
                 if (!args || !String(args).trim()) {
-                    if (hasActiveBtw()) { openBtwPanel(); return; }
+                    if (hasActiveBtw()) { openBtwPanel(); break; }
                     insertCmdToPrompt('btw');
-                    return;
+                    break;
                 }
                 await askBtw(String(args));
                 break;
@@ -326,7 +327,6 @@ export async function executeFixedCmd(cmdName, args) {
     } catch (e) {
         showApiError(`/${cmdName} 失败: `, e);
     }
-    cmdInputEl.value = '';
 }
 
 export function insertCmdToPrompt(cmdName) {

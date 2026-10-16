@@ -2,17 +2,20 @@
 // OC Manager - /btw 侧问面板（一次性回答，不写入会话历史）
 // ============================================================
 // 依赖：core/apicall.js（api）、core/state.js（store）、
-//       core/utils.js（showToast/escapeHtml/bindOverlayClose）、
+//       core/utils.js（showToast/showApiError/escapeHtml/bindOverlayClose）、
 //       core/btw.js（纯逻辑：prompt 构建 / 答案提取 / 命令解析 / 端点）、
 //       core/sanitize.js（sanitizeMarkedHtml，与消息区同款渲染口径）。
 //
 // 交互（在 OpenCode-Client PR #9 基础上按需求改进）：
 //   - 关闭（遮罩 / ✕）= 只隐藏：任务与结果保留（PR 原版关闭即清空、无恢复入口）；
 //   - 关闭后面板位置出现「悬浮按钮」：生成中外圈转圈、完成亮绿点；点击重开；
-//   - 悬浮按钮右上角小 ✕ = 完全关闭并清除数据；
+//   - 悬浮按钮右上角小 ✕ = 完全关闭并清除数据（仅当前会话）；
 //   - 生成完成时若面板未打开 → toast 提醒（悬浮按钮同步亮绿点）；
 //   - 答案绝不写入会话历史：请求打 /api/session/{id}/generate（无状态于历史），
 //     响应只进本面板 DOM，全程不碰消息缓存与 loadMessages。
+//
+// 状态按会话隔离：每会话一份问答/任务状态；悬浮按钮与面板内容始终跟随当前会话，
+// 切换会话时面板自动收起、按钮按新会话状态刷新（由 session.js 的 loadMessages 同步）。
 // ============================================================
 
 import { api } from '../core/apicall.js';
@@ -21,20 +24,22 @@ import { showToast, showApiError, escapeHtml, bindOverlayClose } from '../core/u
 import { buildBtwPrompt, extractBtwAnswer, parseBtwCommand, btwEndpoint } from '../core/btw.js';
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 
-/** 面板状态（一问一答，只保留一份）。
- *  visible 与任务状态分离：关闭只改 visible，不清 pending/answer/failed。 */
-const btwState = {
-    /** 当前问题（重试时原样重发） */
-    question: '',
-    /** 答案文本；空串表示「还没有可用答案」 */
-    answer: '',
-    /** 请求在飞行中 */
-    pending: false,
-    /** 上一次请求失败（无答案且已结束 → 显示重试） */
-    failed: false,
-    /** 面板当前是否可见（关闭 = 仅隐藏，悬浮按钮接管入口） */
-    visible: false,
-};
+/** 每会话的侧问状态（一问一答）：sid → { question, answer, pending, failed, seq }。
+ *  seq 为请求序号：清除数据或重新发起会让旧序号作废，避免在途响应回写已清除的条目。 */
+const btwSessions = {};
+/** 面板当前是否可见（全局 UI 态；切换会话时自动收起——内容属于被切走的会话） */
+let btwVisible = false;
+/** 已同步的会话 ID（syncBtwToSession 幂等用；null 表示尚未同步过） */
+let btwSyncedSession = null;
+
+/** 取当前会话的侧问状态（不存在则初始化空条目） */
+function curBtwState() {
+    const sid = store.currentSessionId || '';
+    if (!btwSessions[sid]) {
+        btwSessions[sid] = { question: '', answer: '', pending: false, failed: false, seq: 0 };
+    }
+    return btwSessions[sid];
+}
 
 function btwModal() {
     return document.getElementById('btwModal');
@@ -51,31 +56,32 @@ function renderBtwPanel() {
     if (!modal) return;
     const thread = modal.querySelector('#btwThread');
     if (!thread) return;
+    const st = curBtwState();
 
     let html = '';
     // 用户卡（靠右）——复用消息区 .oc-message.user 的对齐与配色
-    if (btwState.question) {
+    if (st.question) {
         html += '<div class="oc-message user">'
             + '<div class="oc-message-role">用户</div>'
-            + '<div class="oc-message-parts"><div class="oc-part oc-text">' + escapeHtml(btwState.question) + '</div></div>'
+            + '<div class="oc-message-parts"><div class="oc-part oc-text">' + escapeHtml(st.question) + '</div></div>'
             + '</div>';
     }
     // 助手卡（靠左）
-    if (btwState.pending) {
+    if (st.pending) {
         html += '<div class="oc-message assistant">'
             + '<div class="oc-message-role">助手</div>'
             + '<div class="oc-message-parts"><div class="oc-part pending">正在生成一次性回答…</div></div>'
             + '</div>';
-    } else if (btwState.answer) {
+    } else if (st.answer) {
         // 与消息区同款渲染口径（oc-part oc-text + marked + sanitizeMarkedHtml）
         const answerHtml = typeof marked !== 'undefined'
-            ? sanitizeMarkedHtml(marked.parse(btwState.answer, { breaks: true }))
-            : '<pre>' + escapeHtml(btwState.answer) + '</pre>';
+            ? sanitizeMarkedHtml(marked.parse(st.answer, { breaks: true }))
+            : '<pre>' + escapeHtml(st.answer) + '</pre>';
         html += '<div class="oc-message assistant">'
             + '<div class="oc-message-role">助手</div>'
             + '<div class="oc-message-parts"><div class="oc-part oc-text btw-answer">' + answerHtml + '</div></div>'
             + '</div>';
-    } else if (btwState.failed) {
+    } else if (st.failed) {
         html += '<div class="oc-message assistant">'
             + '<div class="oc-message-role">助手</div>'
             + '<div class="oc-message-parts"><div class="oc-part error-msg">没能回答这个问题</div></div>'
@@ -90,10 +96,10 @@ function renderBtwPanel() {
 
     // 重试按钮只在「失败且无答案」时出现（对齐 PR 口径）
     const retry = modal.querySelector('.btw-retry');
-    if (retry) retry.style.display = (btwState.failed && !btwState.pending && !btwState.answer) ? '' : 'none';
+    if (retry) retry.style.display = (st.failed && !st.pending && !st.answer) ? '' : 'none';
     // 复制按钮只在有答案时出现
     const copy = modal.querySelector('.btw-copy');
-    if (copy) copy.style.display = btwState.answer ? '' : 'none';
+    if (copy) copy.style.display = st.answer ? '' : 'none';
 }
 
 /** 悬浮按钮（首次使用时动态创建，固定定位在消息区右下、输入区上方）。 */
@@ -121,40 +127,58 @@ function ensureBtwFloat() {
 function renderBtwFloat() {
     const f = btwFloat();
     if (!f) return;
-    f.classList.toggle('processing', !!btwState.pending);
+    const st = curBtwState();
+    f.classList.toggle('processing', !!st.pending);
     const dot = f.querySelector('.btw-float-dot');
-    if (dot) dot.style.display = (!btwState.pending && btwState.answer) ? '' : 'none';
+    if (dot) dot.style.display = (!st.pending && st.answer) ? '' : 'none';
     const main = f.querySelector('.btw-float-main');
     if (main) {
-        main.title = btwState.pending
+        main.title = st.pending
             ? '打开侧问（生成中…）'
-            : (btwState.answer ? '打开侧问（有新回答）' : '打开侧问');
+            : (st.answer ? '打开侧问（有新回答）' : '打开侧问');
     }
 }
 
-/** 可见性联动：面板开 → 悬浮隐藏；面板关且存在任务（生成中/有结果/失败）→ 悬浮显示。 */
+/** 可见性联动：面板开 → 悬浮隐藏；面板关且当前会话存在任务（生成中/有结果/失败）→ 悬浮显示。 */
 function refreshFloatVisibility() {
     const f = ensureBtwFloat();
-    const hasTask = !!(btwState.pending || btwState.answer || btwState.failed);
-    f.style.display = (!btwState.visible && hasTask) ? '' : 'none';
+    const st = curBtwState();
+    const hasTask = !!(st.pending || st.answer || st.failed);
+    f.style.display = (!btwVisible && hasTask) ? '' : 'none';
     renderBtwFloat();
+}
+
+/** 会话切换同步（由 session.js 的 loadMessages 调用）：收起面板（属于旧会话），
+ *  按新会话刷新悬浮按钮——无侧问不显示、有侧问显示对应状态。幂等，同会话重复调用直接跳过。 */
+export function syncBtwToSession(sessionID) {
+    const sid = sessionID || '';
+    if (btwSyncedSession === sid) return;
+    btwSyncedSession = sid;
+    if (btwVisible) {
+        btwVisible = false;
+        const modal = btwModal();
+        if (modal) modal.style.display = 'none';
+    }
+    refreshFloatVisibility();
 }
 
 /** 关闭面板 = 只隐藏（任务与结果保留；悬浮按钮接管常驻入口）。 */
 export function hideBtwPanel() {
-    btwState.visible = false;
+    btwVisible = false;
     const modal = btwModal();
     if (modal) modal.style.display = 'none';
     refreshFloatVisibility();
 }
 
-/** 完全关闭 + 清除数据（悬浮按钮右上角小 ✕ 调用）。 */
+/** 完全关闭 + 清除数据（悬浮按钮右上角小 ✕ 调用）；只清当前会话，其他会话不受影响。 */
 export function discardBtw() {
-    btwState.question = '';
-    btwState.answer = '';
-    btwState.pending = false;
-    btwState.failed = false;
-    btwState.visible = false;
+    const st = curBtwState();
+    st.question = '';
+    st.answer = '';
+    st.pending = false;
+    st.failed = false;
+    st.seq++; // 作废在途响应：清除后不会被回写
+    btwVisible = false;
     const modal = btwModal();
     if (modal) modal.style.display = 'none';
     renderBtwPanel(); // 同步清空面板 DOM 残留（下次打开显示「请输入一个问题」）
@@ -164,7 +188,7 @@ export function discardBtw() {
 
 /** 打开（或从悬浮按钮恢复）面板。 */
 export function openBtwPanel() {
-    btwState.visible = true;
+    btwVisible = true;
     renderBtwPanel();
     const modal = btwModal();
     if (modal) modal.style.display = 'flex';
@@ -172,14 +196,15 @@ export function openBtwPanel() {
     return true;
 }
 
-/** 是否有进行中或已完成的侧问（命令面板 case 'btw' 无参数时用来决定「重开」还是「放回输入框」）。 */
+/** 当前会话是否有进行中或已完成的侧问（决定悬浮按钮点击行为与 /btw 无参数重开）。 */
 export function hasActiveBtw() {
-    return !!(btwState.pending || btwState.answer || btwState.failed);
+    const st = curBtwState();
+    return !!(st.pending || st.answer || st.failed);
 }
 
-/** 发起（或重试）一次侧问。question 为空时用当前问题（重试路径）。 */
+/** 发起（或重试）一次侧问。question 为空时用当前会话的当前问题（重试路径）。 */
 export async function generateBtw(question) {
-    const q = (question == null ? '' : String(question)).trim() || btwState.question;
+    const q = (question == null ? '' : String(question)).trim() || curBtwState().question;
     const prompt = buildBtwPrompt(q);
     if (!prompt) {
         showToast('请在 /btw 后输入问题', 'error');
@@ -190,10 +215,12 @@ export async function generateBtw(question) {
         showToast('请先选择会话', 'error');
         return;
     }
-    btwState.question = q;
-    btwState.pending = true;
-    btwState.failed = false;
-    btwState.answer = '';
+    const st = curBtwState(); // sid === 当前会话，条目即为该会话的状态
+    const seq = ++st.seq;     // 本次请求序号（作废旧在途响应）
+    st.question = q;
+    st.pending = true;
+    st.failed = false;
+    st.answer = '';
     renderBtwPanel();
     refreshFloatVisibility();
 
@@ -206,21 +233,25 @@ export async function generateBtw(question) {
         const text = extractBtwAnswer(res);
         // 请求成功但信封不对 / 空文本：同样按失败处理并允许重试（不「假装成功」）。
         if (!text) throw new Error('响应中没有可用文本');
-        btwState.answer = text;
-        btwState.failed = false;
+        if (st.seq !== seq) return; // 期间被清除/重发：丢弃本次结果
+        st.answer = text;
+        st.failed = false;
     } catch (e) {
-        btwState.answer = '';
-        btwState.failed = true;
+        if (st.seq !== seq) return; // 已清除/重发：静默丢弃
+        st.answer = '';
+        st.failed = true;
         // 错误展示统一走 showApiError（→ v2compat.formatApiError）：
         // 解析 v2 错误体的 message、压空白并截断，避免直接拼 e.message 糊一屏 JSON。
         showApiError('侧问失败: ', e);
     } finally {
-        btwState.pending = false;
-        renderBtwPanel();
-        refreshFloatVisibility();
-        // 面板关着完成 → 提醒（悬浮按钮已同步亮绿点）
-        if (!btwState.visible && btwState.answer) {
-            showToast('侧问已完成——点右下角悬浮按钮查看', 'success');
+        if (st.seq === seq) {
+            st.pending = false;
+            renderBtwPanel();
+            refreshFloatVisibility();
+            // 面板关着完成、且仍停留在发起会话 → 提醒（悬浮按钮已同步亮绿点）
+            if (!btwVisible && st.answer && store.currentSessionId === sid) {
+                showToast('侧问已完成——点右下角悬浮按钮查看', 'success');
+            }
         }
     }
 }
@@ -241,9 +272,10 @@ export async function askBtw(question) {
 
 /** 复制答案到剪贴板（面板头部按钮）。 */
 async function copyBtwAnswer() {
-    if (!btwState.answer) return;
+    const st = curBtwState();
+    if (!st.answer) return;
     try {
-        await navigator.clipboard.writeText(btwState.answer);
+        await navigator.clipboard.writeText(st.answer);
         showToast('已复制回答', 'success');
     } catch (_) {
         showToast('复制失败', 'error');
@@ -261,7 +293,7 @@ export function bindBtwPanelEvents() {
         const copy = modal.querySelector('.btw-copy');
         if (copy) copy.addEventListener('click', copyBtwAnswer);
         const retry = modal.querySelector('.btw-retry');
-        if (retry) retry.addEventListener('click', function () { generateBtw(btwState.question); });
+        if (retry) retry.addEventListener('click', function () { generateBtw(curBtwState().question); });
         // 点遮罩关闭 = 只隐藏（与 PR 的 bindOverlayClose 行为兼容）
         bindOverlayClose(modal, hideBtwPanel);
     }
@@ -270,7 +302,7 @@ export function bindBtwPanelEvents() {
         f.dataset.eventsBound = '1';
         const main = f.querySelector('.btw-float-main');
         if (main) main.addEventListener('click', function () {
-            if (btwState.pending || btwState.answer || btwState.failed) openBtwPanel();
+            if (hasActiveBtw()) openBtwPanel();
         });
         const close = f.querySelector('.btw-float-close');
         if (close) close.addEventListener('click', function (e) {

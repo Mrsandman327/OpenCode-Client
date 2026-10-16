@@ -2,7 +2,7 @@
 // chat-session.js — 会话管理与消息收发
 // 负责会话选择/创建/加载、Agent/Model 选择器、附件管理、消息发送、轮询与中止
 // 依赖：core/state.js、core/utils.js（showToast, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages）、
-//       core/apicall.js（api）、chat/mobile.js（isMobileTreeMode）、chat/tabs.js（openSessionTab, renderTabsBar, setTabActivationHandler）、
+//       core/apicall.js（api）、chat/btw.js（syncBtwToSession）、chat/mobile.js（isMobileTreeMode）、chat/tabs.js（openSessionTab, renderTabsBar, setTabActivationHandler）、
 //       chat/sidepanel.js（refreshSubtaskPanel, scheduleSubtaskExtraction）、chat/events.js（loadSessionStatuses）、
 //       chat/render.js（isSessionBusy, smartScroll, updateSendButton, renderMessages）、
 //       chat/search.js（resetUserNav）、chat/cache.js（cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages）
@@ -26,6 +26,7 @@ import { isSessionBusy, smartScroll, updateSendButton, renderMessages, ensureSel
 // 调用它的 isKnownCommand/isKnownSkill。
 import { isKnownCommand, isKnownSkill, executeFixedCmd } from './cmd-palette.js';
 import { parseBtwCommand } from '../core/btw.js';
+import { syncBtwToSession } from './btw.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
 import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
@@ -556,6 +557,8 @@ const loadMessagesInflight = {};
 
 export async function loadMessages(sessionID) {
     const targetId = sessionID || store.currentSessionId;
+    // 侧问悬浮按钮跟随会话（无会话时传空串，按空会话刷新显隐）
+    syncBtwToSession(targetId || '');
     if (!targetId) {
         // 无当前会话：仅当池中没有 tab 容器时才写空态提示；
         // 否则保留隐藏的 tab 容器与新建会话占位提示，避免误清空
