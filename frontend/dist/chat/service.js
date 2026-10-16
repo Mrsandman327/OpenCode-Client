@@ -907,6 +907,13 @@ function mbText(bytes) {
     return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
+function speedText(bytesPerSec) {
+    if (!bytesPerSec || bytesPerSec <= 0) return '';
+    if (bytesPerSec >= 1048576) return (bytesPerSec / 1048576).toFixed(1) + ' MB/s';
+    if (bytesPerSec >= 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+    return Math.round(bytesPerSec) + ' B/s';
+}
+
 /** 发起后台下载（立即返回；轮询接管进度显示）。 */
 async function startUpdateDownload(version) {
     updateSpeedText = '';
@@ -951,10 +958,12 @@ function applyUpdateStatusToBanner(st) {
     // 网速：按轮询间隔对已下载字节差分（前端计算，后端状态无需提供）
     if (phase === 'downloading' && st.downloaded > 0) {
         var nowTs = Date.now();
-        if (updateLastSample.ts && st.downloaded >= updateLastSample.bytes) {
+       if (updateLastSample.ts && st.downloaded >= updateLastSample.bytes) {
             var dt = (nowTs - updateLastSample.ts) / 1000;
             if (dt >= 0.2) {
-                updateSpeedText = ((st.downloaded - updateLastSample.bytes) / dt / 1048576).toFixed(1) + ' MB/s';
+                var bps = (st.downloaded - updateLastSample.bytes) / dt;
+                // 差值为 0（轮询间隔内暂无新字节）时保持上次速度显示，避免闪成 0
+                if (bps > 0) updateSpeedText = speedText(bps);
             }
         }
         updateLastSample = { bytes: st.downloaded, ts: nowTs };
