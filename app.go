@@ -607,6 +607,28 @@ func (a *App) CheckOpenCodeVersion(currentVersion string) model.VersionCheckResu
 	return checkOpenCodeVersion(currentVersion)
 }
 
+// ========== OpenCode 自动更新 ==========
+
+// StartOpenCodeUpdate 启动后台下载（不阻塞界面）；进度经 GetOpenCodeUpdateStatus 轮询。
+func (a *App) StartOpenCodeUpdate(version string, proxy model.ProxyConfig) model.UpdateStatus {
+	return opencode.StartUpdate(version, proxy)
+}
+
+// GetOpenCodeUpdateStatus 查询更新任务状态（含跨启动恢复的「就绪待更新」）。
+func (a *App) GetOpenCodeUpdateStatus() model.UpdateStatus {
+	return opencode.GetUpdateStatus()
+}
+
+// CancelOpenCodeUpdate 取消后台下载（保留已下载部分，重试可续传）。
+func (a *App) CancelOpenCodeUpdate() model.UpdateStatus {
+	return opencode.CancelUpdate()
+}
+
+// ApplyOpenCodeUpdate 完成更新：停服 → 替换 → 校验 → 重启；失败自动回滚。
+func (a *App) ApplyOpenCodeUpdate(hostname string, port int, password string, proxy model.ProxyConfig) model.UpdateStatus {
+	return opencode.ApplyUpdate(hostname, port, password, proxy)
+}
+
 // ========== 知识库 ==========
 
 // knowledgeStore 返回默认知识库存储实例。

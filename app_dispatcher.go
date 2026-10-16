@@ -400,6 +400,25 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.CheckOpenCodeVersion(currentVersion), nil
+	case "StartOpenCodeUpdate":
+		var version string
+		var proxy model.ProxyConfig
+		if err := decodeArgs(args, &version, &proxy); err != nil {
+			return nil, err
+		}
+		return a.StartOpenCodeUpdate(version, proxy), nil
+	case "GetOpenCodeUpdateStatus":
+		return a.GetOpenCodeUpdateStatus(), nil
+	case "CancelOpenCodeUpdate":
+		return a.CancelOpenCodeUpdate(), nil
+	case "ApplyOpenCodeUpdate":
+		var hostname, password string
+		var port int
+		var proxy model.ProxyConfig
+		if err := decodeArgs(args, &hostname, &port, &password, &proxy); err != nil {
+			return nil, err
+		}
+		return a.ApplyOpenCodeUpdate(hostname, port, password, proxy), nil
 	case "GetAppVersion":
 		return a.GetAppVersion(), nil
 	case "KnowledgeList":
