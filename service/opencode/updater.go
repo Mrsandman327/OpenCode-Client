@@ -8,6 +8,7 @@
 //   - 应用更新（ApplyUpdate）：停服 → 备份 → 替换 → 校验新二进制 → 重启；
 //     任一步失败自动回滚到备份并尽量恢复原服务；
 //   - 代理链：应用显式配置 > 环境变量 > 系统代理自动探测（见 internal/sysproxy）> 直连；
+//     版本检查（CheckLatestVersion）例外：固定直连，不使用任何代理（与 v1 口径一致）；
 //   - 更新对象仅限便携二进制（tools/opencode[.exe]）；系统 PATH 安装不处理。
 package opencode
 
@@ -27,6 +28,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -52,9 +54,9 @@ const (
 // versionRe 版本号字符集白名单（版本直接拼进 URL，必须防路径注入）。
 var versionRe = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z.\-+]*$`)
 
-// normalizeVersionLocal 去 "v" 前缀（与 app_version.go 的 normalizeVersion 同口径；
-// 该函数在 main 包，本包不可引用）。
-func normalizeVersionLocal(v string) string {
+// normalizeVersion 归一化版本号：去 "v" 前缀、去空白。
+// 预发布后缀（如 0.0.0-dev-202609280537）原样保留，交给 compareVersions 处理。
+func normalizeVersion(v string) string {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "v")
 	v = strings.TrimPrefix(v, "V")
@@ -192,7 +194,7 @@ func GetUpdateStatus() model.UpdateStatus {
 
 // StartUpdate 启动后台下载（不阻塞）；已有任务或已就绪时返回当前状态。
 func StartUpdate(version string, proxy model.ProxyConfig) model.UpdateStatus {
-	version = normalizeVersionLocal(version)
+	version = normalizeVersion(version)
 	ensureUpdateLoaded()
 	updateManager.mu.Lock()
 	defer updateManager.mu.Unlock()
@@ -310,6 +312,116 @@ func setDownloadProgress(downloaded, total int64) {
 	}
 	updateManager.status.Downloaded = downloaded
 	updateManager.status.Total = total
+}
+
+// ============================
+// 版本检查
+// ============================
+
+// CheckLatestVersion 查询 opencode 最新版本（v2 渠道：npm @opencode/cli）。
+//
+// 版本检查固定直连：不使用任何代理（不读 HTTP_PROXY/HTTPS_PROXY 环境变量，
+// 也不探测系统代理）。与 v1 口径一致——代理仅用于「下载更新」
+// （见 newUpdateHTTPClient 与 internal/sysproxy）。
+func CheckLatestVersion(currentVersion string) model.VersionCheckResult {
+	result := model.VersionCheckResult{CurrentVersion: currentVersion, IsLatest: true}
+
+	current := normalizeVersion(currentVersion)
+	if current == "" {
+		result.Error = "无法识别的当前版本号: " + currentVersion
+		return result
+	}
+
+	// 复制默认 Transport 并清空 Proxy：保留默认超时/连接池，但不使用任何代理
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	client := &http.Client{Transport: transport}
+
+	resp, err := client.Get("https://registry.npmjs.org/@opencode/cli/latest")
+	if err != nil {
+		result.Error = "获取最新版本信息失败"
+		return result
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		result.Error = "获取最新版本信息失败"
+		return result
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		result.Error = "读取版本信息失败"
+		return result
+	}
+	var payload struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil || payload.Version == "" {
+		result.Error = "解析版本信息失败"
+		return result
+	}
+
+	latest := normalizeVersion(payload.Version)
+	result.LatestVersion = payload.Version
+	// 语义化比较：预发布版本低于同号正式版（如 2.0.0-beta < 2.0.0）
+	result.IsLatest = compareVersions(current, latest) >= 0
+	return result
+}
+
+// ============================
+// 版本工具（保留自原 app_version.go）
+// ============================
+
+// parseVersion 解析 "1.2.3-beta.4" → ([1,2,3], "beta.4")。
+// 内部先做 normalizeVersion，故 "v2.0.15" 也能正确解析。
+// 缺失的段按 0 处理；非数字段（如 "2.0.18-rc1" 里的 "rc1"）截断解析。
+func parseVersion(v string) ([3]int, string) {
+	v = normalizeVersion(v)
+	var nums [3]int
+	rest := v
+	if i := strings.IndexAny(rest, "-+"); i >= 0 {
+		rest = rest[:i]
+	}
+	parts := strings.Split(rest, ".")
+	for i := 0; i < 3 && i < len(parts); i++ {
+		n, err := strconv.Atoi(strings.TrimSpace(parts[i]))
+		if err != nil {
+			break
+		}
+		nums[i] = n
+	}
+	pre := ""
+	if i := strings.IndexAny(v, "-+"); i >= 0 {
+		pre = v[i+1:]
+	}
+	return nums, pre
+}
+
+// compareVersions 按语义化版本比较：a<b 返回 -1，a==b 返回 0，a>b 返回 1。
+// 预发布版本小于同号正式版本（2.0.0-beta < 2.0.0）。
+func compareVersions(a, b string) int {
+	an, ap := parseVersion(a)
+	bn, bp := parseVersion(b)
+	for i := 0; i < 3; i++ {
+		if an[i] != bn[i] {
+			if an[i] < bn[i] {
+				return -1
+			}
+			return 1
+		}
+	}
+	switch {
+	case ap == bp:
+		return 0
+	case ap == "":
+		return 1 // a 是正式版，b 是预发布版 → a 更新
+	case bp == "":
+		return -1
+	case ap < bp:
+		return -1
+	default:
+		return 1
+	}
 }
 
 // ============================
@@ -630,7 +742,7 @@ func ApplyUpdate(hostname string, port int, password string, proxy model.ProxyCo
 
 	// 3) 校验新二进制版本
 	ver, verr := probeBinaryVersion(binPath)
-	if verr != nil || normalizeVersionLocal(ver) != version {
+	if verr != nil || normalizeVersion(ver) != version {
 		_ = os.Remove(binPath)
 		_ = os.Rename(bak, binPath)
 		restart()
@@ -638,7 +750,7 @@ func ApplyUpdate(hostname string, port int, password string, proxy model.ProxyCo
 		if verr != nil {
 			msg += "（" + verr.Error() + "）"
 		} else {
-			msg += "（期望 " + version + "，实际 " + normalizeVersionLocal(ver) + "）"
+			msg += "（期望 " + version + "，实际 " + normalizeVersion(ver) + "）"
 		}
 		return applyFailed(msg, true)
 	}

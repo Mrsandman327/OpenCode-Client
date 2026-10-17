@@ -600,11 +600,10 @@ func (a *App) ImportSkill(rootDir, sourcePath, skillName string) error {
 	return projectconfig.ImportSkill(rootDir, sourcePath, skillName)
 }
 
-// CheckOpenCodeVersion 检测 opencode 最新版本。
-// 实现在 app_version.go：v2 的发布渠道与 v1 不同（npm @opencode/cli），
-// 且需按语义化版本比较而非字符串相等。
+// CheckOpenCodeVersion 检测 opencode 最新版本（v2 渠道：npm @opencode/cli）。
+// 实现位于 service/opencode/updater.go 的 CheckLatestVersion：固定直连、无 proxy 参数。
 func (a *App) CheckOpenCodeVersion(currentVersion string) model.VersionCheckResult {
-	return checkOpenCodeVersion(currentVersion)
+	return opencode.CheckLatestVersion(currentVersion)
 }
 
 // ========== OpenCode 自动更新 ==========
