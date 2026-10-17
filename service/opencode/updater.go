@@ -7,6 +7,7 @@
 //   - 「就绪待更新」状态持久化到 tools/.update/state.json，应用重启后仍可完成更新；
 //   - 应用更新（ApplyUpdate）：停服 → 备份 → 替换 → 校验新二进制 → 重启；
 //     任一步失败自动回滚到备份并尽量恢复原服务；
+//   - 代理链：应用显式配置 > 环境变量 > 系统代理自动探测（见 internal/sysproxy）> 直连；
 //   - 更新对象仅限便携二进制（tools/opencode[.exe]）；系统 PATH 安装不处理。
 package opencode
 
@@ -31,6 +32,7 @@ import (
 	"time"
 
 	"oc-manager/internal/executil"
+	"oc-manager/internal/sysproxy"
 	"oc-manager/model"
 )
 
@@ -316,6 +318,9 @@ func setDownloadProgress(downloaded, total int64) {
 
 // newUpdateHTTPClient 构造下载客户端：按代理配置走代理、无总超时（大文件）、
 // 重定向仅允许官方域。
+//
+// 代理优先级：应用内显式配置（ProxyEnabled）> 环境变量（HTTP_PROXY/HTTPS_PROXY）
+// > 系统代理（自动探测，见 detectSystemProxyURL）> 直连。
 func newUpdateHTTPClient(proxy model.ProxyConfig) *http.Client {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -337,12 +342,32 @@ func newUpdateHTTPClient(proxy model.ProxyConfig) *http.Client {
 		if u, err := url.Parse("http://" + host + ":" + port); err == nil {
 			transport.Proxy = http.ProxyURL(u)
 		}
+	} else {
+		// 未显式启用代理：环境变量优先，其次系统代理（Clash 等「系统代理」模式），最后直连。
+		transport.Proxy = sysproxy.ProxyFunc()
 	}
 	return &http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			h := strings.ToLower(req.URL.Hostname())
-			if h != "opencode.ai" && !strings.HasSuffix(h, ".opencode.ai") {
+			// 允许的重定向目标域：
+			//   - opencode.ai / *.opencode.ai：本项目的下载源（v2 分发直链）
+			//   - github.com / *.github.com 及 *.githubusercontent.com：兼容 v1 渠道
+			//     （Releases 下载会 302 到 release-assets.githubusercontent.com）
+			// 其余一律拒绝，防止被恶意重定向。
+			allowed := func(host string) bool {
+				if host == "opencode.ai" || strings.HasSuffix(host, ".opencode.ai") {
+					return true
+				}
+				if host == "github.com" || strings.HasSuffix(host, ".github.com") {
+					return true
+				}
+				if host == "githubusercontent.com" || strings.HasSuffix(host, ".githubusercontent.com") {
+					return true
+				}
+				return false
+			}
+			if !allowed(h) {
 				return fmt.Errorf("下载被重定向到非官方域: %s", req.URL.Host)
 			}
 			if len(via) >= 5 {

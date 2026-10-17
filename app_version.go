@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"oc-manager/internal/sysproxy"
 	"oc-manager/model"
 )
 
@@ -105,7 +106,12 @@ func checkOpenCodeVersion(currentVersion string) model.VersionCheckResult {
 		return result
 	}
 
-	client := &http.Client{Timeout: versionProbeTimeout}
+	client := &http.Client{
+		Timeout: versionProbeTimeout,
+		// 代理：环境变量优先，其次系统代理（与「下载更新」同一代理链；
+		// 应用内显式代理配置经下载入口传入该链路，版本探测在此从环境/系统级兜底）。
+		Transport: &http.Transport{Proxy: sysproxy.ProxyFunc()},
+	}
 	latest, err := fetchNpmLatestVersion(client)
 	if err != nil {
 		// 兜底：GitHub Releases。注意该源可能只含 v1，
