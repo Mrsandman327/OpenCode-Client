@@ -4145,8 +4145,8 @@ input::placeholder, textarea::placeholder {
 .model-group-title::before {
     content: '';
     display: inline-block;
-    width: 10px;
-    height: 10px;
+    width: 18px;
+    height: 18px;
     margin-right: 5px;
     vertical-align: -1px;
     background: var(--text-muted);
@@ -5155,17 +5155,27 @@ input::placeholder, textarea::placeholder {
     height: 100%;
     overflow-y: auto;
 }
-.providers-list {
-    padding: 12px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    overflow-y: auto;
+/* 滚动层与内容层分离：CSS columns 内容必须高度自适应（固定高度会导致横向溢出列不可见） */
+.providers-scroll {
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
+}
+/* 多列瀑布流（列优先）：列宽 460，宽屏自动排 3 列；窄屏自动降为 2/1 列 */
+.providers-list {
+    padding: 12px 22px;
+    columns: 3 460px;
+    column-gap: 16px;
+}
+/* 列表模式（单列，卡片全宽） */
+.providers-list.list-mode {
+    columns: auto;
+}
+/* 空态：强制单列，提示居中占满整个列表区（columns 下会挤在左列） */
+.providers-list.is-empty {
+    columns: auto;
 }
 .provider-card {
-    flex-shrink: 0;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -5175,6 +5185,9 @@ input::placeholder, textarea::placeholder {
     /* hover 时抬升 z-index 的定位参照，避免阴影被相邻卡片盖住 */
     position: relative;
     transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    /* 瀑布流：禁止卡片跨列断开 + 纵向间距（columns 无 row-gap） */
+    break-inside: avoid;
+    margin-bottom: 18px;
 }
 .provider-card:hover {
     box-shadow: var(--card-shadow-float-hover);
@@ -5184,10 +5197,16 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 24px;
+    padding: 12px 14px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     gap: 16px;
+    /* 点击标题栏展开/折叠 */
+    cursor: pointer;
+    user-select: none;
+}
+.provider-card-header:hover {
+    background: var(--bg-card-hover);
 }
 .prov-edit-name {
     font-size: 12px;
@@ -5277,9 +5296,10 @@ input::placeholder, textarea::placeholder {
     font-size: 12px;
     color: var(--text-muted);
 }
-/* 连接配置三栏 */
+/* 连接配置：纵向堆叠（窄卡片下三栏会显示不全） */
 .provider-conn-row {
     display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 .provider-conn-col {
@@ -5287,13 +5307,7 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     gap: 4px;
     min-width: 0;
-}
-.provider-conn-col:nth-child(1),
-.provider-conn-col:nth-child(2) {
-    flex: 2;
-}
-.provider-conn-col:nth-child(3) {
-    flex: 1;
+    width: 100%;
 }
 .provider-conn-col input,
 .provider-conn-col select {
@@ -5336,11 +5350,15 @@ input::placeholder, textarea::placeholder {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+/* 默认收起：仅标题栏 + 摘要 + 启用模型名单；点击标题栏展开后显示完整编辑区 */
 .provider-card-body {
-    padding: 20px 24px;
-    display: flex;
+    padding: 13px 14px 14px;
+    display: none;
     flex-direction: column;
     gap: 14px;
+}
+.provider-card.expanded .provider-card-body {
+    display: flex;
 }
 .provider-models {
     margin-top: 8px;
@@ -5759,6 +5777,231 @@ input::placeholder, textarea::placeholder {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+
+/* ===== 供应商卡片：收起态标题栏 / 摘要 / 启用模型名单 ===== */
+.provider-title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+/* 标题栏左侧折叠/展开图标：项目 assets 同款（折叠=右三角 / 展开=下三角），mask 跟随文字色 */
+.prov-expand-ic {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    background: currentColor;
+    color: var(--text-muted);
+    -webkit-mask: url("../assets/菜单折叠.svg") center / 12px 12px no-repeat;
+    mask: url("../assets/菜单折叠.svg") center / 12px 12px no-repeat;
+}
+.provider-card.expanded .prov-expand-ic {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
+}
+.prov-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+}
+.prov-dot.off {
+    background: var(--border-light);
+}
+.prov-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+.provider-card.disabled .prov-name {
+    color: var(--text-muted);
+}
+.prov-key {
+    font-size: 10.5px;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    padding: 1px 6px;
+}
+.prov-badge {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 1px 8px;
+    white-space: nowrap;
+}
+/* 收起态摘要行：主机名 · 接口格式 */
+.provider-summary {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+}
+.provider-summary .mono {
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.provider-summary .sep {
+    color: var(--border-light);
+}
+/* 收起态：启用模型名单（禁用模型不显示；超过 4 个截断，展开时隐藏） */
+.prov-models-line {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 0 14px 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+}
+.prov-models-label {
+    font-weight: 600;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.prov-models-names {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+}
+.prov-models-line .more {
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+.prov-models-empty {
+    color: var(--border-light);
+}
+.provider-card.expanded .provider-summary,
+.provider-card.expanded .prov-models-line {
+    display: none;
+}
+/* 保存按钮：展开态右下角 */
+.provider-save-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2px;
+}
+
+/* ===== 供应商工具栏（照知识库 .kb-toolbar） ===== */
+.pv-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.pv-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 180px;
+    max-width: 340px;
+    padding: 0 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    transition: border-color var(--transition);
+}
+.pv-search:focus-within { border-color: var(--accent); }
+.pv-search .pv-i {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+}
+.pv-search input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 6px 0;
+    font-size: 13px;
+    color: var(--text-primary);
+    outline: none;
+    min-width: 0;
+    font-family: inherit;
+}
+.pv-seg {
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+.pv-seg-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: none;
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+.pv-seg-btn:hover { color: var(--text-primary); }
+.pv-seg-btn.active {
+    background: var(--bg-sidebar-active);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.pv-seg-btn .pv-i {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+/* 工具栏主按钮「添加供应商」：照原型/「启动 OpenCode」主按钮样式（蓝底白字 + 轻投影）。
+   .btn-sm 在样式表中后定义，会覆盖 .btn-primary 的背景/颜色，hover 时还会把文字染成蓝色，
+   这里用作用域选择器提升优先级并显式保持白字（与 .oc-toolbar .btn-primary 同一做法）。 */
+.pv-toolbar .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.pv-toolbar .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: #fff;
 }
 
 /* ============================================================

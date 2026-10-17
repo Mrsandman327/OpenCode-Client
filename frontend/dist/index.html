@@ -414,13 +414,32 @@
 
             <!-- ===== View 5: 供应商配置 ===== -->
             <div class="view-panel" id="view-providers">
-                <section class="path-bar">
-                    <span class="path-label">配置文件：</span>
-                    <span class="path-value" id="providerConfigPath">加载中...</span>
-                    <button type="button" class="btn btn-sm btn-open toolbar-spacer" id="btnOpenProviderConfigDir"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开</button>
-                </section>
-                <div class="providers-list" id="providersList">
-                    <div class="loading"><div class="spinner"></div><p>正在加载供应商...</p></div>
+                <!-- 工具栏（照知识库 .kb-toolbar）：搜索 + 展开/折叠 + 列表/卡片切换 + 打开配置文件 + 添加供应商 -->
+                <div class="pv-toolbar">
+                    <div class="pv-search">
+                        <svg class="pv-i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5l-4.2-4.2"/></svg>
+                        <input type="search" id="providerSearch" placeholder="搜索供应商、模型…" autocomplete="off" />
+                    </div>
+                    <div class="toolbar-spacer"></div>
+                    <button type="button" class="btn btn-sm" id="btnExpandAllProviders" title="展开或折叠全部卡片">展开 / 折叠</button>
+                    <div class="pv-seg" id="providerViewSeg">
+                        <button type="button" class="pv-seg-btn" data-view="list" title="列表视图（单列）">
+                            <svg class="pv-i" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>
+                            列表
+                        </button>
+                        <button type="button" class="pv-seg-btn active" data-view="card" title="卡片视图（多列）">
+                            <svg class="pv-i" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+                            卡片
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-open" id="btnOpenProviderConfigDir" title="在文件浏览器中打开配置文件所在目录"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开配置文件</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="btnAddProvider">＋ 添加供应商</button>
+                </div>
+
+                <div class="providers-scroll">
+                    <div class="providers-list" id="providersList">
+                        <div class="loading"><div class="spinner"></div><p>正在加载供应商...</p></div>
+                    </div>
                 </div>
             </div>
 
