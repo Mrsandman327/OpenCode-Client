@@ -480,7 +480,7 @@ export function renderVersionCheck(version) {
 export async function checkOpenCodeVersion(version) {
     setCheckBtnState('检测中…', true);
     try {
-        var result = await api.CheckOpenCodeVersion(version || '', getNetworkConfig());
+        var result = await api.CheckOpenCodeVersion(version || '');
         setCheckBtnState('检测更新', false);
         if (result.isLatest) {
             showToast('已是最新版本', 'success');

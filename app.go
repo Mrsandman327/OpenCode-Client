@@ -721,9 +721,9 @@ func (a *App) ImportSkill(rootDir, sourcePath, skillName string) error {
 }
 
 // CheckOpenCodeVersion 检测 opencode 最新版本。
-// 代理链与「下载更新」一致（应用内配置 > 环境变量 > 系统代理 > 直连），实现见 opencode.CheckLatestVersion。
-func (a *App) CheckOpenCodeVersion(currentVersion string, proxy model.ProxyConfig) model.VersionCheckResult {
-	return opencode.CheckLatestVersion(currentVersion, proxy)
+// 版本检查强制直连（不使用任何代理），实现见 opencode.CheckLatestVersion。
+func (a *App) CheckOpenCodeVersion(currentVersion string) model.VersionCheckResult {
+	return opencode.CheckLatestVersion(currentVersion)
 }
 
 // ========== OpenCode 自动更新 ==========

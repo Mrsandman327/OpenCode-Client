@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"oc-manager/internal/executil"
+	"oc-manager/internal/sysproxy"
 	"oc-manager/model"
 )
 
@@ -319,22 +320,21 @@ func setDownloadProgress(downloaded, total int64) {
 // ============================
 
 // CheckLatestVersion 查询 opencode 最新版本。
-// 与「下载更新」共用同一 HTTP 客户端（newUpdateHTTPClient），代理链一致：
-// 应用内显式配置 > 环境变量（HTTP_PROXY/HTTPS_PROXY）> Windows 系统代理（自动探测）> 直连。
-// 原逻辑位于 app.go，迁移至本包以复用代理客户端，保证「检查更新」与「下载更新」两步行为一致。
-func CheckLatestVersion(currentVersion string, proxy model.ProxyConfig) model.VersionCheckResult {
+//
+// 版本检查强制直连：不使用任何代理（不读 HTTP_PROXY/HTTPS_PROXY 环境变量，
+// 也不探测系统代理）。原因：经系统代理访问 api.github.com 会检测失败，
+// 故本接口固定直连；代理仅用于「下载更新」（见 newUpdateHTTPClient 与 internal/sysproxy）。
+func CheckLatestVersion(currentVersion string) model.VersionCheckResult {
 	result := model.VersionCheckResult{CurrentVersion: currentVersion, IsLatest: true}
 
-	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/anomalyco/opencode/releases/latest", nil)
+	// 复制默认 Transport 并清空 Proxy：保留默认超时/连接池，但不使用任何代理
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	client := &http.Client{Transport: transport}
+
+	resp, err := client.Get("https://api.github.com/repos/anomalyco/opencode/releases/latest")
 	if err != nil {
-		result.Error = "获取最新版本信息失败: " + err.Error()
-		return result
-	}
-	// GitHub API 要求携带 User-Agent（缺失会被 403 拒绝）
-	req.Header.Set("User-Agent", "oc-manager-updater")
-	resp, err := newUpdateHTTPClient(proxy).Do(req)
-	if err != nil {
-		result.Error = "获取最新版本信息失败: " + err.Error()
+		result.Error = "获取最新版本信息失败"
 		return result
 	}
 	defer resp.Body.Close()
@@ -368,7 +368,7 @@ func CheckLatestVersion(currentVersion string, proxy model.ProxyConfig) model.Ve
 // 重定向仅允许官方域。
 //
 // 代理优先级：应用内显式配置（ProxyEnabled）> 环境变量（HTTP_PROXY/HTTPS_PROXY）
-// > Windows 系统代理（自动探测，见 detectSystemProxyURL）> 直连。
+// > 系统代理（自动探测，见 internal/sysproxy）> 直连。
 func newUpdateHTTPClient(proxy model.ProxyConfig) *http.Client {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -390,16 +390,9 @@ func newUpdateHTTPClient(proxy model.ProxyConfig) *http.Client {
 		if u, err := url.Parse("http://" + host + ":" + port); err == nil {
 			transport.Proxy = http.ProxyURL(u)
 		}
-	} else if sysProxy := detectSystemProxyURL(); sysProxy != nil {
-		// 未显式启用代理：自动复用系统代理（如 Clash 等软件的「系统代理」模式）。
-		// 优先级：环境变量 HTTP_PROXY/HTTPS_PROXY > 系统代理 > 直连。
-		envProxy := http.ProxyFromEnvironment
-		transport.Proxy = func(req *http.Request) (*url.URL, error) {
-			if u, err := envProxy(req); u != nil || err != nil {
-				return u, err
-			}
-			return sysProxy, nil
-		}
+	} else {
+		// 未显式启用代理：环境变量优先，其次系统代理（Clash 等「系统代理」模式），最后直连。
+		transport.Proxy = sysproxy.ProxyFunc()
 	}
 	return &http.Client{
 		Transport: transport,

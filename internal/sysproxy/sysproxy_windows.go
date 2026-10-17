@@ -1,6 +1,6 @@
 //go:build windows
 
-package opencode
+package sysproxy
 
 import (
 	"net/url"
@@ -9,16 +9,16 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-// detectSystemProxyURL 探测 Windows 系统代理（Internet 选项 → 注册表）。
+// DetectSystemProxyURL 探测 Windows 系统代理（Internet 选项 → 注册表）。
 //
 // 背景：Go 的 http.ProxyFromEnvironment 只读取 HTTP_PROXY/HTTPS_PROXY 环境变量，
 // 不读 Windows 的「系统代理」设置；而 Clash 等代理软件通常使用系统代理模式。
-// 本函数让下载功能在「应用内未显式启用代理」时自动复用系统代理：
+// 本函数让网络请求在「应用内未显式启用代理」时自动复用系统代理：
 //  1. 读注册表 HKCU\...\Internet Settings 的 ProxyEnable / ProxyServer；
 //  2. 解析出 host:port 后做一次 TCP 连通性探测（250ms 超时），
 //     防止代理软件已退出但系统设置残留的情况；
-//  3. 全部通过才返回代理 URL；否则返回 nil（下载保持原行为）。
-func detectSystemProxyURL() *url.URL {
+//  3. 全部通过才返回代理 URL；否则返回 nil（保持调用方原行为）。
+func DetectSystemProxyURL() *url.URL {
 	k, err := registry.OpenKey(registry.CURRENT_USER,
 		`Software\Microsoft\Windows\CurrentVersion\Internet Settings`, registry.QUERY_VALUE)
 	if err != nil {
@@ -63,7 +63,7 @@ func pickProxyHostPort(s string) string {
 		lower := strings.ToLower(part)
 		switch {
 		case strings.HasPrefix(lower, "https="):
-			return part[len("https="):] // 下载走 https，优先取 https 段
+			return part[len("https="):] // 请求走 https，优先取 https 段
 		case strings.HasPrefix(lower, "http="):
 			fallback = part[len("http="):]
 		}

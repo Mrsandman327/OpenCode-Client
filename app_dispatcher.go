@@ -440,11 +440,10 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		return nil, a.ImportSkill(rootDir, sourcePath, skillName)
 	case "CheckOpenCodeVersion":
 		var currentVersion string
-		var proxy model.ProxyConfig
-		if err := decodeArgs(args, &currentVersion, &proxy); err != nil {
+		if err := decodeArgs(args, &currentVersion); err != nil {
 			return nil, err
 		}
-		return a.CheckOpenCodeVersion(currentVersion, proxy), nil
+		return a.CheckOpenCodeVersion(currentVersion), nil
 	case "StartOpenCodeUpdate":
 		var version string
 		var proxy model.ProxyConfig

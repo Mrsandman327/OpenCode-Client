@@ -1,6 +1,6 @@
 //go:build linux
 
-package opencode
+package sysproxy
 
 import (
 	"context"
@@ -12,16 +12,16 @@ import (
 	"time"
 )
 
-// detectSystemProxyURL 探测 Linux 桌面环境的系统代理配置：
+// DetectSystemProxyURL 探测 Linux 桌面环境的系统代理配置：
 //  1. GNOME（GSettings）：`org.gnome.system.proxy` 的 mode 为 'manual' 时，
 //     取 http 段代理（回退 socks 段，socks5://）；
 //  2. KDE：~/.config/kioslaverc 中 [Proxy Settings] 段 ProxyType=1（手动）时，
 //     取 httpsProxy（回退 httpProxy）。
 //
 // 命中后做一次 TCP 连通性探测（250ms，确认代理端口真有服务监听），
-// 通过才返回代理 URL；否则返回 nil（下载保持原行为）。
+// 通过才返回代理 URL；否则返回 nil（保持调用方原行为）。
 // 环境变量（HTTP_PROXY/HTTPS_PROXY）由 http.ProxyFromEnvironment 单独处理，不在此重复。
-func detectSystemProxyURL() *url.URL {
+func DetectSystemProxyURL() *url.URL {
 	if u := detectGSettingsProxy(); u != nil {
 		return u
 	}
