@@ -9,6 +9,9 @@ import { openFileBrowserModal } from '../filebrowser/browser.js';
 
 export let providerCache = [];
 
+// 当前配置文件完整路径（原 path-bar 已移除：改为内存保存，供「打开配置文件」定位所在目录）
+var providerConfigPath = '';
+
 export function getProviderConfigDir(cfgPath) {
     var fullPath = String(cfgPath || '').trim();
     if (!fullPath) return '';
@@ -16,9 +19,7 @@ export function getProviderConfigDir(cfgPath) {
 }
 
 export async function openProviderConfigDirInBrowser() {
-    var pathEl = document.getElementById('providerConfigPath');
-    var cfgPath = pathEl ? String(pathEl.textContent || '').trim() : '';
-    var dir = getProviderConfigDir(cfgPath);
+    var dir = getProviderConfigDir(providerConfigPath);
     if (!dir || dir === '未知' || dir === '加载中...') {
         showToast('配置文件目录不可用', 'error');
         return;
@@ -111,8 +112,15 @@ export async function loadProviders() {
             api.GetProviders(),
             api.GetProviderConfigPath(),
         ]);
-        document.getElementById('providerConfigPath').textContent = cfgPath || '未知';
-        if (openBtn) openBtn.disabled = !getProviderConfigDir(cfgPath);
+        providerConfigPath = cfgPath || '';
+        if (openBtn) {
+            const dir = getProviderConfigDir(providerConfigPath);
+            openBtn.disabled = !dir;
+            // 路径提示放到按钮 title（原 path-bar 已移除）
+            openBtn.title = dir
+                ? ('在文件浏览器中打开：' + dir)
+                : '在文件浏览器中打开配置文件所在目录';
+        }
         renderProviders(providers || []);
     } catch (err) {
         list.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeHtml(err.message||err)}</p></div>`;
@@ -122,29 +130,107 @@ export async function loadProviders() {
 
 (function bindProviderConfigActions() {
     var openBtn = document.getElementById('btnOpenProviderConfigDir');
-    if (!openBtn || openBtn.dataset.bound) return;
-    openBtn.dataset.bound = 'true';
-    openBtn.addEventListener('click', function() {
-        openProviderConfigDirInBrowser();
-    });
+    if (openBtn && !openBtn.dataset.bound) {
+        openBtn.dataset.bound = 'true';
+        openBtn.addEventListener('click', function() {
+            openProviderConfigDirInBrowser();
+        });
+    }
+    // 工具栏：添加供应商
+    var addBtn = document.getElementById('btnAddProvider');
+    if (addBtn && !addBtn.dataset.bound) {
+        addBtn.dataset.bound = 'true';
+        addBtn.addEventListener('click', function() { addNewCard(); });
+    }
+    // 工具栏：搜索过滤
+    var searchEl = document.getElementById('providerSearch');
+    if (searchEl && !searchEl.dataset.bound) {
+        searchEl.dataset.bound = 'true';
+        searchEl.addEventListener('input', function() {
+            providerSearchQuery = searchEl.value;
+            applyProviderFilter();
+        });
+    }
+    // 工具栏：展开 / 折叠全部
+    var expandBtn = document.getElementById('btnExpandAllProviders');
+    if (expandBtn && !expandBtn.dataset.bound) {
+        expandBtn.dataset.bound = 'true';
+        expandBtn.addEventListener('click', function() {
+            var list = document.getElementById('providersList');
+            if (!list) return;
+            var cards = list.querySelectorAll('.provider-card');
+            var anyCollapsed = Array.prototype.some.call(cards, function(c) {
+                return !c.classList.contains('expanded');
+            });
+            Array.prototype.forEach.call(cards, function(c) {
+                c.classList.toggle('expanded', anyCollapsed);
+            });
+        });
+    }
+    // 工具栏：列表（单列）/ 卡片（多列）切换
+    var seg = document.getElementById('providerViewSeg');
+    if (seg && !seg.dataset.bound) {
+        seg.dataset.bound = 'true';
+        seg.addEventListener('click', function(e) {
+            var btn = e.target.closest('.pv-seg-btn');
+            if (!btn) return;
+            providerViewMode = btn.dataset.view === 'list' ? 'list' : 'card';
+            try { localStorage.setItem(PROVIDER_VIEW_KEY, providerViewMode); } catch (_) {}
+            applyProviderFilter();
+        });
+    }
 })();
 
 export function emptyProvider() {
     return { key: '', name: '', baseURL: '', apiKey: '', npm: '@ai-sdk/openai-compatible', npmRaw: '@ai-sdk/openai-compatible', enabled: true, models: [], _new: true };
 }
 
+// 供应商列表视图状态：搜索词 + 视图模式（card=多列瀑布流 / list=单列）
+// 视图模式持久化到 localStorage：上次选卡片下次仍是卡片，选列表仍是列表
+const PROVIDER_VIEW_KEY = 'oc-manager-provider-view';
+var providerSearchQuery = '';
+var providerViewMode = null; // null = 尚未从 localStorage 读取（首次应用时惰性加载）
+
+function getProviderViewMode() {
+    if (!providerViewMode) {
+        try {
+            providerViewMode = localStorage.getItem(PROVIDER_VIEW_KEY) === 'list' ? 'list' : 'card';
+        } catch (_) {
+            providerViewMode = 'card';
+        }
+    }
+    return providerViewMode;
+}
+
+/** 应用搜索过滤与视图模式（交互时调用；卡片重建后也需重新应用） */
+function applyProviderFilter() {
+    const list = document.getElementById('providersList');
+    if (!list) return;
+    const mode = getProviderViewMode();
+    list.classList.toggle('list-mode', mode === 'list');
+    const q = providerSearchQuery.trim().toLowerCase();
+    list.querySelectorAll('.provider-card').forEach(c => {
+        c.style.display = (!q || c.textContent.toLowerCase().indexOf(q) >= 0) ? '' : 'none';
+    });
+    const seg = document.getElementById('providerViewSeg');
+    if (seg) {
+        seg.querySelectorAll('.pv-seg-btn').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
+    }
+}
+
 export function renderProviders(providers) {
     const list = document.getElementById('providersList');
-    const empty = (!providers || !providers.length)
-        ? '<div class="prov-empty">暂无供应商，点击下方「添加供应商」</div>'
+    const isEmpty = !providers || !providers.length;
+    const empty = isEmpty
+        ? '<div class="prov-empty">暂无供应商，点击工具栏「添加供应商」</div>'
         : '';
     const html = (providers || []).map(p => providerCardHtml(p)).join('');
-    list.innerHTML = empty + html + `
-        <div class="provider-card provider-card-add" id="btnAddCard">
-            <span><span class="oc-fb-icon oc-fb-icon-add"></span>添加供应商</span>
-        </div>`;
+    // 空态强制单列（columns 下提示会挤在左列，居中到整个列表区）
+    list.classList.toggle('is-empty', isEmpty);
+    list.innerHTML = empty + html;
     bindProviderEvents(providers);
-    document.getElementById('btnAddCard').addEventListener('click', () => addNewCard());
+    // 恢复当前视图模式与搜索过滤（renderProviders 会重建卡片 DOM）
+    applyProviderFilter();
 }
 
 export function providerCardHtml(p) {
@@ -156,27 +242,50 @@ export function providerCardHtml(p) {
         ...PROVIDER_NPM_OPTIONS.map(item => `<option value="${escapeHtml(item.value)}" ${selectedNpmValue === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`),
         !matchedOption && npmValue ? `<option value="${PROVIDER_NPM_UNMATCHED}" selected>未匹配保留</option>` : ''
     ].join('');
-    const modelsHtml = (p.models || []).length
-        ? (p.models || []).map(m => modelSubcardHtml({ id: m.id, name: m.name || '' }, m.modalities)).join('')
+    const enabled = p.enabled !== false;
+    const allModels = p.models || [];
+    // 收起态：列出模型名单（超过 3 个截断，title 保留完整名单）
+    const modelsLineNames = allModels.slice(0, 3).map(m => String(m.id || '').split('/').pop()).join(' · ');
+    const modelsLineMore = allModels.length > 3 ? ` <span class="more">等 ${allModels.length} 个</span>` : '';
+    const modelsLine = allModels.length
+        ? `<span class="prov-models-label">模型</span><span class="prov-models-names" title="${escapeHtml(allModels.map(m => m.id).join('、'))}">${escapeHtml(modelsLineNames)}</span>${modelsLineMore}`
+        : '<span class="prov-models-label">模型</span><span class="prov-models-empty">暂无模型</span>';
+    const modelsHtml = allModels.length
+        ? allModels.map(m => modelSubcardHtml({ id: m.id, name: m.name || '' }, m.modalities)).join('')
         : '<div class="prov-empty">暂无模型，点击「手动添加」或「 获取模型列表」</div>';
+    const baseHost = (p.baseURL || '').trim().replace(/^https?:\/\//, '');
+    // 说明：接口格式下拉的类名 .prov-edit-npm 与 data-raw-npm 保留 v1 命名（CSS/事件绑定依赖）
     return `
-        <div class="provider-card" data-key="${escapeHtml(p.key)}">
+        <div class="provider-card${enabled ? '' : ' disabled'}${isNew ? ' expanded new-provider' : ''}" data-key="${escapeHtml(p.key)}">
             <div class="provider-card-header">
-                <div class="provider-identity">
-                    <span class="prov-inline-label">供应商标识</span><input class="prov-edit-key" value="${escapeHtml(p.key)}" placeholder="key (如 deepseek)" ${isNew?'':'readonly'} />
-                    <span class="prov-inline-label">供应商名称</span><input class="prov-edit-name" value="${escapeHtml(p.name||'')}" placeholder="名称"/>
+                <div class="provider-title">
+                    <span class="prov-expand-ic" aria-hidden="true"></span>
+                    <label class="prov-toggle" title="启用该供应商">
+                        <input type="checkbox" class="prov-edit-enabled" ${enabled ? 'checked' : ''} />
+                        <span class="prov-toggle-track"><span class="prov-toggle-thumb"></span></span>
+                    </label>
+                    <span class="prov-name">${escapeHtml(p.name || p.key || '新供应商')}</span>
+                    <span class="prov-key">${escapeHtml(p.key || '未命名')}</span>
+                    <span class="prov-badge">${allModels.length} 个模型</span>
                 </div>
                 <div class="provider-card-actions">
-                    <label class="prov-toggle" title="启用该供应商">
-                        <input type="checkbox" class="prov-edit-enabled" ${p.enabled!==false?'checked':''} />
-                        <span class="prov-toggle-track"><span class="prov-toggle-thumb"></span></span>
-                        <span class="prov-toggle-label">启用</span>
-                    </label>
-                    <button class="btn btn-sm btn-save-card" data-key="${escapeHtml(p.key)}">保存</button>
-                    <button class="btn btn-del btn-del-card" data-key="${escapeHtml(p.key)}" title="删除">✕</button>
+                    <button class="btn btn-del btn-del-card" data-key="${escapeHtml(p.key)}" title="删除供应商" aria-label="删除供应商"><span class="prov-del-ic" aria-hidden="true"></span></button>
                 </div>
             </div>
+            <div class="provider-summary">
+                <span class="mono">${escapeHtml(baseHost) || '未设置请求地址'}</span>
+                <span class="sep">·</span>
+                <span>${escapeHtml(p.npm || npmValue)}</span>
+            </div>
+            <div class="prov-models-line">${modelsLine}</div>
             <div class="provider-card-body">
+                <div class="provider-conn-row">
+                    ${isNew ? `<label class="provider-conn-col"><span class="prov-field-label">供应商标识 (key)</span><input class="prov-edit-key" value="${escapeHtml(p.key || '')}" placeholder="key (如 deepseek)" /></label>` : ''}
+                    <label class="provider-conn-col">
+                        <span class="prov-field-label">供应商名称</span>
+                        <input class="prov-edit-name" value="${escapeHtml(p.name||'')}" placeholder="名称" />
+                    </label>
+                </div>
                 <div class="provider-conn-row">
                     <label class="provider-conn-col">
                         <span class="prov-field-label">请求地址 (baseURL)</span>
@@ -202,6 +311,9 @@ export function providerCardHtml(p) {
                         ${modelsHtml}
                     </div>
                 </div>
+                <div class="provider-save-row">
+                    <button class="btn btn-sm btn-save-card" data-key="${escapeHtml(p.key)}">保存</button>
+                </div>
             </div>
         </div>`;
 }
@@ -211,6 +323,15 @@ export function bindProviderEvents(providers) {
 
     document.querySelectorAll('.btn-save-card').forEach(btn => {
         btn.addEventListener('click', () => saveProviderFromDom(btn.dataset.key));
+    });
+
+    // 启用开关：点击立即保存生效（卡片默认收起，收起态看不到保存按钮）
+    document.querySelectorAll('.prov-edit-enabled').forEach(input => {
+        input.addEventListener('change', () => {
+            const card = input.closest('.provider-card');
+            if (!card) return;
+            toggleProviderEnabled(card, input, input.checked);
+        });
     });
 
     document.querySelectorAll('.btn-del-card').forEach(btn => {
@@ -290,34 +411,62 @@ export function bindProviderEvents(providers) {
             toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         });
     });
+
+    // 点击标题栏/摘要行展开折叠（排除开关、删除与表单控件）
+    document.querySelectorAll('.provider-card').forEach(card => {
+        const head = card.querySelector('.provider-card-header');
+        const summary = card.querySelector('.provider-summary');
+        [head, summary].forEach(el => {
+            if (!el || el.dataset.expandBound) return;
+            el.dataset.expandBound = '1';
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('.prov-toggle, .btn-del-card, .btn-save-card, .btn-add-model-card, .btn-fetch-models, .btn-toggle-abilities, .btn-del-model, input, select')) return;
+                card.classList.toggle('expanded');
+            });
+        });
+    });
 }
 
 export function addNewCard() {
     const isNew = providerCache.some(p => p._new);
     if (isNew) { showToast('请先保存当前新增的供应商', 'info'); return; }
+    // 清空搜索：避免新建的空卡片被当前过滤条件隐藏
+    providerSearchQuery = '';
+    const searchEl = document.getElementById('providerSearch');
+    if (searchEl) searchEl.value = '';
     providerCache.push(emptyProvider());
     renderProviders(providerCache);
+    // 新卡渲染在列表末尾并默认展开：滚动到可见位置，聚焦「供应商标识」
+    const newCard = document.querySelector('.provider-card.new-provider');
+    if (newCard) {
+        newCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const keyInput = newCard.querySelector('.prov-edit-key');
+        if (keyInput) keyInput.focus();
+    }
 }
 
-export function saveProviderFromDom(key) {
-    const card = document.querySelector(`.provider-card[data-key="${CSS.escape(key)}"]`);
-    if (!card) return;
-
+/**
+ * 从卡片 DOM 收集提交数据（保存按钮与启用开关共用）。
+ * 收起态下编辑区只是 display:none，表单值仍可正常读取。
+ */
+export function collectProviderData(card) {
+    // 下拉的类名/数据属性保留 v1 命名（.prov-edit-npm / data-raw-npm）
     const npmSelect = card.querySelector('.prov-edit-npm');
     const selectedNpm = npmSelect?.value || '';
     const rawNpm = npmSelect?.dataset.rawNpm || '';
 
+    // 已添加供应商的标识不可编辑（标题栏只读徽章）：优先取新增卡的 key 输入，否则用卡片的 data-key
+    const keyInput = card.querySelector('.prov-edit-key');
     const data = {
-        key: card.querySelector('.prov-edit-key').value.trim(),
+        key: keyInput ? keyInput.value.trim() : (card.dataset.key || '').trim(),
         name: card.querySelector('.prov-edit-name').value.trim(),
         baseURL: card.querySelector('.prov-edit-url').value.trim(),
         apiKey: card.querySelector('.prov-edit-apikey').value.trim(),
+        // 选中「未匹配保留」哨兵值时，回退提交渲染时挂在 data-raw-npm 上的原始值
         npm: selectedNpm === PROVIDER_NPM_UNMATCHED ? rawNpm : selectedNpm,
         enabled: card.querySelector('.prov-edit-enabled').checked,
         models: []
     };
-
-    if (!data.key) { showToast('Key 不能为空', 'error'); return; }
 
     card.querySelectorAll('.model-subcard').forEach(row => {
         const id = row.querySelector('.model-edit-id')?.value?.trim();
@@ -326,12 +475,62 @@ export function saveProviderFromDom(key) {
         const input  = [...row.querySelectorAll('.mod-input:checked')].map(c => c.value);
         const output = [...row.querySelectorAll('.mod-output:checked')].map(c => c.value);
         const model = { id, name: name || id };
-        // 仅当设置了任意能力时才写 modalities；全空则省略字段，交给 OpenCode 走 models.dev 兜底
+        // 仅当设置了任意模态能力时才写 modalities；全空则省略字段，交给 OpenCode 走 models.dev 兜底
         if (input.length || output.length) {
             model.modalities = { input, output };
         }
         data.models.push(model);
     });
+
+    return data;
+}
+
+/** 同步启用态 UI：卡片禁用样式（标题栏开关本身由 checkbox 状态驱动） */
+function applyProviderEnabledUi(card, enabled) {
+    card.classList.toggle('disabled', !enabled);
+}
+
+/**
+ * 启用开关：点击即保存生效。
+ * 卡片默认收起，收起态看不到保存按钮，因此不能依赖展开后手动保存。
+ * 先乐观更新 UI，保存失败时回滚开关与卡片样式。
+ */
+function toggleProviderEnabled(card, input, enabled) {
+    const key = card.dataset.key;
+    if (!key) {
+        input.checked = !enabled;
+        showToast('请先保存供应商后再切换启用状态', 'info');
+        return;
+    }
+    applyProviderEnabledUi(card, enabled);
+    const data = collectProviderData(card);
+    data.enabled = enabled;
+    input.disabled = true;
+    api.SaveProvider(data).then(r => {
+        input.disabled = false;
+        if (r.success) {
+            const cached = providerCache.find(p => p.key === key);
+            if (cached) cached.enabled = enabled;
+            showToast(`${data.name || key} 已${enabled ? '启用' : '禁用'}`, 'success');
+        } else {
+            input.checked = !enabled;
+            applyProviderEnabledUi(card, !enabled);
+            showToast('切换失败: ' + (r.error || '未知错误'), 'error');
+        }
+    }).catch(err => {
+        input.disabled = false;
+        input.checked = !enabled;
+        applyProviderEnabledUi(card, !enabled);
+        showToast('切换启用状态失败: ' + (err.message || err), 'error');
+    });
+}
+
+export function saveProviderFromDom(key) {
+    const card = document.querySelector(`.provider-card[data-key="${CSS.escape(key)}"]`);
+    if (!card) return;
+
+    const data = collectProviderData(card);
+    if (!data.key) { showToast('Key 不能为空', 'error'); return; }
 
     const btn = card.querySelector('.btn-save-card');
     btn.disabled = true; btn.textContent = '...';

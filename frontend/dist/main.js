@@ -42,6 +42,7 @@ import {
 import {
     showAddTypeModal, loadModelConfig, handleSchemeSwitch, handleSchemeImport,
     handleSchemeExport, handleSchemeSave, handleSchemeApply,
+    openOmoConfigDir, openOmoSchemeDir,
 } from './views/omo-config.js';
 import {
     loadSkillsData, renderSkillList, bindSkillManagerEvents,
@@ -315,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnRefreshModels')?.addEventListener('click', async () => {
         const btn = document.getElementById('btnRefreshModels');
         btn.disabled = true;
-        btn.textContent = '⏳ 刷新中...';
+        btn.textContent = '刷新中...';
         try {
             const newModels = await api.OpenCodeCall('GET', '/provider');
             if (newModels) store.availableModels = newModels;
@@ -325,7 +326,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('刷新模型列表失败: ' + (err.message || err), 'error');
         }
         btn.disabled = false;
-        btn.textContent = '🔄 刷新';
+        // 恢复按钮时保留图标（textContent 会清空内嵌的图标 span）
+        btn.innerHTML = '<span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新';
     });
 
     document.getElementById('btnAddModelType').addEventListener('click', showAddTypeModal);
@@ -364,18 +366,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 打开方案目录
-    document.getElementById('btnOpenSchemeDir')?.addEventListener('click', async () => {
-        try {
-            await api.OpenSchemeDir();
-        } catch (e) {
-            showToast('打开方案目录失败: ' + (e.message || e), 'error');
-        }
+    // 打开配置文件（内置文件浏览器：配置文件所在目录）
+    document.getElementById('btnOpenOmoConfig')?.addEventListener('click', () => {
+        openOmoConfigDir();
     });
 
-    // 保存 OMO 配置
-    document.getElementById('modelActions').addEventListener('click', async (e) => {
-        if (e.target.id !== 'btnSaveModels') return;
+    // 打开方案目录（内置文件浏览器）
+    document.getElementById('btnOpenSchemeDir')?.addEventListener('click', () => {
+        openOmoSchemeDir();
+    });
+
+    // 保存 OMO 配置（保存按钮已并入顶部工具栏，静态元素直接绑定）
+    document.getElementById('btnSaveModels')?.addEventListener('click', async () => {
         if (typeof handleSchemeApply === 'function') {
             await handleSchemeApply();
         } else {

@@ -7,6 +7,7 @@
 import { api } from '../core/apicall.js';
 import { escapeHtml, showToast, bindOverlayClose } from '../core/utils.js';
 import { store } from '../core/state.js';
+import { openFileBrowserModal } from '../filebrowser/browser.js';
 
 export let modelEntries = [];
 export let modelTypes = [];
@@ -18,6 +19,40 @@ export const REASONING_OPTIONS = ['none', 'minimal', 'low', 'medium', 'high', 'x
 // ========== 方案管理状态 ==========
 export let schemeDir = '';
 export let schemeList = [];
+export let configFilePath = '';      // 配置文件完整路径（顶部信息条已移除：内存保存，供「打开配置文件」定位）
+
+// ========== 打开目录（内置文件浏览器） ==========
+
+/** 取文件路径的所在目录（兼容 \ 或 / 两种分隔符；推导不出时返回空串） */
+function dirNameOf(filePath) {
+    if (!filePath) return '';
+    const idx = Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/'));
+    if (idx < 0) return '';             // 无分隔符：无法推断目录
+    if (idx === 0) return filePath[0];  // 根目录（如 /file.jsonc → /）
+    if (idx === 2 && filePath[1] === ':') {
+        return filePath.slice(0, 3);    // 盘符根（如 C:\file.jsonc → C:\）
+    }
+    return filePath.slice(0, idx);
+}
+
+/** 「打开配置文件」：用站内文件浏览器打开配置文件所在目录（不是文件本身） */
+export function openOmoConfigDir() {
+    const dir = dirNameOf(configFilePath);
+    if (!dir) {
+        showToast('尚未获取到配置文件路径，无法打开目录', 'error');
+        return;
+    }
+    openFileBrowserModal(dir);
+}
+
+/** 「打开方案目录」：用站内文件浏览器打开方案目录 */
+export function openOmoSchemeDir() {
+    if (!schemeDir) {
+        showToast('尚未获取到方案目录，无法打开', 'error');
+        return;
+    }
+    openFileBrowserModal(schemeDir);
+}
 export let currentSourceType = '';   // 'system' | 'imported' | 'scheme' | ''
 export let currentSourceName = '';   // display name
 export let hasUnsavedChanges = false;
@@ -53,7 +88,7 @@ export async function loadModelConfig() {
         originalEntries = modelEntries.map(e => ({ ...e }));
         modelSectionsLoaded = true;
 
-        document.getElementById('configPath').textContent = confPath || '未知';
+        configFilePath = confPath || '';
         const configPathInfo = document.getElementById('omoConfigPath');
         if (configPathInfo) configPathInfo.textContent = confPath || '未知';
     renderModelConfig();
@@ -65,7 +100,6 @@ export async function loadModelConfig() {
         hasUnsavedChanges = false;
         updateSchemeStatus();
         initSchemes().then(() => {
-            document.getElementById('omoSchemeDir').textContent = schemeDir || '未知';
             updateSchemeDropdown();
         });
 
@@ -120,13 +154,11 @@ export function isEmptyModelSectionName(type) {
 
 export function renderModelConfig() {
     const container = document.getElementById('modelConfig');
-    const actions = document.getElementById('modelActions');
 
     container.innerHTML = '';
-    actions.style.display = 'flex';
 
     if (modelTypes.length === 0) {
-        container.innerHTML = '<div class="empty"><p>📭 未找到OMO 配置类型</p><p class="empty-hint">点击底部"添加类型"创建 agents、categories 等分组</p></div>';
+        container.innerHTML = '<div class="empty"><p>📭 未找到OMO 配置类型</p><p class="empty-hint">点击工具栏「添加类型」创建 agents、categories 等分组</p></div>';
         const bb = document.getElementById('omoBatchBar');
         if (bb) bb.innerHTML = '';
         updateSaveStatus();
@@ -196,9 +228,11 @@ export function renderModelConfig() {
     checkUnsavedChanges();
 }
 
+// 类型标题：纯文字（与 V2 组头标题一致，标题前不再显示 emoji 图标）；
+// 内置类型用规范大小写，其他类型原样显示
 export function modelTypeTitle(type) {
-    const builtIn = { agents: '🤖 Agents', categories: '📦 Categories' };
-    return builtIn[type] || `🧩 ${type}`;
+    const builtIn = { agents: 'Agents', categories: 'Categories' };
+    return builtIn[type] || type;
 }
 
 export function createModelGroup(title, entries, entryType) {
@@ -213,7 +247,7 @@ export function createModelGroup(title, entries, entryType) {
     const headerActions = document.createElement('span');
     headerActions.className = 'model-group-actions';
 
-    // 卡片内全选
+    // 卡片内全选（独立放在最右，与左侧图标按钮拉开间距）
     const selectAll = document.createElement('label');
     selectAll.className = 'model-group-select-all';
     selectAll.innerHTML = '<input type="checkbox"> 全选';
@@ -224,20 +258,21 @@ export function createModelGroup(title, entries, entryType) {
         const checked = e.target.checked;
         body.querySelectorAll('.model-check').forEach(cb => { cb.checked = checked; });
     });
-    headerActions.appendChild(selectAll);
 
     const addBtn = document.createElement('button');
     addBtn.className = 'btn-add-entry';
     addBtn.dataset.type = entryType;
     addBtn.title = '添加条目';
-    addBtn.textContent = '+';
+    addBtn.innerHTML = '<span class="omo-ic omo-ic-add" aria-hidden="true"></span>';
     const deleteTypeBtn = document.createElement('button');
     deleteTypeBtn.className = 'btn-delete-type';
     deleteTypeBtn.dataset.type = entryType;
     deleteTypeBtn.title = '删除类型';
-    deleteTypeBtn.textContent = '✕';
+    deleteTypeBtn.innerHTML = '<span class="omo-ic omo-ic-del" aria-hidden="true"></span>';
     headerActions.appendChild(addBtn);
     headerActions.appendChild(deleteTypeBtn);
+    // 全选独立放在最右（与左侧图标按钮拉开间距）
+    headerActions.appendChild(selectAll);
     header.appendChild(titleSpan);
     header.appendChild(headerActions);
 

@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    OpenCode 管理中心 - 主样式表   Apple 设计风格主题系统
    ============================================================ */
 
@@ -712,8 +712,89 @@ input::placeholder, textarea::placeholder {
     min-height: 0;
     overflow: hidden;
 }
-.omo-topbar {
+/* 顶部工具栏（与供应商 .pv-toolbar / 知识库 .kb-toolbar 同一口径
+   浅底条 + 底边框 + 8/12 内边距），固定不随内容滚动；
+   左侧文件操作，右侧「保存状态 + 次要操作 + 主操作」，
+   margin-left:auto 靠右；窄屏时分组换行，保存状态在前、按钮可换行。 */
+.omo-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    row-gap: 6px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    flex-wrap: wrap;
+    /* flex 子项默认 min-width:auto 会被内容撑开，
+       导致加窄窗口时不换行，显式归零才能让换行生效 */
+    min-width: 0;
+}
+
+.omo-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    row-gap: 6px;
+    margin-left: auto;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+/* 工具栏内按钮统一为紧凑小号（5×14 / 13px），与供应商页「添加供应商」、
+   知识库工具栏同一口径，避免按钮高度不一致；圆角统一 radius-sm。 */
+.omo-toolbar .btn-sm {
+    padding: 5px 14px;
+    font-size: 13px;
+}
+.omo-toolbar .oc-fb-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* 保存状态：小字单行，位于右侧操作区最左，作为轻量动态状态提示；
+   文案与 changed 强调色均由 JS 控制，这里只约束排版，不挤压按钮。 */
+.omo-toolbar .save-status {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* 主按钮「保存配置」：强调底色 + 轻投影；hover 时加深亮度；
+   覆盖 .btn-sm 的字体行高与同名属性，避免灰底覆盖主按钮文字 */
+.omo-toolbar .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid transparent;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.omo-toolbar .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: #fff;
+    border-color: transparent;
+}
+.omo-toolbar .btn-primary:disabled {
+    box-shadow: none;
+}
+
+/* 次要按钮「新增方案」：描边样式；hover 变实底；
+   禁用态退出强调色，避免"不可用还能点"的误导 */
+.omo-toolbar .btn-add-type {
+    background: var(--bg-input);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+}
+.omo-toolbar .btn-add-type:hover:not(:disabled) {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+.omo-toolbar .btn-add-type:disabled {
+    color: var(--text-muted);
+    border-color: var(--border);
+    background: var(--bg-input);
 }
 
 #view-omo #modelConfig {
@@ -721,10 +802,6 @@ input::placeholder, textarea::placeholder {
     height: 0;
     min-height: 0;
     overflow-y: auto;
-}
-
-.omo-bottom-bar {
-    flex-shrink: 0;
 }
 
 .omo-batch-bar-wrap {
@@ -4107,24 +4184,22 @@ input::placeholder, textarea::placeholder {
     gap: 8px;
     transition: background var(--transition);
 }
+/* 添加条目：纯图标按钮（默认无背景无边框，悬浮图标高亮） */
 .btn-add-entry {
-    margin-left: auto;
     width: 24px;
     height: 24px;
-    font-size: 14px;
-    font-weight: bold;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 .btn-add-entry:hover {
-    background: var(--accent);
-    color: #fff;
+    background: transparent;
+    color: var(--accent);
 }
 
 .model-group-title:hover {
@@ -4135,8 +4210,8 @@ input::placeholder, textarea::placeholder {
 .model-group-title::before {
     content: '';
     display: inline-block;
-    width: 10px;
-    height: 10px;
+    width: 18px;
+    height: 18px;
     margin-right: 5px;
     vertical-align: -1px;
     background: var(--text-muted);
@@ -4157,7 +4232,8 @@ input::placeholder, textarea::placeholder {
 .model-group-actions {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    /* 三个图标按钮紧排 */
+    gap: 2px;
     margin-left: auto;
 }
 
@@ -4165,6 +4241,8 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: center;
     gap: 4px;
+    /* 与左侧图标组拉开 */
+    margin-left: 10px;
     font-size: 11px;
     color: var(--text-muted);
     cursor: pointer;
@@ -4179,21 +4257,45 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
 }
 
+/* 删除方案：纯图标按钮（默认无背景无边框，悬浮图标变红高亮） */
 .btn-delete-type {
     width: 24px;
     height: 24px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    border: none;
     background: transparent;
-    color: var(--danger);
+    color: var(--text-muted);
     cursor: pointer;
     line-height: 1;
-    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-delete-type:hover {
-    background: var(--danger);
-    color: #fff;
+    background: transparent;
+    color: var(--danger);
+}
+
+/* 组头操作按钮图标（添加条目 / 重命名方案 / 删除方案）：
+   项目 assets 图标以 mask 渲染，颜色跟随按钮文字色（各按钮原有配色不变）。 */
+#view-omo .model-group-actions .omo-ic {
+    display: block;
+    width: 13px;
+    height: 13px;
+    background: currentColor;
+}
+#view-omo .omo-ic-add {
+    -webkit-mask: url("../assets/新增.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/新增.svg") center / 13px 13px no-repeat;
+}
+#view-omo .omo-ic-rename {
+    -webkit-mask: url("../assets/重命名.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/重命名.svg") center / 13px 13px no-repeat;
+}
+#view-omo .omo-ic-del {
+    -webkit-mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
 }
 
 .model-group-title.collapsed::before {
@@ -5145,17 +5247,27 @@ input::placeholder, textarea::placeholder {
     height: 100%;
     overflow-y: auto;
 }
-.providers-list {
-    padding: 12px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    overflow-y: auto;
+/* 滚动层与内容层分离：CSS columns 内容必须高度自适应（固定高度会导致横向溢出列不可见） */
+.providers-scroll {
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
+}
+/* 多列瀑布流（列优先）：列宽 460，宽屏自动排 3 列；窄屏自动降为 2/1 列 */
+.providers-list {
+    padding: 12px 22px;
+    columns: 3 460px;
+    column-gap: 16px;
+}
+/* 列表模式（单列，卡片全宽） */
+.providers-list.list-mode {
+    columns: auto;
+}
+/* 空态：强制单列，提示居中占满整个列表区（columns 下会挤在左列） */
+.providers-list.is-empty {
+    columns: auto;
 }
 .provider-card {
-    flex-shrink: 0;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -5165,6 +5277,9 @@ input::placeholder, textarea::placeholder {
     /* hover 时抬升 z-index 的定位参照，避免阴影被相邻卡片盖住 */
     position: relative;
     transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    /* 瀑布流：禁止卡片跨列断开 + 纵向间距（columns 无 row-gap） */
+    break-inside: avoid;
+    margin-bottom: 18px;
 }
 .provider-card:hover {
     box-shadow: var(--card-shadow-float-hover);
@@ -5174,10 +5289,16 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 24px;
+    padding: 12px 14px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     gap: 16px;
+    /* 点击标题栏展开/折叠 */
+    cursor: pointer;
+    user-select: none;
+}
+.provider-card-header:hover {
+    background: var(--bg-card-hover);
 }
 .prov-edit-name {
     font-size: 12px;
@@ -5219,13 +5340,12 @@ input::placeholder, textarea::placeholder {
     color: var(--text-primary);
     white-space: nowrap;
 }
-/* 启用开关：iOS 风格 toggle */
+/* 启用开关：iOS 风格 toggle（位于标题栏左侧、原状态圆点位置） */
 .prov-toggle {
     position: relative;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin-right: 2px;
     cursor: pointer;
     user-select: none;
 }
@@ -5267,9 +5387,10 @@ input::placeholder, textarea::placeholder {
     font-size: 12px;
     color: var(--text-muted);
 }
-/* 连接配置三栏 */
+/* 连接配置：纵向堆叠（窄卡片下三栏会显示不全） */
 .provider-conn-row {
     display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 .provider-conn-col {
@@ -5277,13 +5398,7 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     gap: 4px;
     min-width: 0;
-}
-.provider-conn-col:nth-child(1),
-.provider-conn-col:nth-child(2) {
-    flex: 2;
-}
-.provider-conn-col:nth-child(3) {
-    flex: 1;
+    width: 100%;
 }
 .provider-conn-col input,
 .provider-conn-col select {
@@ -5326,11 +5441,15 @@ input::placeholder, textarea::placeholder {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+/* 默认收起：仅标题栏 + 摘要 + 启用模型名单；点击标题栏展开后显示完整编辑区 */
 .provider-card-body {
-    padding: 20px 24px;
-    display: flex;
+    padding: 13px 14px 14px;
+    display: none;
     flex-direction: column;
     gap: 14px;
+}
+.provider-card.expanded .provider-card-body {
+    display: flex;
 }
 .provider-models {
     margin-top: 8px;
@@ -5592,19 +5711,30 @@ input::placeholder, textarea::placeholder {
 .btn-save-card:active {
     transform: scale(0.97);
 }
-/* 删除卡片按钮 */
+/* 删除卡片按钮：无边框、默认弱化色，仅悬浮时变红（与通用 .btn-del 口径一致） */
 .btn-del-card {
     background: transparent !important;
-    color: var(--danger) !important;
-    border: 1px solid var(--danger) !important;
+    color: var(--text-muted) !important;
+    border: none !important;
     border-radius: var(--radius-sm) !important;
-    padding: 4px 12px !important;
+    /* 纯图标按钮：收紧横向内边距，保持方形点击区 */
+    padding: 4px 7px !important;
     font-size: 12px;
     cursor: pointer;
-    font-weight: 600;
+    font-weight: 500;
+}
+/* 删除图标：项目 assets/删除.svg，mask 跟随按钮文字色（危险红） */
+.btn-del-card .prov-del-ic {
+    width: 13px;
+    height: 13px;
+    display: block;
+    background: currentColor;
+    -webkit-mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
 }
 .btn-del-card:hover {
     background: var(--danger-bg) !important;
+    color: var(--danger) !important;
 }
 .btn-del-card:active {
     transform: scale(0.97);
@@ -5749,6 +5879,221 @@ input::placeholder, textarea::placeholder {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+
+/* ===== 供应商卡片：收起态标题栏 / 摘要 / 启用模型名单 ===== */
+.provider-title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+/* 标题栏左侧折叠/展开图标：项目 assets 同款（折叠=右三角 / 展开=下三角），mask 跟随文字色 */
+.prov-expand-ic {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    background: currentColor;
+    color: var(--text-muted);
+    -webkit-mask: url("../assets/菜单折叠.svg") center / 12px 12px no-repeat;
+    mask: url("../assets/菜单折叠.svg") center / 12px 12px no-repeat;
+}
+.provider-card.expanded .prov-expand-ic {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
+}
+.prov-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+.provider-card.disabled .prov-name {
+    color: var(--text-muted);
+}
+.prov-key {
+    font-size: 10.5px;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    padding: 1px 6px;
+}
+.prov-badge {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 1px 8px;
+    white-space: nowrap;
+}
+/* 收起态摘要行：主机名 · 接口格式 */
+.provider-summary {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+}
+.provider-summary .mono {
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.provider-summary .sep {
+    color: var(--border-light);
+}
+/* 收起态：启用模型名单（禁用模型不显示；超过 4 个截断，展开时隐藏） */
+.prov-models-line {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 0 14px 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+}
+.prov-models-label {
+    font-weight: 600;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.prov-models-names {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+}
+.prov-models-line .more {
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+.prov-models-empty {
+    color: var(--border-light);
+}
+.provider-card.expanded .provider-summary,
+.provider-card.expanded .prov-models-line {
+    display: none;
+}
+/* 保存按钮：展开态右下角 */
+.provider-save-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2px;
+}
+
+/* ===== 供应商工具栏（照知识库 .kb-toolbar） ===== */
+.pv-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.pv-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 180px;
+    max-width: 340px;
+    padding: 0 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    transition: border-color var(--transition);
+}
+.pv-search:focus-within { border-color: var(--accent); }
+.pv-search .pv-i {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+}
+.pv-search input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 6px 0;
+    font-size: 13px;
+    color: var(--text-primary);
+    outline: none;
+    min-width: 0;
+    font-family: inherit;
+}
+.pv-seg {
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+.pv-seg-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: none;
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+.pv-seg-btn:hover { color: var(--text-primary); }
+.pv-seg-btn.active {
+    background: var(--bg-sidebar-active);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.pv-seg-btn .pv-i {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+/* 工具栏主按钮「添加供应商」：照原型/「启动 OpenCode」主按钮样式（蓝底白字 + 轻投影）。
+   .btn-sm 在样式表中后定义，会覆盖 .btn-primary 的背景/颜色，hover 时还会把文字染成蓝色，
+   这里用作用域选择器提升优先级并显式保持白字（与 .oc-toolbar .btn-primary 同一做法）。 */
+.pv-toolbar .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.pv-toolbar .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: #fff;
 }
 
 /* ============================================================
