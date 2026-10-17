@@ -161,13 +161,13 @@ function serializeState() {
     });
 }
 
-/** 数据变更后调用：刷新未保存状态与底部提示 */
+/** 数据变更后调用：刷新未保存状态与工具栏提示 */
 function checkUnsavedChanges() {
     hasUnsavedChanges = serializeState() !== originalSnapshot;
     updateSaveStatus();
 }
 
-/** 底部保存状态文案（解析失败时提示禁用保存） */
+/** 工具栏保存状态文案（解析失败时提示禁用保存） */
 function updateSaveStatus() {
     const status = document.getElementById('saveStatus');
     if (!status) return;
@@ -190,12 +190,6 @@ function updateSaveStatus() {
 export function renderModelConfig() {
     const container = document.getElementById('modelConfig');
     if (!container) return;
-    const actions = document.getElementById('modelActions');
-    if (actions) actions.style.display = 'flex';
-
-    // 顶部配置文件路径（保留原 index.html 的 configPath 元素）
-    const pathEl = document.getElementById('configPath');
-    if (pathEl) pathEl.textContent = slimPath || '未知';
 
     // 解析错误时禁用保存（避免把坏文件覆盖掉）
     const saveBtn = document.getElementById('btnSaveModels');
@@ -221,10 +215,10 @@ export function renderModelConfig() {
 
     const visiblePresets = presets.filter(p => !p.deleted);
 
-    // 3) 空状态：文件不存在且没有任何方案（仍可用底部「新增方案」创建）
+    // 3) 空状态：文件不存在且没有任何方案（仍可用工具栏「新增方案」创建）
     if (!slimExists && visiblePresets.length === 0) {
         clearBatchBar();
-        container.innerHTML = '<div class="empty"><p>📭 未找到 oh-my-opencode-slim 配置文件</p><p class="empty-hint">点击底部「新增方案」创建第一个方案，保存后自动创建配置文件</p></div>';
+        container.innerHTML = '<div class="empty"><p>📭 未找到 oh-my-opencode-slim 配置文件</p><p class="empty-hint">点击工具栏「新增方案」创建第一个方案，保存后自动创建配置文件</p></div>';
         updateSaveStatus();
         return;
     }
@@ -780,7 +774,7 @@ export function showAddPresetModal() {
 
 // ========== 保存 ==========
 /**
- * 保存配置（保留原有「底部保存按钮」的单一入口）：
+ * 保存配置（工具栏「保存配置」按钮的单一入口）：
  *   1) 解析失败 / 继承异常（环、源缺失）时拒绝保存并提示；
  *   2) 组装 payload（deleted 显式提交；dirty = 覆盖行或本方案新增行）；
  *   3) SaveSlimConfig → 成功后重新加载；失败（如基线冲突）提示刷新。

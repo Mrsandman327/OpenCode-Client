@@ -712,8 +712,94 @@ input::placeholder, textarea::placeholder {
     min-height: 0;
     overflow: hidden;
 }
-.omo-topbar {
+
+/* 顶部工具栏：与供应商 .pv-toolbar / 知识库 .kb-toolbar 同一口径
+   （浅底 + 下描边 + 8/12 内边距），固定不随内容滚动。
+   左侧只放文件操作；右侧整组「保存状态 + 新增方案 + 保存配置」用
+   margin-left:auto 靠右，窄窗口时整组换行仍贴右，不会把主按钮挤成孤行。 */
+.omo-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    row-gap: 6px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    flex-wrap: wrap;
+    /* flex 列布局下 item 默认 min-width:auto 会被内容撑宽，
+       导致极窄窗口时不换行而被裁切；归零后换行才会真正生效 */
+    min-width: 0;
+}
+
+.omo-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    row-gap: 6px;
+    margin-left: auto;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+/* 工具栏内按钮统一为紧凑小号（5×14 / 13px），与供应商页「＋ 添加供应商」、
+   知识库工具栏同一口径；三枚按钮高度一致、圆角统一 radius-sm。
+   主按钮蓝底白字由下方 .omo-toolbar .btn-primary 作用域规则保证（防 .btn-sm 覆盖）。 */
+.omo-toolbar .btn-sm {
+    padding: 5px 14px;
+    font-size: 13px;
+}
+.omo-toolbar .oc-fb-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* 保存状态：小字单行，位于右侧操作组最左端，作为保存动作的状态提示；
+   文案与 changed 强调色均由 JS 控制，这里只约束排版，不参与压缩。 */
+.omo-toolbar .save-status {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* 主按钮「保存配置」：蓝底白字 + 轻投影。
+   .btn-sm 在样式表中后定义、同特异性，会用灰底覆盖 .btn-primary 的背景与文字，
+   hover 时还会把文字染蓝；这里用作用域选择器提升优先级，并显式压住 hover 白字
+   （与 .pv-toolbar .btn-primary / .oc-toolbar .btn-primary 同一做法）。 */
+.omo-toolbar .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid transparent;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.omo-toolbar .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: #fff;
+    border-color: transparent;
+}
+.omo-toolbar .btn-primary:disabled {
+    box-shadow: none;
+}
+
+/* 新增方案：次要按钮保持描边蓝字，hover 才实心，不与保存按钮争主次；
+   禁用态退成中性灰，避免"看起来还能点"。 */
+.omo-toolbar .btn-add-type {
+    background: var(--bg-input);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    /* 与「保存配置」同圆角，避免 .btn 默认 pill 圆角与主按钮不一致 */
+    border-radius: var(--radius-sm);
+}
+.omo-toolbar .btn-add-type:hover:not(:disabled) {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+.omo-toolbar .btn-add-type:disabled {
+    color: var(--text-muted);
+    border-color: var(--border);
+    background: var(--bg-input);
 }
 
 #view-omo #modelConfig {
@@ -723,13 +809,10 @@ input::placeholder, textarea::placeholder {
     overflow-y: auto;
 }
 
-.omo-bottom-bar {
-    flex-shrink: 0;
-}
-
+/* 批量栏固定于工具栏下方；其内部 .batch-model-bar 自带下描边与内边距，
+   外层不再追加空档，避免工具栏与批量栏之间出现松散缝。 */
 .omo-batch-bar-wrap {
     flex-shrink: 0;
-    padding: 0 0px 6px;
 }
 
 /* 技能管理视图：顶部固定 + 列表滚动 */
@@ -4328,31 +4411,8 @@ input::placeholder, textarea::placeholder {
     background: var(--accent-ghost);
 }
 
-.model-actions {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 24px;
-    background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-}
-
-.btn-save {
-    padding: 8px 24px;
-    font-size: 14px;
-}
-
-.btn-add-type {
-    background: var(--bg-input);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-}
-
-.btn-add-type:hover:not(:disabled) {
-    background: var(--accent);
-    color: #fff;
-}
+/* 旧底部操作栏相关规则（.model-actions / .btn-save / 全局 .btn-add-type）已随布局移除：
+   按钮的主次样式改由 .omo-toolbar 作用域规则负责，这里只保留保存状态文字。 */
 
 .save-status {
     font-size: 12px;
@@ -4457,113 +4517,8 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ========== OMO 方案管理 ========== */
-.omo-info-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 6px 12px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-}
-.omo-info-label {
-    color: var(--text-muted);
-    white-space: nowrap;
-    font-weight: 500;
-}
-.omo-info-value {
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.omo-info-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-.omo-info-row + .omo-info-row {
-    margin-top: 4px;
-}
-.omo-info-text {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: 1;
-    overflow: hidden;
-}
-.omo-info-text .omo-info-value {
-    font-size: 12px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.omo-info-text .omo-info-label {
-    color: var(--text-muted);
-    white-space: nowrap;
-    font-weight: 500;
-    font-size: 12px;
-}
-
-.omo-action-btn {
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-}
-.omo-action-btn:hover:not(:disabled) {
-    background: var(--bg-card-hover);
-    color: var(--text-primary);
-    border-color: var(--border-light);
-}
-
-.omo-action-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-    gap: 6px;
-}
-.omo-action-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-.omo-action-label {
-    font-size: 13px;
-    color: var(--text-primary);
-    font-weight: 500;
-    white-space: nowrap;
-}
-.omo-scheme-select {
-    font-size: 13px;
-    height: 30px;
-    padding: 0 8px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    color: var(--text-primary);
-    min-width: 130px;
-    max-width: 200px;
-}
-.omo-scheme-select:disabled {
-    opacity: 0.5;
-}
-
-.omo-status-bar {
-    font-size: 12px;
-    padding: 4px 12px;
-    color: var(--text-secondary);
-    min-height: 22px;
-    transition: background 0.3s ease;
-}
+/* 配置文件路径行、旧底部操作栏与旧方案选择条已移除：
+   文件操作与保存状态统一收进顶部 .omo-toolbar，这里不再保留对应规则。 */
 
 /* 技能列表：网格卡片布局（由原「全宽横条列表」改造而来）
    列宽取 420px，理由：

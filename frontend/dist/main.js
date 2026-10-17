@@ -310,32 +310,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // 「📂 打开」：用系统文件管理器打开配置文件所在目录
     document.getElementById('btnOpenSlimDir')?.addEventListener('click', openSlimDir);
 
-    // 刷新模型列表
-    document.getElementById('btnRefreshModels')?.addEventListener('click', async () => {
-        const btn = document.getElementById('btnRefreshModels');
-        btn.disabled = true;
-        btn.textContent = '⏳ 刷新中...';
-        try {
-            // v2：模型列表走 /api/model（v2 的 /api/provider 不再内嵌 models），并归一化为 {value,label}
-            // 需带当前目录（location[directory]），否则会回落到服务端 CWD=home
-            const dir = currentDir();
-            const newModels = dir ? toModelOptions(await api.OpenCodeCall('GET', '/api/model', null, dir)) : [];
-            if (newModels.length) store.availableModels = newModels;
-            await loadModelConfig();
-            showToast(`获取到 ${store.availableModels.length} 个可用模型`, 'success');
-        } catch (err) {
-            showApiError('刷新模型列表失败: ', err);
-        }
-        btn.disabled = false;
-        btn.textContent = '🔄 刷新';
-    });
-
     // 「➕ 新增方案」：打开模态（方案名 + 可选「继承自」）
     document.getElementById('btnAddModelType').addEventListener('click', showAddPresetModal);
 
     // 保存 OMO（oh-my-opencode-slim）配置：方案、radio 启用项与模型变更在此统一提交
-    document.getElementById('modelActions').addEventListener('click', async (e) => {
-        if (e.target.id !== 'btnSaveModels') return;
+    // （保存按钮已并入顶部工具栏，静态元素直接绑定）
+    document.getElementById('btnSaveModels')?.addEventListener('click', async () => {
         await handleSlimSave();
     });
 
