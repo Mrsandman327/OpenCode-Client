@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	iofs "io/fs"
-	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -724,35 +721,32 @@ func (a *App) ImportSkill(rootDir, sourcePath, skillName string) error {
 }
 
 // CheckOpenCodeVersion 检测 opencode 最新版本。
-func (a *App) CheckOpenCodeVersion(currentVersion string) model.VersionCheckResult {
-	result := model.VersionCheckResult{CurrentVersion: currentVersion, IsLatest: true}
+// 代理链与「下载更新」一致（应用内配置 > 环境变量 > 系统代理 > 直连），实现见 opencode.CheckLatestVersion。
+func (a *App) CheckOpenCodeVersion(currentVersion string, proxy model.ProxyConfig) model.VersionCheckResult {
+	return opencode.CheckLatestVersion(currentVersion, proxy)
+}
 
-	resp, err := http.Get("https://api.github.com/repos/anomalyco/opencode/releases/latest")
-	if err != nil {
-		result.Error = "获取最新版本信息失败"
-		return result
-	}
-	defer resp.Body.Close()
+// ========== OpenCode 自动更新 ==========
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		result.Error = "读取版本信息失败"
-		return result
-	}
+// StartOpenCodeUpdate 启动后台下载（不阻塞界面）；进度经 GetOpenCodeUpdateStatus 轮询。
+func (a *App) StartOpenCodeUpdate(version string, proxy model.ProxyConfig) model.UpdateStatus {
+	return opencode.StartUpdate(version, proxy)
+}
 
-	var release struct {
-		TagName string `json:"tag_name"`
-	}
-	if err := json.Unmarshal(body, &release); err != nil {
-		result.Error = "解析版本信息失败"
-		return result
-	}
+// GetOpenCodeUpdateStatus 查询更新任务状态（含跨启动恢复的「就绪待更新」）。
+func (a *App) GetOpenCodeUpdateStatus() model.UpdateStatus {
+	return opencode.GetUpdateStatus()
+}
 
-	latest := strings.TrimPrefix(release.TagName, "v")
-	current := strings.TrimPrefix(currentVersion, "v")
-	result.LatestVersion = release.TagName
-	result.IsLatest = current == latest
-	return result
+// CancelOpenCodeUpdate 取消后台下载（保留已下载部分，重试可续传）。
+func (a *App) CancelOpenCodeUpdate() model.UpdateStatus {
+	return opencode.CancelUpdate()
+}
+
+// ApplyOpenCodeUpdate 完成更新：停服 → 替换 → 校验 → 重启；失败自动回滚。
+// 注：opencode v1 无 Basic 认证，故不需要 password 参数（V2 版本有）。
+func (a *App) ApplyOpenCodeUpdate(hostname string, port int, proxy model.ProxyConfig) model.UpdateStatus {
+	return opencode.ApplyUpdate(hostname, port, proxy)
 }
 
 // ========== 知识库 ==========

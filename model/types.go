@@ -301,6 +301,27 @@ type VersionCheckResult struct {
 	Error          string `json:"error,omitempty"`
 }
 
+// OpenCode 更新任务阶段（与前端约定）。
+const (
+	UpdatePhaseIdle        = "idle"        // 无任务
+	UpdatePhaseDownloading = "downloading" // 后台下载中
+	UpdatePhasePreparing   = "preparing"   // 解压/准备中
+	UpdatePhaseReady       = "ready"       // 已就绪，待完成更新
+	UpdatePhaseApplying    = "applying"    // 正在停服/替换/重启
+	UpdatePhaseDone        = "done"        // 更新完成
+	UpdatePhaseFailed      = "failed"      // 失败（可重试）
+)
+
+// UpdateStatus 描述一次 OpenCode 自动更新任务的状态。
+type UpdateStatus struct {
+	Phase      string `json:"phase"`
+	Version    string `json:"version"`              // 目标版本（不含 v 前缀）
+	Downloaded int64  `json:"downloaded"`           // 已下载字节
+	Total      int64  `json:"total"`                // 总字节（未知为 0）
+	Error      string `json:"error,omitempty"`      // 失败原因
+	RolledBack bool   `json:"rolledBack,omitempty"` // 应用失败且已自动回滚
+}
+
 // ProxyConfig 是启动 opencode serve 时注入的代理配置。
 type ProxyConfig struct {
 	ProxyEnabled bool   `json:"proxyEnabled"`

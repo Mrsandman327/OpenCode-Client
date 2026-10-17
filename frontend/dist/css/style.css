@@ -3053,6 +3053,42 @@ input::placeholder, textarea::placeholder {
 .oc-version-check-btn:hover {
     text-decoration: underline;
 }
+/* ── OpenCode 自动更新（服务卡内横幅 + 完成更新模态） ── */
+.oc-update-banner { margin-top: 10px; padding: 9px 12px; border-radius: var(--radius-sm); font-size: 12.5px; display: block; text-align: left; }
+.oc-update-banner.found { background: var(--accent-ghost); border: 1px solid var(--accent-glow); }
+.oc-update-banner.downloading { background: var(--bg-secondary); border: 1px solid var(--border); }
+.oc-update-banner.ready { background: var(--success-bg); border: 1px solid rgba(52, 199, 89, 0.22); }
+.oc-update-banner.failed { background: var(--danger-bg); border: 1px solid rgba(255, 59, 48, 0.2); }
+.oc-update-line1 { display: flex; align-items: center; gap: 8px; }
+.oc-update-line2 { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
+.oc-update-grow { flex: 1; min-width: 0; }
+.oc-update-ic { color: var(--accent); }
+.oc-update-ic.ok { color: var(--success); }
+.oc-update-ic.err { color: var(--danger); }
+.oc-update-ver { font-family: "SF Mono", "Cascadia Code", Consolas, monospace; }
+.oc-update-btn { flex-shrink: 0; }
+/* 横幅内按钮紧凑化（后台下载/立即完成更新/重试），避免在窄横幅里显大 */
+.oc-update-banner .btn { padding: 4px 12px; font-size: 12.5px; border-radius: var(--radius-sm); }
+.oc-update-mini-bar { height: 5px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-pill); overflow: hidden; margin-top: 7px; }
+.oc-update-mini-fill { height: 100%; width: 0%; background: var(--accent); border-radius: var(--radius-pill); transition: width 0.18s ease; }
+.oc-update-meta { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-top: 4px; font-family: "SF Mono", "Cascadia Code", Consolas, monospace; }
+/* 完成更新模态 */
+.oc-update-modal { width: 400px; }
+.oc-update-steps { display: flex; flex-direction: column; }
+.oc-update-step { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-muted); padding: 7px 0; }
+.oc-update-step-ic { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border-light); display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; background: var(--bg-card); color: transparent; transition: all var(--transition); }
+.oc-update-step.doing { color: var(--accent); font-weight: 500; }
+.oc-update-step.doing .oc-update-step-ic { border-color: var(--accent); border-top-color: transparent; animation: ocUpdateSpin 0.8s linear infinite; }
+.oc-update-step.done { color: var(--text-secondary); }
+.oc-update-step.done .oc-update-step-ic { background: var(--success); border-color: var(--success); color: #fff; }
+@keyframes ocUpdateSpin { to { transform: rotate(360deg); } }
+.oc-update-result { text-align: center; padding: 8px 0 4px; }
+.oc-update-r-icon { width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 10px; }
+.oc-update-r-icon.ok { background: var(--success-bg); color: var(--success); }
+.oc-update-r-icon.err { background: var(--danger-bg); color: var(--danger); }
+.oc-update-r-t1 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.oc-update-r-t2 { font-size: 13px; color: var(--text-secondary); line-height: 1.6; word-break: break-word; }
+.oc-update-rollback-note { margin-top: 12px; font-size: 12.5px; color: var(--text-secondary); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; text-align: left; line-height: 1.6; }
 .oc-todos {
     flex: 1 1 auto;          /* 吃满剩余高度 */
     min-height: min-content; /* 内容高于剩余时撑开分区（整体面板滚动），不产生内部滚动条 */

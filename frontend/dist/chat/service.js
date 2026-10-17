@@ -440,31 +440,358 @@ export function updateWebUI() {
     }
 }
 
-// ===== OpenCode 版本检测 =====
 
-/** 渲染版本检测按钮（始终显示，点击后 toast 提示结果） */
+
+// ===== OpenCode 版本检测与自动更新 =====
+// 交互（与原型对齐）：检测更新 → 发现新版本 → 后台下载（不阻塞界面）→ 就绪通知 → 一键完成更新。
+// 下载/解压在 Go 端后台任务执行；本模块只负责发起操作、轮询状态、渲染服务卡内横幅。
+
+var updateStatusTimer = null; // 状态轮询句柄（仅 downloading/preparing 期间）
+var updateLastPhase = '';     // 相位跃迁检测（下载完成 → toast 通知）
+var updateSpeedText = '';     // 最近一次采样计算的下载速度（前端按轮询间隔差分）
+var updateLastSample = { bytes: 0, ts: 0 }; // 上次采样的已下载字节与时刻
+
+/** 渲染版本行：检测入口 + 更新横幅容器（服务面板每次渲染时调用）。 */
 export function renderVersionCheck(version) {
     var el = document.getElementById('ocVersionCheck');
     if (!el) return;
     el.innerHTML = ' <a href="javascript:void(0)" class="oc-version-check-btn" id="ocVersionCheckBtn">检测更新</a>';
     var btn = document.getElementById('ocVersionCheckBtn');
     if (btn) {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             checkOpenCodeVersion(version);
         });
     }
+    // 更新横幅挂在版本行的卡片末尾（独立成行，避免挤在行内右侧的窄区里）
+    var card = el.closest('.oc-service-card');
+    var banner = document.getElementById('ocUpdateBanner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.className = 'oc-update-banner';
+        banner.id = 'ocUpdateBanner';
+        banner.style.display = 'none';
+        (card || el).appendChild(banner);
+    }
+    // 恢复后端残留状态（跨启动的「就绪待更新」/ 上次失败 / 在途下载）
+    refreshUpdateStatus();
 }
 
-/** 执行版本检测，结果通过 toast 展示 */
+/** 检测更新：最新 → toast；有新版 → 「发现新版本」横幅。 */
 export async function checkOpenCodeVersion(version) {
+    setCheckBtnState('检测中…', true);
     try {
-        var result = await api.CheckOpenCodeVersion(version || '');
+        var result = await api.CheckOpenCodeVersion(version || '', getNetworkConfig());
+        setCheckBtnState('检测更新', false);
         if (result.isLatest) {
             showToast('已是最新版本', 'success');
+        } else if (result.latestVersion) {
+            renderUpdateBanner('found', { version: result.latestVersion });
         } else {
-            showToast('发现新版本: ' + (result.latestVersion || ''), 'warning');
+            showToast(result.error || '版本检测失败', 'error');
         }
     } catch (e) {
+        setCheckBtnState('检测更新', false);
         showToast('版本检测失败', 'error');
     }
+}
+
+/** 检测按钮状态（链接式按钮无 disabled 语义，用样式+指针控制）。 */
+function setCheckBtnState(text, busy) {
+    var btn = document.getElementById('ocVersionCheckBtn');
+    if (!btn) return;
+    btn.textContent = text;
+    btn.style.pointerEvents = busy ? 'none' : '';
+    btn.style.opacity = busy ? '0.5' : '';
+}
+
+/** 渲染更新横幅（服务卡内的轻量状态区，不遮挡界面）。 */
+function renderUpdateBanner(kind, data) {
+    var el = document.getElementById('ocUpdateBanner');
+    if (!el) return;
+    if (kind === 'hidden') {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        delete el.dataset.kind;
+        return;
+    }
+    el.style.display = 'block';
+    // 下载中每秒轮询：同状态只做增量更新（整块重建会导致文字/按钮闪烁）
+    if (el.dataset.kind === kind && (kind === 'downloading' || kind === 'preparing')) {
+        updateDownloadingNumbers(el, kind, data);
+        return;
+    }
+    el.dataset.kind = kind;
+    var ver = '<b class="oc-update-ver">v' + escapeHtml(data.version || '') + '</b>';
+    if (kind === 'found') {
+        el.className = 'oc-update-banner found';
+        el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic">✦</span>'
+            + '<span class="oc-update-grow">发现新版本 ' + ver + '</span>'
+            + '<button class="btn btn-primary oc-update-btn" id="ocUpdateDownloadBtn">后台下载</button></div>'
+            + '<div class="oc-update-line2">约 96 MB · 后台下载，期间可继续使用</div>';
+        bindUpdateClick('ocUpdateDownloadBtn', function () { startUpdateDownload(data.version); });
+        return;
+    }
+    if (kind === 'downloading' || kind === 'preparing') {
+        var pct = data.total > 0 ? Math.floor(data.downloaded / data.total * 100) : 0;
+        el.className = 'oc-update-banner downloading';
+        el.innerHTML = '<div class="oc-update-line1">'
+            + '<span class="oc-update-grow">正在后台下载 ' + ver + '<span id="ocUpdateDlPct">' + (kind === 'preparing' ? ' … 准备中' : ' … ' + pct + '%') + '</span></span>'
+            + '<a href="javascript:void(0)" class="oc-version-check-btn" id="ocUpdateCancelBtn">取消下载</a></div>'
+            + (kind === 'preparing' ? ''
+                : '<div class="oc-update-mini-bar"><div class="oc-update-mini-fill" id="ocUpdateDlFill" style="width:' + pct + '%"></div></div>'
+                + '<div class="oc-update-meta"><span id="ocUpdateDlSize">' + mbText(data.downloaded) + ' / ' + mbText(data.total) + '</span><span id="ocUpdateDlSpeed">' + (updateSpeedText || '—') + '</span></div>')
+            + '<div class="oc-update-line2">可以继续使用其他功能，下载完成后会通知你。</div>';
+        bindUpdateClick('ocUpdateCancelBtn', function () { cancelUpdateDownload(); });
+        return;
+    }
+    if (kind === 'ready') {
+        el.className = 'oc-update-banner ready';
+        el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic ok">✓</span>'
+            + '<span class="oc-update-grow">' + ver + ' 已下载并准备就绪</span>'
+            + '<button class="btn btn-primary oc-update-btn" id="ocUpdateApplyBtn">立即完成更新</button></div>'
+            + '<div class="oc-update-line2">将重启 OpenCode 服务（约 10 秒），期间无法对话。</div>';
+        bindUpdateClick('ocUpdateApplyBtn', function () { applyUpdate(data.version); });
+        return;
+    }
+    if (kind === 'failed') {
+        el.className = 'oc-update-banner failed';
+        el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic err">✕</span>'
+            + '<span class="oc-update-grow">' + escapeHtml(data.error || '更新任务失败') + '</span>'
+            + '<button class="btn btn-sm oc-update-btn" id="ocUpdateRetryBtn">重试</button></div>'
+            + '<div class="oc-update-line2">已下载的部分会保留，重试将从中断处继续。</div>';
+        bindUpdateClick('ocUpdateRetryBtn', function () { startUpdateDownload(data.version); });
+        return;
+    }
+}
+
+/** 下载中横幅的数值增量刷新（不重建 DOM，避免每秒轮询引起闪烁）。 */
+function updateDownloadingNumbers(el, kind, data) {
+    var pct = data.total > 0 ? Math.floor(data.downloaded / data.total * 100) : 0;
+    var pctEl = el.querySelector('#ocUpdateDlPct');
+    if (pctEl) pctEl.textContent = kind === 'preparing' ? ' … 准备中' : ' … ' + pct + '%';
+    var fillEl = el.querySelector('#ocUpdateDlFill');
+    if (fillEl) fillEl.style.width = pct + '%';
+    var sizeEl = el.querySelector('#ocUpdateDlSize');
+    if (sizeEl) sizeEl.textContent = mbText(data.downloaded) + ' / ' + mbText(data.total);
+    var speedEl = el.querySelector('#ocUpdateDlSpeed');
+    if (speedEl) speedEl.textContent = updateSpeedText || '—';
+}
+
+function bindUpdateClick(id, fn) {
+    var b = document.getElementById(id);
+    if (b) b.addEventListener('click', fn);
+}
+
+function mbText(bytes) {
+    if (!bytes) return '0.0 MB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+/** 速度格式化：按速率大小自动切换 B/s / KB/s / MB/s（慢速时不再显示 0.0 MB/s）。 */
+function speedText(bytesPerSec) {
+    if (!bytesPerSec || bytesPerSec <= 0) return '';
+    if (bytesPerSec >= 1048576) return (bytesPerSec / 1048576).toFixed(1) + ' MB/s';
+    if (bytesPerSec >= 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+    return Math.round(bytesPerSec) + ' B/s';
+}
+
+/** 发起后台下载（立即返回；轮询接管进度显示）。 */
+async function startUpdateDownload(version) {
+    updateSpeedText = '';
+    updateLastSample = { bytes: 0, ts: 0 };
+    try {
+        var st = await api.StartOpenCodeUpdate(version, getNetworkConfig());
+        applyUpdateStatusToBanner(st);
+        if (st.phase === 'downloading' || st.phase === 'preparing') startUpdatePolling();
+    } catch (e) {
+        showToast('启动下载失败: ' + (e && e.message ? e.message : e), 'error');
+    }
+}
+
+/** 取消下载（保留已下载部分，重试可续传）。 */
+async function cancelUpdateDownload() {
+    stopUpdatePolling();
+    try {
+        await api.CancelOpenCodeUpdate();
+    } catch (_) { /* 取消失败不阻断界面复位 */ }
+    var el = document.getElementById('ocUpdateBanner');
+    if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+    setCheckBtnState('检测更新', false);
+}
+
+/** 轮询并渲染更新状态（服务面板渲染后、下载期间周期调用）。 */
+export async function refreshUpdateStatus() {
+    try {
+        var st = await api.GetOpenCodeUpdateStatus();
+        applyUpdateStatusToBanner(st);
+        if (st.phase === 'downloading' || st.phase === 'preparing') startUpdatePolling();
+        else stopUpdatePolling();
+    } catch (_) { /* 状态查询失败静默（下次渲染重试） */ }
+}
+
+function applyUpdateStatusToBanner(st) {
+    var phase = (st && st.phase) || 'idle';
+    // 下载完成的通知：仅本会话内经历「下载/准备 → 就绪」时提示
+    if (phase === 'ready' && updateLastPhase && updateLastPhase !== 'ready') {
+        showToast('新版本 v' + (st.version || '') + ' 已就绪，可一键完成更新', 'success');
+    }
+    updateLastPhase = phase;
+    // 网速：按轮询间隔对已下载字节差分（前端计算，后端状态无需提供）
+    if (phase === 'downloading' && st.downloaded > 0) {
+        var nowTs = Date.now();
+        if (updateLastSample.ts && st.downloaded >= updateLastSample.bytes) {
+            var dt = (nowTs - updateLastSample.ts) / 1000;
+            if (dt >= 0.2) {
+                var bps = (st.downloaded - updateLastSample.bytes) / dt;
+                // 差值为 0（轮询间隔内暂无新字节）时保持上次速度显示，避免闪成 0
+                if (bps > 0) updateSpeedText = speedText(bps);
+            }
+        }
+        updateLastSample = { bytes: st.downloaded, ts: nowTs };
+    } else if (phase !== 'downloading') {
+        updateSpeedText = '';
+    }
+    switch (phase) {
+        case 'downloading':
+        case 'preparing':
+            setCheckBtnState('检测更新', true);
+            renderUpdateBanner(phase, st);
+            break;
+        case 'ready':
+            setCheckBtnState('检测更新', true);
+            renderUpdateBanner('ready', st);
+            break;
+        case 'failed':
+            setCheckBtnState('检测更新', false);
+            if (st.error) renderUpdateBanner('failed', st);
+            else renderUpdateBanner('hidden');
+            break;
+        default:
+            setCheckBtnState('检测更新', false);
+            renderUpdateBanner('hidden');
+            break;
+    }
+}
+
+function startUpdatePolling() {
+    if (updateStatusTimer) return;
+    updateStatusTimer = setInterval(refreshUpdateStatus, 1000);
+}
+
+function stopUpdatePolling() {
+    if (updateStatusTimer) {
+        clearInterval(updateStatusTimer);
+        updateStatusTimer = null;
+    }
+}
+
+/** 完成更新（短流程 ~10 秒）：模态内推进步骤；请求返回后进入结果视图。 */
+async function applyUpdate(version) {
+    var cfg = getNetworkConfig();
+    var port = parseInt((cfg.servicePort || '').trim(), 10) || 4096;
+    var hostname = cfg.serviceHost || '127.0.0.1';
+
+    stopUpdatePolling();
+    var m = showUpdateApplyModal();
+    var phases = [
+        ['stop', '正在停止服务…'],
+        ['replace', '正在替换二进制…'],
+        ['start', '正在启动服务…'],
+        ['check', '正在校验运行版本…'],
+    ];
+    var idx = 0;
+    var tickTimer = null;
+    // 步骤条仅作进度示意：请求返回后立即停止推进（否则会覆盖结果视图的标题）
+    var tick = function () {
+        if (idx > 0) m.markDone(phases[idx - 1][0]);
+        if (idx < phases.length) {
+            m.markDoing(phases[idx][0]);
+            m.setTitle(phases[idx][1]);
+            idx++;
+            tickTimer = setTimeout(tick, 900);
+        }
+    };
+    tick();
+
+    try {
+        var st = await api.ApplyOpenCodeUpdate(hostname, port, cfg);
+        if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; }
+        if (st.phase === 'done') {
+            m.markAllDone();
+            m.showDone(st.version || version);
+        } else {
+            m.showFailed(st.error || '更新失败', !!st.rolledBack);
+        }
+    } catch (e) {
+        if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; }
+        m.showFailed((e && e.message ? e.message : String(e)), false);
+    }
+    // 服务已被重启/版本已变化：刷新服务面板（版本号、健康状态）
+    setTimeout(function () {
+        try { loadServiceStatus(); } catch (_) {}
+    }, 800);
+}
+
+/** 动态创建「完成更新」模态（复用 .modal-card 公共样式）。 */
+function showUpdateApplyModal() {
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'ocUpdateModal';
+    overlay.style.display = 'flex';
+    overlay.innerHTML =
+        '<div class="modal-card oc-update-modal">'
+        + '<div class="modal-header"><h3 id="ocUpdateModalTitle">正在完成更新</h3></div>'
+        + '<div class="modal-body">'
+        +   '<div class="oc-update-steps" id="ocUpdateSteps">'
+        +     '<div class="oc-update-step" data-step="stop"><span class="oc-update-step-ic">✓</span><span>停止 OpenCode 服务</span></div>'
+        +     '<div class="oc-update-step" data-step="replace"><span class="oc-update-step-ic">✓</span><span>替换二进制（旧版本已备份）</span></div>'
+        +     '<div class="oc-update-step" data-step="start"><span class="oc-update-step-ic">✓</span><span>启动服务</span></div>'
+        +     '<div class="oc-update-step" data-step="check"><span class="oc-update-step-ic">✓</span><span>校验运行版本</span></div>'
+        +   '</div>'
+        +   '<div class="oc-update-result" id="ocUpdateResult" style="display:none"></div>'
+        + '</div>'
+        + '<div class="modal-footer" id="ocUpdateModalFooter"></div>'
+        + '</div>';
+    document.body.appendChild(overlay);
+
+    var setStep = function (key, state) {
+        var el = overlay.querySelector('.oc-update-step[data-step="' + key + '"]');
+        if (el) { el.classList.remove('doing', 'done'); el.classList.add(state); }
+    };
+    return {
+        setTitle: function (t) {
+            var el = overlay.querySelector('#ocUpdateModalTitle');
+            if (el) el.textContent = t;
+        },
+        markDoing: function (k) { setStep(k, 'doing'); },
+        markDone: function (k) { setStep(k, 'done'); },
+        markAllDone: function () {
+            ['stop', 'replace', 'start', 'check'].forEach(function (k) { setStep(k, 'done'); });
+        },
+        showDone: function (ver) {
+            overlay.querySelector('#ocUpdateModalTitle').textContent = '更新完成';
+            overlay.querySelector('#ocUpdateSteps').style.display = 'none';
+            var r = overlay.querySelector('#ocUpdateResult');
+            r.style.display = 'block';
+            r.innerHTML = '<div class="oc-update-r-icon ok">✓</div>'
+                + '<div class="oc-update-r-t1">已更新到 v' + escapeHtml(ver) + '</div>'
+                + '<div class="oc-update-r-t2">服务已重启，运行版本校验通过。</div>';
+            var f = overlay.querySelector('#ocUpdateModalFooter');
+            f.innerHTML = '<button class="btn btn-primary" id="ocUpdateModalOk">完成</button>';
+            f.querySelector('#ocUpdateModalOk').addEventListener('click', function () { overlay.remove(); });
+        },
+        showFailed: function (msg, rolled) {
+            overlay.querySelector('#ocUpdateModalTitle').textContent = '更新失败';
+            overlay.querySelector('#ocUpdateSteps').style.display = 'none';
+            var r = overlay.querySelector('#ocUpdateResult');
+            r.style.display = 'block';
+            r.innerHTML = '<div class="oc-update-r-icon err">' + (rolled ? '↩' : '✕') + '</div>'
+                + '<div class="oc-update-r-t1">' + (rolled ? '已自动回滚' : '更新未完成') + '</div>'
+                + '<div class="oc-update-r-t2">' + escapeHtml(msg) + '</div>'
+                + (rolled ? '<div class="oc-update-rollback-note">已恢复到更新前的版本（备份 tools/opencode.exe.bak），服务已重新启动。</div>' : '');
+            var f = overlay.querySelector('#ocUpdateModalFooter');
+            f.innerHTML = '<button class="btn btn-sm" id="ocUpdateModalClose">关闭</button>';
+            f.querySelector('#ocUpdateModalClose').addEventListener('click', function () { overlay.remove(); });
+        },
+    };
 }
