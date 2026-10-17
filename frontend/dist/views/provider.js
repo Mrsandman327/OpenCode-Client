@@ -270,17 +270,16 @@ export function providerCardHtml(p) {
             <div class="provider-card-header">
                 <div class="provider-title">
                     <span class="prov-expand-ic" aria-hidden="true"></span>
-                    <span class="prov-dot${enabled ? '' : ' off'}"></span>
+                    <label class="prov-toggle" title="启用该供应商">
+                        <input type="checkbox" class="prov-edit-enabled" ${enabled ? 'checked' : ''} />
+                        <span class="prov-toggle-track"><span class="prov-toggle-thumb"></span></span>
+                    </label>
                     <span class="prov-name">${escapeHtml(p.name || p.key || '新供应商')}</span>
                     <span class="prov-key">${escapeHtml(p.key || '未命名')}</span>
                     <span class="prov-badge">${allModels.length} 个模型</span>
                 </div>
                 <div class="provider-card-actions">
-                    <label class="prov-toggle" title="启用该供应商">
-                        <input type="checkbox" class="prov-edit-enabled" ${enabled ? 'checked' : ''} />
-                        <span class="prov-toggle-track"><span class="prov-toggle-thumb"></span></span>
-                    </label>
-                    <button class="btn btn-del btn-del-card" data-key="${escapeHtml(p.key)}" title="删除">✕</button>
+                    <button class="btn btn-del btn-del-card" data-key="${escapeHtml(p.key)}" title="删除供应商" aria-label="删除供应商"><span class="prov-del-ic" aria-hidden="true"></span></button>
                 </div>
             </div>
             <div class="provider-summary">
@@ -500,11 +499,9 @@ export function collectProviderData(card) {
     return data;
 }
 
-/** 同步启用态 UI：卡片禁用样式 + 标题栏圆点 */
+/** 同步启用态 UI：卡片禁用样式（标题栏开关本身由 checkbox 状态驱动） */
 function applyProviderEnabledUi(card, enabled) {
     card.classList.toggle('disabled', !enabled);
-    const dot = card.querySelector('.prov-dot');
-    if (dot) dot.classList.toggle('off', !enabled);
 }
 
 /**

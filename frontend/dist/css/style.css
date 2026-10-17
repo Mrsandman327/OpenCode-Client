@@ -4200,24 +4200,22 @@ input::placeholder, textarea::placeholder {
     gap: 8px;
     transition: background var(--transition);
 }
+/* 添加条目：纯图标按钮（默认无背景无边框，悬浮图标高亮） */
 .btn-add-entry {
-    margin-left: auto;
     width: 24px;
     height: 24px;
-    font-size: 14px;
-    font-weight: bold;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 .btn-add-entry:hover {
-    background: var(--accent);
-    color: #fff;
+    background: transparent;
+    color: var(--accent);
 }
 
 .model-group-title:hover {
@@ -4250,7 +4248,8 @@ input::placeholder, textarea::placeholder {
 .model-group-actions {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    /* 三个图标按钮紧排 */
+    gap: 2px;
     margin-left: auto;
 }
 
@@ -4258,6 +4257,8 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: center;
     gap: 4px;
+    /* 与左侧图标组拉开 */
+    margin-left: 10px;
     font-size: 11px;
     color: var(--text-muted);
     cursor: pointer;
@@ -4272,21 +4273,45 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
 }
 
+/* 删除方案：纯图标按钮（默认无背景无边框，悬浮图标变红高亮） */
 .btn-delete-type {
     width: 24px;
     height: 24px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    border: none;
     background: transparent;
-    color: var(--danger);
+    color: var(--text-muted);
     cursor: pointer;
     line-height: 1;
-    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-delete-type:hover {
-    background: var(--danger);
-    color: #fff;
+    background: transparent;
+    color: var(--danger);
+}
+
+/* 组头操作按钮图标（添加条目 / 重命名方案 / 删除方案）：
+   项目 assets 图标以 mask 渲染，颜色跟随按钮文字色（各按钮原有配色不变）。 */
+#view-omo .model-group-actions .omo-ic {
+    display: block;
+    width: 13px;
+    height: 13px;
+    background: currentColor;
+}
+#view-omo .omo-ic-add {
+    -webkit-mask: url("../assets/新增.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/新增.svg") center / 13px 13px no-repeat;
+}
+#view-omo .omo-ic-rename {
+    -webkit-mask: url("../assets/重命名.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/重命名.svg") center / 13px 13px no-repeat;
+}
+#view-omo .omo-ic-del {
+    -webkit-mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
 }
 
 .model-group-title.collapsed::before {
@@ -5203,13 +5228,12 @@ input::placeholder, textarea::placeholder {
     color: var(--text-primary);
     white-space: nowrap;
 }
-/* 启用开关：iOS 风格 toggle */
+/* 启用开关：iOS 风格 toggle（位于标题栏左侧、原状态圆点位置） */
 .prov-toggle {
     position: relative;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin-right: 2px;
     cursor: pointer;
     user-select: none;
 }
@@ -5575,19 +5599,30 @@ input::placeholder, textarea::placeholder {
 .btn-save-card:active {
     transform: scale(0.97);
 }
-/* 删除卡片按钮 */
+/* 删除卡片按钮：无边框、默认弱化色，仅悬浮时变红（与通用 .btn-del 口径一致） */
 .btn-del-card {
     background: transparent !important;
-    color: var(--danger) !important;
-    border: 1px solid var(--danger) !important;
+    color: var(--text-muted) !important;
+    border: none !important;
     border-radius: var(--radius-sm) !important;
-    padding: 4px 12px !important;
+    /* 纯图标按钮：收紧横向内边距，保持方形点击区 */
+    padding: 4px 7px !important;
     font-size: 12px;
     cursor: pointer;
-    font-weight: 600;
+    font-weight: 500;
+}
+/* 删除图标：项目 assets/删除.svg，mask 跟随按钮文字色（危险红） */
+.btn-del-card .prov-del-ic {
+    width: 13px;
+    height: 13px;
+    display: block;
+    background: currentColor;
+    -webkit-mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
 }
 .btn-del-card:hover {
     background: var(--danger-bg) !important;
+    color: var(--danger) !important;
 }
 .btn-del-card:active {
     transform: scale(0.97);
@@ -5756,16 +5791,6 @@ input::placeholder, textarea::placeholder {
 .provider-card.expanded .prov-expand-ic {
     -webkit-mask-image: url("../assets/菜单展开.svg");
     mask-image: url("../assets/菜单展开.svg");
-}
-.prov-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-    flex-shrink: 0;
-}
-.prov-dot.off {
-    background: var(--border-light);
 }
 .prov-name {
     font-size: 14px;
@@ -9408,24 +9433,22 @@ input.toolbar-input {
     border-left: 2px solid var(--border);
     padding-left: 18px;
 }
-/* 组头「✎ 重命名方案」按钮（圆形中性色；不吃 .btn-add-entry 的 auto 外边距） */
+/* 组头「重命名方案」按钮：纯图标（默认无背景无边框，悬浮图标高亮） */
 #view-omo .btn-rename-preset {
     width: 24px;
     height: 24px;
-    font-size: 12px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--text-secondary);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 #view-omo .btn-rename-preset:hover {
-    background: var(--bg-card-hover);
+    background: transparent;
     color: var(--accent);
-    border-color: var(--accent);
 }
 /* 顶部覆盖提示条：环境变量 / 项目级配置优先、本文件可能不生效时的提示 */
 #view-omo .slim-override-hint {

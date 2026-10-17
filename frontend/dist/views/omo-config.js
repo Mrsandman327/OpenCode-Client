@@ -351,7 +351,7 @@ function createPresetGroup(preset) {
         header.appendChild(warn);
     }
 
-    // 组头右侧操作：[全选] [+ 加条目] [✕ 删方案]
+    // 组头右侧操作：[+ 加条目] [重命名] [删除] [全选]（图标紧排，全选独立放在最右）
     const actions = document.createElement('span');
     actions.className = 'model-group-actions';
 
@@ -363,23 +363,22 @@ function createPresetGroup(preset) {
         const checked = e.target.checked;
         body.querySelectorAll('.model-check').forEach(cb => { cb.checked = checked; });
     });
-    actions.appendChild(selectAll);
 
     const addBtn = document.createElement('button');
     addBtn.className = 'btn-add-entry';
     addBtn.title = '添加条目';
-    addBtn.textContent = '+';
+    addBtn.innerHTML = '<span class="omo-ic omo-ic-add" aria-hidden="true"></span>';
     addBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         showAddEntryModal(preset.name);
     });
     actions.appendChild(addBtn);
 
-    // ✎ 重命名方案（prompt 输入新名；同步 extends 引用与激活项，随保存统一提交）
+    // 重命名方案（assets/重命名.svg 图标；prompt 输入新名，同步 extends 引用与激活项，随保存统一提交）
     const renameBtn = document.createElement('button');
     renameBtn.className = 'btn-rename-preset';
     renameBtn.title = '重命名方案';
-    renameBtn.textContent = '✎';
+    renameBtn.innerHTML = '<span class="omo-ic omo-ic-rename" aria-hidden="true"></span>';
     renameBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         renamePreset(preset);
@@ -389,7 +388,7 @@ function createPresetGroup(preset) {
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-delete-type';
     delBtn.title = '删除方案';
-    delBtn.textContent = '✕';
+    delBtn.innerHTML = '<span class="omo-ic omo-ic-del" aria-hidden="true"></span>';
     delBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (!confirm(`确定删除方案 ${preset.name} ？保存后生效。`)) return;
@@ -405,6 +404,8 @@ function createPresetGroup(preset) {
         showToast(`已标记删除方案 ${preset.name}（点击保存生效）`, 'info');
     });
     actions.appendChild(delBtn);
+    // 全选独立放在最右（与左侧三个图标拉开间距，由 CSS margin-left 控制）
+    actions.appendChild(selectAll);
 
     header.appendChild(actions);
 
