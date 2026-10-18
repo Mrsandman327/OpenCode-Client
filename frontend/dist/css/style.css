@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    OpenCode 管理中心 - 主样式表   Apple 设计风格主题系统
    ============================================================ */
 
@@ -4159,6 +4159,11 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
+    /* flex 子项不压缩：同时展开多张卡片时各自保持完整高度，由外层 #modelConfig 整体滚动
+       （flex 默认 flex-shrink:1 会压扁卡片，配合 overflow:hidden 裁掉内容，导致页面无法滚动） */
+    flex-shrink: 0;
+    /* 裁剪子元素（标题栏背景）到卡片圆角内，否则标题栏直角会溢出圆角 */
+    overflow: hidden;
     /* 与技能 / 知识库卡片共用同一套悬浮层次（只换阴影档位，不做 hover 上浮） */
     box-shadow: var(--card-shadow-float);
     /* hover 时抬升 z-index 的定位参照，避免阴影被相邻卡片盖住 */
@@ -4621,6 +4626,8 @@ input::placeholder, textarea::placeholder {
     border-bottom: 1px solid var(--border);
     flex-wrap: wrap;
     gap: 6px;
+    /* 作为 #view-omo 的直接子项：固定高度，不参与 flex 收缩 */
+    flex-shrink: 0;
 }
 .omo-action-group {
     display: flex;
@@ -9512,10 +9519,11 @@ input.toolbar-input {
     flex-shrink: 0;
     accent-color: var(--accent);
 }
-/* 方案名：默认中等字重；选中的方案加粗（唯一的高亮差异） */
+/* 类型标题默认加粗（v1 的类型卡片无「选中方案」概念，统一 600；
+   原 V2 规则为默认 500、选中 600） */
 #view-omo .model-group-title .model-group-label {
     flex: 0 0 auto;
-    font-weight: 500;
+    font-weight: 600;
 }
 #view-omo .model-group.active .model-group-label {
     font-weight: 600;
