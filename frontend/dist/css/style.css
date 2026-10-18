@@ -1704,10 +1704,13 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ==================== 子任务详情弹窗 ==================== */
-.subtask-modal {
-    width: 80vw;
-    min-width: 800px;
-    max-width: 1000px;
+/* 双类选择器提升特异性：.modal 在样式表后段定义了 max-width:100vw，
+   单类 .subtask-modal 会被它覆盖，导致宽度收不下来。 */
+.modal.subtask-modal {
+    /* 宽度较原设计缩小约 1/5（80vw/1000px → 64vw/800px，最小 640px） */
+    width: 70vw;
+    min-width: 640px;
+    max-width: 75vw;
     height: 85vh;
     display: flex;
     flex-direction: column;
@@ -8240,6 +8243,10 @@ input.toolbar-input {
     overflow-y: auto;
     min-height: 0;
     padding: 12px 20px;
+    /* 消息卡片纵向排列并留出间距（与主消息区同构，user/assistant 才能左右对齐） */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 /* 标题行（flex 布局） */
 .subtask-title-row {

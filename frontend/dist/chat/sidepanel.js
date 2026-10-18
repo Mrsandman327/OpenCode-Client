@@ -394,6 +394,32 @@ export function findCachedSubtaskPart(childSessionId) {
     return null;
 }
 
+/** 当前打开详情弹窗的子任务提示词（列表接口不含此项，从父任务 part 反查后缓存于此） */
+let currentSubtaskPrompt = '';
+
+/** 取子任务在父会话缓存中的 subagent/task 工具 part（与 findCachedSubtaskPart 同源，返回 part 本体） */
+export function findCachedSubtaskTaskPart(childSessionId) {
+    if (!childSessionId) return null;
+    const items = getCachedMessages(store.currentSessionId);
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i] || {};
+        const parts = Array.isArray(item.parts) ? item.parts : [];
+        for (let j = parts.length - 1; j >= 0; j--) {
+            if (matchSubtaskPart(parts[j], childSessionId)) return parts[j];
+        }
+    }
+    return null;
+}
+
+/** 从 subagent/task part 的输入里提取发给子 agent 的提示词（prompt 优先，description 兜底） */
+export function extractSubtaskPrompt(part) {
+    const input = part && part.state && part.state.input;
+    if (!input) return '';
+    if (typeof input.prompt === 'string' && input.prompt.trim()) return input.prompt.trim();
+    if (typeof input.description === 'string' && input.description.trim()) return input.description.trim();
+    return '';
+}
+
 /** 子任务卡片点击处理 */
 export function onSubtaskCardClick(e) {
     const detailBtn = e.target.closest('.oc-subtask-detail-btn');
@@ -461,7 +487,16 @@ export function locateParentMessage(msgId) {
 export function openSubtaskModal(childSessionId, subtaskSummary) {
     const modal = document.getElementById('subtaskModal');
     if (!modal) return;
-    if (subtaskSummary) fillModalSummary(subtaskSummary);
+
+    // 发给子 agent 的提示词：列表接口不带此项，从父消息缓存的 subagent/task part 反查
+    const taskPart = findCachedSubtaskTaskPart(childSessionId);
+    currentSubtaskPrompt = (subtaskSummary && subtaskSummary.promptPreview) || extractSubtaskPrompt(taskPart);
+
+    if (subtaskSummary) {
+        // 让摘要里的「展开原始任务」也能显示反查到的提示词
+        if (!subtaskSummary.promptPreview) subtaskSummary.promptPreview = currentSubtaskPrompt;
+        fillModalSummary(subtaskSummary);
+    }
 
     const msgBox = document.getElementById('subtaskMessages');
     if (msgBox) msgBox.innerHTML = '<div class="oc-loading" style="padding:40px;text-align:center"><div class="spinner"></div><p>正在加载子任务详情...</p></div>';
@@ -528,8 +563,8 @@ export function fillModalSummary(s) {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
     const setHtml = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val || '—'; };
 
+    // 标题只在弹窗头部显示一次（原摘要区重复的标题行已移除）
     document.getElementById('subtaskModalTitle').textContent = s.title || '子任务详情';
-    set('subtaskTitle', s.title);
     setHtml('subtaskAgent', escapeHtml(s.agent || '—'));
     setHtml('subtaskModel', escapeHtml(s.model || '—'));
 
@@ -558,7 +593,6 @@ export function fillModalSummary(s) {
         el.dataset.status = st;
     };
     updateBadge(document.getElementById('subtaskStatusBadge'), statusLabel, s.status);
-    updateBadge(document.getElementById('subtaskStatusBadge2'), statusLabel, s.status);
 }
 
 /** 加载子任务详情消息 */
@@ -575,6 +609,11 @@ export async function loadSubtaskDetailMessages(childSessionId) {
 
         // v2 返回 {data:[扁平消息], cursor}，需还原为 v1 的 [{info,parts}] 且按旧→新排列
         const items = adaptMessages(childSessionId, res);
+        // 子会话消息通常只有助手回复：用父任务 part 反查到的提示词补一条「子任务输入」，
+        // 保证详情内容区能看到发给子 agent 的原始提示词
+        if (currentSubtaskPrompt && !items.some(it => (it.info || it).role === 'user')) {
+            items.unshift({ info: { role: 'user' }, parts: [{ type: 'text', text: currentSubtaskPrompt }] });
+        }
         if (!items.length) {
             if (msgBox) msgBox.innerHTML = '<div class="oc-empty">子会话暂无消息</div>';
             return;
