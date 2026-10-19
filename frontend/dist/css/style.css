@@ -4924,7 +4924,12 @@ input::placeholder, textarea::placeholder {
     letter-spacing: 0.5px;
     margin-left: auto;
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    white-space: nowrap;
+    /* V2 的命令参数较长（stats/plugin 等）：允许在胶囊内换行，
+       避免 nowrap 把卡片撑破或横向溢出；短快捷键仍靠右显示 */
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+    text-align: right;
 }
 
 .cmd-card-desc {
