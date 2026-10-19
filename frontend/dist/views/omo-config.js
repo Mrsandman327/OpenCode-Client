@@ -266,6 +266,9 @@ function commitGlobalRows() {
 function commitGlobalValues() {
     syncGlobalStateFromRows();
     checkUnsavedChanges();
+    // 顶层模型/variant 改动后，方案行的展示值要立即跟随（显式覆盖显示顶层值），
+    // 否则用户会看到顶层改了思考强度、下方方案行仍是旧值。
+    refreshPresetGlobalTags();
 }
 
 /**
@@ -592,13 +595,31 @@ function globalRowState(key) {
     return { root, disabled: disabledAgents.includes(key) };
 }
 
-/** 方案行被全局覆盖/禁用时，锁住模型与 variant 下拉（仍显示方案自身的原值） */
+/** 方案行被全局覆盖/禁用时，锁住模型与 variant 下拉。
+ *  显式指定（顶层有 model/variant）时显示顶层值；跟随会话/orchestrator 时显示方案原值。 */
 function applyPresetRowGlobalLock(row, key) {
     const { root, disabled } = globalRowState(key);
     const locked = !!root || disabled;
     row.querySelectorAll('.model-select, .model-reasoning-select').forEach(sel => {
         sel.disabled = locked;
     });
+}
+
+/**
+ * 方案行的展示值：
+ *   - 顶层「显式指定」（inheritModelFrom 为空且非 unsupported）：模型与 variant 都以顶层为准，
+ *     因为实际运行时顶层会完全取代方案值；
+ *   - 跟随会话 / 跟随 orchestrator / 未覆盖 / 禁用：显示方案自身的原值。
+ * 只影响展示，不写回 agent.model / agent.variant。
+ */
+function presetRowDisplay(agent) {
+    const { root } = globalRowState(agent.key);
+    const explicit = !!(root && !root.unsupported && !root.inheritModelFrom);
+    return {
+        explicit,
+        model: explicit ? (root.model || '') : (agent.model || ''),
+        variant: explicit ? (root.variant || '') : (agent.variant || ''),
+    };
 }
 
 /** 方案行里追加全局状态小标签（顺序固定，且不重复） */
@@ -634,7 +655,7 @@ function createPresetGlobalTag(text, danger) {
     return tag;
 }
 
-/** 全局覆盖编辑后，原地刷新下方方案行的标签与锁定状态，避免整块方案列表重绘 */
+/** 全局覆盖编辑后，原地刷新下方方案行的标签、锁定状态与展示值，避免整块方案列表重绘 */
 function refreshPresetGlobalTags() {
     document.querySelectorAll('#modelConfig .model-row[data-agent-key]').forEach(row => {
         row.querySelectorAll('.go-tag[data-go-tag]').forEach(tag => tag.remove());
@@ -642,6 +663,20 @@ function refreshPresetGlobalTags() {
         if (!top) return;
         appendPresetGlobalTags(top, row.dataset.agentKey, top.querySelector('.model-select'));
         applyPresetRowGlobalLock(row, row.dataset.agentKey);
+        // 顶层显式覆盖 → 显示顶层模型/variant；撤销覆盖或改成跟随类 → 恢复方案原值
+        const agent = row._agentRef;
+        if (!agent) return;
+        const display = presetRowDisplay(agent);
+        const modelSel = row.querySelector('.model-select');
+        const variantSel = row.querySelector('.model-reasoning-select');
+        if (modelSel) {
+            modelSel.innerHTML = modelOptionsHtml(display.model);
+            modelSel.value = display.model;
+        }
+        if (variantSel) {
+            variantSel.innerHTML = variantOptionsHtml(display.variant);
+            variantSel.value = display.variant;
+        }
     });
 }
 
@@ -974,6 +1009,8 @@ function createAgentRow(preset, agent) {
     row.className = 'model-row' + (isPureInherited ? ' inherited' : '');
     // 供全局覆盖编辑后原地刷新「顶层覆盖 / 全局禁用」标签
     row.dataset.agentKey = agent.key;
+    // 保留行与数据对象的引用：顶层覆盖改动后可只刷新本行展示值，不必整块重绘
+    row._agentRef = agent;
 
     const top = document.createElement('div');
     top.className = 'model-row-top';
@@ -1004,10 +1041,13 @@ function createAgentRow(preset, agent) {
     appendPresetGlobalTags(top, agent.key);
 
     // 模型下拉：改动继承行即标记为「已覆盖」
+    // 顶层显式覆盖时展示顶层模型（置灰），其余情况展示方案自身值
+    const display = presetRowDisplay(agent);
     const select = document.createElement('select');
     select.className = 'model-select';
     select.title = '模型';
-    select.innerHTML = modelOptionsHtml(agent.model);
+    select.innerHTML = modelOptionsHtml(display.model);
+    select.value = display.model;
     select.addEventListener('change', () => {
         agent.model = select.value;
         if (agent.inherited) agent.overridden = true;
@@ -1020,7 +1060,8 @@ function createAgentRow(preset, agent) {
     const variantSelect = document.createElement('select');
     variantSelect.className = 'model-reasoning-select';
     variantSelect.title = 'variant（思考力度）';
-    variantSelect.innerHTML = variantOptionsHtml(agent.variant);
+    variantSelect.innerHTML = variantOptionsHtml(display.variant);
+    variantSelect.value = display.variant;
     variantSelect.addEventListener('change', () => {
         agent.variant = variantSelect.value;
         if (agent.inherited) agent.overridden = true;
