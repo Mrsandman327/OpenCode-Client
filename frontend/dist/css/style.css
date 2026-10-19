@@ -4872,17 +4872,21 @@ input::placeholder, textarea::placeholder {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 10px;
+    /* 同行卡片默认 stretch，视觉上保持等高；子项统一 min-width:0 防止长参数撑破列宽 */
+    align-items: stretch;
 }
 
 .cmd-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    padding: 14px 17px;
-    transition: all var(--transition);
+    padding: 14px 16px 15px;
+    transition: border-color var(--transition), background var(--transition);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    min-width: 0;
+    /* 兜底裁剪：任何超长 token 都不允许把卡片撑出网格列 */
+    overflow: hidden;
 }
 
 .cmd-card:hover {
@@ -4890,11 +4894,14 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card-hover);
 }
 
-.cmd-card-top {
+/* 标题区：命令名与子命令上下分层。
+   命令名（强调色 + 等宽）> 子命令（中性 tag），不再与参数挤在同一行。 */
+.cmd-card-head {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+    min-width: 0;
 }
 
 .cmd-card-name {
@@ -4903,39 +4910,84 @@ input::placeholder, textarea::placeholder {
     color: var(--accent);
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     letter-spacing: -0.3px;
+    line-height: 1.25;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
+/* 子命令：轻量中性 tag（弱底色 + 弱描边），与参数保持不同视觉层 */
 .cmd-card-sub {
-    font-size: 12px;
-    color: var(--text-muted);
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    background: var(--bg-input);
-    padding: 1px 6px;
+    display: inline-block;
+    max-width: 100%;
+    padding: 2px 7px;
+    border: 1px solid var(--border);
     border-radius: var(--radius-xs);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
 }
 
-.cmd-card-shortcut {
+/* 参数区：独占一行、左对齐。
+   小号等宽中性文本 + 弱化「参数 / 快捷键」标签，无胶囊、无大色块。 */
+.cmd-card-options {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 8px;
+    margin-top: 10px;
+    min-width: 0;
+}
+
+.cmd-card-options-label {
+    color: var(--text-muted);
     font-size: 10px;
     font-weight: 600;
-    color: var(--warning);
-    background: var(--warning-bg);
-    padding: 2px 8px;
-    border-radius: var(--radius-pill);
-    letter-spacing: 0.5px;
-    margin-left: auto;
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    /* V2 的命令参数较长（stats/plugin 等）：允许在胶囊内换行，
-       避免 nowrap 把卡片撑破或横向溢出；短快捷键仍靠右显示 */
-    white-space: normal;
-    overflow-wrap: anywhere;
-    max-width: 100%;
-    text-align: right;
+    letter-spacing: 0.08em;
+    line-height: 1.7;
+    white-space: nowrap;
+    user-select: none;
 }
 
-.cmd-card-desc {
-    font-size: 12px;
+.cmd-card-options-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 1px 14px;
+    min-width: 0;
     color: var(--text-secondary);
-    line-height: 1.5;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+/* 单个参数片段：无底色、无描边，过长时允许在片段内部自然换行。
+   overflow-wrap:anywhere 兜底 paths [db|home|...] 这类超长 token，
+   保证 3 列布局下 scrollWidth 不超过 clientWidth。 */
+.cmd-card-opt {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+/* 片段内的子命令前缀（如 list: / export:）：比参数正文再弱一级，帮助分段阅读 */
+.cmd-card-opt-label {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* 描述：层级最低，放在最后；flex:1 吸收同行卡片的高度差，
+   让 grid 拉伸后的剩余空间留在描述区内，而不是卡片底部形成突兀空白。 */
+.cmd-card-desc {
+    flex: 1 1 auto;
+    margin: 9px 0 0;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
 }
 
 /* ========== API 文档渲染 ========== */

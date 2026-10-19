@@ -59,6 +59,61 @@ export async function loadCommands() {
     }
 }
 
+/**
+ * 把后端返回的 options 字符串拆成可独立换行的片段。
+ * 仅做展示层拆分，不修改后端数据结构：
+ *   - 全角/半角分号分段，如「list: ...；export: ...」
+ *   - 逗号 + 空格分段，如「--days N, --year Y, --all」
+ * 这样每段都能独立换行，避免整串参数挤成一个黄色大色块。
+ */
+function splitCommandOptions(text) {
+    return String(text || '')
+        .split(/\s*[；;]\s*|,\s+/)
+        .map(part => part.trim())
+        .filter(part => part.length > 0);
+}
+
+/**
+ * 在片段内保留「|」作为合法换行点（如 [db|home|...]）。
+ * 使用 <wbr> 而不是插入空格，复制文本时不会多出字符。
+ */
+function appendBreakableText(parent, text) {
+    const parts = String(text).split('|');
+    parts.forEach((part, index) => {
+        if (part) parent.appendChild(document.createTextNode(part));
+        if (index < parts.length - 1) {
+            // 先保留原字符「|」，再插入零宽换行点；
+            // 既不改写后端文本，也让 db|home|... 能在竖线处换行。
+            parent.appendChild(document.createTextNode('|'));
+            parent.appendChild(document.createElement('wbr'));
+        }
+    });
+}
+
+/**
+ * 创建单个参数片段。
+ * 「list: -n N --format json」这类带前缀的片段，把 list: 弱化显示，
+ * 让多段参数在视觉上更容易扫读，但仍保持等宽、中性色。
+ */
+function createOptionFragment(text) {
+    const fragmentEl = document.createElement('span');
+    fragmentEl.className = 'cmd-card-opt';
+
+    const labelMatch = text.match(/^([A-Za-z][\w-]{0,15}):\s+(\S.*)$/);
+    if (labelMatch) {
+        const labelEl = document.createElement('span');
+        labelEl.className = 'cmd-card-opt-label';
+        labelEl.textContent = labelMatch[1] + ':';
+        fragmentEl.appendChild(labelEl);
+        fragmentEl.appendChild(document.createTextNode(' '));
+        appendBreakableText(fragmentEl, labelMatch[2]);
+    } else {
+        appendBreakableText(fragmentEl, text);
+    }
+
+    return fragmentEl;
+}
+
 export function renderCommands(tab) {
     const content = document.getElementById('cmdContent');
     const isCLI = tab === 'cli';
@@ -86,35 +141,52 @@ export function renderCommands(tab) {
             const card = document.createElement('div');
             card.className = 'cmd-card';
 
-            const top = document.createElement('div');
-            top.className = 'cmd-card-top';
+            // 标题区：命令名在上，子命令作为轻量中性 tag 单独占一行。
+            const headEl = document.createElement('div');
+            headEl.className = 'cmd-card-head';
 
             const nameEl = document.createElement('span');
             nameEl.className = 'cmd-card-name';
-            nameEl.textContent = cmd.name;
+            nameEl.textContent = cmd.name || '';
+            headEl.appendChild(nameEl);
 
-            top.appendChild(nameEl);
-
-            if (cmd.sub) {
+            const subText = String(cmd.sub || '').trim();
+            if (subText) {
                 const subEl = document.createElement('span');
                 subEl.className = 'cmd-card-sub';
-                subEl.textContent = cmd.sub;
-                top.appendChild(subEl);
+                subEl.textContent = subText;
+                headEl.appendChild(subEl);
             }
 
-            if (cmd.options) {
-                const shortcutEl = document.createElement('span');
-                shortcutEl.className = 'cmd-card-shortcut';
-                shortcutEl.textContent = cmd.options;
-                top.appendChild(shortcutEl);
+            card.appendChild(headEl);
+
+            // 参数区：独占一行，弱化标签 + 中性等宽小字；不使用胶囊/底色。
+            // CLI 的 options 是命令行参数，TUI 的 options 实际是快捷键，标签随之区分。
+            const optionsText = String(cmd.options || '').trim();
+            if (optionsText) {
+                const optionsEl = document.createElement('div');
+                optionsEl.className = 'cmd-card-options';
+
+                const optionsLabelEl = document.createElement('span');
+                optionsLabelEl.className = 'cmd-card-options-label';
+                optionsLabelEl.textContent = isCLI ? '参数' : '快捷键';
+
+                const optionsListEl = document.createElement('div');
+                optionsListEl.className = 'cmd-card-options-list';
+                splitCommandOptions(optionsText).forEach(fragment => {
+                    optionsListEl.appendChild(createOptionFragment(fragment));
+                });
+
+                optionsEl.appendChild(optionsLabelEl);
+                optionsEl.appendChild(optionsListEl);
+                card.appendChild(optionsEl);
             }
 
-            card.appendChild(top);
-
-            if (cmd.desc) {
+            const descText = String(cmd.desc || '').trim();
+            if (descText) {
                 const descEl = document.createElement('p');
                 descEl.className = 'cmd-card-desc';
-                descEl.textContent = cmd.desc;
+                descEl.textContent = descText;
                 card.appendChild(descEl);
             }
 
