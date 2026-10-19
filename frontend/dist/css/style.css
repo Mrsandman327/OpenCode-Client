@@ -3004,6 +3004,29 @@ input::placeholder, textarea::placeholder {
     font-size: 11px;
     color: var(--text-muted);
 }
+/* 插件条目内的「更新」按钮：紧凑文字按钮（服务状态面板 · 插件分组） */
+.oc-service-item .oc-plugin-update {
+    margin-left: 4px;
+    padding: 0 6px;
+    height: 18px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.oc-service-item .oc-plugin-update:hover:not(:disabled) {
+    background: var(--accent);
+    color: #fff;
+}
+.oc-service-item .oc-plugin-update:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
 .oc-service-card {
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);

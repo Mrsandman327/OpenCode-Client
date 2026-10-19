@@ -243,11 +243,15 @@ function extractPluginList(res) {
             return;
         }
         // 用户插件（local/package 等）：归一化为 { name, state, version, outdated, error } 便于渲染
+        // target/id 供插件更新使用（POST /api/plugin/update 的 targets 取包名 target）
         const item = {
             name: p.id || src.target || src.path || '?',
+            id: p.id || '',
+            target: src.target || '',
             state: (p.state && p.state.status) || '',
             version: src.version || '',
             outdated: !!src.outdated,
+            updating: !!src.updating,
             error: (p.state && p.state.error) || '',
         };
         if (item.name) user.push(item);
@@ -529,7 +533,12 @@ export function renderServiceStatus() {
                 const ok = p.state === 'active';
                 const failed = p.state === 'failed';
                 const stateText = ok ? '已加载' : failed ? '失败' : '';
-                const suffix = p.outdated ? '（可更新）' : '';
+                const canUpdate = !!(p.target && (p.outdated || p.updating));
+                const updateBtn = canUpdate
+                    ? '<button type="button" class="oc-plugin-update" data-plugin-target="' + escapeHtml(p.target) + '"' +
+                      (p.updating ? ' disabled' : '') + '>' + (p.updating ? '更新中…' : '更新') + '</button>'
+                    : '';
+                const suffix = p.outdated && !p.updating ? '（可更新）' + updateBtn : updateBtn;
                 const detail = (failed && p.error) ? '（' + escapeHtml(p.error) + '）' : suffix;
                 const label = p.version ? escapeHtml(p.name) + ' <span class="oc-service-state">v' + escapeHtml(p.version) + '</span>' : escapeHtml(p.name);
                 body += '<div class="oc-service-item"><span class="oc-service-dot ' + (ok ? 'on' : 'off') + '"></span>' + label +
@@ -541,6 +550,40 @@ export function renderServiceStatus() {
         pluginSec.querySelector('.oc-service-group-title.clickable').addEventListener('click', function() {
             pluginSec.classList.toggle('collapsed');
         });
+
+        // 插件更新：条目内「更新」按钮 → POST /api/plugin/update，随后轮询直到 updating 消失
+        pluginSec.addEventListener('click', async function(e) {
+            const btn = e.target.closest('.oc-plugin-update');
+            if (!btn || btn.disabled) return;
+            const target = btn.dataset.pluginTarget;
+            if (!target) return;
+            btn.disabled = true;
+            btn.textContent = '更新中…';
+            try {
+                const dir = await resolveServiceDefaultDir();
+                await api.OpenCodeCall('POST', '/api/plugin/update', { targets: [target] }, dir);
+                // 轮询等待更新完成（updating 消失且不再 outdated），最多约 20 秒
+                let done = false;
+                for (let i = 0; i < 10; i++) {
+                    await new Promise(function(r) { setTimeout(r, 2000); });
+                    const res = await api.OpenCodeCall('GET', '/api/plugin', null, dir).catch(() => null);
+                    const info = extractPluginList(res);
+                    store.pluginStatus = info.list;
+                    store.pluginBuiltin = info.builtin;
+                    renderServiceStatus();
+                    const cur = info.list.find(function(p) { return p.target === target; });
+                    if (cur && !cur.updating && !cur.outdated) { done = true; break; }
+                }
+                // 插件 setup / config hook 只在服务启动时执行，reload 不会重跑 setup → 必须重启服务
+                showToast(done ? '插件已更新，需重启 OpenCode 服务后生效' : '更新请求已提交，完成后需重启 OpenCode 服务', done ? 'success' : 'info');
+                loadServiceStatus();
+            } catch (err) {
+                showApiError('插件更新失败: ', err);
+                btn.disabled = false;
+                btn.textContent = '更新';
+            }
+        });
+
         box.appendChild(pluginSec);
     }
     // 恢复重渲染前的展开状态：按记录双向恢复（新出现的分组保持构造默认）。
