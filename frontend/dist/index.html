@@ -241,6 +241,44 @@
                     </div>
                 </div>
 
+                <!-- 全局覆盖（固定，默认收起）：写入配置文件顶层 agents，优先级高于下方方案 -->
+                <section class="go-override" id="globalOverride" aria-labelledby="goTitle">
+                    <button type="button" class="go-header" id="goHeader" aria-expanded="false" aria-controls="goBody">
+                        <span class="go-chevron" aria-hidden="true"></span>
+                        <span class="go-title" id="goTitle">全局覆盖</span>
+                        <code class="go-code-chip">顶层 agents</code>
+                        <span class="go-sub">优先级高于下方所有方案</span>
+                        <span class="go-summary" aria-live="polite">
+                            <span class="go-chip go-chip-override" id="chipOverride">
+                                <span class="go-dot" aria-hidden="true"></span>
+                                <span><b id="overrideCount">0</b> 个覆盖</span>
+                            </span>
+                            <span class="go-chip go-chip-disabled" id="chipDisabled">
+                                <span class="go-dot" aria-hidden="true"></span>
+                                <span><b id="disabledCount">0</b> 个禁用</span>
+                            </span>
+                        </span>
+                        <span class="go-toggle-text" id="goToggleText">展开</span>
+                    </button>
+
+                    <div class="go-body" id="goBody" inert>
+                        <div class="go-body-inner">
+                            <div class="go-intro">
+                                <p>这里的设置会写入配置文件顶层 <code>agents</code>，覆盖下方方案中的同名 agent；此处未设置的 agent 继续沿用启用方案里的配置。</p>
+                            </div>
+
+                            <div class="go-col-head" aria-hidden="true">
+                                <span>启用 · Agent</span>
+                                <span>模型来源</span>
+                                <span>模型 / variant</span>
+                                <span>覆盖状态</span>
+                            </div>
+
+                            <div class="go-rows" id="goRows"></div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- 批量操作栏（固定） -->
                 <div id="omoBatchBar" class="omo-batch-bar-wrap"></div>
 

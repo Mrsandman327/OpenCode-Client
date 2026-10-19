@@ -4178,6 +4178,9 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
+    /* flex 子项不压缩：同时展开多张卡片时各自保持完整高度，由外层 #modelConfig 整体滚动
+    （flex 默认 flex-shrink:1 会压扁卡片，配合 overflow:hidden 裁掉内容，导致页面无法滚动） */
+    flex-shrink: 0;
     /* 裁剪子元素（标题栏背景）到卡片圆角内，否则标题栏直角会溢出圆角 */
     overflow: hidden;
     /* 与技能 / 知识库卡片共用同一套悬浮层次（只换阴影档位，不做 hover 上浮） */
@@ -9468,4 +9471,610 @@ input.toolbar-input {
     color: var(--text-secondary);
     font-size: 12px;
     line-height: 1.5;
+}
+
+/* ============================================================
+   全局覆盖（配置文件顶层 agents）
+   ------------------------------------------------------------
+   位置固定在 OMO 工具栏下方、批量栏上方，默认收起。
+   只复用项目现有变量与字体栈，不引入新的视觉语言：
+   - 覆盖行用 accent 左侧竖线 + 极浅底色；
+   - 禁用行用 danger 浅底，控件压暗但保留原值；
+   - 收起/展开用 grid-template-rows 过渡，不写死高度。
+   ============================================================ */
+#view-omo .go-override {
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+}
+
+/* ---------- 收起态表头：一行摘要 + 展开 ---------- */
+#view-omo .go-header {
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px 16px;
+    border: none;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+#view-omo .go-header:hover {
+    background: var(--bg-card-hover);
+}
+#view-omo .go-header:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+#view-omo .go-chevron {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+/* 纯 CSS 箭头：默认指右，展开后转向下 */
+#view-omo .go-chevron::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#view-omo .go-override.open .go-chevron::before {
+    transform: rotate(45deg);
+}
+#view-omo .go-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+#view-omo .go-code-chip {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 7px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    background: var(--accent-ghost);
+    color: var(--accent);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 10px;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+#view-omo .go-sub {
+    min-width: 0;
+    max-width: 260px;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+#view-omo .go-summary {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+#view-omo .go-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+#view-omo .go-chip b {
+    font-weight: 600;
+}
+#view-omo .go-chip .go-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+#view-omo .go-chip-override:not(.is-zero) {
+    border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+#view-omo .go-chip-disabled:not(.is-zero) {
+    border-color: color-mix(in srgb, var(--danger) 28%, transparent);
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+#view-omo .go-chip.is-zero {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-muted);
+}
+#view-omo .go-toggle-text {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+#view-omo .go-header:hover .go-toggle-text {
+    color: var(--text-secondary);
+}
+
+/* ---------- 展开/收起过渡 ---------- */
+#view-omo .go-body {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#view-omo .go-override.open .go-body {
+    grid-template-rows: 1fr;
+}
+#view-omo .go-override.no-motion .go-body {
+    transition: none;
+}
+#view-omo .go-body-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* ---------- 说明与列头 ---------- */
+#view-omo .go-intro {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 16px 8px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+#view-omo .go-intro p {
+    min-width: 0;
+}
+/* 正文里的字段名：行内代码样式。注意不能进入下面的 grid 选择器组，
+   否则 display:grid 会把「顶层 agents，覆盖…」拆成多行。 */
+#view-omo .go-intro code {
+    display: inline;
+    padding: 0 4px;
+    border-radius: var(--radius-xs);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 0.94em;
+}
+#view-omo .go-col-head,
+#view-omo .go-row {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.05fr) minmax(142px, 0.68fr) minmax(230px, 1.3fr) 76px;
+    gap: 12px;
+    align-items: center;
+}
+#view-omo .go-col-head {
+    padding: 6px 16px 5px;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+}
+#view-omo .go-col-head span:last-child {
+    text-align: right;
+}
+
+/* ---------- 数据行 ---------- */
+#view-omo .go-rows {
+    border-top: 1px solid var(--border);
+}
+#view-omo .go-row {
+    min-height: 42px;
+    padding: 6px 16px;
+    border-top: 1px solid var(--border);
+    background: transparent;
+    transition: background var(--transition);
+}
+#view-omo .go-rows .go-row:first-child {
+    border-top: none;
+}
+#view-omo .go-row:hover {
+    background: var(--bg-card-hover);
+}
+/* 存在顶层覆盖：左侧 accent 竖线 + 极浅底色 */
+#view-omo .go-row.is-override {
+    background: var(--accent-ghost);
+    box-shadow: inset 2px 0 0 var(--accent);
+}
+#view-omo .go-row.is-override:hover {
+    background: var(--bg-card-hover);
+}
+/* 已禁用：整行 danger 浅底，开关与状态保持可读 */
+#view-omo .go-row.is-disabled {
+    background: var(--danger-bg);
+}
+#view-omo .go-row.is-disabled:hover {
+    background: var(--bg-card-hover);
+}
+#view-omo .go-agent-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+#view-omo .go-agent-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 7px;
+    min-width: 0;
+}
+#view-omo .go-agent-name {
+    color: var(--text-primary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+/* agent 职责注释（agents-comments.json）：与方案行 .model-comment 同口径，
+   独占一行、最多两行，超出省略（title 保留全文） */
+#view-omo .go-agent-comment {
+    flex-basis: 100%;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+#view-omo .go-role-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 17px;
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    color: var(--text-muted);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+#view-omo .go-role-badge.is-primary {
+    border-color: var(--border-light);
+    color: var(--text-secondary);
+}
+#view-omo .go-protected-note {
+    color: var(--text-muted);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+/* 启用开关：紧凑拨杆，视觉沿用项目的 accent 交互色 */
+#view-omo .go-switch {
+    position: relative;
+    width: 30px;
+    height: 17px;
+    display: inline-flex;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+#view-omo .go-switch input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+}
+#view-omo .go-switch input:disabled {
+    cursor: not-allowed;
+}
+#view-omo .go-switch-track {
+    width: 30px;
+    height: 17px;
+    display: block;
+    position: relative;
+    border-radius: var(--radius-pill);
+    background: var(--border-light);
+    transition: background var(--transition);
+}
+#view-omo .go-switch-track::after {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    transition: transform var(--transition);
+}
+#view-omo .go-switch input:checked + .go-switch-track {
+    background: var(--accent);
+}
+#view-omo .go-switch input:checked + .go-switch-track::after {
+    transform: translateX(13px);
+}
+#view-omo .go-switch input:disabled + .go-switch-track {
+    opacity: 0.45;
+}
+/* 主调度器：开关保持「开」但退成中性灰，表达受保护而非可操作 */
+#view-omo .go-switch input:disabled:checked + .go-switch-track {
+    background: var(--text-muted);
+}
+#view-omo .go-switch input:focus-visible + .go-switch-track {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ---------- 模型来源 / 模型控件 ---------- */
+#view-omo .go-select {
+    height: 28px;
+    min-width: 0;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 11.5px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition), opacity var(--transition);
+}
+#view-omo .go-select:hover:not(:disabled) {
+    border-color: var(--border-light);
+}
+#view-omo .go-select:focus {
+    border-color: var(--accent);
+}
+#view-omo .go-select:disabled {
+    color: var(--text-muted);
+    -webkit-text-fill-color: var(--text-muted);
+    opacity: 0.86;
+    cursor: not-allowed;
+}
+#view-omo .go-source-cell {
+    min-width: 0;
+}
+#view-omo .go-source-select {
+    width: 100%;
+    max-width: 200px;
+}
+#view-omo .go-row.is-override .go-source-select:not(:disabled) {
+    border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+    color: var(--text-primary);
+}
+#view-omo .go-model-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+#view-omo .go-model-pick {
+    flex: 1;
+    min-width: 0;
+    max-width: 340px;
+    color: var(--text-primary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+}
+#view-omo .go-variant-pick {
+    width: 82px;
+    flex: 0 0 82px;
+    color: var(--text-primary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+}
+#view-omo .go-locked-select {
+    flex: 1;
+    max-width: 340px;
+    border-style: dashed;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: not-allowed;
+}
+#view-omo .go-readonly-note {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 9px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.4;
+}
+/* 禁用行：名称与控件整体压暗，但保留可读性；开关和状态色保持清晰 */
+#view-omo .go-row.is-disabled .go-agent-info {
+    opacity: 0.55;
+}
+#view-omo .go-row.is-disabled .go-source-cell,
+#view-omo .go-row.is-disabled .go-model-cell {
+    opacity: 0.84;
+}
+
+/* ---------- 覆盖状态 ---------- */
+#view-omo .go-status-cell {
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
+}
+#view-omo .go-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 21px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+#view-omo .go-status-pill .go-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+#view-omo .go-status-pill.is-override {
+    border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+#view-omo .go-status-pill.is-disabled {
+    border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+#view-omo .go-status-text {
+    color: var(--text-muted);
+    font-size: 10.5px;
+    white-space: nowrap;
+}
+#view-omo .go-empty {
+    padding: 14px 16px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+/* ---------- 底部字段说明：已移除（不再展示技术字段名） ---------- */
+
+/* ---------- 方案行内的顶层覆盖 / 全局禁用小标签 ---------- */
+#view-omo .go-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 6px;
+    flex-shrink: 0;
+    border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+    border-radius: var(--radius-xs);
+    background: var(--accent-ghost);
+    color: var(--accent);
+    font-size: 9.5px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+#view-omo .go-tag.danger {
+    border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+/* ---------- 窄屏适配 ---------- */
+@media (max-width: 1080px) {
+    #view-omo .go-sub {
+        display: none;
+    }
+}
+@media (max-width: 980px) {
+    #view-omo .go-col-head,
+    #view-omo .go-row {
+        grid-template-columns: minmax(220px, 1fr) minmax(128px, 0.7fr) minmax(205px, 1.2fr) 68px;
+        gap: 8px;
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+    #view-omo .go-intro {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+    #view-omo .go-model-pick,
+    #view-omo .go-locked-select {
+        max-width: none;
+    }
+    #view-omo .go-variant-pick {
+        width: 74px;
+        flex-basis: 74px;
+    }
+}
+@media (max-width: 840px) {
+    #view-omo .go-col-head {
+        display: none;
+    }
+    #view-omo .go-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "agent status"
+            "source model";
+        gap: 7px 10px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+    }
+    #view-omo .go-agent-cell {
+        grid-area: agent;
+    }
+    #view-omo .go-source-cell {
+        grid-area: source;
+    }
+    #view-omo .go-model-cell {
+        grid-area: model;
+    }
+    #view-omo .go-status-cell {
+        grid-area: status;
+    }
+    #view-omo .go-source-select,
+    #view-omo .go-model-pick,
+    #view-omo .go-locked-select {
+        max-width: none;
+    }
+}
+@media (max-width: 640px) {
+    #view-omo .go-header {
+        gap: 6px;
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    #view-omo .go-title {
+        font-size: 13px;
+    }
+    #view-omo .go-code-chip {
+        display: none;
+    }
+    #view-omo .go-chip {
+        padding: 0 7px;
+    }
+    #view-omo .go-intro {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    #view-omo .go-row {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    #view-omo .go-agent-name {
+        font-size: 11.5px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    #view-omo .go-body,
+    #view-omo .go-chevron::before {
+        transition: none;
+    }
 }

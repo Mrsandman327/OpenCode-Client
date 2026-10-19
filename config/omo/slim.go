@@ -33,6 +33,7 @@ package omo
 // ============================================================
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -163,6 +164,18 @@ type SlimPreset struct {
 	InheritCycle   bool `json:"inheritCycle,omitempty"`
 }
 
+// SlimRootAgent 顶层 agents 覆盖条目。
+// 顶层 agents 优先于所有 preset，用于全局指定某个 agent 的模型。
+type SlimRootAgent struct {
+	Key              string `json:"key"`
+	Model            string `json:"model,omitempty"`
+	Variant          string `json:"variant,omitempty"`
+	InheritModelFrom string `json:"inheritModelFrom,omitempty"` // "session" | "orchestrator" | ""
+	// Unsupported 表示 model 为数组（fallback 链）等暂不支持的形态；
+	// 前端只读展示，保存时按原文件片段写回。
+	Unsupported bool `json:"unsupported,omitempty"`
+}
+
 // SlimConfigResult 前端加载所需的完整数据。
 type SlimConfigResult struct {
 	Path       string `json:"path"`
@@ -171,6 +184,14 @@ type SlimConfigResult struct {
 	// ActivePreset 配置文件中声明的启用方案
 	ActivePreset string       `json:"activePreset"`
 	Presets      []SlimPreset `json:"presets"`
+	// RootAgents 顶层 agents 覆盖（优先于所有 preset）
+	RootAgents []SlimRootAgent `json:"rootAgents"`
+	// DisabledAgents 顶层 disabled_agents；文件缺省时为 ["observer"]（上游默认值）
+	DisabledAgents []string `json:"disabledAgents"`
+	// AgentNames 可选的 agent 名单，供前端渲染下拉选项
+	AgentNames []string `json:"agentNames"`
+	// AgentComments agent 职责说明表（agents-comments.json），供全局覆盖区展示注释
+	AgentComments map[string]string `json:"agentComments,omitempty"`
 	// EnvPresetOverride 环境变量 OH_MY_OPENCODE_SLIM_PRESET 指定的方案（非空时覆盖文件值）
 	EnvPresetOverride string `json:"envPresetOverride,omitempty"`
 	// ProjectConfigPath 若当前项目存在项目级配置，返回其路径（项目级优先于用户级）
@@ -201,6 +222,13 @@ type SlimSavePreset struct {
 type SlimSavePayload struct {
 	ActivePreset string           `json:"activePreset"`
 	Presets      []SlimSavePreset `json:"presets"`
+	// RootAgents 顶层 agents 覆盖。
+	// nil 表示调用方未提交该字段（旧调用方），此时保持原文件区块不变；
+	// 非 nil（包括空数组）表示整体重建区块，未出现的键即取消覆盖。
+	RootAgents []SlimRootAgent `json:"rootAgents"`
+	// DisabledAgents 顶层禁用名单。
+	// nil 表示未提交（保持原文件不变）；非 nil（包括空数组）时按提交值写入。
+	DisabledAgents []string `json:"disabledAgents"`
 	// BaseRevision 加载时返回的内容哈希；与磁盘不一致则拒绝保存。
 	BaseRevision string `json:"baseRevision"`
 }
@@ -222,13 +250,31 @@ type slimAgentValue struct {
 	Variant string
 }
 
+// slimRootAgentDef 记录原文件顶层 agents 中单个键的原始信息。
+// 保存时用于：
+//   - Unsupported 形态（如数组 model）原样写回；
+//   - 保留无法识别的 inheritModelFrom 原值。
+type slimRootAgentDef struct {
+	raw              json.RawMessage
+	unsupported      bool
+	inheritModelFrom string // 原文件中的原始值（可能是未知值）
+	inheritKnown     bool   // 是否为 session / orchestrator
+}
+
 // ========== 加载 ==========
 
 // LoadSlimConfig 读取并解析配置文件，返回前端所需的结构化数据。
 // projectDir 非空时，额外检测项目级配置（用于覆盖提示）。
 func LoadSlimConfig(projectDir string) (*SlimConfigResult, error) {
 	path := SlimConfigPath()
-	res := &SlimConfigResult{Path: path}
+	// 描述表同时用于 agent 注释与可选名单，提前加载一次。
+	descs, _ := LoadSlimAgentDescriptions()
+	res := &SlimConfigResult{
+		Path:           path,
+		RootAgents:     []SlimRootAgent{},
+		DisabledAgents: []string{"observer"}, // 上游默认：未配置时禁用 observer
+		AgentNames:     collectSlimAgentNames(descs, nil),
+	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -273,7 +319,28 @@ func LoadSlimConfig(projectDir string) (*SlimConfigResult, error) {
 		}
 	}
 
-	descs, _ := LoadSlimAgentDescriptions()
+	// 顶层 agents 覆盖（全局优先于所有 preset）
+	if raw, ok := root["agents"]; ok {
+		agents, _ := parseSlimRootAgents(cleaned, raw)
+		res.RootAgents = agents
+	}
+
+	// agent 职责说明表（含内置兜底），供全局覆盖区在行内展示注释
+	res.AgentComments = descs
+
+	// 顶层 disabled_agents；字段缺省时保持默认 ["observer"]
+	if raw, ok := root["disabled_agents"]; ok {
+		var disabled []string
+		if err := json.Unmarshal(raw, &disabled); err == nil {
+			if disabled == nil {
+				disabled = []string{} // 显式 null 视作空数组
+			}
+			res.DisabledAgents = disabled
+		}
+	}
+
+	// 可选 agent 名单：描述表（已含内置兜底）∪ presets 中出现的键 ∪ 固定内置名单
+	res.AgentNames = collectSlimAgentNames(descs, defs)
 
 	for _, name := range presetNames {
 		def := defs[name]
@@ -371,6 +438,100 @@ func parseSlimAgentValue(raw json.RawMessage) (slimAgentValue, bool) {
 		_ = json.Unmarshal(v, &av.Variant)
 	}
 	return av, true
+}
+
+// parseSlimRootAgents 解析顶层 agents 对象。
+// 返回按文件顺序排列的条目，以及保存时需要的原始定义表。
+func parseSlimRootAgents(cleaned string, raw json.RawMessage) ([]SlimRootAgent, map[string]slimRootAgentDef) {
+	agents := []SlimRootAgent{}
+	defs := map[string]slimRootAgentDef{}
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return agents, defs
+	}
+	for _, key := range orderKeysByText(cleaned, obj, "agents") {
+		item, def := parseSlimRootAgentValue(key, obj[key])
+		agents = append(agents, item)
+		defs[key] = def
+	}
+	return agents, defs
+}
+
+// parseSlimRootAgentValue 解析顶层 agents 中的单个条目。
+// model 为数组（fallback 链）等非字符串形态时标记 Unsupported，并保留原始片段。
+func parseSlimRootAgentValue(key string, raw json.RawMessage) (SlimRootAgent, slimRootAgentDef) {
+	out := SlimRootAgent{Key: key}
+	def := slimRootAgentDef{raw: raw}
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		// 非对象形态无法建模，整体按不支持处理，保存时原样写回
+		out.Unsupported = true
+		def.unsupported = true
+		return out, def
+	}
+	if m, ok := obj["model"]; ok {
+		var model string
+		if err := json.Unmarshal(m, &model); err == nil {
+			out.Model = model
+		} else {
+			// 数组（fallback 链）等暂不支持的形态：UI 只读展示
+			out.Unsupported = true
+			def.unsupported = true
+		}
+	}
+	if v, ok := obj["variant"]; ok {
+		_ = json.Unmarshal(v, &out.Variant)
+	}
+	if im, ok := obj["inheritModelFrom"]; ok {
+		var inherit string
+		if err := json.Unmarshal(im, &inherit); err == nil {
+			def.inheritModelFrom = inherit
+			def.inheritKnown = inherit == "session" || inherit == "orchestrator"
+			// 只把已知值交给前端；未知值保留在原始定义里，保存时尽量原样保留
+			if def.inheritKnown {
+				out.InheritModelFrom = inherit
+			}
+		}
+	}
+	return out, def
+}
+
+// builtinSlimAgentNames 固定的内置 agent 名单。
+// 注意：不包含 councillor —— 它是 Council Mode 运行时生成的隐藏席位（hidden subagent），
+// 模型由 council.presets 决定，不属于可写入顶层 agents 的常规 agent。
+func builtinSlimAgentNames() []string {
+	return []string{
+		"orchestrator", "oracle", "explorer", "designer",
+		"fixer", "observer", "council",
+	}
+}
+
+// collectSlimAgentNames 生成前端可选 agent 名单：
+// 描述表键 ∪ 所有 presets 中出现的 agent 键 ∪ 固定内置名单。
+// 去重后 orchestrator 固定最前，其余按字母序。
+func collectSlimAgentNames(descs map[string]string, defs map[string]*slimPresetDef) []string {
+	set := map[string]bool{}
+	for key := range descs {
+		set[key] = true
+	}
+	for _, def := range defs {
+		if def == nil {
+			continue
+		}
+		for key := range def.agents {
+			set[key] = true
+		}
+	}
+	for _, key := range builtinSlimAgentNames() {
+		set[key] = true
+	}
+	delete(set, "orchestrator")
+	rest := make([]string, 0, len(set))
+	for key := range set {
+		rest = append(rest, key)
+	}
+	sort.Strings(rest)
+	return append([]string{"orchestrator"}, rest...)
 }
 
 const (
@@ -543,11 +704,13 @@ func SaveSlimConfig(p SlimSavePayload) error {
 		cleaned = fileutil.StripComments(text)
 	}
 
-	// 解析原结构（用于结构对比与行级定位）
+	// 解析原结构（用于结构对比、行级定位与顶层覆盖字段处理）
+	var originalRoot map[string]json.RawMessage
 	originalDefs := map[string]*slimPresetDef{}
 	if originalExists {
 		var root map[string]json.RawMessage
 		if err := json.Unmarshal([]byte(cleaned), &root); err == nil {
+			originalRoot = root
 			if raw, ok := root["presets"]; ok {
 				var pm map[string]json.RawMessage
 				if err := json.Unmarshal(raw, &pm); err == nil {
@@ -587,8 +750,71 @@ func SaveSlimConfig(p SlimSavePayload) error {
 	}
 	lines = setTopLevelField(lines, "preset", p.ActivePreset)
 
+	// 顶层 agents：nil 表示调用方未提交，保持原区块不变；
+	// 非 nil 时整体重建（提交中不存在的键 = 取消覆盖）。
+	if p.RootAgents != nil {
+		_, originalAgentDefs := parseSlimRootAgents(cleaned, originalRoot["agents"])
+		lines = rebuildRootAgentsBlock(lines, p.RootAgents, originalAgentDefs)
+	}
+
+	// 顶层 disabled_agents：nil 表示未提交，保持原字段不变。
+	// 与原文有效值相同时不落盘，避免无谓改动；
+	// 提交空数组时必须显式写 []（缺省默认禁用 observer，[] 才是"全部启用"）。
+	if p.DisabledAgents != nil {
+		effective := slimEffectiveDisabledAgents(originalRoot)
+		if !sameStringSet(effective, p.DisabledAgents) {
+			lines = setTopLevelJSONValue(lines, "disabled_agents", marshalStringArray(p.DisabledAgents))
+		}
+	}
+
 	out := strings.Join(lines, "\n")
 	return fileutil.AtomicWrite(path, []byte(out), 0644)
+}
+
+// slimEffectiveDisabledAgents 返回原文件的 disabled_agents 有效值。
+// 字段缺省（或原文件不存在/解析失败）时返回上游默认的 ["observer"]。
+func slimEffectiveDisabledAgents(root map[string]json.RawMessage) []string {
+	if root != nil {
+		if raw, ok := root["disabled_agents"]; ok {
+			var list []string
+			if err := json.Unmarshal(raw, &list); err == nil {
+				if list == nil {
+					return []string{} // 显式 null 视作空数组
+				}
+				return list
+			}
+		}
+	}
+	return []string{"observer"}
+}
+
+// sameStringSet 按集合语义比较两个字符串数组（忽略顺序，保留重复项计数）。
+func sameStringSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	ac := append([]string(nil), a...)
+	bc := append([]string(nil), b...)
+	sort.Strings(ac)
+	sort.Strings(bc)
+	for i := range ac {
+		if ac[i] != bc[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// marshalStringArray 把字符串数组序列化为单行 JSON（空数组显式写 []）。
+func marshalStringArray(values []string) string {
+	if values == nil {
+		values = []string{}
+	}
+	data, err := json.Marshal(values)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
 }
 
 // slimStructureChanged 判断结构（方案集合、extends、各方案自有 agent 集合）是否变化。
@@ -692,16 +918,18 @@ func rebuildSlimPresetsBlock(lines []string, savePresets []SlimSavePreset, origi
 	return out
 }
 
-// hasFollowingMember 判断 lines[start:end] 内是否还有"非空且非闭合括号"的成员行。
+// hasFollowingMember 判断 lines[start:end] 内是否还有 JSON 成员行。
+// 空行、注释行与闭合括号行不算成员（注释不参与逗号判定）。
 func hasFollowingMember(lines []string, start, end int) bool {
 	if end > len(lines) {
 		end = len(lines)
 	}
 	for i := start; i < end; i++ {
 		t := strings.TrimSpace(lines[i])
-		if t != "" && t != "}" && t != "}," {
-			return true
+		if t == "" || t == "}" || t == "}," || isCommentLine(t) {
+			continue
 		}
+		return true
 	}
 	return false
 }
@@ -763,6 +991,298 @@ func buildSlimPresetsBlock(savePresets []SlimSavePreset, original map[string]*sl
 	}
 	out = append(out, `  }`)
 	return out
+}
+
+// rebuildRootAgentsBlock 重建顶层 "agents" 块（块外内容与块外注释原样保留）。
+//
+// 策略：只写提交的 RootAgents；提交中没有的键即"取消覆盖"。
+//   - agents 为空：删除整个块（原文件没有该块时不新增）；
+//   - 原文件中 Unsupported=true 的键：原样写回原始 JSON 片段；
+//   - 其余键：按 model / variant / inheritModelFrom 生成，空字段不写。
+func rebuildRootAgentsBlock(lines []string, agents []SlimRootAgent, original map[string]slimRootAgentDef) []string {
+	rootOpen, rootClose := rootContainer(lines)
+	key, end := findChildBlock(lines, rootOpen, rootClose, "agents")
+	if len(agents) == 0 {
+		if key < 0 {
+			return lines
+		}
+		return removeChildBlock(lines, key, end, rootClose)
+	}
+	block := buildRootAgentsBlock(agents, original)
+	if key >= 0 {
+		// agents 之后若仍有成员，块末行需要补尾逗号
+		if hasFollowingMember(lines, end+1, rootClose) {
+			block[len(block)-1] += ","
+		}
+		out := make([]string, 0, len(lines)-(end-key+1)+len(block))
+		out = append(out, lines[:key]...)
+		out = append(out, block...)
+		out = append(out, lines[end+1:]...)
+		return out
+	}
+	// 顶层没有 agents 键：插入到根对象闭合行之前
+	if prev := previousMemberLine(lines, rootClose); prev >= 0 {
+		trimmed := strings.TrimSpace(lines[prev])
+		if !strings.Contains(trimmed, "{") && !strings.HasSuffix(trimmed, ",") {
+			lines[prev] = appendMemberComma(lines[prev])
+		}
+	}
+	out := make([]string, 0, len(lines)+len(block))
+	out = append(out, lines[:rootClose]...)
+	out = append(out, block...)
+	out = append(out, lines[rootClose:]...)
+	return out
+}
+
+// buildRootAgentsBlock 生成顶层 "agents" 块的文本行（含缩进，不含尾逗号）。
+func buildRootAgentsBlock(agents []SlimRootAgent, original map[string]slimRootAgentDef) []string {
+	out := []string{`  "agents": {`}
+	entries := make([]string, 0, len(agents))
+	for _, a := range agents {
+		key := strings.TrimSpace(a.Key)
+		if key == "" {
+			continue // 空键无意义，跳过
+		}
+		// 原文件为数组 model 等不支持形态：原样写回原始片段（前端不会编辑）
+		if def, ok := original[key]; ok && def.unsupported {
+			entries = append(entries, fmt.Sprintf("    %s: %s", strconv.Quote(key), compactRawJSON(def.raw)))
+			continue
+		}
+		fields := make([]string, 0, 3)
+		if a.Model != "" {
+			fields = append(fields, fmt.Sprintf(`"model": %s`, strconv.Quote(a.Model)))
+		}
+		if a.Variant != "" {
+			fields = append(fields, fmt.Sprintf(`"variant": %s`, strconv.Quote(a.Variant)))
+		}
+		inherit := a.InheritModelFrom
+		if inherit != "" && inherit != "session" && inherit != "orchestrator" {
+			inherit = "" // 非法提交值忽略
+		}
+		// 提交未给出继承来源时，保留原文件中的未知值，避免重建丢字段
+		if inherit == "" {
+			if def, ok := original[key]; ok && def.inheritModelFrom != "" && !def.inheritKnown {
+				inherit = def.inheritModelFrom
+			}
+		}
+		if inherit != "" {
+			fields = append(fields, fmt.Sprintf(`"inheritModelFrom": %s`, strconv.Quote(inherit)))
+		}
+		if len(fields) == 0 {
+			entries = append(entries, fmt.Sprintf("    %s: {}", strconv.Quote(key)))
+			continue
+		}
+		var b strings.Builder
+		fmt.Fprintf(&b, "    %s: {\n", strconv.Quote(key))
+		for i, field := range fields {
+			b.WriteString("      ")
+			b.WriteString(field)
+			if i < len(fields)-1 {
+				b.WriteString(",")
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("    }")
+		entries = append(entries, b.String())
+	}
+	for i, entry := range entries {
+		if i < len(entries)-1 {
+			entry += ","
+		}
+		out = append(out, entry)
+	}
+	out = append(out, "  }")
+	return out
+}
+
+// compactRawJSON 把原始 JSON 片段压成单行；失败时退回去空白原文。
+func compactRawJSON(raw json.RawMessage) string {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, raw); err == nil {
+		return buf.String()
+	}
+	return strings.TrimSpace(string(raw))
+}
+
+// removeChildBlock 删除 lines[start:end] 的子块，并修正相邻成员的逗号。
+func removeChildBlock(lines []string, start, end, parentClose int) []string {
+	following := hasFollowingMember(lines, end+1, parentClose)
+	out := make([]string, 0, len(lines)-(end-start+1))
+	out = append(out, lines[:start]...)
+	out = append(out, lines[end+1:]...)
+	if !following {
+		// 被删块是最后一个成员：前一个成员不能保留尾逗号
+		if prev := previousMemberLine(out, start); prev >= 0 {
+			out[prev] = strings.TrimSuffix(strings.TrimRight(out[prev], " \t"), ",")
+		}
+	}
+	return out
+}
+
+// ========== 顶层数组/任意 JSON 字段写入 ==========
+
+// setTopLevelJSONValue 写入根对象直接子键（支持字符串、数组、对象等任意值）。
+// 已存在时替换该字段的完整值（含多行数组）；不存在时插入到根对象开头。
+func setTopLevelJSONValue(lines []string, key, value string) []string {
+	start, end := findTopLevelValueRange(lines, key)
+	if start >= 0 {
+		indent := leadingWhitespace(lines[start])
+		if indent == "" {
+			indent = "  "
+		}
+		fieldLine := fmt.Sprintf(`%s"%s": %s`, indent, key, value)
+		_, rootClose := rootContainer(lines)
+		if hasFollowingMember(lines, end+1, rootClose) {
+			fieldLine += ","
+		}
+		out := make([]string, 0, len(lines)-(end-start+1)+1)
+		out = append(out, lines[:start]...)
+		out = append(out, fieldLine)
+		out = append(out, lines[end+1:]...)
+		return out
+	}
+	// 不存在：插入到根对象第一个成员之前
+	rootOpen, rootClose := rootContainer(lines)
+	insertAt := rootOpen + 1
+	for i := rootOpen + 1; i < rootClose; i++ {
+		if strings.TrimSpace(lines[i]) != "" {
+			insertAt = i
+			break
+		}
+	}
+	fieldLine := fmt.Sprintf(`  "%s": %s`, key, value)
+	if hasFollowingMember(lines, insertAt, rootClose) {
+		fieldLine += ","
+	}
+	out := make([]string, 0, len(lines)+1)
+	out = append(out, lines[:insertAt]...)
+	out = append(out, fieldLine)
+	out = append(out, lines[insertAt:]...)
+	return out
+}
+
+// findTopLevelValueRange 定位根对象直接子键 key 的起始行与值结束行。
+// 支持多行数组/对象；未找到返回 (-1, -1)。
+func findTopLevelValueRange(lines []string, key string) (int, int) {
+	rootOpen, rootClose := rootContainer(lines)
+	re := regexp.MustCompile(`^"` + regexp.QuoteMeta(key) + `"\s*:`)
+	depth := 0
+	for i := rootOpen + 1; i < rootClose && i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if depth == 0 && re.MatchString(trimmed) {
+			end := i
+			d := valueDelta(lines[i])
+			for end < rootClose && d > 0 {
+				end++
+				d += valueDelta(lines[end])
+			}
+			return i, end
+		}
+		depth += valueDelta(lines[i])
+	}
+	return -1, -1
+}
+
+// valueDelta 统计一行中 {} 与 [] 的净深度（忽略字符串与注释）。
+func valueDelta(line string) int {
+	line = codePortion(line)
+	if line == "" {
+		return 0
+	}
+	delta := 0
+	inString, escaped := false, false
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		if inString {
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+		case '{', '[':
+			delta++
+		case '}', ']':
+			delta--
+		}
+	}
+	return delta
+}
+
+// ========== 注释与成员行工具 ==========
+
+// isCommentLine 判断整行是否为 JSONC 注释行（// 或块注释延续行）。
+func isCommentLine(line string) bool {
+	t := strings.TrimSpace(line)
+	return strings.HasPrefix(t, "//") ||
+		strings.HasPrefix(t, "/*") ||
+		strings.HasPrefix(t, "*") ||
+		strings.HasSuffix(t, "*/")
+}
+
+// previousMemberLine 返回 before 之前最近的、非空且非注释的行号；无则 -1。
+func previousMemberLine(lines []string, before int) int {
+	for i := before - 1; i >= 0; i-- {
+		t := strings.TrimSpace(lines[i])
+		if t == "" || isCommentLine(t) {
+			continue
+		}
+		return i
+	}
+	return -1
+}
+
+// appendMemberComma 在成员行尾添加逗号；若存在行尾 // 注释，则插在注释之前。
+func appendMemberComma(line string) string {
+	if idx := jsoncLineCommentIndex(line); idx >= 0 {
+		return strings.TrimRight(line[:idx], " \t") + ", " + line[idx:]
+	}
+	return line + ","
+}
+
+// jsoncLineCommentIndex 返回字符串字面量之外的 // 起始下标；无则 -1。
+func jsoncLineCommentIndex(line string) int {
+	inString, escaped := false, false
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		if inString {
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+		case '/':
+			if i+1 < len(line) && line[i+1] == '/' {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// codePortion 去掉行尾 // 注释与纯注释行，供括号深度统计使用。
+func codePortion(line string) string {
+	t := strings.TrimSpace(line)
+	if isCommentLine(t) {
+		return ""
+	}
+	if idx := jsoncLineCommentIndex(line); idx >= 0 {
+		return line[:idx]
+	}
+	return line
 }
 
 // ========== 文本定位与字段写入工具 ==========
@@ -888,13 +1408,10 @@ func setTopLevelField(lines []string, key, value string) []string {
 	if value == "" {
 		return lines
 	}
-	// 插入到根对象第一个键之前
-	rootEnd, err := findObjectBlockEnd(lines, 0)
-	if err != nil {
-		rootEnd = len(lines) - 1
-	}
-	insertAt := 1
-	for i := 1; i < rootEnd; i++ {
+	// 插入到根对象第一个键之前（跳过文件开头的注释行）
+	rootOpen, rootClose := rootContainer(lines)
+	insertAt := rootOpen + 1
+	for i := rootOpen + 1; i < rootClose; i++ {
 		if strings.TrimSpace(lines[i]) != "" {
 			insertAt = i
 			break
@@ -902,7 +1419,7 @@ func setTopLevelField(lines []string, key, value string) []string {
 	}
 	// 新字段插到根对象最前：后面的成员不受影响，无需给任何现有成员补逗号
 	fieldLine := fmt.Sprintf(`  "%s": %s`, key, strconv.Quote(value))
-	if hasFollowingMember(lines, insertAt, rootEnd) {
+	if hasFollowingMember(lines, insertAt, rootClose) {
 		fieldLine += ","
 	}
 	out := make([]string, 0, len(lines)+1)

@@ -36,6 +36,19 @@ export let envPresetOverride = '';  // 环境变量指定的方案（非空时�
 export let projectConfigPath = '';  // 项目级配置路径（非空时提示「项目级优先」）
 export let hasUnsavedChanges = false;
 
+// ========== 全局覆盖状态 ==========
+// 对应配置文件顶层 agents：覆盖下方启用方案里的同名 agent。
+export let rootAgents = [];          // 当前生效的顶层覆盖（保存时提交，仅非「跟随方案」行）
+export let disabledAgents = [];      // 全局禁用名单（保存时提交完整数组）
+export let agentNames = [];          // 后端给出的可选 agent 名单
+export let agentComments = {};       // agent 职责说明表（agents-comments.json），行内注释用
+
+// 全局覆盖区的编辑态：agentNames ∪ rootAgents.key（另兜底补入 disabled_agents 中的自定义项）
+let globalRows = [];
+// 默认收起；同一次页面会话内保留展开状态（保存后重新加载也不强制收起）
+let globalOverrideOpen = false;
+let globalOverrideBound = false;
+
 // 变更检测基线：加载/保存成功后的状态 JSON 快照，任何编辑后对比它
 let originalSnapshot = '';
 
@@ -138,8 +151,498 @@ function applySlimData(data) {
             overridden: !!a.overridden,  // 在继承行基础上被本方案覆盖
         })),
     }));
+
+    // 全局覆盖数据：解析失败 / 文件不存在时后端返回空数组，这里同样按空处理，
+    // 保证上方全局覆盖区照常显示（不因缺少字段而报错）。
+    rootAgents = (Array.isArray(d.rootAgents) ? d.rootAgents : [])
+        .filter(a => a && a.key)
+        .map(a => ({
+            key: String(a.key),
+            model: typeof a.model === 'string' ? a.model : '',
+            variant: typeof a.variant === 'string' ? a.variant : '',
+            inheritModelFrom: typeof a.inheritModelFrom === 'string' ? a.inheritModelFrom : '',
+            unsupported: !!a.unsupported,
+        }));
+    disabledAgents = Array.isArray(d.disabledAgents)
+        ? d.disabledAgents.filter(Boolean).map(String)
+        : [];
+    agentNames = Array.isArray(d.agentNames)
+        ? d.agentNames.filter(Boolean).map(String)
+        : [];
+    agentComments = (d.agentComments && typeof d.agentComments === 'object')
+        ? Object.fromEntries(Object.entries(d.agentComments).filter(([, v]) => typeof v === 'string' && v))
+        : {};
+
+    // 渲染行 = agentNames ∪ rootAgents 的 key（disabled_agents 中的自定义项兜底补入）；
+    // 同时把状态归一化为当前编辑态
+    buildGlobalRows();
+
     hasUnsavedChanges = false;
     originalSnapshot = serializeState();
+}
+
+// ========== 全局覆盖：状态构建与同步 ==========
+/**
+ * 由 agentNames ∪ rootAgents.key 构建可编辑行（disabled_agents 中残留的自定义项也会补入）。
+ * 每个 rootAgents 条目按 inheritModelFrom 推导模型来源：
+ *   session / orchestrator → 跟随会话 / 跟随 orchestrator；
+ *   其余（含 unsupported / 未知继承来源）→ 显式指定。
+ * 只要条目存在于 rootAgents，就视为覆盖行，避免保存时静默丢掉未知配置。
+ */
+function buildGlobalRows() {
+    const keys = [];
+    const seen = new Set();
+    const addKey = (key) => {
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        keys.push(key);
+    };
+    agentNames.forEach(addKey);
+    rootAgents.forEach(a => addKey(a.key));
+    // 兜底：自定义 agent 若只出现在 disabled_agents 里，也要给一行，否则无法重新启用
+    disabledAgents.forEach(addKey);
+
+    const rootMap = new Map(rootAgents.map(a => [a.key, a]));
+    const disabledSet = new Set(disabledAgents);
+
+    globalRows = keys.map(key => {
+        const root = rootMap.get(key) || null;
+        let source = 'preset';
+        if (root) {
+            if (root.unsupported) {
+                source = 'explicit'; // 实际控件只读，这里仅用于行状态判断
+            } else if (root.inheritModelFrom === 'session') {
+                source = 'session';
+            } else if (root.inheritModelFrom === 'orchestrator') {
+                source = 'orchestrator';
+            } else {
+                // model / variant 为空也按「显式指定」保留，保存时该键仍在顶层 agents 内
+                source = 'explicit';
+            }
+        }
+        return {
+            key,
+            role: key === 'orchestrator' ? '主调度器' : '子代理',
+            protected: key === 'orchestrator',
+            // 主调度器不可禁用；其它 agent 按后端 disabled_agents 还原
+            enabled: key === 'orchestrator' ? true : !disabledSet.has(key),
+            source,
+            model: root ? root.model : '',
+            variant: root ? root.variant : '',
+            unsupported: !!(root && root.unsupported),
+        };
+    });
+
+    syncGlobalStateFromRows();
+}
+
+/** 把编辑行回写为保存用的 rootAgents / disabledAgents（也供未保存检测使用） */
+function syncGlobalStateFromRows() {
+    rootAgents = globalRows
+        .filter(r => r.source !== 'preset')
+        .map(r => ({
+            key: r.key,
+            model: !r.unsupported && r.source === 'explicit' ? (r.model || '') : '',
+            variant: !r.unsupported && r.source === 'explicit' ? (r.variant || '') : '',
+            inheritModelFrom: !r.unsupported && (r.source === 'session' || r.source === 'orchestrator')
+                ? r.source
+                : '',
+            unsupported: !!r.unsupported,
+        }));
+    disabledAgents = globalRows
+        .filter(r => !r.enabled && !r.protected)
+        .map(r => r.key);
+}
+
+/** 全局覆盖区的任何结构性改动：同步状态 → 未保存提示 → 重绘本区 → 更新方案行标签 */
+function commitGlobalRows() {
+    syncGlobalStateFromRows();
+    checkUnsavedChanges();
+    renderGlobalOverride();
+    refreshPresetGlobalTags();
+}
+
+/** 只改模型 / variant 时无需重建行，仅同步状态并刷新未保存提示 */
+function commitGlobalValues() {
+    syncGlobalStateFromRows();
+    checkUnsavedChanges();
+}
+
+/**
+ * 组装 SaveSlimConfig 的 rootAgents：
+ *   - 只提交非「跟随方案」行；
+ *   - 显式指定提交 model / variant；
+ *   - 跟随会话 / orchestrator 提交 inheritModelFrom；
+ *   - unsupported（原配置为备选模型链）只保留 key，不传 model/variant，交由后端原样保留。
+ */
+function buildRootAgentsPayload() {
+    return globalRows
+        .filter(r => r.source !== 'preset')
+        .map(r => {
+            if (r.unsupported) return { key: r.key };
+            return {
+                key: r.key,
+                model: r.source === 'explicit' ? (r.model || '') : '',
+                variant: r.source === 'explicit' ? (r.variant || '') : '',
+                inheritModelFrom: r.source === 'session' || r.source === 'orchestrator' ? r.source : '',
+            };
+        });
+}
+
+// ========== 全局覆盖：渲染 ==========
+/** 渲染全局覆盖区（默认收起；解析失败 / 文件不存在时同样渲染为空列表） */
+function renderGlobalOverride() {
+    const section = document.getElementById('globalOverride');
+    const rowsWrap = document.getElementById('goRows');
+    if (!section || !rowsWrap) return;
+
+    bindGlobalOverrideEvents();
+
+    rowsWrap.innerHTML = '';
+    if (globalRows.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'go-empty';
+        empty.textContent = '暂无可配置的 agent';
+        rowsWrap.appendChild(empty);
+    } else {
+        globalRows.forEach(row => rowsWrap.appendChild(createGlobalAgentRow(row)));
+    }
+
+    updateGlobalSummary();
+    applyGlobalOverrideOpenState(false);
+}
+
+/** 表头点击：展开 / 收起（仅绑定一次） */
+function bindGlobalOverrideEvents() {
+    if (globalOverrideBound) return;
+    const header = document.getElementById('goHeader');
+    const body = document.getElementById('goBody');
+    if (!header || !body) return;
+    header.addEventListener('click', () => {
+        globalOverrideOpen = !globalOverrideOpen;
+        applyGlobalOverrideOpenState(true);
+    });
+    globalOverrideBound = true;
+}
+
+/** 同步展开状态到 DOM；初次渲染用 animate=false，避免页面加载时播放动画 */
+function applyGlobalOverrideOpenState(animate) {
+    const section = document.getElementById('globalOverride');
+    const header = document.getElementById('goHeader');
+    const body = document.getElementById('goBody');
+    if (!section || !header || !body) return;
+
+    if (!animate) section.classList.add('no-motion');
+    section.classList.toggle('open', globalOverrideOpen);
+    header.setAttribute('aria-expanded', String(globalOverrideOpen));
+    if (globalOverrideOpen) {
+        body.removeAttribute('inert');
+    } else {
+        body.setAttribute('inert', '');
+    }
+    const toggleText = document.getElementById('goToggleText');
+    if (toggleText) toggleText.textContent = globalOverrideOpen ? '收起' : '展开';
+
+    if (!animate) {
+        window.requestAnimationFrame(() => section.classList.remove('no-motion'));
+    }
+}
+
+/** 收起态摘要：N 个覆盖 · M 个禁用；为 0 时弱化显示 */
+function updateGlobalSummary() {
+    const overrideCount = globalRows.filter(r => r.source !== 'preset').length;
+    const disabledCount = globalRows.filter(r => !r.enabled).length;
+
+    const overrideNum = document.getElementById('overrideCount');
+    const disabledNum = document.getElementById('disabledCount');
+    if (overrideNum) overrideNum.textContent = String(overrideCount);
+    if (disabledNum) disabledNum.textContent = String(disabledCount);
+
+    const chipOverride = document.getElementById('chipOverride');
+    const chipDisabled = document.getElementById('chipDisabled');
+    if (chipOverride) chipOverride.classList.toggle('is-zero', overrideCount === 0);
+    if (chipDisabled) chipDisabled.classList.toggle('is-zero', disabledCount === 0);
+}
+
+/** 单个全局覆盖行：开关 · agent 名/角色 · 模型来源 · 模型/variant · 覆盖状态 */
+function createGlobalAgentRow(row) {
+    const el = document.createElement('div');
+    el.className = 'go-row'
+        + (row.source !== 'preset' ? ' is-override' : '')
+        + (!row.enabled ? ' is-disabled' : '')
+        + (row.unsupported ? ' is-unsupported' : '');
+    el.dataset.key = row.key;
+
+    // ---------- 第一列：启用开关 + agent 名 + 只读角色徽标 ----------
+    const agentCell = document.createElement('div');
+    agentCell.className = 'go-agent-cell';
+
+    const switchLabel = document.createElement('label');
+    switchLabel.className = 'go-switch';
+    switchLabel.title = row.protected
+        ? '主调度器，不可禁用'
+        : (row.enabled ? '禁用 ' + row.key : '启用 ' + row.key);
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = row.enabled;
+    checkbox.disabled = row.protected;
+    checkbox.setAttribute('aria-label', '启用 ' + row.key);
+    checkbox.addEventListener('change', () => {
+        if (row.protected) {
+            checkbox.checked = true;
+            return;
+        }
+        row.enabled = checkbox.checked;
+        commitGlobalRows();
+    });
+
+    const track = document.createElement('span');
+    track.className = 'go-switch-track';
+    track.setAttribute('aria-hidden', 'true');
+    switchLabel.appendChild(checkbox);
+    switchLabel.appendChild(track);
+    agentCell.appendChild(switchLabel);
+
+    const agentInfo = document.createElement('div');
+    agentInfo.className = 'go-agent-info';
+
+    const name = document.createElement('span');
+    name.className = 'go-agent-name';
+    name.textContent = row.key;
+    agentInfo.appendChild(name);
+
+    const role = document.createElement('span');
+    role.className = 'go-role-badge' + (row.protected ? ' is-primary' : '');
+    role.textContent = row.role;
+    agentInfo.appendChild(role);
+
+    if (row.protected) {
+        const note = document.createElement('span');
+        note.className = 'go-protected-note';
+        note.title = '主调度器，不可禁用';
+        note.textContent = '不可禁用';
+        agentInfo.appendChild(note);
+    }
+
+    // agent 职责说明：与方案行注释同口径（agents-comments.json），最多两行
+    const commentText = (agentComments[row.key] || '').trim();
+    if (commentText) {
+        const comment = document.createElement('span');
+        comment.className = 'go-agent-comment';
+        comment.textContent = commentText;
+        comment.title = commentText;
+        agentInfo.appendChild(comment);
+    }
+
+    agentCell.appendChild(agentInfo);
+    el.appendChild(agentCell);
+
+    // ---------- 第二列：模型来源 ----------
+    const sourceCell = document.createElement('div');
+    sourceCell.className = 'go-source-cell';
+
+    if (row.unsupported) {
+        // 原配置是 model 数组：来源不可改，只读展示
+        const locked = createLockedSelect('原配置（只读）', '原配置为备选模型链，需手动编辑文件');
+        locked.classList.add('go-source-select');
+        sourceCell.appendChild(locked);
+    } else {
+        const sourceSelect = document.createElement('select');
+        sourceSelect.className = 'go-select go-source-select';
+        sourceSelect.title = '决定该 agent 是否写入配置文件顶层 agents';
+        sourceSelect.setAttribute('aria-label', row.key + ' 的模型来源');
+        [
+            ['preset', '跟随方案（不覆盖）'],
+            ['explicit', '显式指定'],
+            ['session', '跟随会话'],
+            ['orchestrator', '跟随 orchestrator'],
+        ].forEach(([value, label]) => {
+            sourceSelect.appendChild(new Option(label, value));
+        });
+        sourceSelect.value = row.source;
+        sourceSelect.disabled = !row.enabled;
+        sourceSelect.addEventListener('change', () => {
+            row.source = sourceSelect.value;
+            // 切到「显式指定」时给一个可用的起点；已保留的值不覆盖
+            if (row.source === 'explicit') {
+                if (!row.model && store.availableModels && store.availableModels.length) {
+                    row.model = store.availableModels[0].value;
+                }
+                if (!row.variant) row.variant = 'high';
+            }
+            commitGlobalRows();
+        });
+        sourceCell.appendChild(sourceSelect);
+    }
+    el.appendChild(sourceCell);
+
+    // ---------- 第三列：模型 + variant（跟随类来源置灰并提示） ----------
+    const modelCell = document.createElement('div');
+    modelCell.className = 'go-model-cell';
+
+    if (row.unsupported) {
+        const note = document.createElement('span');
+        note.className = 'go-readonly-note';
+        note.textContent = '原配置为备选模型链，需手动编辑文件';
+        note.title = '保存时原样保留该行配置';
+        modelCell.appendChild(note);
+    } else if (row.source === 'explicit') {
+        const modelSelect = document.createElement('select');
+        modelSelect.className = 'go-select go-model-pick';
+        modelSelect.innerHTML = globalModelOptionsHtml(row.model);
+        modelSelect.value = row.model || '';
+        modelSelect.disabled = !row.enabled;
+        modelSelect.setAttribute('aria-label', row.key + ' 模型');
+        modelSelect.title = '写入 agents[' + row.key + '].model';
+        modelSelect.addEventListener('change', () => {
+            row.model = modelSelect.value;
+            commitGlobalValues();
+        });
+
+        const variantSelect = document.createElement('select');
+        variantSelect.className = 'go-select go-variant-pick';
+        variantSelect.innerHTML = variantOptionsHtml(row.variant);
+        variantSelect.value = row.variant || '';
+        variantSelect.disabled = !row.enabled;
+        variantSelect.setAttribute('aria-label', row.key + ' variant');
+        variantSelect.title = '写入 agents[' + row.key + '].variant';
+        variantSelect.addEventListener('change', () => {
+            row.variant = variantSelect.value;
+            commitGlobalValues();
+        });
+
+        modelCell.appendChild(modelSelect);
+        modelCell.appendChild(variantSelect);
+    } else {
+        let text = '使用下方方案中的模型';
+        let title = '顶层不覆盖该 agent，沿用启用方案中的模型';
+        if (row.source === 'session') {
+            text = '跟随当前会话模型，无需指定';
+            title = '跟随模型由运行时决定，无需在此指定';
+        } else if (row.source === 'orchestrator') {
+            text = '跟随 orchestrator 模型，无需指定';
+            title = '跟随模型由运行时决定，无需在此指定';
+        }
+        const locked = createLockedSelect(text, title);
+        locked.setAttribute('aria-label', text);
+        modelCell.appendChild(locked);
+    }
+    el.appendChild(modelCell);
+
+    // ---------- 第四列：覆盖状态 ----------
+    const statusCell = document.createElement('div');
+    statusCell.className = 'go-status-cell';
+    if (!row.enabled) {
+        statusCell.appendChild(createStatusPill('已禁用', 'disabled', '该 agent 已在全局禁用列表中'));
+    } else if (row.source !== 'preset') {
+        statusCell.appendChild(createStatusPill(
+            '覆盖',
+            'override',
+            row.unsupported ? '原配置为备选模型链，保存时原样保留' : '该 agent 由配置文件顶层 agents 覆盖'
+        ));
+    } else {
+        const text = document.createElement('span');
+        text.className = 'go-status-text';
+        text.textContent = '未覆盖';
+        statusCell.appendChild(text);
+    }
+    el.appendChild(statusCell);
+
+    return el;
+}
+
+/** 置灰的只读下拉（跟随类来源 / 备选模型链） */
+function createLockedSelect(text, title) {
+    const select = document.createElement('select');
+    select.className = 'go-select go-locked-select';
+    select.disabled = true;
+    select.title = title;
+    select.setAttribute('aria-label', text);
+    select.appendChild(new Option(text, ''));
+    return select;
+}
+
+/** 覆盖状态胶囊 */
+function createStatusPill(text, kind, title) {
+    const pill = document.createElement('span');
+    pill.className = 'go-status-pill is-' + kind;
+    if (title) pill.title = title;
+    const dot = document.createElement('span');
+    dot.className = 'go-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    pill.appendChild(dot);
+    pill.appendChild(document.createTextNode(text));
+    return pill;
+}
+
+/** 模型下拉：空值时补「未指定模型」，避免浏览器默认选中第一项造成误解 */
+function globalModelOptionsHtml(current) {
+    const options = modelOptionsHtml(current || '');
+    if (!current && store.availableModels && store.availableModels.length) {
+        return '<option value="">（未指定模型）</option>' + options;
+    }
+    return options;
+}
+
+// ========== 全局覆盖：方案行标签与锁定 ==========
+/** 某 agent 的全局状态：顶层覆盖条目（可能为 null）与是否被全局禁用 */
+function globalRowState(key) {
+    const root = rootAgents.find(a => a.key === key) || null;
+    return { root, disabled: disabledAgents.includes(key) };
+}
+
+/** 方案行被全局覆盖/禁用时，锁住模型与 variant 下拉（仍显示方案自身的原值） */
+function applyPresetRowGlobalLock(row, key) {
+    const { root, disabled } = globalRowState(key);
+    const locked = !!root || disabled;
+    row.querySelectorAll('.model-select, .model-reasoning-select').forEach(sel => {
+        sel.disabled = locked;
+    });
+}
+
+/** 方案行里追加全局状态小标签（顺序固定，且不重复） */
+function appendPresetGlobalTags(top, key, anchor) {
+    const { root, disabled } = globalRowState(key);
+    const tags = [];
+
+    if (root) {
+        // 细分来源：显式指定 → 顶层覆盖；其余两种跟随模式直接标注
+        let label = '顶层覆盖';
+        if (root.inheritModelFrom === 'session') label = '跟随会话';
+        else if (root.inheritModelFrom === 'orchestrator') label = '跟随 orchestrator';
+        tags.push(createPresetGlobalTag(label, false));
+    }
+    if (disabled) {
+        tags.push(createPresetGlobalTag('全局禁用', true));
+    }
+
+    tags.forEach(tag => {
+        if (anchor && anchor.parentNode === top) {
+            top.insertBefore(tag, anchor);
+        } else {
+            top.appendChild(tag);
+        }
+    });
+}
+
+function createPresetGlobalTag(text, danger) {
+    const tag = document.createElement('span');
+    tag.className = 'go-tag' + (danger ? ' danger' : '');
+    tag.dataset.goTag = '1';
+    tag.textContent = text;
+    return tag;
+}
+
+/** 全局覆盖编辑后，原地刷新下方方案行的标签与锁定状态，避免整块方案列表重绘 */
+function refreshPresetGlobalTags() {
+    document.querySelectorAll('#modelConfig .model-row[data-agent-key]').forEach(row => {
+        row.querySelectorAll('.go-tag[data-go-tag]').forEach(tag => tag.remove());
+        const top = row.querySelector('.model-row-top');
+        if (!top) return;
+        appendPresetGlobalTags(top, row.dataset.agentKey, top.querySelector('.model-select'));
+        applyPresetRowGlobalLock(row, row.dataset.agentKey);
+    });
 }
 
 // ========== 变更检测 / 保存状态 ==========
@@ -158,6 +661,15 @@ function serializeState() {
                 overridden: !!a.overridden,
             })),
         })),
+        // 全局覆盖也参与「未保存更改」判断：展开状态与 focus 等纯 UI 字段不参与
+        rootAgents: rootAgents.map(a => ({
+            key: a.key,
+            model: a.model,
+            variant: a.variant,
+            inheritModelFrom: a.inheritModelFrom,
+            unsupported: !!a.unsupported,
+        })),
+        disabledAgents: [...disabledAgents],
     });
 }
 
@@ -190,6 +702,9 @@ function updateSaveStatus() {
 export function renderModelConfig() {
     const container = document.getElementById('modelConfig');
     if (!container) return;
+
+    // 全局覆盖区独立于方案列表：解析失败 / 文件不存在时也要正常显示（数据为空）
+    renderGlobalOverride();
 
     // 解析错误时禁用保存（避免把坏文件覆盖掉）
     const saveBtn = document.getElementById('btnSaveModels');
@@ -457,6 +972,8 @@ function createAgentRow(preset, agent) {
     // 纯继承行（未覆盖）显示左侧淡灰竖线；已覆盖行按普通行显示
     const isPureInherited = agent.inherited && !agent.overridden;
     row.className = 'model-row' + (isPureInherited ? ' inherited' : '');
+    // 供全局覆盖编辑后原地刷新「顶层覆盖 / 全局禁用」标签
+    row.dataset.agentKey = agent.key;
 
     const top = document.createElement('div');
     top.className = 'model-row-top';
@@ -482,6 +999,9 @@ function createAgentRow(preset, agent) {
         tag.textContent = agent.overridden ? '已覆盖' : '继承';
         top.appendChild(tag);
     }
+
+    // 顶层覆盖 / 全局禁用小标签（按 rootAgents / disabledAgents 判断）
+    appendPresetGlobalTags(top, agent.key);
 
     // 模型下拉：改动继承行即标记为「已覆盖」
     const select = document.createElement('select');
@@ -544,6 +1064,9 @@ function createAgentRow(preset, agent) {
     top.appendChild(rowDel);
 
     row.appendChild(top);
+
+    // 被全局覆盖 / 全局禁用的 agent：模型与 variant 下拉置灰（保留方案原值展示）
+    applyPresetRowGlobalLock(row, agent.key);
 
     if (agent.comment) {
         const comment = document.createElement('div');
@@ -810,6 +1333,9 @@ export async function handleSlimSave() {
                 dirty: !p.extends || !a.inherited || !!a.overridden,
             })),
         })),
+        // 顶层覆盖：只提交非「跟随方案」行；禁用名单提交完整数组
+        rootAgents: buildRootAgentsPayload(),
+        disabledAgents: globalRows.filter(r => !r.enabled).map(r => r.key),
     };
 
     const btn = document.getElementById('btnSaveModels');
