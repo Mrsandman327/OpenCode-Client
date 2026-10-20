@@ -532,32 +532,11 @@ export function mcpRetryShouldStop(mcpList, pluginList, attempt, maxAttempts) {
 }
 
 // ============================================================
-// 待办能力检测与面板刷新
-// 背景：OpenCode v2 移除了内置 todowrite 工具，改由配套插件
-// （plugins/manager-todo.ts，id = oc-manager.todo）提供 todo_write 工具。
-// 管理器根据「插件是否已加载」驱动右栏代办分区的显隐：
-// 插件在 → 显示；未装 / 服务停止 → 整块隐藏（避免恒空面板）。
-// service.js 拿到插件列表后更新 store.todoSupported 并触发本刷新通道，
-// 渲染实现在 sidepanel.js（renderTodos）。
+// 待办面板刷新
+// OpenCode 2.1.0 起内置 todowrite（配置 experimental.todo: true），数据在会话消息的
+// tool part（state.input.todos）。右栏代办分区常显，无数据时提示「会话中暂无代办」。
+// service.js 在服务状态变化时触发本刷新通道，渲染实现在 sidepanel.js（renderTodos）。
 // ============================================================
-
-/** 判断插件列表里是否存在管理器配套的待办插件（纯函数，便于 Node 单测）。
- *
- *  入参为 /api/plugin 的用户插件列表；service.js 的 extractPluginList 会把条目
- *  归一化为 { name, state, version, outdated, error }，其中 name 优先取插件 id
- *  （本插件 id 为 "oc-manager.todo"），当 id 缺失时回退为 source.target（文件路径）。
- *  因此同时匹配插件 id 与部署文件名特征，兼容两种回退形态。
- *
- *  @param {Array|Object|null} pluginList 用户插件列表
- *  @returns {boolean} true=待办插件已加载（分区应显示）
- */
-export function todoPluginAvailable(pluginList) {
-    const list = Array.isArray(pluginList) ? pluginList : Object.values(pluginList || {});
-    return list.some(function (p) {
-        const name = typeof p === 'string' ? p : ((p && (p.name || p.id)) || '');
-        return name === 'oc-manager.todo' || String(name).indexOf('manager-todo') !== -1;
-    });
-}
 
 let todoPanelRefreshHandler = null;
 
@@ -566,7 +545,7 @@ export function setTodoPanelRefreshHandler(fn) {
     todoPanelRefreshHandler = typeof fn === 'function' ? fn : null;
 }
 
-/** 请求刷新待办面板（core 层入口，service.js 在插件状态更新后调用） */
+/** 请求刷新待办面板（service.js 在服务状态变化后调用） */
 export function refreshTodoPanel() {
     if (todoPanelRefreshHandler) todoPanelRefreshHandler();
 }

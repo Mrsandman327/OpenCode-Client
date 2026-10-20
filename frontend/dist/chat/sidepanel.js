@@ -14,8 +14,7 @@ import { formatSubtaskDuration, formatMinuteTime } from '../core/format.js';
 import { renderPart, setRenderTodosHandler } from './render.js';
 
 // 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（sidepanel→render 单向依赖，无环）。
-// 同时向 core 层注册"待办面板刷新"入口：service.js 检测到待办插件加载/卸载后会触发，
-// 使代办分区的显隐立即生效（不必等待下一次消息渲染）。
+// 同时向 core 层注册"待办面板刷新"入口：service.js 在服务状态变化后触发。
 // renderTodos 定义于本文件下方（函数声明提升）。
 // 注意：session→tabs→events→session 仍存在跨模块环（顶层均无立即跨模块调用，运行时函数调用安全），
 // 且 sidepanel 被 session 依赖、又依赖 render——渲染期注入仍需延迟到微任务，避免模块初始化 TDZ。
@@ -29,10 +28,8 @@ queueMicrotask(() => {
 // ============================
 
 // 代办事项所用的工具名。
-// v1 有内置的 todowrite 工具；v2 的官方工具清单里已无该工具
-// （Files / Commands / Web / Interaction / Automation / Browser 都没有），
-// 故 v2 下本面板无数据来源。此处仍兼容识别，以便混合版本或
-// 用户自定义同名工具时仍能工作。
+// OpenCode 2.1.0 起内置 `todowrite`（需配置 experimental.todo: true），
+// 数据在 tool part 的 state.input.todos；同时兼容旧插件 todo_write 与自定义同名工具。
 const TODO_TOOL_NAMES = ['todowrite', 'todo_write', 'todo'];
 
 /** 从当前会话的缓存消息中提取代办事项列表 */
@@ -61,38 +58,26 @@ export function extractTodos() {
 
 /** 渲染代办事项面板
  *
- *  显隐由 store.todoSupported 驱动（整块分区隐藏，含标题，而不是渲染占位）：
- *  OpenCode v2 自身已无 todowrite 工具，该开关由 service.js 根据「配套待办插件
- *  （plugins/manager-todo.ts，提供 todo_write 工具）是否已加载」动态更新
- *  ——插件在 → true 显示；未装 / 无目录 / 服务停止 → false 隐藏。
- *  数据来源：模型调用 todo_write 后，从会话消息中提取 state.input.todos
- *  （见 extractTodos）；刷新时机：消息渲染后（render.js 回调）与插件状态变化后
- *  （service.js 经 core/utils.js 的刷新通道）。 */
+ *  OpenCode 2.1.0 起内置 todowrite（experimental.todo），面板常显，无数据时显示
+ *  「会话中暂无代办」。
+ *  数据来源：模型调用 todowrite 后，从会话消息的 tool part 提取
+ *  state.input.todos（见 extractTodos）；刷新时机：消息渲染后（render.js 回调）
+ *  与服务状态变化后（service.js 经 core/utils.js 的刷新通道）。 */
 export function renderTodos() {
     const box = document.getElementById('ocTodos');
     if (!box) return;
-
-    const section = document.getElementById('todoPanelSection');
-    if (section) {
-        section.style.display = store.todoSupported === false ? 'none' : '';
-    }
-    // 代办区隐藏时，其上方「子任务 ↔ 代办」的高度拖动条一并隐藏（其余情况恢复显示）
-    const midResizeHandle = document.getElementById('ocPanelResizeHandleMid');
-    if (midResizeHandle) {
-        midResizeHandle.style.display = store.todoSupported === false ? 'none' : '';
-    }
-    if (store.todoSupported === false) {
-        return;
-    }
 
     const todos = extractTodos();
     if (!todos.length) {
         box.innerHTML = '<div class="oc-empty">会话中暂无代办</div>';
         return;
     }
-    const active = todos.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
+    // 按 OpenCode 的三种状态分组：进行中 / 待处理 / 已完成（含 cancelled）。
+    // 之前 pending 与 in_progress 混在「进行中」下，导致 6 项全显示为进行中。
+    const inProgress = todos.filter(t => t.status === 'in_progress');
+    const pending = todos.filter(t => !t.status || t.status === 'pending');
     const completed = todos.filter(t => t.status === 'completed' || t.status === 'cancelled');
-    if (!active.length && !completed.length) {
+    if (!inProgress.length && !pending.length && !completed.length) {
         box.innerHTML = '<div class="oc-empty">会话中暂无代办</div>';
         return;
     }
@@ -100,29 +85,26 @@ export function renderTodos() {
     let html = '';
     const priorityClass = { high: 'pri-high', medium: 'pri-medium', low: 'pri-low' };
 
-    if (active.length) {
-        html += '<div class="oc-todo-group"><div class="oc-todo-group-label">进行中</div>';
-        active.forEach(t => {
+    const renderGroup = (label, list, done) => {
+        if (!list.length) return;
+        html += `<div class="oc-todo-group"><div class="oc-todo-group-label">${label}</div>`;
+        list.forEach(t => {
             const pri = priorityClass[t.priority] || '';
-            html += `<div class="oc-todo-item ${pri}" title="${escapeHtml(t.content)}">`;
-            html += `<span class="oc-todo-check" data-content="${escapeHtml(t.content)}"></span>`;
-            html += `<span class="oc-todo-text">${escapeHtml(t.content)}</span>`;
-            html += `</div>`;
+            if (done) {
+                html += `<div class="oc-todo-item done ${pri}" title="${escapeHtml(t.content)}">`;
+                html += `<span class="oc-todo-check">✓</span>`;
+            } else {
+                html += `<div class="oc-todo-item ${pri}" title="${escapeHtml(t.content)}">`;
+                html += `<span class="oc-todo-check" data-content="${escapeHtml(t.content)}"></span>`;
+            }
+            html += `<span class="oc-todo-text">${escapeHtml(t.content)}</span></div>`;
         });
         html += '</div>';
-    }
+    };
 
-    if (completed.length) {
-        html += '<div class="oc-todo-group"><div class="oc-todo-group-label">已完成</div>';
-        completed.forEach(t => {
-            const pri = priorityClass[t.priority] || '';
-            html += `<div class="oc-todo-item done ${pri}" title="${escapeHtml(t.content)}">`;
-            html += `<span class="oc-todo-check">✓</span>`;
-            html += `<span class="oc-todo-text">${escapeHtml(t.content)}</span>`;
-            html += `</div>`;
-        });
-        html += '</div>';
-    }
+    renderGroup('进行中', inProgress, false);
+    renderGroup('待处理', pending, false);
+    renderGroup('已完成', completed, true);
 
     box.innerHTML = html;
 }
