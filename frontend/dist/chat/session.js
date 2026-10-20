@@ -15,7 +15,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, resolveKnownValue, markManualSelection, restoreSessionSelection, hasManualSessionSelection, setSessionActionHandlers } from '../core/utils.js';
+import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, resolveKnownValue, markManualSelection, restoreSessionSelection, hasManualSessionSelection, setSessionActionHandlers, syncVariantSelect } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { refreshSubtaskPanel, scheduleSubtaskExtraction } from './sidepanel.js';
@@ -163,18 +163,22 @@ export async function loadAgentModelSelectors(dir, force) {
             store.selectedModel = modelSel.value;
             markManualSelection('model', modelSel.value);
             store.agentModelSyncedSession = store.currentSessionId || '';
+            // 换模型后思考强度档位随模型变化：优先模型自带 variants，其次供应商兜底。
+            // 当前选中值若不在新列表会被补入，避免 select.value 静默置空。
+            syncVariantSelect(document.getElementById('ocVariantSelect'), modelSel.value, store.selectedVariant);
         });
     }
 
     // Variant 选择器
     const variantSel = document.getElementById('ocVariantSelect');
     if (variantSel) {
-        variantSel.value = store.selectedVariant;
+        // 按当前模型重建档位（模型自带 variants → provider 兜底 → 全局默认）
+        syncVariantSelect(variantSel, store.selectedModel, store.selectedVariant);
         if (!variantSel.dataset.modelBound) {
             variantSel.dataset.modelBound = '1';
             variantSel.addEventListener('change', () => {
                 store.selectedVariant = variantSel.value;
-                // variant 与 agent/model 同一口径：手动选择打会话级标记，历史同步不得覆盖
+                // variant 与 agent/model 同一口径，手动选择打会话级标记，历史同步不得覆盖
                 markManualSelection('variant', variantSel.value);
             });
         }

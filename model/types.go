@@ -238,9 +238,23 @@ func (e ProviderEntry) MarshalJSON() ([]byte, error) {
 // Capabilities 模型能力（对应 OpenCode v2 的 models.<id>.capabilities）。
 // 取代 v1 的 modalities 与 tool_call。
 type Capabilities struct {
-	Tools  *bool    `json:"tools,omitempty"`
-	Input  []string `json:"input,omitempty"`
-	Output []string `json:"output,omitempty"`
+	Tools     *bool                `json:"tools,omitempty"`
+	Input     []string             `json:"input,omitempty"`
+	Output    []string             `json:"output,omitempty"`
+	Reasoning *ReasoningCapability `json:"reasoning,omitempty"`
+}
+
+// ReasoningCapability 模型的思考强度声明（OpenCode v2 的 capabilities.reasoning）。
+// 字段语义见 https://opencode.ai/v2/docs/models 的 Variants 一节：
+//   - Supported：是否具备推理能力；false 或 true 但无控制项时不生成 variant
+//   - Toggle：是否额外生成关闭推理的 none 档位
+//   - Effort：可选的思考强度档位；OpenCode 会按模型 package 生成对应 variants
+//   - Budget：可选的 token 预算（Effort 存在时忽略），原样透传
+type ReasoningCapability struct {
+	Supported *bool           `json:"supported,omitempty"`
+	Toggle    *bool           `json:"toggle,omitempty"`
+	Effort    []string        `json:"effort,omitempty"`
+	Budget    json.RawMessage `json:"budget,omitempty"`
 }
 
 // ModelDef 模型定义（OpenCode v2 的 models.<id>）。

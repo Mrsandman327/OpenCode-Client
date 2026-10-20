@@ -154,7 +154,7 @@ func SaveProvider(ps model.ProviderSave) error {
 	if len(ps.Models) > 0 {
 		entry.Models = make(map[string]*model.ModelDef, len(ps.Models))
 		for _, m := range ps.Models {
-			def := &model.ModelDef{Name: m.Name, ModelID: m.ModelID, Capabilities: normalizeCapabilities(m.Capabilities)}
+			def := &model.ModelDef{Name: m.Name, ModelID: m.ModelID, Capabilities: m.Capabilities}
 			if old != nil {
 				if oldDef := old.Models[m.ID]; oldDef != nil {
 					// 保留真实 modelID：UI 只有单一「模型ID」输入，提交端可能把 modelID 写成 map key；
@@ -549,30 +549,6 @@ func carryExtra(extra map[string]json.RawMessage, drop map[string]bool) map[stri
 		return nil
 	}
 	return out
-}
-
-// normalizeCapabilities 补全 capabilities 三件套。
-//
-// 为什么必须补全：OpenCode v2 的 Model.Capabilities schema 中 tools / input / output
-// **均为必填**（源码 packages/schema/src/model.ts：三项都没有 optional）。只要某个模型的
-// capabilities 缺任一字段，该模型就会被判 malformed，并导致**整个供应商被 v2 跳过**
-// （packages/core/src/config/normalize.ts 的 invalid() → "skipped malformed recognized value"）。
-// 因此落盘前统一补齐：tools 缺省 true，input/output 缺省 ["text"]。
-func normalizeCapabilities(c *model.Capabilities) *model.Capabilities {
-	if c == nil {
-		return nil
-	}
-	if c.Tools == nil {
-		t := true
-		c.Tools = &t
-	}
-	if c.Input == nil {
-		c.Input = []string{"text"}
-	}
-	if c.Output == nil {
-		c.Output = []string{"text"}
-	}
-	return c
 }
 
 // firstNonEmpty 返回第一个非空字符串；全空返回 ""。

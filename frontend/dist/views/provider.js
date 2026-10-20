@@ -51,37 +51,35 @@ export const PROVIDER_NPM_UNMATCHED = '__unmatched__';
 export const MODALITY_INPUT  = ['text', 'image', 'pdf', 'audio', 'video'];
 export const MODALITY_OUTPUT = ['text', 'image', 'audio', 'video'];
 
+// 思考强度档位（capabilities.reasoning.effort）：
+// 与输入/输出一致，只提供固定勾选项，不支持删除或自定义；未勾选时不写 reasoning。
+export const MODEL_EFFORTS = ['none', 'low', 'medium', 'high', 'xhigh', 'max'];
+
 // 渲染模型能力芯片（按 capabilities 回填勾选状态）
-// capabilities 形如 { tools?: boolean, input?: string[], output?: string[] }
+// capabilities 形如 { tools?, input?, output?, reasoning?: { effort? } }
 function modelAbilitiesHtml(capabilities) {
     const caps   = capabilities || {};
     const input  = caps.input  || [];
     const output = caps.output || [];
+    const reasoning = caps.reasoning || {};
+    const effort = Array.isArray(reasoning.effort) ? reasoning.effort : [];
     const boxes = (list, cls, selected) => list.map(m =>
         `<label class="mod-chip"><input type="checkbox" class="${cls}" value="${m}" ${selected.includes(m) ? 'checked' : ''}><span class="mod-chip-text">${m}</span></label>`
     ).join('');
-    // 工具调用（v2 capabilities.tools）：单个布尔勾选框，可选项，默认不勾选；
-    // .mod-tools 类名与输入/输出区隔开，便于 saveProviderFromDom 单独收集勾选态
-    const toolsChecked = caps.tools === true ? 'checked' : '';
-    return `<div class="model-abilities">
+    // 思考强度：固定档位，勾选即写入 capabilities.reasoning.effort。
+    // toggle/budget 不在 UI 管理，但保存时需原样带回，避免读一次就丢配置。
+    const effortBoxes = MODEL_EFFORTS.map(v =>
+        `<label class="mod-chip"><input type="checkbox" class="mod-effort" value="${v}" ${effort.includes(v) ? 'checked' : ''}><span class="mod-chip-text">${v}</span></label>`
+    ).join('');
+    const reasoningExtra = encodeURIComponent(JSON.stringify({
+        toggle: reasoning.toggle,
+        budget: reasoning.budget,
+    }));
+    return `<div class="model-abilities" data-reasoning-extra="${escapeHtml(reasoningExtra)}">
         <div class="mod-row"><span class="mod-label">输入</span><div class="mod-chip-list">${boxes(MODALITY_INPUT, 'mod-input', input)}</div></div>
         <div class="mod-row"><span class="mod-label">输出</span><div class="mod-chip-list">${boxes(MODALITY_OUTPUT, 'mod-output', output)}</div></div>
-        <div class="mod-row"><span class="mod-label">工具</span><div class="mod-chip-list"><label class="mod-chip"><input type="checkbox" class="mod-tools" ${toolsChecked}><span class="mod-chip-text">工具调用</span></label></div></div>
+        <div class="mod-row"><span class="mod-label">思考强度</span><div class="mod-chip-list">${effortBoxes}</div></div>
     </div>`;
-}
-
-// 计算能力摘要：取输入/输出中非 text 的能力，去重，最多显示 2 个 + 超出计数
-// （tools 是布尔开关，不参与摘要，保持与迁移前摘要行为一致）
-function abilitiesSummary(capabilities) {
-    const caps = capabilities || {};
-    const set = new Set([
-        ...(caps.input || []),
-        ...(caps.output || []),
-    ].filter(m => m && m !== 'text'));
-    const list = [...set];
-    if (!list.length) return '';
-    const shown = list.slice(0, 2).join('+');
-    return list.length > 2 ? `${shown}+${list.length - 2}` : shown;
 }
 
 // 渲染单个模型子卡片（三处复用）：
@@ -91,11 +89,10 @@ function abilitiesSummary(capabilities) {
 // 1. .btn-del-model 必须保持为 .model-subcard 的直接子元素——
 //    bindProviderEvents 里通过 btn.parentElement.remove() 删除整行；
 // 2. 能力区隐藏采用 display:none（CSS 折叠），不影响 saveProviderFromDom
-//    用 .mod-input:checked / .mod-output:checked / .mod-tools:checked 收集勾选值。
+//    用 .mod-input:checked / .mod-output:checked / .mod-effort:checked / .mod-tools:checked 收集勾选值。
 function modelSubcardHtml(model, capabilities) {
     const m = model || {};
     const readonlyAttr = m.readonlyId ? 'readonly' : '';
-    const summary = abilitiesSummary(capabilities);
     return `
         <div class="model-subcard">
             <div class="model-subcard-fields">
@@ -107,9 +104,8 @@ function modelSubcardHtml(model, capabilities) {
                 </div>
                 ${modelAbilitiesHtml(capabilities)}
             </div>
-            <button class="btn-toggle-abilities" type="button" aria-expanded="false" title="展开/收起模型模态设置">
-                <span class="btn-toggle-abilities-text">多模态</span>
-                ${summary ? `<span class="abilities-summary">${escapeHtml(summary)}</span>` : ''}
+            <button class="btn-toggle-abilities" type="button" aria-expanded="false" title="展开/收起模型能力设置">
+                <span class="btn-toggle-abilities-text">模型设置</span>
                 <span class="toggle-arrow">▾</span>
             </button>
             <button class="btn btn-del btn-del-model" title="删除">✕</button>
@@ -482,17 +478,31 @@ export function collectProviderData(card) {
         const id = row.querySelector('.model-edit-id')?.value?.trim();
         const name = row.querySelector('.model-edit-name')?.value?.trim();
         if (!id) return;
-        const tools  = !!row.querySelector('.mod-tools')?.checked;
         const input  = [...row.querySelectorAll('.mod-input:checked')].map(c => c.value);
         const output = [...row.querySelectorAll('.mod-output:checked')].map(c => c.value);
+        const effort = [...row.querySelectorAll('.mod-effort:checked')].map(c => c.value);
         // v2 保存契约要求 id 与 modelID 两个字段：当前 UI 只有单一「模型ID」输入，
         // 两者同源写入该输入值（后端以二者标识同一个模型）
         const model = { id, name: name || id, modelID: id };
-        // 仅当设置了任意能力（工具/输入/输出任一非空）时才写 capabilities；
-        // 全空则省略字段，交给 OpenCode 走 models.dev 兜底
-        if (tools || input.length || output.length) {
-            model.capabilities = { tools, input, output };
+        // 只写用户实际勾选的字段：空字段省略，交给 models.dev 兜底。
+        // 例如只设思考强度时，capabilities 里只有 reasoning，不会生成 input/output。
+        const capabilities = {};
+        if (input.length) capabilities.input = input;
+        if (output.length) capabilities.output = output;
+        if (effort.length) {
+            // 思考强度与输入输出同一口径：勾选才写，不勾选不写 reasoning。
+            // toggle/budget 不在 UI 管理，但保存时原样带回，避免读一次就丢配置。
+            let extra = {};
+            try {
+                const raw = row.querySelector('.model-abilities')?.dataset.reasoningExtra || '';
+                extra = JSON.parse(decodeURIComponent(raw)) || {};
+            } catch (_) { extra = {}; }
+            const reasoning = { supported: true, effort };
+            if (extra.toggle !== undefined && extra.toggle !== null) reasoning.toggle = extra.toggle;
+            if (extra.budget !== undefined && extra.budget !== null) reasoning.budget = extra.budget;
+            capabilities.reasoning = reasoning;
         }
+        if (Object.keys(capabilities).length) model.capabilities = capabilities;
         data.models.push(model);
     });
 

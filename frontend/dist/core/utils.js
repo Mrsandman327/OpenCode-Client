@@ -204,7 +204,79 @@ export function restoreSessionSelection(sessionID) {
     const variantSel = document.getElementById('ocVariantSelect');
     if (agentSel) agentSel.value = store.selectedAgent;
     if (modelSel) modelSel.value = store.selectedModel;
-    if (variantSel) variantSel.value = store.selectedVariant;
+    // variant 选项依赖当前模型：先按模型重建，再选中该会话的手选/历史值
+    if (variantSel) syncVariantSelect(variantSel, store.selectedModel, store.selectedVariant);
+}
+
+// ========== 思考强度（variant） ==========
+
+/** variant 显示名：none 明确标注为「关闭推理」，xhigh 保持 xHigh 写法。 */
+export function variantLabel(value) {
+    const v = String(value || '');
+    if (!v) return '默认';
+    if (v === 'none') return 'None';
+    if (v === 'xhigh') return 'xHigh';
+    return v.charAt(0).toUpperCase() + v.slice(1);
+}
+
+// 标准档位顺序：模型上报的 variants 顺序可能是元数据顺序，这里统一排序。
+const VARIANT_ORDER = ['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+
+/** 按标准顺序排序并去重；未知档位保留在末尾（供应商自定义值不被吞掉）。 */
+function sortVariantValues(values) {
+    const unique = [];
+    (values || []).forEach(function (v) {
+        const value = String(v || '');
+        if (value && unique.indexOf(value) < 0) unique.push(value);
+    });
+    return unique.sort(function (a, b) {
+        const ia = VARIANT_ORDER.indexOf(a);
+        const ib = VARIANT_ORDER.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+}
+
+/**
+ * 某模型支持的思考强度列表：只认 /api/model 返回的 variants。
+ * 模型没有 variants（未配置 reasoning / catalog 无元数据）时返回空列表，
+ * 不做任何按 provider 的猜测——避免 UI 出现“能选但服务端不认”的档位。
+ * @param {string} modelValue providerID/modelID
+ * @returns {string[]} variant 值列表（不含空串「默认」）
+ */
+export function variantValuesForModel(modelValue) {
+    const value = String(modelValue || '');
+    const list = (store.modelList && store.modelList.length)
+        ? store.modelList
+        : (store.availableModels || []);
+    const model = list.find(function (m) { return m && m.value === value; }) || null;
+    const upstream = model && Array.isArray(model.variants) ? model.variants : [];
+    return sortVariantValues(upstream);
+}
+
+/**
+ * 按当前模型重建 variant 下拉选项。
+ * - 始终保留空值「默认」；
+ * - current 不在新列表时补一个选项，避免 select.value 被静默置空（历史回填/手选场景）；
+ * @param {HTMLSelectElement} select
+ * @param {string} modelValue providerID/modelID
+ * @param {string} [current] 期望选中的值；不传则沿用 select 当前值
+ * @returns {string} 最终选中的值
+ */
+export function syncVariantSelect(select, modelValue, current) {
+    if (!select) return '';
+    const keep = (current === undefined || current === null)
+        ? String(select.value || '')
+        : String(current);
+    const values = variantValuesForModel(modelValue);
+    if (keep && values.indexOf(keep) < 0) values.push(keep);
+
+    let html = '<option value="">默认</option>';
+    values.forEach(function (v) {
+        html += '<option value="' + escapeAttr(v) + '">' + escapeHtml(variantLabel(v)) + '</option>';
+    });
+    select.innerHTML = html;
+    select.value = keep;
+    return select.value;
 }
 
 /** 模型 ID（providerID/modelID）→ 显示名（providerID/name）；查不到时原样返回。

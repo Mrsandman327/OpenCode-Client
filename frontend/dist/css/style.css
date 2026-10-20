@@ -5541,8 +5541,11 @@ input::placeholder, textarea::placeholder {
     border: 0;
     appearance: none;
 }
+/* 选中态：输入 / 输出 / 思考强度 / 工具共用同一套描边与文字色。
+   checkbox 仍在 DOM 中，saveProviderFromDom 用 .mod-*:checked 收集勾选值。 */
 .mod-chip:has(.mod-input:checked),
 .mod-chip:has(.mod-output:checked),
+.mod-chip:has(.mod-effort:checked),
 .mod-chip:has(.mod-tools:checked) {
     border: 1px solid var(--accent);
     padding: 2px 8px;
