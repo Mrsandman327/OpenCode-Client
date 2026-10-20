@@ -2898,6 +2898,10 @@ input::placeholder, textarea::placeholder {
     display: flex;
     flex-direction: column;
     border-bottom: 1px solid var(--border);
+    /* 不随 flex 容器收缩：各面板保持完整内容高度，
+       否则内容多的面板（如服务状态含插件列表）会被压扁，
+       内部 overflow:visible 的内容溢出覆盖下一个面板（出现面板重叠） */
+    flex-shrink: 0;
 }
 /* ========== 右侧面板分区高度拖动条 ==========
    仅「子任务 ↔ 代办事项」分界处一条（服务状态区不参与固定高度分配）；
@@ -3004,6 +3008,12 @@ input::placeholder, textarea::placeholder {
     font-size: 12px;
     color: var(--text-secondary);
     border-radius: var(--radius-sm);
+    /* 长插件名 / URL（git+https://…、file:///…）自动换行：
+       条目文本是匿名 flex item，overflow-wrap/word-break 会被继承，
+       避免长字符串撑宽面板、出现横向滚动条 */
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 .oc-service-item:hover {
     background: var(--bg-card-hover);
