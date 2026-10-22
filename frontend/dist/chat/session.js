@@ -24,7 +24,7 @@ import { isSessionBusy, smartScroll, updateSendButton, renderMessages, ensureSel
 // 解环后与 cmd-palette 的依赖为单向：它经 core/utils.js 注册中心调用本模块的
 // loadMessages 等动作（见 setSessionActionHandlers），本模块只在发送流程运行时
 // 调用它的 isKnownCommand/isKnownSkill。
-import { isKnownCommand, isKnownSkill, executeFixedCmd } from './cmd-palette.js';
+import { isKnownCommand, isKnownSkill, isFixedCommand, executeFixedCmd } from './cmd-palette.js';
 import { parseBtwCommand } from '../core/btw.js';
 import { syncBtwToSession } from './btw.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
@@ -1235,6 +1235,19 @@ export async function sendPrompt() {
                 return;
             }
             await executeFixedCmd('btw', btwCmd.args);
+            return;
+        }
+        // ===== 面板内置命令（无参数）：前端本地执行，不发给服务端 /command =====
+        // summarize/background/revert/unrevert/fork 由 OC Manager 自己实现
+        // （见 chat/cmd-palette.js 的 FIXED_COMMANDS），服务端并不认识这些名字；
+        // 若放行会被 POST /api/session/{id}/command 当成未知命令报错。
+        const fixedMatch = /^\/([^\s/]+)\s*$/.exec(text);
+        if (fixedMatch && isFixedCommand(fixedMatch[1])) {
+            if (!store.currentSessionId) {
+                showToast('请先选择会话', 'error');
+                return;
+            }
+            await executeFixedCmd(fixedMatch[1]);
             return;
         }
     const btn = document.getElementById('btnSendPrompt');

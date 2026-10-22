@@ -23,12 +23,18 @@ let cmdPaletteIndex = -1;
 let cmdPaletteVisible = false;
 
 const FIXED_COMMANDS = [
-    { name: 'summarize', description: '压缩会话上下文', source: 'fixed' },
-    { name: 'revert',    description: '撤销最后消息（需 Git 仓库）', source: 'fixed' },
-    { name: 'unrevert',  description: '取消撤销（清除暂存的撤销；需 Git 仓库）', source: 'fixed' },
-    { name: 'fork',      description: '从消息创建新会话（分叉）', source: 'fixed' },
-    { name: 'btw',       description: '侧问：一次性回答，不写入会话', source: 'fixed' },
+    { name: 'summarize',  description: '压缩会话上下文', source: 'fixed' },
+    { name: 'background', description: '把前台阻塞的工具转到后台观察', source: 'fixed' },
+    { name: 'revert',     description: '撤销最后消息（需 Git 仓库）', source: 'fixed' },
+    { name: 'unrevert',   description: '取消撤销（清除暂存的撤销；需 Git 仓库）', source: 'fixed' },
+    { name: 'fork',       description: '从消息创建新会话（分叉）', source: 'fixed' },
+    { name: 'btw',        description: '侧问：一次性回答，不写入会话', source: 'fixed' },
 ];
+
+/** 判断是否为面板内置命令（由前端本地执行，服务端并不认识这些名字）。 */
+export function isFixedCommand(name) {
+    return FIXED_COMMANDS.some(item => item.name === name);
+}
 
 const cmdPaletteEl = document.getElementById('ocCmdPalette');
 const cmdPaletteScroll = cmdPaletteEl.querySelector('.oc-cmd-palette-scroll');
@@ -279,6 +285,14 @@ export async function executeFixedCmd(cmdName, args) {
                 // v2: POST /api/session/{id}/compact {}（不再接受 model 参数，沿用会话当前模型）
                 await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/compact`, {});
                 showToast('会话上下文已压缩', 'success');
+                break;
+            }
+            case 'background': {
+                // v2: POST /api/session/{id}/background
+                // 把当前前台阻塞的工具调用（subagent / 长时 shell）转为后台观察：
+                // 服务端标记 isBackgrounded 并登记完成通知，不会取消任务；会话空闲时是 no-op（204）。
+                await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/background`);
+                showToast('已将前台任务转到后台', 'success');
                 break;
             }
             case 'revert': {
