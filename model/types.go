@@ -61,7 +61,7 @@ type OpenCodeConfig struct {
 	Plugin    []string                  `json:"plugin,omitempty"`
 	Providers map[string]*ProviderEntry `json:"providers,omitempty"`
 	// EnabledProviders / DisabledProviders 仅用于读取兼容旧的 provider 过滤写法：
-	// 写入时一律不再输出，启用状态改由 experimental.policies 的 provider.use 表达。
+	// 写入时一律不再输出，启用状态改由顶层 policies 的 provider.use 表达。
 	EnabledProviders  []string `json:"enabled_providers,omitempty"`
 	DisabledProviders []string `json:"disabled_providers,omitempty"`
 	// 注意：v1 的 server 在 v2 属于「accepted but unsupported」（被忽略并告警），
@@ -143,7 +143,7 @@ func (c OpenCodeConfig) MarshalJSON() ([]byte, error) {
 		out["plugin"] = b
 	}
 	// 只写 v2 的 providers；enabled_providers / disabled_providers 不再输出，
-	// 启用状态由 config/provider 重写为 experimental.policies 的 provider.use。
+	// 启用状态由 config/provider 重写为顶层 policies 的 provider.use。
 	if c.Providers != nil {
 		b, err := json.Marshal(c.Providers)
 		if err != nil {

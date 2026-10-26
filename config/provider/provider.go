@@ -323,7 +323,7 @@ func legacyCapabilities(extra map[string]json.RawMessage) *model.Capabilities {
 
 // ========== 启用状态：读三源兼容 ==========
 
-// policyStatement 表示 experimental.policies 中的一条策略语句。
+// policyStatement 表示顶层 policies 中的一条策略语句。
 type policyStatement struct {
 	Action   string `json:"action"`
 	Resource string `json:"resource"`
@@ -346,14 +346,26 @@ func experimentalMap(cfg *model.OpenCodeConfig) map[string]json.RawMessage {
 	return m
 }
 
-// providerUseStatements 返回 experimental.policies 中所有 provider.use 语句（按出现顺序）。
-func providerUseStatements(cfg *model.OpenCodeConfig) []policyStatement {
+// policyListRaw 返回顶层 policies 的原始数组。
+// 兼容旧配置：顶层不存在时回退到 experimental.policies（保存时会迁移到顶层）。
+func policyListRaw(cfg *model.OpenCodeConfig) json.RawMessage {
+	if cfg == nil || cfg.Extra == nil {
+		return nil
+	}
+	if raw, ok := cfg.Extra["policies"]; ok {
+		return raw
+	}
 	exp := experimentalMap(cfg)
 	if exp == nil {
 		return nil
 	}
-	raw, ok := exp["policies"]
-	if !ok {
+	return exp["policies"]
+}
+
+// providerUseStatements 返回 policies 中所有 provider.use 语句（按出现顺序）。
+func providerUseStatements(cfg *model.OpenCodeConfig) []policyStatement {
+	raw := policyListRaw(cfg)
+	if raw == nil {
 		return nil
 	}
 	var list []json.RawMessage
@@ -388,7 +400,7 @@ func policyResourceRegistered(resource string, cfg *model.OpenCodeConfig) bool {
 // isProviderEnabled 综合三种来源计算供应商是否启用（读兼容）：
 //  1. enabled_providers：非空时视为 allowlist，仅列表内供应商可启用；
 //  2. disabled_providers：命中即禁用，优先级高于 allowlist；
-//  3. experimental.policies 的 provider.use：按数组顺序，最后匹配者胜出。
+//  3. 顶层 policies 的 provider.use：按数组顺序，最后匹配者胜出。
 func isProviderEnabled(key string, cfg *model.OpenCodeConfig) bool {
 	enabled := true
 	if len(cfg.EnabledProviders) > 0 {
@@ -405,13 +417,14 @@ func isProviderEnabled(key string, cfg *model.OpenCodeConfig) bool {
 	return enabled
 }
 
-// rewriteProviderPolicies 按 v2 规则重写 experimental.policies 中的 provider.use 语句：
+// rewriteProviderPolicies 按 v2 规则重写顶层 policies 中的 provider.use 语句：
 //   - 收集所有启用供应商 key；
 //   - 集合非空：写 [{action:provider.use,resource:*,effect:deny}] + 每个启用 key 一条 allow；
 //   - 集合为空：移除全部 provider.use 语句（保持「不限制」）；
 //   - 非 provider.use 语句原样保留，相对顺序不变；
 //   - 未登记供应商的 provider.use 语句（resource 不指向任何托管 key）原样保留，追加在重建块之后；
-//   - 不输出空的 policies / experimental 键。
+//   - 不输出空的 policies 键；experimental 下的其它键（如 todo）原样保留；
+//     旧版 experimental.policies 在保存时迁移到顶层并删除。
 //
 // override 中的 key 以其给定值作为启用状态（覆盖三源计算结果），
 // 用于让「正在保存的供应商」遵循本次提交的启用开关。
@@ -428,19 +441,22 @@ func rewriteProviderPolicies(cfg *model.OpenCodeConfig, override map[string]bool
 	}
 	sort.Strings(enabledKeys)
 
-	// 解析 experimental：存在但不是对象时直接报错中止，避免静默覆盖/删除用户配置。
+	// 读取现有 policies：顶层优先，旧配置回退 experimental.policies。
+	var policies []json.RawMessage
+	if raw := policyListRaw(cfg); raw != nil {
+		if err := json.Unmarshal(raw, &policies); err != nil {
+			return fmt.Errorf("解析 policies 失败: %w", err)
+		}
+	}
+
+	// 解析 experimental：保留其它键（如 todo）；旧版 policies 迁移后删除。
 	exp := map[string]json.RawMessage{}
 	if raw, ok := cfg.Extra["experimental"]; ok {
 		if err := json.Unmarshal(raw, &exp); err != nil {
 			return fmt.Errorf("experimental 不是对象，无法安全重写策略: %w", err)
 		}
 	}
-	var policies []json.RawMessage
-	if raw, ok := exp["policies"]; ok {
-		if err := json.Unmarshal(raw, &policies); err != nil {
-			return fmt.Errorf("解析 experimental.policies 失败: %w", err)
-		}
-	}
+	delete(exp, "policies")
 
 	// 重写前是否已存在限制（三种来源任一），用于区分「用户主动过滤过」与「从未受限」。
 	hadRestriction := len(cfg.EnabledProviders) > 0 || len(cfg.DisabledProviders) > 0 ||
@@ -494,14 +510,17 @@ func rewriteProviderPolicies(cfg *model.OpenCodeConfig, override map[string]bool
 	// 放在 deny * 之后可保证手写的 allow 依然生效（并保持它们原有的相对顺序）。
 	kept = append(kept, preservedUses...)
 
+	if cfg.Extra == nil {
+		cfg.Extra = map[string]json.RawMessage{}
+	}
 	if len(kept) > 0 {
 		b, err := json.Marshal(kept)
 		if err != nil {
 			return err
 		}
-		exp["policies"] = b
+		cfg.Extra["policies"] = b
 	} else {
-		delete(exp, "policies")
+		delete(cfg.Extra, "policies")
 	}
 
 	if len(exp) > 0 {
@@ -509,11 +528,8 @@ func rewriteProviderPolicies(cfg *model.OpenCodeConfig, override map[string]bool
 		if err != nil {
 			return err
 		}
-		if cfg.Extra == nil {
-			cfg.Extra = map[string]json.RawMessage{}
-		}
 		cfg.Extra["experimental"] = b
-	} else if cfg.Extra != nil {
+	} else {
 		delete(cfg.Extra, "experimental")
 	}
 	return nil
