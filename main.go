@@ -65,6 +65,7 @@ func main() {
 		MinHeight:        640,
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
+		ZoomControlEnabled: true,
 	})
 
 	// 系统托盘：单击切换窗口显示，右键菜单（显示主窗口/退出）。
