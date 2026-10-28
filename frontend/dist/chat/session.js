@@ -1259,6 +1259,9 @@ export async function sendPrompt() {
     // input.messageID ?? MessageID.ascending()，因此乐观消息与服务端确认后的消息是
     // 同一个 id —— 回执按 id 精确命中，不再需要「取最近一条」或文本比对这类猜测。
     const localMessageId = makeLocalMessageId();
+    // 附件备份：请求发出前会立即清空附件区（prompt 可能等到模型开始输出才返回），
+    // 失败时用这份快照恢复，避免用户重新选择。
+    let attachedBackup = [];
     try {
         // 发送流程开始：重置无响应看门狗基线（20s 内无任何模型活动会提示，见 armPromptWatch）
         markPromptSendStart();
@@ -1314,6 +1317,7 @@ export async function sendPrompt() {
         // 知识库引用：正文与引用全文拆成独立 part，模型可区分「用户的话」与「参考资料」
         const refs = await collectKnowledgeRefs();
         const parts = buildParts(text);
+        attachedBackup = store.attachedFiles.slice();
         refs.forEach(r => {
             parts.push({ type: 'text', text: `【知识库引用：${r.title}】\n${r.content}` });
         });
@@ -1400,6 +1404,10 @@ export async function sendPrompt() {
         //  - 命中**服务端命令** → 走 POST /api/session/{id}/command（body {command,text,delivery}），
         //    否则会被当普通文本喂给模型、命令不会执行；
         //  - 都不命中 → 照常走 prompt。
+        // 请求发出前立即清空附件区：prompt 请求可能等到模型开始输出才返回，
+        // 若等 await 之后才清空，附件会一直留在输入框下方直到会话刷新。
+        // 发送失败时在 catch 中恢复附件。
+        clearAttachments();
         const cmdMatch = /^\/([^\s/]+)(?:\s+([\s\S]*))?$/.exec(text);
         const skillId = cmdMatch && isKnownSkill(cmdMatch[1]) ? cmdMatch[1] : '';
         if (cmdMatch && !skillId && isKnownCommand(cmdMatch[1])) {
@@ -1420,8 +1428,6 @@ export async function sendPrompt() {
                 openFileBrowserStandaloneFor(requestDir, { features: ['git'] });
             };
         }
-        clearAttachments();
-        // 发送成功才清空引用区；失败路径（catch）保留引用，避免用户重新选择
         clearKnowledgeRefs();
         if (!isMobileTreeMode()) {
             await loadMessages();
@@ -1435,6 +1441,11 @@ export async function sendPrompt() {
         // 形如 {"kind":"Payload","message":"..."}，直接显示原始正文用户难以理解）。
         clearPromptWatch();
         if (store.currentSessionId) removeLocalUserMessage(store.currentSessionId, localMessageId);
+        // 发送失败：恢复发送前清空的附件，避免用户重新选择
+        if (attachedBackup.length) {
+            store.attachedFiles = attachedBackup;
+            renderAttachedFiles();
+        }
         showToast('发送失败: ' + formatApiError(e), 'error');
     }
         btn.disabled = false;

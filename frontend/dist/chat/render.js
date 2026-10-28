@@ -295,7 +295,12 @@ export function renderMessages(items, targetBox) {
         return;
     }
 
-    const scrollState = captureScrollState(box);
+    // 跟随底部的唯一判据：右下角「回到会话底部」按钮是否可见。
+    // 按钮由滚动事件实时维护（main.js 在消息池上以捕获阶段监听 scroll），
+    // 可见表示用户已上翻；此时按视口顶部消息的锚点恢复位置，不滚到底。
+    const scrollBtn = document.getElementById('btnScrollBottom');
+    const followBottom = !scrollBtn || !scrollBtn.classList.contains('visible');
+    const scrollAnchor = captureScrollAnchor(box);
     if (!list.length) {
         // 空列表也要给「执行失败」留宿主：若该会话有 sessionErrors（如 execution.failed
         // 早于任何 step、服务端未落 assistant 卡片），先渲染错误行，再回退空态提示。
@@ -341,7 +346,7 @@ export function renderMessages(items, targetBox) {
                         if (focusSelector) restoreFocusState(body, focusSelector);
                     }
                     doUpdateModelInfo(list);
-                    restoreScroll(box, scrollState, false);
+                    restoreScrollAnchor(box, scrollAnchor, followBottom);
                     updateScrollBottomButton();
                     return;
                 }
@@ -357,7 +362,7 @@ export function renderMessages(items, targetBox) {
     appendSessionErrorRowIfNeeded(box, list);
 
     doUpdateModelInfo(items);
-    restoreScroll(box, scrollState, false);
+    restoreScrollAnchor(box, scrollAnchor, followBottom);
     updateScrollBottomButton();
     if (renderTodosHandler) renderTodosHandler();
     updateUserNav();
@@ -506,13 +511,16 @@ export function smartScroll(box, force) {
     updateScrollBottomButton();
 }
 
+// 距底部小于该值视为「在底部」：约 1-2 行，避免轻微上翻仍被判定为跟随。
+const SCROLL_BOTTOM_THRESHOLD = 32;
+
 /** 捕获滚动状态（顶部位置、高度、距底部距离） */
 export function captureScrollState(box) {
     const distanceToBottom = box.scrollHeight - box.scrollTop - box.clientHeight;
     return {
         top: box.scrollTop,
         height: box.scrollHeight,
-        nearBottom: distanceToBottom < 120,
+        nearBottom: distanceToBottom < SCROLL_BOTTOM_THRESHOLD,
     };
 }
 
@@ -529,13 +537,54 @@ export function restoreScroll(box, state, force) {
     updateScrollBottomButton();
 }
 
+/** 捕获视口顶部可见消息作为锚点：记录消息 id 与相对视口偏移。
+ *  渲染后按同一条消息恢复位置，避免上方内容变高（新卡片/图片）导致视口下移。 */
+export function captureScrollAnchor(box) {
+    const top = box.scrollTop;
+    let anchor = null;
+    for (const el of box.children) {
+        if (el.offsetTop + el.offsetHeight > top) {
+            anchor = el;
+            break;
+        }
+    }
+    return {
+        top: top,
+        height: box.scrollHeight,
+        messageId: anchor ? (anchor.dataset.messageId || '') : '',
+        offset: anchor ? (anchor.offsetTop - top) : 0,
+    };
+}
+
+/** 按锚点恢复滚动位置；followBottom 为真时直接滚到底。 */
+export function restoreScrollAnchor(box, anchor, followBottom) {
+    if (followBottom) {
+        box.scrollTop = box.scrollHeight;
+        updateScrollBottomButton();
+        return;
+    }
+    if (anchor && anchor.messageId) {
+        const el = box.querySelector('[data-message-id="' + CSS.escape(anchor.messageId) + '"]');
+        if (el) {
+            box.scrollTop = Math.max(0, el.offsetTop - anchor.offset);
+            updateScrollBottomButton();
+            return;
+        }
+    }
+    if (!anchor) return;
+    // 锚点消息被删除/替换（例如分页覆盖）：退回高度差修正
+    const heightDelta = box.scrollHeight - anchor.height;
+    box.scrollTop = Math.max(0, anchor.top + Math.min(0, heightDelta));
+    updateScrollBottomButton();
+}
+
 /** 更新「滚到底」按钮可见性 */
 export function updateScrollBottomButton() {
     const box = getActiveMessagesEl();
     const btn = document.getElementById('btnScrollBottom');
     if (!box || !btn) return;
     const canScroll = box.scrollHeight > box.clientHeight + 8;
-    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < SCROLL_BOTTOM_THRESHOLD;
     btn.classList.toggle('visible', canScroll && !nearBottom);
 }
 

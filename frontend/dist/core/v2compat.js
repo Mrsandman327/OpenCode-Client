@@ -558,15 +558,26 @@ export function adaptEvent(event) {
     }
 
     switch (event.type) {
-        // 用户消息入队：补一条 role=user 的 message.updated 与其正文 part
+        // 用户消息入队：补一条 role=user 的 message.updated 与其正文/附件 part
         case 'session.inbox.enqueued': {
             if (data.item?.type !== 'user') return [];
             const msgID = data.inboxID;
-            const text = data.item.payload?.text || '';
-            return [
+            const payload = data.item.payload || {};
+            const text = payload.text || '';
+            const out = [
                 { type: 'message.updated', info: { id: msgID, sessionID, role: 'user', time: { created: event.created } } },
-                { type: 'message.part.updated', part: { id: msgID + '_text', messageID: msgID, sessionID, type: 'text', text } },
             ];
+            // 附件：服务端入队事件自带完整 files（含 inline data），必须一并落成 file part，
+            // 否则 upsertPart 在首个文本 part 到达时清掉本地乐观附件，图片会消失。
+            (payload.files || []).forEach((f, i) => {
+                if (!f || typeof f !== 'object') return;
+                out.push({
+                    type: 'message.part.updated',
+                    part: filePartFromAttachment(f, sessionID, msgID, msgID + '_file_' + i),
+                });
+            });
+            out.push({ type: 'message.part.updated', part: { id: msgID + '_text', messageID: msgID, sessionID, type: 'text', text } });
+            return out;
         }
 
         // 助手消息开始：建立 role=assistant 的消息壳
