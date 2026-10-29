@@ -408,6 +408,9 @@ type ProxyConfig struct {
 	ProxyEnabled bool   `json:"proxyEnabled"`
 	ProxyHost    string `json:"proxyHost"`
 	ProxyPort    string `json:"proxyPort"`
+	// NoProxy 是追加到 NO_PROXY 的自定义排除项（逗号分隔），
+	// 默认的 localhost,127.0.0.1 始终保留。
+	NoProxy string `json:"noProxy"`
 }
 
 // TreeNode 项目-目录-会话树节点。

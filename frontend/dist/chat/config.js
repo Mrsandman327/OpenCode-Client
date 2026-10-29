@@ -39,9 +39,12 @@ export function getNetworkConfig() {
             proxyEnabled: !!saved.proxyEnabled,
             proxyHost: (saved.proxyHost || '127.0.0.1').trim(),
             proxyPort: (saved.proxyPort || '7897').toString().trim(),
+            // noProxy：追加到 NO_PROXY 的自定义排除项（逗号分隔）；
+            // 默认的 localhost,127.0.0.1 由后端始终保留。
+            noProxy: (saved.noProxy || '').trim(),
         };
     } catch (_) {
-        return { serviceHost: '127.0.0.1', servicePort: '49374', servicePassword: '12345678', proxyEnabled: false, proxyHost: '127.0.0.1', proxyPort: '7897' };
+        return { serviceHost: '127.0.0.1', servicePort: '49374', servicePassword: '12345678', proxyEnabled: false, proxyHost: '127.0.0.1', proxyPort: '7897', noProxy: '' };
     }
 }
 
@@ -54,6 +57,7 @@ export function saveNetworkConfig(config) {
         proxyEnabled: !!config.proxyEnabled,
         proxyHost: (config.proxyHost || '127.0.0.1').trim(),
         proxyPort: (config.proxyPort || '7897').toString().trim(),
+        noProxy: (config.noProxy || '').trim(),
     };
     localStorage.setItem(NETWORK_CONFIG_KEY, JSON.stringify(next));
     updateProxyButton();
@@ -123,11 +127,27 @@ export function proxyUrl(config = getNetworkConfig()) {
     return `http://${config.proxyHost}:${config.proxyPort}`;
 }
 
+/** 构造最终 NO_PROXY：默认 localhost,127.0.0.1 + 用户输入（逗号分隔、去重）。 */
+function composeNoProxy(extra) {
+    const items = ['localhost', '127.0.0.1'];
+    const seen = new Set(items.map(v => v.toLowerCase()));
+    String(extra || '').split(',').forEach(raw => {
+        const value = raw.trim();
+        if (!value) return;
+        const key = value.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        items.push(value);
+    });
+    return items.join(',');
+}
+
 /** 更新网络配置弹窗中的预览文本 */
 export function updateProxyPreview() {
     const proxyEnabled = document.getElementById('proxyEnabled')?.checked;
     const proxyHost = document.getElementById('proxyHost')?.value.trim() || '127.0.0.1';
     const proxyPort = document.getElementById('proxyPort')?.value.trim() || '7897';
+    const noProxy = composeNoProxy(document.getElementById('proxyNoProxy')?.value || '');
     const serviceHost = document.getElementById('serviceHost')?.value.trim() || '127.0.0.1';
     const servicePort = document.getElementById('servicePort')?.value.trim() || '49374';
     const preview = document.getElementById('proxyPreview');
@@ -136,7 +156,7 @@ export function updateProxyPreview() {
     parts.push(`服务地址: ${serviceHost}:${servicePort}`);
     if (proxyEnabled) {
         const url = `http://${proxyHost}:${proxyPort}`;
-        parts.push(`代理: HTTP_PROXY、HTTPS_PROXY、ALL_PROXY = ${url}；NO_PROXY = localhost,127.0.0.1`);
+        parts.push(`代理: HTTP_PROXY、HTTPS_PROXY、ALL_PROXY = ${url}；NO_PROXY = ${noProxy}`);
     } else {
         parts.push('代理未启用');
     }
@@ -160,6 +180,7 @@ export function showProxyModal() {
     const proxyEnabledEl = document.getElementById('proxyEnabled');
     const proxyHostEl = document.getElementById('proxyHost');
     const proxyPortEl = document.getElementById('proxyPort');
+    const proxyNoProxyEl = document.getElementById('proxyNoProxy');
     const servicePwdEl = document.getElementById('servicePassword');
     const actionsEl = document.getElementById('proxyModalActions');
     serviceHostEl.value = config.serviceHost;
@@ -168,6 +189,7 @@ export function showProxyModal() {
     proxyEnabledEl.checked = config.proxyEnabled;
     proxyHostEl.value = config.proxyHost;
     proxyPortEl.value = config.proxyPort;
+    if (proxyNoProxyEl) proxyNoProxyEl.value = config.noProxy || '';
     const readonly = store.webRunning;
     serviceHostEl.readOnly = readonly;
     servicePortEl.readOnly = readonly;
@@ -192,6 +214,7 @@ export function showProxyModal() {
     proxyEnabledEl.disabled = readonly;
     proxyHostEl.readOnly = readonly;
     proxyPortEl.readOnly = readonly;
+    if (proxyNoProxyEl) proxyNoProxyEl.readOnly = readonly;
     // 只读（服务运行中）：整个操作区隐藏——保存不可用、也不再显示「关闭」按钮（点弹窗遮罩即可关闭）；
     // 编辑态显示「取消 + 保存」。
     if (actionsEl) actionsEl.style.display = readonly ? 'none' : '';
@@ -201,12 +224,14 @@ export function showProxyModal() {
         if (servicePwdEl) servicePwdEl.style.opacity = '0.6';
         proxyHostEl.style.opacity = '0.6';
         proxyPortEl.style.opacity = '0.6';
+        if (proxyNoProxyEl) proxyNoProxyEl.style.opacity = '0.6';
     } else {
         serviceHostEl.style.opacity = '';
         servicePortEl.style.opacity = '';
         if (servicePwdEl) servicePwdEl.style.opacity = '';
         proxyHostEl.style.opacity = '';
         proxyPortEl.style.opacity = '';
+        if (proxyNoProxyEl) proxyNoProxyEl.style.opacity = '';
     }
     updateProxyPreview();
     document.getElementById('proxyModal').style.display = 'flex';
@@ -224,6 +249,7 @@ export function applyProxyConfig() {
     const proxyEnabled = document.getElementById('proxyEnabled').checked;
     const proxyHost = document.getElementById('proxyHost').value.trim() || '127.0.0.1';
     const proxyPort = document.getElementById('proxyPort').value.trim() || '7897';
+    const noProxy = document.getElementById('proxyNoProxy')?.value.trim() || '';
     // 服务访问口令（OpenCode v2 服务强制 Basic 认证）
     const pwdEl = document.getElementById('servicePassword');
     const servicePassword = pwdEl ? pwdEl.value.trim() : '';
@@ -235,7 +261,7 @@ export function applyProxyConfig() {
         showToast('代理端口必须是数字', 'error');
         return;
     }
-    saveNetworkConfig({ serviceHost, servicePort, servicePassword, proxyEnabled, proxyHost, proxyPort });
+    saveNetworkConfig({ serviceHost, servicePort, servicePassword, proxyEnabled, proxyHost, proxyPort, noProxy });
     hideProxyModal();
 }
 

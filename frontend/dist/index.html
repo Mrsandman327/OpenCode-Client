@@ -520,13 +520,15 @@
             </div>
             <div class="modal-body">
                 <div class="oc-service-group-title">OpenCode 服务地址</div>
-                <div class="modal-field">
-                    <label for="serviceHost">服务地址</label>
-                    <input id="serviceHost" placeholder="127.0.0.1" />
-                </div>
-                <div class="modal-field">
-                    <label for="servicePort">服务端口</label>
-                    <input id="servicePort" inputmode="numeric" placeholder="49374" />
+                <div class="proxy-field-row">
+                    <div class="modal-field">
+                        <label for="serviceHost">服务地址</label>
+                        <input id="serviceHost" placeholder="127.0.0.1" />
+                    </div>
+                    <div class="modal-field">
+                        <label for="servicePort">服务端口</label>
+                        <input id="servicePort" inputmode="numeric" placeholder="49374" />
+                    </div>
                 </div>
                 <div class="modal-field">
                     <label for="servicePassword">服务访问口令</label>
@@ -544,13 +546,20 @@
                     </span>
                     <input type="checkbox" id="proxyEnabled" />
                 </label>
-                <div class="modal-field">
-                    <label for="proxyHost">代理地址</label>
-                    <input id="proxyHost" placeholder="127.0.0.1" />
+                <div class="proxy-field-row">
+                    <div class="modal-field">
+                        <label for="proxyHost">代理地址</label>
+                        <input id="proxyHost" placeholder="127.0.0.1" />
+                    </div>
+                    <div class="modal-field">
+                        <label for="proxyPort">代理端口</label>
+                        <input id="proxyPort" inputmode="numeric" placeholder="7897" />
+                    </div>
                 </div>
                 <div class="modal-field">
-                    <label for="proxyPort">代理端口</label>
-                    <input id="proxyPort" inputmode="numeric" placeholder="7897" />
+                    <label for="proxyNoProxy">代理排除地址</label>
+                    <input id="proxyNoProxy" placeholder="10.0.0.0/8, 192.168.0.0/16, .corp.example" />
+                    <small class="field-hint">不走代理的地址，逗号分隔；默认已包含 localhost,127.0.0.1</small>
                 </div>
                 <div class="proxy-preview" id="proxyPreview"></div>
             </div>

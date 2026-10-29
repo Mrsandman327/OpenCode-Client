@@ -237,13 +237,34 @@ func applyProxyToService(proxy model.ProxyConfig) {
 		{"HTTP_PROXY", proxyURL},
 		{"HTTPS_PROXY", proxyURL},
 		{"ALL_PROXY", proxyURL},
-		{"NO_PROXY", "localhost,127.0.0.1"},
+		{"NO_PROXY", buildNoProxy(proxy.NoProxy)},
 	} {
 		if cur.Env[kv[0]] == kv[1] {
 			continue // 值一致则跳过（service set 会重启服务）
 		}
 		_, _ = runOpencodeService("set", "env", kv[0], kv[1])
 	}
+}
+
+// buildNoProxy 合并默认排除项与用户自定义项。
+// 默认始终包含 localhost 与 127.0.0.1；用户输入按逗号拆分，去空白、去重（大小写不敏感），
+// 保留域名后缀（.corp.example）与 CIDR（10.0.0.0/8）原样，交由 opencode 的 HTTP 客户端解释。
+func buildNoProxy(extra string) string {
+	items := []string{"localhost", "127.0.0.1"}
+	seen := map[string]bool{"localhost": true, "127.0.0.1": true}
+	for _, raw := range strings.Split(extra, ",") {
+		value := strings.TrimSpace(raw)
+		if value == "" {
+			continue
+		}
+		key := strings.ToLower(value)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		items = append(items, value)
+	}
+	return strings.Join(items, ",")
 }
 
 // StopOpenCodeWeb 停止 OpenCode 共享后台服务（真停止并清理注册文件）。

@@ -3963,6 +3963,30 @@ input::placeholder, textarea::placeholder {
 .modal-field {
     margin-bottom: 12px;
 }
+/* 字段说明：比 label 更弱，用于 NO_PROXY 等需要解释格式的输入项 */
+.modal-field .field-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+/* 网络配置：成对字段（地址 + 端口）排在同一行，减少弹窗高度 */
+.proxy-field-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 10px;
+}
+.proxy-field-row .modal-field {
+    margin-bottom: 12px;
+}
+@media (max-width: 520px) {
+    .proxy-field-row {
+        grid-template-columns: minmax(0, 1fr);
+        column-gap: 0;
+    }
+}
 .modal-field label {
     display: block;
     font-size: 13px;
