@@ -56,16 +56,30 @@ func main() {
 	// 回注 v3 应用引用，并同时注入 service 层的事件发射器（SSE 桌面通道使用）。
 	myApp.setApplication(app)
 
+	// 依据主屏工作区自适应初始窗口尺寸：
+	// 宽 80%、高 85%，限制在 960×640 ~ 1600×1000（DIP）。
+	// 小屏（1366×768）不会溢出，4K 屏也不会给出 3000+ 的过大窗口。
+	winWidth, winHeight := 1280, 820
+	var primaryScreen *application.Screen
+	if screen := app.Screen.GetPrimary(); screen != nil {
+		primaryScreen = screen
+		winWidth = clampInt(int(float64(screen.WorkArea.Width)*0.80), 960, 1600)
+		winHeight = clampInt(int(float64(screen.WorkArea.Height)*0.85), 640, 1000)
+	}
+
 	// 创建主窗口（v3 多窗口 API）。
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "OC Manager",
-		Width:            1280,
-		Height:           820,
+		Width:            winWidth,
+		Height:           winHeight,
 		MinWidth:         960,
 		MinHeight:        640,
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
 		ZoomControlEnabled: true,
+		// 居中到主屏工作区（已扣除任务栏）
+		InitialPosition: application.WindowCentered,
+		Screen:          primaryScreen,
 	})
 
 	// 系统托盘：单击切换窗口显示，右键菜单（显示主窗口/退出）。
@@ -95,4 +109,15 @@ func main() {
 	if err := app.Run(); err != nil {
 		println("启动失败:", err.Error())
 	}
+}
+
+// clampInt 把 v 限制在 [min, max] 区间内。
+func clampInt(v, min, max int) int {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
 }
