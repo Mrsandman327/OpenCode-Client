@@ -56,30 +56,19 @@ func main() {
 	// 回注 v3 应用引用，并同时注入 service 层的事件发射器（SSE 桌面通道使用）。
 	myApp.setApplication(app)
 
-	// 依据主屏工作区自适应初始窗口尺寸：
-	// 宽 80%、高 85%，限制在 960×640 ~ 1600×1000（DIP）。
-	// 小屏（1366×768）不会溢出，4K 屏也不会给出 3000+ 的过大窗口。
-	winWidth, winHeight := 1280, 820
-	var primaryScreen *application.Screen
-	if screen := app.Screen.GetPrimary(); screen != nil {
-		primaryScreen = screen
-		winWidth = clampInt(int(float64(screen.WorkArea.Width)*0.80), 960, 1600)
-		winHeight = clampInt(int(float64(screen.WorkArea.Height)*0.85), 640, 1000)
-	}
-
-	// 创建主窗口（v3 多窗口 API）。
+	// 初始窗口用保守尺寸，真正的自适应放到 WindowRuntimeReady 之后：
+	// 窗口创建前 app.Screen 的缓存不可靠（GetPrimary 可能为 nil），
+	// 且 Windows 的 WorkArea 是物理像素，直接用会按缩放倍数放大。
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "OC Manager",
-		Width:            winWidth,
-		Height:           winHeight,
+		Width:            1024,
+		Height:           640,
 		MinWidth:         960,
-		MinHeight:        640,
+		MinHeight:        560,
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
 		ZoomControlEnabled: true,
-		// 居中到主屏工作区（已扣除任务栏）
-		InitialPosition: application.WindowCentered,
-		Screen:          primaryScreen,
+		InitialPosition:  application.WindowCentered,
 	})
 
 	// 系统托盘：单击切换窗口显示，右键菜单（显示主窗口/退出）。
@@ -101,8 +90,17 @@ func main() {
 		logger.Printf("[shortcut] 全局快捷键 Shift+X 已注册（唤起/隐藏主窗口）")
 	}
 
-	// 页面运行时（DOM）就绪后通知前端开始初始化（替代 v2 的 OnDomReady）。
+	// 页面运行时（DOM）就绪后：先按当前屏幕工作区调整窗口（此时屏幕信息才可靠），
+	// 再通知前端开始初始化（替代 v2 的 OnDomReady）。
 	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(event *application.WindowEvent) {
+		if screen, err := window.GetScreen(); err == nil && screen != nil {
+			workW, workH := screenWorkAreaDIP(screen)
+			window.SetSize(
+				clampInt(int(float64(workW)*0.80), 960, 1600),
+				clampInt(int(float64(workH)*0.85), 560, 1000),
+			)
+			window.Center()
+		}
 		myApp.emitAppReady()
 	})
 
@@ -120,4 +118,18 @@ func clampInt(v, min, max int) int {
 		return max
 	}
 	return v
+}
+
+// screenWorkAreaDIP 返回屏幕工作区的 DIP 尺寸。
+// Windows 的 WorkArea/PhysicalWorkArea 都是物理像素，必须除以 ScaleFactor；
+// 其他平台若没有 PhysicalWorkArea，则 WorkArea 本身已是 DIP，直接使用。
+func screenWorkAreaDIP(s *application.Screen) (int, int) {
+	scale := float64(s.ScaleFactor)
+	if scale <= 0 {
+		scale = 1
+	}
+	if s.PhysicalWorkArea.Width > 0 && s.PhysicalWorkArea.Height > 0 {
+		return int(float64(s.PhysicalWorkArea.Width) / scale), int(float64(s.PhysicalWorkArea.Height) / scale)
+	}
+	return s.WorkArea.Width, s.WorkArea.Height
 }
