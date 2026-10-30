@@ -102,9 +102,13 @@ export async function loadServiceStatus() {
         // MCP/插件：需要 location[directory]，且服务端为**异步就绪**（MCP 要 spawn 子进程连接），
         // 首次查询常常为空 —— 故先查一次，再安排有限次延迟重试。
         const effectiveDir = store.webRunning ? dir : '';
-        await fetchMcpPlugin(effectiveDir);
-        // agent/model 与 MCP 同一时机：启动/连接服务时取一次（force 跳过同目录守卫）
+        // 模型/agent 是打开会话的前置数据，必须先发：不能等 MCP/插件（MCP 要 spawn 子进程，
+        // 是冷启动最慢的一环）。这里不 await，避免服务面板整体等待 MCP。
         loadAgentModelSelectors(effectiveDir, true);
+        // MCP/插件放后台并行拉取，完成后单独刷新服务面板；失败不影响其余 UI。
+        fetchMcpPlugin(effectiveDir)
+            .then(() => { renderServiceStatus(); })
+            .catch(() => {});
         updateWebUI();
         renderServiceStatus();
         scheduleMcpPluginRefresh(effectiveDir);
