@@ -1411,8 +1411,10 @@ export async function sendPrompt() {
         const cmdMatch = /^\/([^\s/]+)(?:\s+([\s\S]*))?$/.exec(text);
         const skillId = cmdMatch && isKnownSkill(cmdMatch[1]) ? cmdMatch[1] : '';
         if (cmdMatch && !skillId && isKnownCommand(cmdMatch[1])) {
+            // v2 的 /api/session/{id}/command 载荷字段是 name（不是 command）；
+            // 传错字段会被 Effect Schema 拒绝：400 Missing key at ["name"]。
             await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/command`, {
-                command: cmdMatch[1],
+                name: cmdMatch[1],
                 text: (cmdMatch[2] || '').trim(),
                 delivery: 'steer',
             });
