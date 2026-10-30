@@ -390,7 +390,7 @@ export function renderServiceStatus() {
         const anyRunning = list.some(i => mcpState(i) === 'connected');
         const anyFailed = list.some(i => { const s = mcpState(i); return s === 'failed' || s === 'needs_auth'; });
         const dotClass = list.length === 0 ? 'off' : (anyFailed ? 'off' : (anyRunning ? 'on' : 'off'));
-        const collapsed = list.length > 0 ? ' collapsed' : '';
+        const collapsed = ' collapsed';
 
         const sec = document.createElement('div');
         sec.className = 'oc-service-group' + collapsed;
