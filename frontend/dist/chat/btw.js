@@ -19,10 +19,11 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { store } from '../core/state.js';
+import { store, currentDir } from '../core/state.js';
 import { showToast, showApiError, escapeHtml, bindOverlayClose } from '../core/utils.js';
 import { buildBtwPrompt, extractBtwAnswer, parseBtwCommand, btwEndpoint } from '../core/btw.js';
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
+import { hydrateLocalImages } from '../core/local-images.js';
 
 /** 每会话的侧问状态（一问一答）：sid → { question, answer, pending, failed, seq }。
  *  seq 为请求序号：清除数据或重新发起会让旧序号作废，避免在途响应回写已清除的条目。 */
@@ -89,6 +90,8 @@ function renderBtwPanel() {
     }
     if (!html) html = '<div class="oc-empty">请输入一个问题</div>';
     thread.innerHTML = html;
+    // 本地图片（C:\... / file:// / 相对路径）异步替换为 data URL
+    hydrateLocalImages(thread, currentDir());
 
     // 长答案立即可见：滚动到线程底部
     const body = modal.querySelector('.modal-body');

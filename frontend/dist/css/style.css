@@ -2310,6 +2310,7 @@ input::placeholder, textarea::placeholder {
 }
 .oc-message.user {
     align-self: flex-end;
+    width: fit-content;
     background: var(--accent-ghost);
     border: 1px solid var(--accent);
     border-bottom-right-radius: var(--radius-xs);
@@ -2528,7 +2529,7 @@ input::placeholder, textarea::placeholder {
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     color: var(--text-muted);
 }
-.oc-reasoning-body img { max-width: 100%; border-radius: var(--radius-sm); }
+.oc-reasoning-body img { display: block; max-width: 480px; margin: 4px 0; border-radius: var(--radius-sm); }
 .oc-reasoning-body strong { font-weight: 600; color: var(--text-primary); }
 .oc-reasoning-body em { font-style: italic; }
 
@@ -2725,7 +2726,7 @@ input::placeholder, textarea::placeholder {
 }
 .oc-text strong { font-weight: 600; }
 .oc-text em { font-style: italic; }
-.oc-text img { max-width: 100%; border-radius: var(--radius-sm); }
+.oc-text img { display: block; max-width: 480px; margin: 4px 0; border-radius: var(--radius-sm); }
 .oc-text input[type="checkbox"] { margin-right: 6px; }
 
 /* ── 文件/补丁/代理 ── */

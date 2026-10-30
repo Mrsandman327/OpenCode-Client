@@ -9,10 +9,12 @@
 //           本文件不依赖 service/session/sidepanel，处于依赖链下游。
 // ============================================================
 
-import { store } from '../core/state.js';
+import { store, currentDir } from '../core/state.js';
 import { escapeHtml, getActiveMessagesEl, showToast, showApiError, safeText, extractPartText, isInternalUserMessage, normalizeMessageItem, setUpdateModelInfoHandler, modelDisplayLabel, resolveKnownValue, syncVariantSelect } from '../core/utils.js';
 // Markdown 清洗统一走 core/sanitize.js 的白名单实现（含 href 协议校验）
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
+// 本地图片：把 Markdown 里的 C:\... / file:// / 相对路径替换为 data URL
+import { hydrateLocalImages } from '../core/local-images.js';
 // 时间/数字格式化统一走 core/format.js
 import { formatToolDuration, formatCompactNumber, formatDateTime } from '../core/format.js';
 // isInternalInstructionMessage：识别服务端注入的内部指令/合成消息（如 "Instructions updated:" 的
@@ -777,6 +779,8 @@ export function renderReasoning(part) {
     body.innerHTML = typeof marked !== 'undefined'
         ? sanitizeMarkedHtml(marked.parse(part.text || '', { breaks: true }))
         : `<pre>${escapeHtml(part.text || '')}</pre>`;
+    // 本地图片（C:\... / file:// / 相对路径）异步替换为 data URL，避免破图
+    hydrateLocalImages(body, currentDir());
     head.querySelector('.oc-reasoning-toggle').textContent = expanded ? '收起' : '展开';
     head.addEventListener('click', () => {
         store.expandedParts[key] = !store.expandedParts[key];
@@ -1368,6 +1372,8 @@ export function renderTextPart(part) {
     el.innerHTML = typeof marked !== 'undefined'
         ? sanitizeMarkedHtml(marked.parse(text || '', { breaks: true }))
         : `<pre>${escapeHtml(text || '')}</pre>`;
+    // 本地图片（C:\... / file:// / 相对路径）异步替换为 data URL，避免破图
+    hydrateLocalImages(el, currentDir());
     return el;
 }
 
