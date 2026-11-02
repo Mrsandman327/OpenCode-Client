@@ -15,7 +15,7 @@ import {
     toggleSessions, toggleSidepanel,
 } from './chat/mobile.js';
 import {
-    showProxyModal, hideProxyModal, applyProxyConfig, updateProxyPreview, updateProxyButton,
+    applyProxyConfig, updateProxyPreview, updateProxyButton,
     copyFrontendWebUrl, persistFrontendWebConfigFromInputs, loadFrontendWebConfigToInputs,
     checkFrontendWebStatus, ensureLanIPv4,
 } from './chat/config.js';
@@ -99,9 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 事件绑定: 服务启动/停止（二合一）
     document.getElementById('btnToggleWeb').addEventListener('click', toggleWeb);
-    document.getElementById('btnProxySettings').addEventListener('click', showProxyModal);
     document.getElementById('btnCopyFrontendWebUrl').addEventListener('click', copyFrontendWebUrl);
-    document.getElementById('btnCloseProxyHead').addEventListener('click', hideProxyModal);
     ['frontendWebHost', 'frontendWebPort'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -230,7 +228,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 代理弹窗（仅当按下与松开都在遮罩上才关闭，避免弹窗内拖选误关）
-    bindOverlayClose(document.getElementById('proxyModal'), hideProxyModal);
     bindOverlayClose(document.getElementById('dirBrowserModal'), closeDirBrowserModal);
     document.getElementById('btnDirBrowserClose').addEventListener('click', closeDirBrowserModal);
     document.getElementById('btnDirBrowserBack').addEventListener('click', goDirBrowserUp);

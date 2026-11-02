@@ -8,7 +8,7 @@ import { getTheme, setTheme } from '../core/theme.js';
 import { api } from '../core/apicall.js';
 import { escapeHtml } from '../core/utils.js';
 import { store } from '../core/state.js';
-import { loadFrontendWebConfigToInputs, checkFrontendWebStatus, toggleFrontendWeb } from '../chat/config.js';
+import { loadFrontendWebConfigToInputs, checkFrontendWebStatus, toggleFrontendWeb, loadProxyConfigToInputs } from '../chat/config.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -58,7 +58,9 @@ function switchSection(name) {
     const scroll = $('.cfg-scroll');
     if (scroll) scroll.scrollTop = 0;
 
-    if (name === 'web') {
+    if (name === 'network') {
+        loadProxyConfigToInputs();
+    } else if (name === 'web') {
         loadFrontendWebConfigToInputs().then(() => checkFrontendWebStatus()).then(() => {
             refreshWebOpen();
             syncWebSwitch();
@@ -92,7 +94,11 @@ function openConfigPanel(section) {
     nav?.setAttribute('aria-expanded', 'true');
     renderThemeSelection();
     loadAboutVersion();
-    if (section) switchSection(section);
+    // 每次打开都重新进入当前分区：网络分区需要重新读取 webRunning，
+    // 否则上次留下的只读状态会一直保留。
+    const activeItem = document.querySelector('.cfg-nav-item.active');
+    const target = section || (activeItem && activeItem.dataset.cfgSection) || 'appearance';
+    switchSection(target);
     $('#cfgClose')?.focus();
 }
 
@@ -111,9 +117,11 @@ async function loadAboutVersion() {
     aboutVersionLoading = true;
     try {
         const version = await api.GetAppVersion();
-        if (!version) return;
+        if (typeof version !== 'string' && typeof version !== 'number') return;
+        const text = String(version).trim();
+        if (!text) return;
         aboutVersionLoaded = true;
-        const label = 'v' + version;
+        const label = 'v' + text;
         const about = $('#cfgAboutVersion');
         const row = $('#cfgAboutVersionRow');
         const footer = $('#cfgFooterVersion');

@@ -172,8 +172,8 @@ export function updateProxyButton() {
     btn.title = store.webRunning ? '配置（服务运行期间仅可查看）' : (config.proxyEnabled ? `代理已启用: ${proxyUrl(config)}` : '配置');
 }
 
-/** 显示网络配置弹窗 */
-export function showProxyModal() {
+/** 将网络配置加载到输入框（配置弹窗的「网络」分区也复用）。 */
+export function loadProxyConfigToInputs() {
     const config = getNetworkConfig();
     const serviceHostEl = document.getElementById('serviceHost');
     const servicePortEl = document.getElementById('servicePort');
@@ -200,6 +200,15 @@ export function showProxyModal() {
     const pwdToggleEl = document.getElementById('btnToggleServicePwd');
     // 只读期间同步禁用"显示明文"按钮（与口令输入框状态保持一致）
     if (pwdToggleEl) pwdToggleEl.disabled = readonly;
+    const pwdInputEl = document.getElementById('servicePassword');
+    if (pwdToggleEl) {
+        // 每次加载都回到隐藏态，避免上次打开时留下的明文状态
+        if (pwdInputEl) pwdInputEl.type = 'password';
+        pwdToggleEl.classList.remove('is-visible');
+        pwdToggleEl.title = '显示口令';
+        pwdToggleEl.setAttribute('aria-label', '显示口令');
+        pwdToggleEl.setAttribute('aria-pressed', 'false');
+    }
     if (pwdToggleEl && !pwdToggleEl.dataset.bound) {
         pwdToggleEl.dataset.bound = '1';
         pwdToggleEl.addEventListener('click', function() {
@@ -207,8 +216,10 @@ export function showProxyModal() {
             if (!input) return;
             const show = input.type === 'password';
             input.type = show ? 'text' : 'password';
-            pwdToggleEl.textContent = show ? '🙈' : '👁';
-            pwdToggleEl.title = show ? '隐藏明文' : '显示明文';
+            pwdToggleEl.classList.toggle('is-visible', show);
+            pwdToggleEl.title = show ? '隐藏口令' : '显示口令';
+            pwdToggleEl.setAttribute('aria-label', show ? '隐藏口令' : '显示口令');
+            pwdToggleEl.setAttribute('aria-pressed', show ? 'true' : 'false');
         });
     }
     proxyEnabledEl.disabled = readonly;
@@ -234,12 +245,19 @@ export function showProxyModal() {
         if (proxyNoProxyEl) proxyNoProxyEl.style.opacity = '';
     }
     updateProxyPreview();
-    document.getElementById('proxyModal').style.display = 'flex';
+}
+
+/** 兼容旧入口：加载配置并打开旧弹窗（已移除时仅加载） */
+export function showProxyModal() {
+    loadProxyConfigToInputs();
+    const modal = document.getElementById('proxyModal');
+    if (modal) modal.style.display = 'flex';
 }
 
 /** 隐藏网络配置弹窗 */
 export function hideProxyModal() {
-    document.getElementById('proxyModal').style.display = 'none';
+    const modal = document.getElementById('proxyModal');
+    if (modal) modal.style.display = 'none';
 }
 
 /** 应用网络配置 */
