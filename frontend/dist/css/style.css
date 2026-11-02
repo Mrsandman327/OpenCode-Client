@@ -647,7 +647,7 @@ input::placeholder, textarea::placeholder {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
-    background: currentColor;
+    background: var(--text-muted);
     -webkit-mask-image: url("../assets/信息.svg");
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
@@ -676,6 +676,268 @@ input::placeholder, textarea::placeholder {
 .sidebar.collapsed .sidebar-version-text {
     opacity: 0;
     max-width: 0;
+}
+
+/* ── 左下角通知历史入口（版本信息上方） ── */
+.sidebar-notify {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: auto; /* 与版本信息一起贴底 */
+    padding: 8px 12px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    position: relative;
+    transition: background var(--transition), color var(--transition);
+}
+.sidebar-notify:hover {
+    background: var(--bg-sidebar-hover);
+    color: var(--text-primary);
+}
+.sidebar-notify.active {
+    background: var(--bg-sidebar-active);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.sidebar-notify-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    /* 与其它侧栏图标一致：浅色主题 #86868b，深色主题 --text-muted */
+    background: var(--text-muted);
+    transition: background-color 0.15s ease;
+    -webkit-mask-image: url("../assets/消息.svg");
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-image: url("../assets/消息.svg");
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.sidebar-notify:hover .sidebar-notify-icon {
+    background: var(--text-secondary);
+}
+.sidebar-notify.active .sidebar-notify-icon {
+    background: var(--text-primary);
+}
+.sidebar-notify-label {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 1;
+    max-width: 200px;
+    transition: opacity 0.16s ease, max-width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sidebar-notify-badge {
+    flex-shrink: 0;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: 8px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+}
+.sidebar-notify-badge[hidden] {
+    display: none;
+}
+/* 入口自带 margin-top:auto，避免版本信息再分走一份剩余空间 */
+.sidebar-notify ~ .sidebar-version {
+    margin-top: 0;
+}
+.sidebar.collapsed .sidebar-notify {
+    justify-content: center;
+    gap: 0;
+    padding: 8px 6px;
+}
+.sidebar.collapsed .sidebar-notify-label {
+    opacity: 0;
+    max-width: 0;
+}
+.sidebar.collapsed .sidebar-notify-badge {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+}
+
+/* 通知历史面板：固定在侧栏右侧、入口上方 */
+.notify-panel {
+    position: fixed;
+    left: calc(var(--sidebar-width) + 8px);
+    bottom: 84px;
+    z-index: 900;
+    width: 340px;
+    max-width: calc(100vw - 80px);
+    max-height: min(460px, calc(100vh - 120px));
+    display: none;
+    flex-direction: column;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    transition: left 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.notify-panel.open {
+    display: flex;
+}
+.sidebar.collapsed .notify-panel {
+    left: 68px;
+}
+.notify-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.notify-panel-title {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.3px;
+}
+.notify-clear {
+    border: none;
+    border-radius: 5px;
+    padding: 3px 6px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.notify-clear:hover {
+    color: var(--danger);
+    background: var(--danger-bg);
+}
+.notify-close {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+.notify-close:hover {
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+}
+.notify-list {
+    overflow-y: auto;
+    padding: 6px;
+    min-height: 0;
+}
+.notify-empty {
+    padding: 28px 12px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+.notify-item {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 7px;
+    padding: 7px 6px;
+    border-radius: 5px;
+}
+.notify-item + .notify-item {
+    border-top: 1px solid var(--border);
+}
+.notify-item:hover {
+    background: var(--bg-card-hover);
+}
+/* 日志式：时间 | 级别 | 消息 | 复制 */
+.notify-time {
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 10.5px;
+    line-height: 20px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.notify-level {
+    min-width: 52px;
+    padding: 3px 5px;
+    border-radius: 3px;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 14px;
+    letter-spacing: 0.4px;
+    text-align: center;
+}
+.notify-item.is-info .notify-level {
+    color: var(--accent);
+    background: var(--accent-ghost);
+}
+.notify-item.is-success .notify-level {
+    color: var(--success);
+    background: var(--success-bg);
+}
+.notify-item.is-error .notify-level {
+    color: var(--danger);
+    background: var(--danger-bg);
+}
+.notify-msg {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+}
+.notify-copy {
+    padding: 0 3px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 10px;
+    line-height: 20px;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.notify-item:hover .notify-copy,
+.notify-copy:focus-visible {
+    opacity: 1;
+}
+.notify-copy:hover {
+    color: var(--accent);
+    background: var(--accent-ghost);
+}
+.notify-copy.copied {
+    color: var(--success);
+    opacity: 1;
+}
+.notify-copy.copy-failed {
+    color: var(--danger);
+    opacity: 1;
 }
 
 /* ========== 内容区域 ========== */

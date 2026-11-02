@@ -59,6 +59,8 @@ import { bindBtwPanelEvents } from './chat/btw.js';
 import './chat/cmd-palette.js';
 // 副作用模块：侧边栏导航在模块顶层绑定点击事件并恢复折叠状态
 import './chat/navigation.js';
+// 副作用模块：左下角通知历史入口（存储与面板见 core/toast-history.js / chat/notifications.js）
+import './chat/notifications.js';
 
 // ============================
 // 工作区事件绑定

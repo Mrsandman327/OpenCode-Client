@@ -4,6 +4,7 @@
 
 import { store } from './state.js';
 import { formatApiError } from './v2compat.js';
+import { recordToast } from './toast-history.js';
 
 // DOM 快捷引用
 export const $ = (sel) => document.querySelector(sel);
@@ -20,6 +21,8 @@ export function showToast(message, type = 'info') {
     toastTimer = setTimeout(() => {
         toast.classList.remove('show');
     }, 2800);
+    // 同步写入通知历史（左下角「通知」入口内可回看）
+    recordToast(message, type);
 }
 
 /** 统一的 API 错误提示：prefix + formatApiError(e)，以 error 样式 toast 展示。
