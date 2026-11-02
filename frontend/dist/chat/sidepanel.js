@@ -313,22 +313,26 @@ export function renderSubtaskPanel() {
     attachSubtaskCardEvents();
 }
 
-/** 渲染单张子任务卡片 */
+/** 渲染单张子任务卡片（两行结构）：
+ *  第一行：任务标题 + 「详情」文字链接 + 右对齐耗时
+ *  第二行：agent · model + 右侧状态徽标 */
 export function renderSubtaskCard(s, idx) {
     const statusClass = 'status-' + (s.status || 'pending');
     const statusLabels = { completed: '已完成', running: '运行中', error: '失败', interrupt: '已中断', pending: '等待中', ended: '已结束' };
     const statusLabel = statusLabels[s.status] || s.status || '未知';
     const durationText = s.durationMs != null ? formatSubtaskDuration(s.durationMs) : (s.status === 'running' ? '运行中…' : '—');
+    // agent / model 任一可能缺失，避免渲染出孤立的「·」
+    const metaText = [s.agent, s.model].filter(Boolean).join(' · ') || '—';
 
     return '<div class="oc-subtask-card ' + statusClass + '" data-index="' + idx + '" data-parent-message-id="' + escapeHtml(s.parentMessageId) + '" data-child-session-id="' + escapeHtml(s.childSessionId || '') + '">'
-        + '<div style="display:flex;justify-content:space-between;align-items:center">'
+        + '<div class="oc-subtask-card-row oc-subtask-card-row-main">'
         + '<span class="oc-subtask-card-title" title="' + escapeHtml(s.title) + '">' + escapeHtml(s.title) + '</span>'
-        + '<span class="oc-subtask-status-badge status-' + escapeHtml(s.status || 'pending') + '">' + statusLabel + '</span>'
+        + '<button type="button" class="oc-subtask-detail-btn" data-index="' + idx + '" ' + (s.childSessionId ? '' : 'disabled') + '>详情</button>'
+        + '<span class="oc-subtask-card-duration">' + durationText + '</span>'
         + '</div>'
-        + '<div class="oc-subtask-card-meta">' + escapeHtml(s.agent) + ' · ' + escapeHtml(s.model) + '</div>'
-        + '<div class="oc-subtask-card-footer">'
-        + '<span>' + durationText + '</span>'
-        + '<button class="btn btn-sm oc-subtask-detail-btn" data-index="' + idx + '" ' + (s.childSessionId ? '' : 'disabled') + '>详情</button>'
+        + '<div class="oc-subtask-card-row oc-subtask-card-row-sub">'
+        + '<span class="oc-subtask-card-meta" title="' + escapeHtml(metaText) + '">' + escapeHtml(metaText) + '</span>'
+        + '<span class="oc-subtask-status-badge status-' + escapeHtml(s.status || 'pending') + '">' + statusLabel + '</span>'
         + '</div>'
         + '</div>';
 }

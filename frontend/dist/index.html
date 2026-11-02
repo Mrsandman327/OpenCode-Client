@@ -71,17 +71,29 @@
                 <div class="oc-client" id="webContainer">
                     <button type="button" class="oc-toggle-btn oc-toggle-left" id="btnToggleSessions" title="隐藏会话栏">◀</button>
                     <aside class="oc-sessions" id="ocSessions">
-                        <div class="oc-panel-head">
-                            <span>项目树</span>
-                            <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshTree" disabled>刷新</button>
+                        <div class="oc-panel-head oc-sessions-head">
+                            <span class="oc-sessions-title">会话列表</span>
+                            <button type="button" class="oc-head-icon-btn" id="ocTreeSearchToggle" title="搜索会话" aria-label="搜索会话" aria-expanded="false" aria-controls="ocTreeSearchBar">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+                            </button>
+                            <button type="button" class="oc-head-icon-btn" id="btnNewSession" title="新建会话" aria-label="新建会话" disabled>
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                            </button>
+                            <button type="button" class="oc-head-icon-btn" id="btnRefreshTree" title="刷新会话列表" aria-label="刷新会话列表" disabled>
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg>
+                            </button>
                         </div>
-                        <div class="oc-tree-search-bar">
-                            <input type="search" id="ocTreeSearchInput" placeholder="搜索项目树..." autocomplete="off" />
-                            <button type="button" class="btn btn-sm" id="ocTreeSearchClear" disabled>清空</button>
-                            <span class="oc-tree-search-count" id="ocTreeSearchCount">-</span>
+                        <div class="oc-tree-search-bar" id="ocTreeSearchBar">
+                            <div class="oc-tree-search-field">
+                                <span class="oc-tree-search-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></span>
+                                <input type="search" id="ocTreeSearchInput" placeholder="搜索会话..." aria-label="搜索会话" autocomplete="off" />
+                                <span class="oc-tree-search-count" id="ocTreeSearchCount">-</span>
+                            </div>
+                            <button type="button" class="oc-tree-search-clear" id="ocTreeSearchClear" title="清空搜索" disabled>清空</button>
+                            <button type="button" class="oc-tree-search-close" id="ocTreeSearchClose" title="关闭搜索（Esc）" aria-label="关闭搜索">✕</button>
                         </div>
                         <div class="oc-tree" id="ocTree">
-                            <div class="oc-empty">启动服务后加载项目树</div>
+                            <div class="oc-empty">启动服务后加载会话列表</div>
                         </div>
                         <div class="oc-tree-context-menu" id="ocTreeContextMenu" style="display:none">
                             <div class="oc-tree-context-menu-item" data-action="new-session"><span class="oc-menu-icon oc-menu-icon-new"></span><span>新建会话</span></div>
@@ -92,9 +104,6 @@
                             <div class="oc-tree-context-menu-item" data-action="export"><span class="oc-menu-icon oc-menu-icon-export"></span><span>导出会话</span></div>
                             <div class="oc-tree-context-menu-item" data-action="move"><span class="oc-menu-icon oc-menu-icon-move"></span><span>移动到…</span></div>
                             <div class="oc-tree-context-menu-item" data-action="import"><span class="oc-menu-icon oc-menu-icon-import"></span><span>导入会话…</span></div>
-                        </div>
-                        <div class="oc-sessions-footer">
-                            <button type="button" class="btn btn-primary" id="btnNewSession" disabled>＋ 新建会话</button>
                         </div>
                         <div class="oc-tree-resize-handle" id="ocTreeResizeHandle" aria-hidden="true"></div>
                     </aside>

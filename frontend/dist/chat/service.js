@@ -396,6 +396,7 @@ export function renderServiceStatus() {
         sec.className = 'oc-service-group' + collapsed;
         sec.innerHTML = '<div class="oc-service-group-title clickable">' +
             '<span class="oc-service-dot ' + dotClass + '"></span>MCP 服务' +
+            (list.length ? ' <span class="oc-service-state">' + list.length + '</span>' : '') +
         '</div>';
         if (list.length === 0) {
             sec.innerHTML += '<div class="oc-service-body"><div class="oc-service-item"><span class="oc-service-dot off"></span>无已配置的 MCP 服务</div></div>';

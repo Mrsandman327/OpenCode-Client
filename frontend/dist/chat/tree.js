@@ -393,9 +393,45 @@ export function clearTreeSearch() {
     setTreeSearchQuery('');
 }
 
+/** 展开 / 收起标题行下方的搜索行。
+ *  收起时同步清空过滤，避免「搜索行不可见但树仍被过滤」的状态。 */
+function setTreeSearchOpen(open) {
+    var bar = document.getElementById('ocTreeSearchBar');
+    var input = document.getElementById('ocTreeSearchInput');
+    var toggleBtn = document.getElementById('ocTreeSearchToggle');
+    if (!bar) return;
+
+    if (open) {
+        bar.classList.add('is-open');
+        if (toggleBtn) {
+            toggleBtn.classList.add('is-active');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+        }
+        updateTreeSearchStatus(0, document.querySelectorAll('#ocTree .oc-tree-label').length);
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    } else {
+        bar.classList.remove('is-open');
+        if (toggleBtn) {
+            toggleBtn.classList.remove('is-active');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+        clearTreeSearch();
+    }
+}
+
+function isTreeSearchOpen() {
+    var bar = document.getElementById('ocTreeSearchBar');
+    return !!(bar && bar.classList.contains('is-open'));
+}
+
 export function initTreeSearch() {
     var input = document.getElementById('ocTreeSearchInput');
     var clearBtn = document.getElementById('ocTreeSearchClear');
+    var toggleBtn = document.getElementById('ocTreeSearchToggle');
+    var closeBtn = document.getElementById('ocTreeSearchClose');
     if (!input || input.dataset.boundTreeSearch === '1') return;
 
     input.dataset.boundTreeSearch = '1';
@@ -405,16 +441,31 @@ export function initTreeSearch() {
             setTreeSearchQuery(e.target.value || '');
         }, 200);
     });
-    input.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            clearTreeSearch();
-        }
-    });
     if (clearBtn) {
-        clearBtn.addEventListener('click', clearTreeSearch);
+        clearBtn.addEventListener('click', function() {
+            clearTreeSearch();
+            input.focus();
+        });
     }
-    updateTreeSearchStatus(0, 0);
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            setTreeSearchOpen(!isTreeSearchOpen());
+        });
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            setTreeSearchOpen(false);
+            if (toggleBtn) toggleBtn.focus();
+        });
+    }
+    // Esc 收起搜索行（输入框失焦后同样有效）
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape' || !isTreeSearchOpen()) return;
+        e.preventDefault();
+        setTreeSearchOpen(false);
+        if (toggleBtn) toggleBtn.focus();
+    });
+    updateTreeSearchStatus(0, document.querySelectorAll('#ocTree .oc-tree-label').length);
 }
 
 initTreeSearch();
