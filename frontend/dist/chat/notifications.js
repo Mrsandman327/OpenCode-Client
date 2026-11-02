@@ -113,6 +113,14 @@ export function initNotifications() {
         setOpen(!open);
     });
 
+    // div 不是原生按钮，补 Enter / Space 键盘操作
+    btn.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen(!open);
+        }
+    });
+
     if (closeBtn) {
         closeBtn.addEventListener('click', function() {
             setOpen(false);

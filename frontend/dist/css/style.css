@@ -629,25 +629,35 @@ input::placeholder, textarea::placeholder {
     margin: 0 auto;
 }
 
-/* 左下角版本信息：展开态=图标+vX.Y.Z；折叠态=仅图标（版本号由 title 悬浮气泡显示） */
-.sidebar-version {
-    margin-top: auto; /* 推至侧栏底部（sidebar 为 flex column） */
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    color: var(--text-muted);
-    font-size: 12px;
-    cursor: default;
-    user-select: none;
-    white-space: nowrap;
+/* 底部「消息 / 版本」：与上方导航项共用 .nav-item / .nav-label / .nav-icon 的样式与折叠动画 */
+.sidebar-notify {
+    margin-top: auto; /* 底部组整体推至侧栏最下方 */
 }
 
-.sidebar-version-icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
+/* 版本信息项不可点击，保留导航项布局但不显示 hover 高亮 */
+.nav-item.nav-item-static {
+    cursor: default;
+}
+.nav-item.nav-item-static:hover {
+    background: transparent;
+    color: var(--text-secondary);
+}
+.nav-item.nav-item-static:hover .nav-icon {
     background: var(--text-muted);
+}
+
+/* 消息图标：原 SVG 画布很宽，cover 裁掉两侧空白，视觉尺寸与其它导航图标一致 */
+.nav-icon-message {
+    -webkit-mask-image: url("../assets/消息.svg");
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: cover;
+    mask-image: url("../assets/消息.svg");
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: cover;
+}
+.nav-icon-info {
     -webkit-mask-image: url("../assets/信息.svg");
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
@@ -658,84 +668,6 @@ input::placeholder, textarea::placeholder {
     mask-size: contain;
 }
 
-/* 版本号文字：同导航文字的淡出/收窄过渡 */
-.sidebar-version-text {
-    overflow: hidden;
-    white-space: nowrap;
-    opacity: 1;
-    max-width: 80px;
-    transition: opacity 0.16s ease, max-width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.sidebar.collapsed .sidebar-version {
-    justify-content: center;
-    gap: 0;
-    padding: 8px 6px;
-}
-
-.sidebar.collapsed .sidebar-version-text {
-    opacity: 0;
-    max-width: 0;
-}
-
-/* ── 左下角通知历史入口（版本信息上方） ── */
-.sidebar-notify {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    margin-top: auto; /* 与版本信息一起贴底 */
-    padding: 8px 12px;
-    border: none;
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--text-secondary);
-    font-family: inherit;
-    font-size: 14px;
-    text-align: left;
-    cursor: pointer;
-    position: relative;
-    transition: background var(--transition), color var(--transition);
-}
-.sidebar-notify:hover {
-    background: var(--bg-sidebar-hover);
-    color: var(--text-primary);
-}
-.sidebar-notify.active {
-    background: var(--bg-sidebar-active);
-    color: var(--text-primary);
-    font-weight: 600;
-}
-.sidebar-notify-icon {
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-    /* 与其它侧栏图标一致：浅色主题 #86868b，深色主题 --text-muted */
-    background: var(--text-muted);
-    transition: background-color 0.15s ease;
-    -webkit-mask-image: url("../assets/消息.svg");
-    -webkit-mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    -webkit-mask-size: contain;
-    mask-image: url("../assets/消息.svg");
-    mask-repeat: no-repeat;
-    mask-position: center;
-    mask-size: contain;
-}
-.sidebar-notify:hover .sidebar-notify-icon {
-    background: var(--text-secondary);
-}
-.sidebar-notify.active .sidebar-notify-icon {
-    background: var(--text-primary);
-}
-.sidebar-notify-label {
-    flex: 1;
-    overflow: hidden;
-    white-space: nowrap;
-    opacity: 1;
-    max-width: 200px;
-    transition: opacity 0.16s ease, max-width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-}
 .sidebar-notify-badge {
     flex-shrink: 0;
     min-width: 16px;
@@ -751,19 +683,6 @@ input::placeholder, textarea::placeholder {
 }
 .sidebar-notify-badge[hidden] {
     display: none;
-}
-/* 入口自带 margin-top:auto，避免版本信息再分走一份剩余空间 */
-.sidebar-notify ~ .sidebar-version {
-    margin-top: 0;
-}
-.sidebar.collapsed .sidebar-notify {
-    justify-content: center;
-    gap: 0;
-    padding: 8px 6px;
-}
-.sidebar.collapsed .sidebar-notify-label {
-    opacity: 0;
-    max-width: 0;
 }
 .sidebar.collapsed .sidebar-notify-badge {
     position: absolute;
@@ -1808,6 +1727,10 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-sidebar-hover);
 }
 .oc-panel-head .btn {
+    margin-left: auto;
+}
+/* 面板标题行内的图标按钮同样贴右（如服务状态刷新） */
+.oc-panel-head .oc-head-icon-btn {
     margin-left: auto;
 }
 .oc-panel-head span:first-of-type {

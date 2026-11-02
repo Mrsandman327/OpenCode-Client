@@ -46,12 +46,12 @@
                 <span class="nav-icon" aria-hidden="true"></span>
                 <span class="nav-label">常用命令</span>
             </div>
-            <!-- 左下角通知历史：入口在版本信息上方，面板内展示最近 Toast -->
-            <button type="button" class="sidebar-notify" id="sidebarNotify" title="消息历史" aria-expanded="false" aria-controls="notifyPanel">
-                <span class="sidebar-notify-icon" aria-hidden="true"></span>
-                <span class="sidebar-notify-label">消息</span>
+            <!-- 左下角消息历史：与上方导航项同一套样式/折叠动画 -->
+            <div class="nav-item sidebar-notify" id="sidebarNotify" role="button" tabindex="0" title="消息历史" aria-expanded="false" aria-controls="notifyPanel">
+                <span class="nav-icon nav-icon-message" aria-hidden="true"></span>
+                <span class="nav-label">消息</span>
                 <span class="sidebar-notify-badge" id="sidebarNotifyBadge" hidden></span>
-            </button>
+            </div>
             <div class="notify-panel" id="notifyPanel" role="dialog" aria-label="消息历史">
                 <div class="notify-panel-head">
                     <span class="notify-panel-title">消息历史</span>
@@ -60,10 +60,10 @@
                 </div>
                 <div class="notify-list" id="notifyList"></div>
             </div>
-            <!-- 左下角版本信息：展开态=图标+vX.Y.Z；折叠态=仅图标（版本号由 title 悬浮气泡显示） -->
-            <div class="sidebar-version" id="sidebarVersion">
-                <span class="sidebar-version-icon" aria-hidden="true"></span>
-                <span class="sidebar-version-text" id="sidebarVersionText"></span>
+            <!-- 左下角版本信息：与导航项同结构，仅不可点击 -->
+            <div class="nav-item nav-item-static sidebar-version" id="sidebarVersion">
+                <span class="nav-icon nav-icon-info" aria-hidden="true"></span>
+                <span class="nav-label sidebar-version-text" id="sidebarVersionText"></span>
             </div>
         </nav>
 
@@ -212,7 +212,9 @@
                         <div class="oc-panel-section" id="servicePanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
                                 <span class="oc-panel-arrow">▼</span><span class="oc-panel-icon oc-panel-icon-service"></span><span>服务状态</span>
-                                <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshStatus" disabled>刷新</button>
+                                <button type="button" class="oc-head-icon-btn oc-panel-head-refresh" id="btnRefreshStatus" title="刷新服务状态" aria-label="刷新服务状态" disabled>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg>
+                                </button>
                             </div>
                             <div class="oc-panel-body">
                                 <div class="oc-services" id="ocServices">
