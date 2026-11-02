@@ -304,35 +304,26 @@ export async function checkFrontendWebStatus() {
 export function renderFrontendWebStatus() {
     const statusEl = document.getElementById('frontendWebStatus');
     const urlEl = document.getElementById('frontendWebUrl');
-    const btnToggle = document.getElementById('btnToggleFrontendWeb');
     const btnCopy = document.getElementById('btnCopyFrontendWebUrl');
     const btnToolbar = document.getElementById('btnFrontendWebConfig');
     const toolbarDot = document.getElementById('frontendWebToolbarDot');
-    if (!statusEl || !urlEl || !btnToggle || !btnCopy || !btnToolbar || !toolbarDot) return;
+    if (!statusEl || !urlEl || !btnCopy) return;
     statusEl.textContent = store.frontendWebRunning ? '运行中' : '未启动';
     statusEl.classList.toggle('frontend-web-status-running', store.frontendWebRunning);
     urlEl.textContent = store.frontendWebURL || '--';
     urlEl.title = store.frontendWebURL || '';
     urlEl.href = store.frontendWebURL || '#';
     urlEl.classList.toggle('disabled', !store.frontendWebURL);
-    // 二合一按钮（参照 OpenCode 启停按钮）：运行态显示「停止」（danger 样式），停止态显示「启动」（主操作样式）
-    if (store.frontendWebRunning) {
-        btnToggle.disabled = false;
-        btnToggle.dataset.mode = 'stop';
-        btnToggle.textContent = '■ 停止 Web服务';
-        btnToggle.classList.add('btn-danger-outline');
-        btnToggle.classList.remove('btn-primary');
-    } else {
-        btnToggle.disabled = false;
-        btnToggle.dataset.mode = 'start';
-        btnToggle.textContent = '▶ 启动 Web服务';
-        btnToggle.classList.add('btn-primary');
-        btnToggle.classList.remove('btn-danger-outline');
-    }
     btnCopy.disabled = !store.frontendWebURL;
-    toolbarDot.classList.toggle('on', store.frontendWebRunning);
-    toolbarDot.classList.toggle('off', !store.frontendWebRunning);
-    btnToolbar.title = store.frontendWebRunning && store.frontendWebURL ? `Web服务运行中: ${store.frontendWebURL}` : 'Web服务';
+    if (toolbarDot) {
+        toolbarDot.classList.toggle('on', store.frontendWebRunning);
+        toolbarDot.classList.toggle('off', !store.frontendWebRunning);
+    }
+    if (btnToolbar) {
+        btnToolbar.title = store.frontendWebRunning && store.frontendWebURL ? `Web服务运行中: ${store.frontendWebURL}` : 'Web服务';
+    }
+    // 配置弹窗通过事件同步开关与「打开地址」可用态
+    window.dispatchEvent(new CustomEvent('oc-frontend-web-status'));
     // 与状态同步刷新二维码（fire-and-forget，内部自行探测局域网地址）
     renderFrontendWebQr();
 }
@@ -395,21 +386,6 @@ async function renderFrontendWebQr() {
     new QRCode(box, { text: qrUrl, width: 176, height: 176, correctLevel: QRCode.CorrectLevel.M });
 }
 
-/** 显示页面 Web 服务配置弹窗 */
-export function showFrontendWebModal() {
-    const modal = document.getElementById('frontendWebModal');
-    if (!modal) return;
-    loadFrontendWebConfigToInputs();
-    modal.style.display = 'flex';
-    checkFrontendWebStatus();
-}
-
-/** 关闭页面 Web 服务配置弹窗 */
-export function closeFrontendWebModal() {
-    const modal = document.getElementById('frontendWebModal');
-    if (modal) modal.style.display = 'none';
-}
-
 /** 启动页面 Web 服务 */
 export async function startFrontendWeb() {
     const config = persistFrontendWebConfigFromInputs();
@@ -451,19 +427,20 @@ export async function stopFrontendWeb() {
     checkFrontendWebStatus();
 }
 
-/** 启动/停止二合一开关（参照 OpenCode 启停按钮模式）：
- *  按当前运行状态分派到 startFrontendWeb / stopFrontendWeb；
- *  在途禁用按钮并显示进度文案，结束后由 renderFrontendWebStatus 统一恢复文案与样式。 */
+/** 启停页面 Web 服务（供配置弹窗开关调用）。
+ *  使用模块级 busy 标记避免连点，不再依赖已删除的工具栏按钮。 */
+let frontendWebToggling = false;
 export async function toggleFrontendWeb() {
-    const btn = document.getElementById('btnToggleFrontendWeb');
-    if (!btn || btn.disabled) return;
-    btn.disabled = true;
-    const wasRunning = !!store.frontendWebRunning;
-    btn.textContent = wasRunning ? '⏳ 停止中...' : '⏳ 启动中...';
-    if (wasRunning) {
-        await stopFrontendWeb();
-    } else {
-        await startFrontendWeb();
+    if (frontendWebToggling) return;
+    frontendWebToggling = true;
+    try {
+        if (store.frontendWebRunning) {
+            await stopFrontendWeb();
+        } else {
+            await startFrontendWeb();
+        }
+    } finally {
+        frontendWebToggling = false;
+        renderFrontendWebStatus();
     }
-    renderFrontendWebStatus();
 }

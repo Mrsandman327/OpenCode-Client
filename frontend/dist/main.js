@@ -6,7 +6,6 @@
 // ============================
 // 模块导入（依赖关系显式声明）
 // ============================
-import { toggleTheme } from './core/theme.js';
 import { isBrowserRuntimeForMain, showToast, showApiError, isDesktopRuntime, loadWailsRuntime, bindOverlayClose } from './core/utils.js';
 import { api } from './core/apicall.js';
 import { store, currentDir } from './core/state.js';
@@ -17,7 +16,6 @@ import {
 } from './chat/mobile.js';
 import {
     showProxyModal, hideProxyModal, applyProxyConfig, updateProxyPreview, updateProxyButton,
-    showFrontendWebModal, closeFrontendWebModal, toggleFrontendWeb,
     copyFrontendWebUrl, persistFrontendWebConfigFromInputs, loadFrontendWebConfigToInputs,
     checkFrontendWebStatus, ensureLanIPv4,
 } from './chat/config.js';
@@ -53,6 +51,8 @@ import { bindKnowledgeEvents } from './views/knowledge.js';
 import { loadProviders } from './views/provider.js';
 // 知识库 @ 引用：输入框输入 @ 弹出知识库搜索面板（需 DOM 就绪后显式初始化）
 import { initKnowledgeRef } from './chat/knowledge-ref.js';
+// 配置弹窗：模块加载时绑定入口、主题、Web 服务与命令数据
+import './views/config-panel.js';
 // 侧问面板（/btw）：绑定面板与悬浮按钮事件（悬浮按钮由 JS 动态创建）
 import { bindBtwPanelEvents } from './chat/btw.js';
 // 副作用模块：聊天命令面板在模块顶层自绑定键盘/输入事件（无导出符号被消费）
@@ -87,10 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, true);
 
     if (isBrowserRuntimeForMain()) {
-        var btnFrontendWebConfig = document.getElementById('btnFrontendWebConfig');
-        if (btnFrontendWebConfig) {
-            btnFrontendWebConfig.style.display = 'none';
-        }
         var btnWtOpen = document.getElementById('btnWtOpen');
         if (btnWtOpen) {
             btnWtOpen.style.display = 'none';
@@ -104,10 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 事件绑定: 服务启动/停止（二合一）
     document.getElementById('btnToggleWeb').addEventListener('click', toggleWeb);
     document.getElementById('btnProxySettings').addEventListener('click', showProxyModal);
-    document.getElementById('btnFrontendWebConfig').addEventListener('click', showFrontendWebModal);
-    document.getElementById('btnToggleFrontendWeb').addEventListener('click', toggleFrontendWeb);
     document.getElementById('btnCopyFrontendWebUrl').addEventListener('click', copyFrontendWebUrl);
-    document.getElementById('btnCloseFrontendWebHead').addEventListener('click', closeFrontendWebModal);
     document.getElementById('btnCloseProxyHead').addEventListener('click', hideProxyModal);
     ['frontendWebHost', 'frontendWebPort'].forEach(id => {
         const el = document.getElementById(id);
@@ -134,13 +127,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 输入框: 回车发送，Ctrl+Enter / Shift+Enter 换行
+    // 输入框: 回车发送，Ctrl+Enter 换行（Shift+Enter 不再作为换行，也不发送）
     document.getElementById('ocPrompt').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             var mobile = isMobileTreeMode();
-            // 桌面端：Ctrl/Shift+Enter=换行，Enter=发送
+            if (!mobile && e.shiftKey) {
+                e.preventDefault();
+                return;
+            }
+            // 桌面端：Ctrl+Enter=换行，Enter=发送
             // 移动端：Enter=换行（无 Ctrl 键），仅按钮发送
-            var insertNewline = (!mobile && (e.ctrlKey || e.shiftKey)) || (mobile && !e.ctrlKey && !e.shiftKey);
+            var insertNewline = (!mobile && e.ctrlKey) || (mobile && !e.ctrlKey && !e.shiftKey);
             if (insertNewline) {
                 e.preventDefault();
                 const input = e.target;
@@ -234,7 +231,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 代理弹窗（仅当按下与松开都在遮罩上才关闭，避免弹窗内拖选误关）
     bindOverlayClose(document.getElementById('proxyModal'), hideProxyModal);
-    bindOverlayClose(document.getElementById('frontendWebModal'), closeFrontendWebModal);
     bindOverlayClose(document.getElementById('dirBrowserModal'), closeDirBrowserModal);
     document.getElementById('btnDirBrowserClose').addEventListener('click', closeDirBrowserModal);
     document.getElementById('btnDirBrowserBack').addEventListener('click', goDirBrowserUp);
@@ -399,8 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 全局事件
     // ========================
 
-    // 主题切换
-    document.getElementById('btnTheme').addEventListener('click', toggleTheme);
+    // 主题切换：入口已移入配置弹窗，此处不再绑定全局按钮
 
     // ESC 关闭面板
     document.addEventListener('keydown', (e) => {

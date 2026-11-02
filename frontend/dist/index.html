@@ -12,9 +12,6 @@
     <!-- ======== 顶部导航栏 ======== -->
     <header class="header">
         <h1 class="app-title" id="appTitle" title="切换左侧导航展开状态"><span class="app-title-icon" aria-hidden="true"></span>OpenCode 工作台</h1>
-        <div class="header-right">
-            <button type="button" class="btn btn-theme" id="btnTheme" title="切换主题">🌙</button>
-        </div>
     </header>
 
     <!-- ======== 主布局 ======== -->
@@ -42,10 +39,6 @@
                 <span class="nav-icon" aria-hidden="true"></span>
                 <span class="nav-label">知识库</span>
             </div>
-            <div class="nav-item" data-view="view-commands" title="常用命令">
-                <span class="nav-icon" aria-hidden="true"></span>
-                <span class="nav-label">常用命令</span>
-            </div>
             <!-- 左下角消息历史：与上方导航项同一套样式/折叠动画 -->
             <div class="nav-item sidebar-notify" id="sidebarNotify" role="button" tabindex="0" title="消息历史" aria-expanded="false" aria-controls="notifyPanel">
                 <span class="nav-icon nav-icon-message" aria-hidden="true"></span>
@@ -60,10 +53,10 @@
                 </div>
                 <div class="notify-list" id="notifyList"></div>
             </div>
-            <!-- 左下角版本信息：与导航项同结构，仅不可点击 -->
-            <div class="nav-item nav-item-static sidebar-version" id="sidebarVersion">
-                <span class="nav-icon nav-icon-info" aria-hidden="true"></span>
-                <span class="nav-label sidebar-version-text" id="sidebarVersionText"></span>
+            <!-- 左下角配置入口：与导航项同结构，点击打开配置弹窗 -->
+            <div class="nav-item sidebar-config" id="navConfig" role="button" tabindex="0" title="配置" aria-expanded="false" aria-controls="configOverlay">
+                <span class="nav-icon nav-icon-config" aria-hidden="true"></span>
+                <span class="nav-label">配置</span>
             </div>
         </nav>
 
@@ -77,7 +70,6 @@
                     <button type="button" class="btn btn-proxy" id="btnProxySettings" title="网络配置"><span class="btn-proxy-icon" aria-hidden="true"></span>网络配置</button>
                     <button type="button" class="btn btn-primary" id="btnToggleWeb" data-mode="start">▶ 启动 OpenCode</button>
                     <div class="oc-toolbar-right">
-                        <button type="button" class="btn btn-config btn-frontend-web" id="btnFrontendWebConfig"><span class="btn-frontend-web-label"><span class="btn-frontend-web-icon" aria-hidden="true"></span>WEB服务</span><span class="oc-service-dot off btn-frontend-web-dot" id="frontendWebToolbarDot" aria-hidden="true"></span></button>
                         <button type="button" class="btn btn-config" id="btnWtOpen" disabled><span class="btn-terminal-icon" aria-hidden="true"></span>在终端中打开</button>
                     </div>
                 </div>
@@ -594,41 +586,222 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="frontendWebModal" style="display:none">
-        <div class="modal modal-card proxy-modal">
+<div class="cfg-overlay" id="configOverlay" style="display:none">
+        <div class="cfg-modal modal-card" role="dialog" aria-modal="true" aria-label="配置">
             <div class="modal-header">
-                <h3>WEB服务配置</h3>
-                <button type="button" class="modal-close-btn" id="btnCloseFrontendWebHead" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
+                <h3>配置</h3>
+                <button type="button" class="modal-close-btn" id="cfgClose" title="关闭（Esc）" aria-label="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
-            <div class="modal-body">
-                <div class="modal-field">
-                    <label for="frontendWebHost">监听地址</label>
-                    <input id="frontendWebHost" placeholder="127.0.0.1" />
-                </div>
-                <div class="modal-field">
-                    <label for="frontendWebPort">监听端口</label>
-                    <input id="frontendWebPort" inputmode="numeric" placeholder="8081" />
-                </div>
-                <div class="path-bar path-bar-inline">
-                    <span class="path-label">服务状态：</span>
-                    <span class="path-value" id="frontendWebStatus">未启动</span>
-                </div>
-                <div class="path-bar path-bar-inline-compact">
-                    <span class="path-label">访问地址：</span>
-                    <div class="frontend-web-url-wrap">
-                        <a class="path-value frontend-web-url disabled" id="frontendWebUrl" href="#" target="_blank" rel="noopener noreferrer">--</a>
-                        <button type="button" class="btn btn-sm" id="btnCopyFrontendWebUrl" disabled>复制</button>
+            <div class="modal-body cfg-shell">
+                <aside class="cfg-nav">
+                    <div class="cfg-nav-label">设置</div>
+                    <button type="button" class="cfg-nav-item active" data-cfg-section="appearance">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                        界面外观
+                    </button>
+                    <button type="button" class="cfg-nav-item" data-cfg-section="web">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg>
+                        Web 服务
+                    </button>
+                    <button type="button" class="cfg-nav-item" data-cfg-section="shortcuts">
+                        <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+                        快捷方式
+                    </button>
+                    <button type="button" class="cfg-nav-item" data-cfg-section="commands">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>
+                        常用命令
+                    </button>
+                    <button type="button" class="cfg-nav-item" data-cfg-section="about">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>
+                        关于
+                    </button>
+                    <div class="cfg-nav-foot">配置数据仅在本机处理</div>
+                </aside>
+
+                <section class="cfg-main">
+                    <div class="cfg-scroll">
+                        <!-- 界面外观 -->
+                        <div class="cfg-section active" data-cfg-section="appearance">
+                            <div class="cfg-section-head">
+                                <h2>界面外观</h2>
+                                <p>选择浅色或深色，切换后整个工作台立即生效。主题偏好保存在本机。</p>
+                            </div>
+                            <div class="cfg-theme-grid">
+                                <div class="cfg-theme-card" data-cfg-theme="light">
+                                    <div class="cfg-theme-preview light-preview">
+                                        <div class="tp-titlebar"><i></i><i></i><i></i><span class="tp-url"></span></div>
+                                        <div class="tp-body">
+                                            <div class="tp-side">
+                                                <span class="tp-side-item active"><i></i><em></em></span>
+                                                <span class="tp-side-item"><i></i><em></em></span>
+                                                <span class="tp-side-item"><i></i><em></em></span>
+                                                <span class="tp-side-item"><i></i><em></em></span>
+                                                <span class="tp-side-item"><i></i><em></em></span>
+                                            </div>
+                                            <div class="tp-main">
+                                                <div class="tp-top"><span class="tp-avatar"></span><span class="tp-title-line"></span><span class="tp-mini-line"></span></div>
+                                                <div class="tp-content">
+                                                    <div class="tp-block"><span class="tp-dot blue"></span><span class="tp-line long"></span></div>
+                                                    <div class="tp-block"><span class="tp-dot green"></span><span class="tp-line long"></span></div>
+                                                    <div class="tp-block"><span class="tp-line short"></span></div>
+                                                    <div class="tp-link"></div>
+                                                </div>
+                                                <div class="tp-composer"><span></span><button type="button" tabindex="-1"></button></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="cfg-theme-foot">
+                                        <div class="cfg-theme-meta"><div class="cfg-theme-name">浅色</div><div class="cfg-theme-desc">适合明亮环境</div></div>
+                                        <span class="cfg-theme-radio"></span>
+                                    </div>
+                                </div>
+                                <div class="cfg-theme-card selected" data-cfg-theme="dark">
+                                    <div class="cfg-theme-preview dark-preview">
+                                        <div class="tp-titlebar"><i></i><i></i><i></i><span class="tp-url"></span></div>
+                                        <div class="tp-body">
+                                            <div class="tp-side">
+                                                <span class="tp-side-item active"><i></i><em></em></span>
+                                                <span class="tp-side-item"><i></i><em></em></span>
+                                                <span class="tp-side-item"><i></i><em></em></span>
+                                                <span class="tp-side-item"><i></i><em></em></span>
+                                                <span class="tp-side-item"><i></i><em></em></span>
+                                            </div>
+                                            <div class="tp-main">
+                                                <div class="tp-top"><span class="tp-avatar"></span><span class="tp-title-line"></span><span class="tp-mini-line"></span></div>
+                                                <div class="tp-content">
+                                                    <div class="tp-block"><span class="tp-dot blue"></span><span class="tp-line long"></span></div>
+                                                    <div class="tp-block"><span class="tp-dot green"></span><span class="tp-line long"></span></div>
+                                                    <div class="tp-block"><span class="tp-line short"></span></div>
+                                                    <div class="tp-link"></div>
+                                                </div>
+                                                <div class="tp-composer"><span></span><button type="button" tabindex="-1"></button></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="cfg-theme-foot">
+                                        <div class="cfg-theme-meta"><div class="cfg-theme-name">深色</div><div class="cfg-theme-desc">适合低光环境</div></div>
+                                        <span class="cfg-theme-radio"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="cfg-theme-note">
+                                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>
+                                主题偏好保存在本机，重新打开应用后仍会保留。
+                            </div>
+                        </div>
+
+                        <!-- Web 服务 -->
+                        <div class="cfg-section" data-cfg-section="web">
+                            <div class="cfg-section-head">
+                                <h2>Web 服务</h2>
+                                <p>在浏览器中访问当前工作区，修改端口或地址后会立即更新访问链接。</p>
+                            </div>
+                            <div class="cfg-settings-card cfg-web">
+                                <div class="cfg-web-enable">
+                                    <div>
+                                        <h3>启用 Web 服务</h3>
+                                        <p>关闭后，其他设备将无法访问当前工作区。</p>
+                                    </div>
+                                    <label class="cfg-switch" title="启用 Web 服务">
+                                        <input type="checkbox" id="cfgWebSwitch" />
+                                        <span></span>
+                                    </label>
+                                </div>
+                                <div class="cfg-form-grid">
+                                    <div class="cfg-field"><label for="frontendWebHost">监听地址</label><input id="frontendWebHost" placeholder="127.0.0.1" /></div>
+                                    <div class="cfg-field"><label for="frontendWebPort">监听端口</label><input id="frontendWebPort" inputmode="numeric" placeholder="8081" /></div>
+                                </div>
+                                <div class="cfg-web-status-panel">
+                                    <div class="cfg-web-status-info">
+                                        <div class="cfg-web-status-line">
+                                            <span class="path-value" id="frontendWebStatus">未启动</span>
+                                            <span class="cfg-web-sub">本地 Web 服务</span>
+                                        </div>
+                                        <a class="cfg-web-url disabled" id="frontendWebUrl" href="#" target="_blank" rel="noopener noreferrer">--</a>
+                                        <div class="cfg-web-desc">同一网络下的设备可通过上方地址或二维码访问</div>
+                                    </div>
+                                    <div class="cfg-qr-card">
+                                        <div class="frontend-web-qr-box" id="frontendWebQrBox">
+                                            <div class="frontend-web-qr-empty" id="frontendWebQrEmpty">启动服务后显示二维码</div>
+                                        </div>
+                                        <div class="frontend-web-qr-hint" id="frontendWebQrHint">手机扫码打开此页面</div>
+                                    </div>
+                                </div>
+                                <div class="cfg-web-actions">
+                                    <button type="button" class="btn cfg-web-open" id="cfgWebOpen" disabled>打开地址</button>
+                                    <button type="button" class="btn" id="btnCopyFrontendWebUrl" disabled>复制地址</button>
+                                    <span class="cfg-web-hint">配置即时生效</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 快捷方式（只读） -->
+                        <div class="cfg-section" data-cfg-section="shortcuts">
+                            <div class="cfg-section-head">
+                                <h2>快捷方式</h2>
+                                <p>当前版本快捷键为固定配置，暂不支持修改。这里只展示全局与输入框内的快捷键。</p>
+                            </div>
+                            <div class="cfg-note-bar">
+                                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>
+                                <span>快捷键由应用内置，无法在界面中修改。</span>
+                            </div>
+                            <div class="cfg-group-title">全局 <span class="cfg-count">3</span></div>
+                            <div class="cfg-shortcut-list">
+                                <div class="cfg-shortcut-row"><span class="cfg-action">托盘 / 显示 <span class="cfg-scope">全局</span></span><span class="cfg-keys"><kbd>Shift</kbd><span class="cfg-plus">+</span><kbd>X</kbd></span></div>
+                                <div class="cfg-shortcut-row"><span class="cfg-action">会话搜索 <span class="cfg-scope">工作区</span></span><span class="cfg-keys"><kbd>Ctrl</kbd><span class="cfg-plus">+</span><kbd>F</kbd></span></div>
+                                <div class="cfg-shortcut-row"><span class="cfg-action">关闭弹窗 / 面板 <span class="cfg-scope">全局</span></span><span class="cfg-keys"><kbd>Esc</kbd></span></div>
+                            </div>
+                            <div class="cfg-group-title">输入 <span class="cfg-count">4</span></div>
+                            <div class="cfg-shortcut-list">
+                                <div class="cfg-shortcut-row"><span class="cfg-action">发送消息 <span class="cfg-scope">输入框</span></span><span class="cfg-keys"><kbd>Enter</kbd></span></div>
+                                <div class="cfg-shortcut-row"><span class="cfg-action">换行 <span class="cfg-scope">输入框</span></span><span class="cfg-keys"><kbd>Ctrl</kbd><span class="cfg-plus">+</span><kbd>Enter</kbd></span></div>
+                                <div class="cfg-shortcut-row"><span class="cfg-action">引用知识库 <span class="cfg-scope">输入框</span></span><span class="cfg-keys"><kbd>@</kbd></span></div>
+                                <div class="cfg-shortcut-row"><span class="cfg-action">调用命令 <span class="cfg-scope">输入框</span></span><span class="cfg-keys"><kbd>/</kbd></span></div>
+                            </div>
+                        </div>
+
+                        <!-- 常用命令 -->
+                        <div class="cfg-section" data-cfg-section="commands">
+                            <div class="cfg-section-head">
+                                <h2>常用命令</h2>
+                                <p>原左侧导航中的「常用命令」已移入配置，按 CLI / TUI / API 分组。</p>
+                            </div>
+                            <div class="cfg-cmd-tabs" role="tablist">
+                                <button type="button" class="cfg-cmd-tab active" data-cfg-tab="cli">CLI</button>
+                                <button type="button" class="cfg-cmd-tab" data-cfg-tab="tui">TUI</button>
+                                <button type="button" class="cfg-cmd-tab" data-cfg-tab="api">API</button>
+                            </div>
+                            <div class="cfg-cmd-list" id="cfgCmdList">
+                                <div class="cfg-empty">打开后加载命令…</div>
+                            </div>
+                            <div class="cfg-cmd-foot">点击右侧「复制」可直接复制命令或接口路径。</div>
+                        </div>
+
+                        <!-- 关于 -->
+                        <div class="cfg-section" data-cfg-section="about">
+                            <div class="cfg-section-head">
+                                <h2>关于</h2>
+                                <p>应用信息与版本号。</p>
+                            </div>
+                            <div class="cfg-about-block">
+                                <img class="cfg-about-icon" src="/assets/appicon.png" alt="OpenCode 工作台" />
+                                <div>
+                                    <div class="cfg-about-name">OpenCode 工作台</div>
+                                    <div class="cfg-about-desc">OpenCode 本地管理与可视化工作台</div>
+                                    <div class="cfg-version-pill" id="cfgAboutVersion">v2.0.2</div>
+                                </div>
+                            </div>
+                            <div class="cfg-about-meta">
+                                <div class="cfg-about-row"><span class="cfg-about-label">应用名称</span><span class="cfg-about-value">OpenCode 工作台</span></div>
+                                <div class="cfg-about-row"><span class="cfg-about-label">版本号</span><span class="cfg-about-value" id="cfgAboutVersionRow">v2.0.2</span></div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="frontend-web-qr-section">
-                    <div class="frontend-web-qr-box" id="frontendWebQrBox">
-                        <div class="frontend-web-qr-empty" id="frontendWebQrEmpty">启动服务后显示二维码</div>
-                    </div>
-                    <div class="frontend-web-qr-hint" id="frontendWebQrHint">手机扫码打开此页面</div>
-                </div>
+                </section>
             </div>
-            <div class="modal-footer frontend-web-actions">
-                <button type="button" class="btn btn-primary" id="btnToggleFrontendWeb" data-mode="start">▶ 启动 Web服务</button>
+            <div class="modal-footer cfg-footer">
+                <span id="cfgFooterVersion">v2.0.2</span>
+                <span class="cfg-esc-hint">按 <kbd>Esc</kbd> 关闭</span>
             </div>
         </div>
     </div>
