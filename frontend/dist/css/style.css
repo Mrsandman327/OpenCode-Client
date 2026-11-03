@@ -950,7 +950,7 @@ input::placeholder, textarea::placeholder {
 .omo-toolbar .btn-primary {
     background: var(--accent);
     color: #fff;
-    border: 1px solid transparent;
+    border: none;
     font-weight: 600;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
