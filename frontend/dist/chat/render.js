@@ -225,17 +225,32 @@ export function buildMessageNode(item) {
         body.appendChild(pre);
     }
     node.appendChild(body);
-    // 输出卡片：显示 agent / model 信息
+    // 输出卡片：显示 agent / model 信息（图标使用 assets/agent.svg、model.svg）
     if (role === 'assistant' && (info.agent || info.modelID || (info.model && info.model.modelID))) {
-        var metaParts = [];
-        if (info.agent) metaParts.push('🤖 ' + info.agent);
+        var metaItems = [];
+        if (info.agent) metaItems.push({ icon: 'oc-select-icon-agent', text: info.agent });
         var metaModel = info.modelID || (info.model && info.model.modelID) || '';
         if (info.providerID && metaModel) metaModel = info.providerID + '/' + metaModel;
-        if (metaModel) metaParts.push('🧠 ' + modelDisplayLabel(metaModel));
-        if (metaParts.length) {
+        if (metaModel) metaItems.push({ icon: 'oc-select-icon-model', text: modelDisplayLabel(metaModel) });
+        if (metaItems.length) {
             const metaEl = document.createElement('div');
             metaEl.className = 'oc-message-meta';
-            metaEl.textContent = metaParts.join(' · ');
+            metaItems.forEach(function(item, index) {
+                if (index > 0) {
+                    const sep = document.createElement('span');
+                    sep.className = 'oc-meta-sep';
+                    sep.textContent = '·';
+                    metaEl.appendChild(sep);
+                }
+                const row = document.createElement('span');
+                row.className = 'oc-meta-item';
+                const icon = document.createElement('span');
+                icon.className = 'oc-select-icon ' + item.icon;
+                icon.setAttribute('aria-hidden', 'true');
+                row.appendChild(icon);
+                row.appendChild(document.createTextNode(item.text));
+                metaEl.appendChild(row);
+            });
             node.appendChild(metaEl);
         }
     }
@@ -730,8 +745,6 @@ export function renderPart(part) {
         case 'text': el = renderTextPart(part); break;
         case 'file': el = renderFilePart(part); break;
         case 'patch': el = renderPatchPart(part); break;
-        case 'agent':
-        case 'subtask': el = renderAgentPart(part, type); break;
         case 'compaction': el = renderCompaction(part); break;
         case 'snapshot':   el = renderSnapshot(part); break;
         case 'retry':      el = renderRetry(part); break;
@@ -1441,15 +1454,6 @@ export function renderPatchPart(part) {
     }
 
     el.innerHTML = pathHtml + codeHtml;
-    return el;
-}
-
-/** 渲染代理/子任务 Part */
-export function renderAgentPart(part, type) {
-    const el = document.createElement('div');
-    el.className = 'oc-part oc-agent';
-    const label = type === 'agent' ? '🤖 代理' : '📋 子任务';
-    el.innerHTML = `<div class="oc-agent-head">${label}: ${escapeHtml(part.name || part.agent || type)}</div><pre>${escapeHtml(safeText(part))}</pre>`;
     return el;
 }
 

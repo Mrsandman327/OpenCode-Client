@@ -2691,6 +2691,24 @@ input::placeholder, textarea::placeholder {
     color: var(--text-muted);
     margin-top: 4px;
     text-align: left;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.oc-message-meta .oc-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+.oc-message-meta .oc-select-icon {
+    width: 12px;
+    height: 12px;
+}
+.oc-message-meta .oc-meta-sep {
+    color: var(--text-muted);
+    opacity: 0.7;
 }
 .oc-message-time {
     font-size: 10px;
@@ -3078,13 +3096,13 @@ input::placeholder, textarea::placeholder {
 .oc-text input[type="checkbox"] { margin-right: 6px; }
 
 /* ── 文件/补丁/代理 ── */
-.oc-file, .oc-patch, .oc-agent, .oc-fallback {
+.oc-file, .oc-patch, .oc-fallback {
     border: 1px solid var(--border);
     background: var(--bg-secondary);
     border-radius: var(--radius-sm);
     overflow: hidden;
 }
-.oc-file-path, .oc-patch-path, .oc-agent-head {
+.oc-file-path, .oc-patch-path {
     padding: 6px 10px;
     border-bottom: 1px solid var(--border);
     font-size: 12px;
@@ -3113,7 +3131,7 @@ input::placeholder, textarea::placeholder {
     font-weight: 400;
     white-space: nowrap;
 }
-.oc-file pre, .oc-patch pre, .oc-agent pre, .oc-fallback pre {
+.oc-file pre, .oc-patch pre, .oc-fallback pre {
     margin: 0;
     padding: 8px 10px;
     white-space: pre-wrap;
