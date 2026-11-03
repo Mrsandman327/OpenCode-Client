@@ -535,7 +535,7 @@ input::placeholder, textarea::placeholder {
 
 .nav-label {
     flex: 1;
-    font-size: 13px;
+    font-size: 12.5px;
     /* 折叠/展开：文字淡出 + 收窄过渡（替代 display:none 硬切） */
     overflow: hidden;
     white-space: nowrap;
@@ -6412,7 +6412,6 @@ input::placeholder, textarea::placeholder {
     color: var(--text-secondary);
     border: 1px solid var(--border);
     flex-shrink: 0;
-    background-image: url('../assets/上传文件.svg');
 }
 
 .file-browser-upload-plus:hover:not(:disabled) {
@@ -9955,6 +9954,7 @@ input.toolbar-input {
     border-radius: 7px;
     background: transparent;
     color: var(--text-secondary);
+    font-family: inherit;
     font-size: 12.5px;
     text-align: left;
     cursor: pointer;

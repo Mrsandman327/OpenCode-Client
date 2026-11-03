@@ -96,6 +96,34 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.DeleteBrowserEntry(rootDir, path)
+	case "SearchBrowserFiles":
+		var rootDir, path, query string
+		var caseSensitive, useRegex, wholeWord bool
+		if err := decodeArgs(args, &rootDir, &path, &query, &caseSensitive, &useRegex, &wholeWord); err != nil {
+			return nil, err
+		}
+		return a.SearchBrowserFiles(rootDir, path, query, caseSensitive, useRegex, wholeWord)
+	case "CreateBrowserFile":
+		var rootDir, path, fileName string
+		if err := decodeArgs(args, &rootDir, &path, &fileName); err != nil {
+			return nil, err
+		}
+		return a.CreateBrowserFile(rootDir, path, fileName)
+	case "RenameBrowserEntry":
+		var rootDir, path, newName string
+		if err := decodeArgs(args, &rootDir, &path, &newName); err != nil {
+			return nil, err
+		}
+		return a.RenameBrowserEntry(rootDir, path, newName)
+	case "OpenURL":
+		var target string
+		if err := decodeArgs(args, &target); err != nil {
+			return nil, err
+		}
+		a.OpenURL(target)
+		return nil, nil
+	case "GetLanIPv4":
+		return a.GetLanIPv4(), nil
 	case "GetGitStatus":
 		var rootDir string
 		if err := decodeArgs(args, &rootDir); err != nil {
