@@ -25,6 +25,7 @@ import (
 	"oc-manager/service/web"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 // App 是 Wails 应用的核心结构体，所有绑定到前端的方法都定义在此。
@@ -507,13 +508,20 @@ func (a *App) OpenFileBrowserWindow(rootDir string, withGit bool) {
 	if withGit {
 		url += "&git=1"
 	}
+	// 初始尺寸用保守值：窗口创建前拿不到可靠的屏幕信息，若直接按大尺寸创建，
+	// 在 1366×768 这类小屏上会超出屏幕。真正的自适应在 WindowRuntimeReady 之后进行。
 	win := a.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "文件浏览 - " + rootDir,
-		Width:     1280,
-		Height:    820,
+		Width:     900,
+		Height:    600,
 		MinWidth:  720,
 		MinHeight: 480,
 		URL:       url,
+	})
+	// 页面就绪后按「该窗口所在屏幕」的工作区调整尺寸并居中，避免小屏超出、大屏过小。
+	// 文件浏览器比主窗口需要更宽的内容区（文件树 + 预览），因此采用更高的宽高占比。
+	win.OnWindowEvent(events.Common.WindowRuntimeReady, func(event *application.WindowEvent) {
+		adaptWindowToScreen(win, 0.85, 0.88, 720, 480, 1800, 1100)
 	})
 	logger.Printf("[popout] 窗口已创建: id=%d url=%s", win.ID(), url)
 }

@@ -93,14 +93,7 @@ func main() {
 	// 页面运行时（DOM）就绪后：先按当前屏幕工作区调整窗口（此时屏幕信息才可靠），
 	// 再通知前端开始初始化（替代 v2 的 OnDomReady）。
 	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(event *application.WindowEvent) {
-		if screen, err := window.GetScreen(); err == nil && screen != nil {
-			workW, workH := screenWorkAreaDIP(screen)
-			window.SetSize(
-				clampInt(int(float64(workW)*0.80), 960, 1600),
-				clampInt(int(float64(workH)*0.85), 560, 1000),
-			)
-			window.Center()
-		}
+		adaptWindowToScreen(window, 0.80, 0.85, 960, 560, 1600, 1000)
 		myApp.emitAppReady()
 	})
 
@@ -132,4 +125,32 @@ func screenWorkAreaDIP(s *application.Screen) (int, int) {
 		return int(float64(s.PhysicalWorkArea.Width) / scale), int(float64(s.PhysicalWorkArea.Height) / scale)
 	}
 	return s.WorkArea.Width, s.WorkArea.Height
+}
+
+// adaptWindowToScreen 按窗口「当前所在屏幕」的工作区比例调整窗口尺寸并居中。
+//
+// 必须在 WindowRuntimeReady 之后调用，原因有两个：
+//  1. 窗口创建前 app.Screen 的缓存不可靠（GetPrimary 可能返回 nil）；
+//  2. 多显示器场景下窗口可能落在副屏，用主屏尺寸会算错，GetScreen 拿到的才是实际所在屏幕。
+//
+// 各参数为「工作区宽/高的占比」与尺寸上下限（DIP）。拿不到屏幕信息时保持原尺寸返回 false。
+func adaptWindowToScreen(win *application.WebviewWindow, ratioW, ratioH float64,
+	minWidth, minHeight, maxWidth, maxHeight int) bool {
+	if win == nil {
+		return false
+	}
+	screen, err := win.GetScreen()
+	if err != nil || screen == nil {
+		return false
+	}
+	workW, workH := screenWorkAreaDIP(screen)
+	if workW <= 0 || workH <= 0 {
+		return false
+	}
+	win.SetSize(
+		clampInt(int(float64(workW)*ratioW), minWidth, maxWidth),
+		clampInt(int(float64(workH)*ratioH), minHeight, maxHeight),
+	)
+	win.Center()
+	return true
 }
