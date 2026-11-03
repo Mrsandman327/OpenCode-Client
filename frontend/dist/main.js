@@ -7,6 +7,7 @@
 // 模块导入（依赖关系显式声明）
 // ============================
 import { isBrowserRuntimeForMain, showToast, showApiError, isDesktopRuntime, loadWailsRuntime, bindOverlayClose } from './core/utils.js';
+import { getTheme, setTheme } from './core/theme.js';
 import { api } from './core/apicall.js';
 import { store } from './core/state.js';
 import { formatApiError } from './core/v2compat.js';
@@ -309,7 +310,10 @@ function initMain() {
     // 全局事件
     // ========================
 
-    // 主题切换：入口已移入配置弹窗，此处不再绑定全局按钮
+    // 主题切换：仅移动端顶栏提供按钮（桌面端入口在配置弹窗）
+    document.getElementById('btnTheme')?.addEventListener('click', function() {
+        setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+    });
 
     // ESC 关闭面板
     document.addEventListener('keydown', (e) => {

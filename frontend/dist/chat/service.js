@@ -658,8 +658,8 @@ export async function stopWeb() {
             store.tabRenderedVersion = {};
             store.tabScrollPositions = {};
             store.tabExpandedParts = {};
-            var tabsBar = document.getElementById('ocTabsBar');
-            if (tabsBar) tabsBar.innerHTML = '';
+            var tabsList = document.getElementById('ocTabsList');
+            if (tabsList) tabsList.innerHTML = '';
             // 显式移除池中所有 tab 容器与占位提示，避免 clearClientUI 写 pool 时误伤
             var poolEl = document.getElementById('ocMessagesPool');
             if (poolEl) poolEl.innerHTML = '';
@@ -734,7 +734,12 @@ export async function launchTerminal() {
 /** 清空客户端界面状态 */
 export function clearClientUI() {
     document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
-    document.getElementById('ocChatTitle').textContent = '未选择会话';
+    // 停止服务：复位移动端标题（桌面端标题只显示在 Tab 上）
+    var mobileTitle = document.getElementById('ocMobileChatTitle');
+    if (mobileTitle) {
+        mobileTitle.textContent = '未选择会话';
+        mobileTitle.title = '';
+    }
     // 直接清空消息池（stopWeb 已显式移除 tab 容器；此处兜底整体重置）
     var poolEl = document.getElementById('ocMessagesPool');
     if (poolEl) {

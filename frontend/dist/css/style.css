@@ -1246,6 +1246,23 @@ input::placeholder, textarea::placeholder {
     gap: 6px;
     transition: all var(--transition);
 }
+/* 移动端顶栏主题切换（桌面端隐藏，入口在配置弹窗） */
+.header-theme-toggle {
+    display: none;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
 /* 次级按钮（网络配置/Web服务/终端）：灰描边，hover 转 accent */
 .header-actions .btn-config {
     background: transparent;
@@ -1504,19 +1521,41 @@ input::placeholder, textarea::placeholder {
     min-width: 0;
 }
 /* ── 多会话 Tab 栏 ── */
+/* Tab 标签行：常驻，高度与左右面板头一致（44px），空时保留占位 */
 .oc-tabs-bar {
     display: flex;
     align-items: center;
     gap: 2px;
-    padding: 4px 8px;
+    height: 44px;
+    padding: 0 8px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
-    overflow-x: auto;
     flex-shrink: 0;
+    position: relative;
+}
+/* Tab 列表：横向滚动区 */
+.oc-tabs-list {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    overflow-x: auto;
     scrollbar-width: thin;
 }
-.oc-tabs-bar:empty {
+/* 移动端会话标题：桌面端隐藏（标题只在 Tab 上），窄屏显示在 Tab 行内 */
+.oc-chat-mobile-title {
     display: none;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 .oc-tab {
     display: inline-flex;
@@ -5907,6 +5946,21 @@ input::placeholder, textarea::placeholder {
     .oc-chat-head-mobile-toggle {
         display: inline-flex;
     }
+    /* 窄屏没有 Tab 列表：标题占据整行剩余宽度 */
+    .oc-chat-mobile-title {
+        display: block;
+    }
+    .oc-tabs-list {
+        display: none;
+    }
+    /* 移动端顶栏：隐藏终端/启动按钮，只保留主题切换 */
+    .header-actions #btnWtOpen,
+    .header-actions #btnToggleWeb {
+        display: none;
+    }
+    .header-theme-toggle {
+        display: inline-flex;
+    }
 }
 
 /* ============================================================
@@ -8054,9 +8108,12 @@ input.toolbar-input {
     margin-bottom: 10px;
 }
 
-/* 会话刷新按钮（去边框） */
-.oc-chat-head-refresh {
-    border: none;
+/* 图标按钮的刷新中状态：SVG 旋转（与 MCP/插件刷新按钮同一套 spin 动画） */
+.oc-head-icon-btn.is-loading {
+    color: var(--accent);
+}
+.oc-head-icon-btn.is-loading svg {
+    animation: spin 0.8s linear infinite;
 }
 
 /* ===== 子任务弹窗通用区块 ===== */

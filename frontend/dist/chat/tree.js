@@ -501,7 +501,6 @@ export async function deleteSession(id) {
             // 实际只产生 messageCache[''] 这个无效键，属无效代码，故删除。
             store.expandedParts = {};
             setMessagesEmpty('选择会话后查看消息，或输入内容创建新会话');
-            document.getElementById('ocChatTitle').textContent = '未选择会话';
             updateModelInfo(null);
         }
         // 从 DOM 移除会话节点，避免整树重建闪烁
@@ -543,7 +542,6 @@ export async function createNewSession(dir) {
         store.sessionErrors = {};
         store.subtaskSummaries = [];
         store.detailMessageCache = {};
-        document.getElementById('ocChatTitle').textContent = '新建会话 @ ' + dir;
         // 隐藏所有已打开 tab 容器（保留其内容，切回时还在），显示新建会话占位提示；
         // 不再直接写 getActiveMessagesEl().innerHTML，否则会清空当前活动 tab 的会话内容
         var poolEl = document.getElementById('ocMessagesPool');
@@ -681,10 +679,6 @@ export async function renameSession(sid) {
     try {
         await api.OpenCodeCall('PATCH', '/api/session/' + encodeURIComponent(sid), { title: newTitle });
         showToast('已重命名', 'success');
-        // 同步更新当前会话标题
-        if (sid === store.currentSessionId) {
-            document.getElementById('ocChatTitle').textContent = newTitle;
-        }
         // 同步更新已打开 Tab 的标题（tab 标题取自 store.openTabs）
         var tab = store.openTabs.find(function(t) { return t.sessionID === sid; });
         if (tab) tab.title = newTitle;

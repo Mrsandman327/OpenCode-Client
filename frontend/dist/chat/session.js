@@ -206,8 +206,7 @@ export async function refreshSessionTitle() {
         if (!store.sessionMap) store.sessionMap = {};
         if (!store.sessionMap[store.currentSessionId]) store.sessionMap[store.currentSessionId] = {};
         store.sessionMap[store.currentSessionId].title = title;
-        // 更新会话区标题栏
-        document.getElementById('ocChatTitle').textContent = title;
+        // 会话标题只显示在对应 Tab 上（标题行已移除）
         // 同步 Tab 标题
         if (store.openTabs && Array.isArray(store.openTabs)) {
             var tab = store.openTabs.find(function(t) { return t.sessionID === store.currentSessionId; });
@@ -290,7 +289,7 @@ export async function refreshCurrentSession() {
     currentSessionRefreshPending = true;
     if (refreshBtn) {
         refreshBtn.disabled = true;
-        refreshBtn.textContent = '⏳';
+        refreshBtn.classList.add('is-loading');
         refreshBtn.title = '正在刷新当前会话';
     }
 
@@ -337,7 +336,7 @@ export async function refreshCurrentSession() {
         currentSessionRefreshPending = false;
         if (refreshBtn) {
             refreshBtn.disabled = !store.webRunning || !store.currentSessionId;
-            refreshBtn.textContent = '↻';
+            refreshBtn.classList.remove('is-loading');
             refreshBtn.title = '刷新当前会话';
         }
     }
@@ -392,7 +391,6 @@ export async function selectSession(id) {
     // 标记已读：v2 的 /api/session/{id}/view 用 time.idle 原值做对账凭据，
     // 缺了返回 400。失败只记日志，不阻断会话打开——已读是附加语义。
     markSessionViewed(id, info?.idle);
-    document.getElementById('ocChatTitle').textContent = info?.title || id;
     const dirEl = document.getElementById('ocSideDirPath');
     const dirBar = document.getElementById('ocDirBar');
     if (dirEl && dirBar) {

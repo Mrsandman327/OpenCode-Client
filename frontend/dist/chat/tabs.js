@@ -31,17 +31,39 @@ export function setTabActivationHandler(fn) {
     tabActivationHandler = fn;
 }
 
-/** 渲染 Tab 栏 DOM（移动端单会话模式不显示） */
+/** 更新移动端标题（窄屏没有 Tab 列表，标题显示在 Tab 行内） */
+function updateMobileChatTitle() {
+    var el = document.getElementById('ocMobileChatTitle');
+    if (!el) return;
+    var id = store.currentSessionId;
+    var title = '';
+    if (id) {
+        var tab = store.openTabs.find(function(t) { return t.sessionID === id; });
+        if (tab && tab.title) title = tab.title;
+        if (!title) {
+            var info = store.sessionMap && store.sessionMap[id];
+            title = (info && info.title) || id;
+        }
+    } else if (store.pendingWorkDir) {
+        // 新建会话但尚未创建：显示待创建提示（对应桌面端原「新建会话 @ 目录」）
+        title = '新建会话 @ ' + store.pendingWorkDir;
+    }
+    title = title || '未选择会话';
+    el.textContent = title;
+    el.title = title;
+}
+
+/** 渲染 Tab 栏 DOM（移动端只显示标题，不显示 Tab 列表） */
 export function renderTabsBar() {
-    var bar = document.getElementById('ocTabsBar');
+    updateMobileChatTitle();
+    // 渲染到列表容器：外层 .oc-tabs-bar 常驻（含移动端 ☰ 按钮），不整体隐藏
+    var bar = document.getElementById('ocTabsList');
     if (!bar) return;
-    // 移动端不显示 Tab 栏
+    // 移动端单会话模式：清空 Tab 列表，行本身保留（☰ 按钮需要显示）
     if (isMobileTreeMode()) {
         bar.innerHTML = '';
-        bar.style.display = 'none';
         return;
     }
-    bar.style.display = 'flex';
     if (!store.openTabs.length) {
         bar.innerHTML = '';
         return;
@@ -152,13 +174,8 @@ export function switchTab(sessionID) {
     restoreSessionSelection(sessionID);
     updateModelInfo(getCachedMessages(sessionID));
 
-    // 标题、目录路径更新
-    var title = '';
-    var tabInfo = store.openTabs.find(function(t) { return t.sessionID === sessionID; });
-    if (tabInfo) title = tabInfo.title;
+    // 目录路径更新（会话标题只显示在 Tab 上，标题行已移除）
     var info = store.sessionMap && store.sessionMap[sessionID];
-    if (!title && info) title = info.title;
-    if (title) document.getElementById('ocChatTitle').textContent = title;
 
     var dirEl = document.getElementById('ocSideDirPath');
     var dirBar = document.getElementById('ocDirBar');
@@ -219,7 +236,6 @@ export function closeSessionTab(sessionID) {
         if (next) {
             switchTab(next.sessionID);
         } else {
-            document.getElementById('ocChatTitle').textContent = '未选择会话';
             var pool = document.getElementById('ocMessagesPool');
             if (pool) {
                 pool.querySelectorAll('.oc-messages-tab').forEach(function(c) { c.remove(); });
