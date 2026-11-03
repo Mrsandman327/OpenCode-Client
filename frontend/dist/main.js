@@ -32,12 +32,7 @@ import {
     treePanelWidth, sidepanelWidth,
 } from './chat/session.js';
 import { closeDirBrowserModal, goDirBrowserUp, selectDirBrowserCurrent } from './filebrowser/dir.js';
-import {
-    closeFileBrowserModal, closeFileBrowserUploadConflictModal, refreshFileBrowser,
-    openFileBrowserUploadPicker, handleBrowserUploadSelected, submitBrowserUpload,
-    showFileBrowserRenameMode, switchFileBrowserMode, downloadCurrentFilePreview,
-    openFileBrowserModal,
-} from './filebrowser/browser.js';
+import { bindFileBrowserEvents } from './filebrowser/entry.js';
 import {
     showAddPresetModal, handleSlimSave, openSlimDir,
 } from './views/omo-config.js';
@@ -63,7 +58,10 @@ import './chat/notifications.js';
 // 工作区事件绑定
 // ============================
 
-document.addEventListener('DOMContentLoaded', () => {
+// 主工作台初始化。
+// index.html 用动态 import 分流入口，模块可能在 DOMContentLoaded 之后才加载完成，
+// 因此不能只依赖该事件，需按 readyState 判断后立即执行。
+function initMain() {
     // 全局拦截外部链接点击：防止 WebView/页面导航离开工作台（聊天消息里的 markdown 链接也走这里）
     document.addEventListener('click', function(e) {
         var target = e.target;
@@ -229,56 +227,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnDirBrowserClose').addEventListener('click', closeDirBrowserModal);
     document.getElementById('btnDirBrowserBack').addEventListener('click', goDirBrowserUp);
     document.getElementById('btnDirBrowserSelect').addEventListener('click', selectDirBrowserCurrent);
-    // 文件浏览弹窗 (Web 端)：仅当按下与松开都在遮罩上才关闭
-    bindOverlayClose(document.getElementById('fileBrowserModal'), closeFileBrowserModal);
-    bindOverlayClose(document.getElementById('fileBrowserUploadConflictModal'), closeFileBrowserUploadConflictModal);
-    document.getElementById('btnCloseFileBrowser')?.addEventListener('click', closeFileBrowserModal);
-    document.getElementById('btnRefreshFiles')?.addEventListener('click', refreshFileBrowser);
-    document.getElementById('btnFileBrowserUpload')?.addEventListener('click', openFileBrowserUploadPicker);
-    document.getElementById('btnFileBrowserDownload')?.addEventListener('click', async function() {
-        try {
-            await downloadCurrentFilePreview();
-        } catch (e) {
-            showApiError('下载失败: ', e);
-        }
-    });
-    document.getElementById('fileBrowserUploadInput')?.addEventListener('change', async function(e) {
-        var file = e.target.files && e.target.files[0];
-        if (file) await handleBrowserUploadSelected(file);
-        e.target.value = '';
-    });
-    document.getElementById('btnFileBrowserUploadOverwrite')?.addEventListener('click', async function() {
-        try {
-            await submitBrowserUpload(store.fileBrowserState.pendingUploadFileName || '', true);
-        } catch (e) {
-            showApiError('上传失败: ', e);
-        }
-    });
-    document.getElementById('btnFileBrowserUploadRenameMode')?.addEventListener('click', showFileBrowserRenameMode);
-    document.getElementById('btnFileBrowserUploadRenameConfirm')?.addEventListener('click', async function() {
-        var input = document.getElementById('fileBrowserUploadRenameInput');
-        var error = document.getElementById('fileBrowserUploadConflictError');
-        var name = input ? String(input.value || '').trim() : '';
-        if (!name) {
-            if (error) error.textContent = '文件名不能为空';
-            return;
-        }
-        try {
-            await submitBrowserUpload(name, false);
-        } catch (e) {
-            if (error) error.textContent = formatApiError(e);
-        }
-    });
-    document.getElementById('btnFileBrowserUploadConflictCancel')?.addEventListener('click', closeFileBrowserUploadConflictModal);
-    document.getElementById('btnFileBrowserModeFiles')?.addEventListener('click', function() {
-        switchFileBrowserMode('files');
-    });
-    document.getElementById('btnFileBrowserModeGit')?.addEventListener('click', function() {
-        switchFileBrowserMode('git');
-    });
-    document.getElementById('btnFileBrowserModeSearch')?.addEventListener('click', function() {
-        switchFileBrowserMode('search');
-    });
+    // 文件浏览弹窗 (Web 端)：绑定统一由 bindFileBrowserEvents() 提供（独立窗口复用）
+    bindFileBrowserEvents();
     document.getElementById('btnSaveProxy').addEventListener('click', applyProxyConfig);
     ['proxyEnabled', 'proxyHost', 'proxyPort', 'serviceHost', 'servicePort'].forEach(id => {
         const el = document.getElementById(id);
@@ -399,21 +349,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 侧问面板（/btw）：绑定面板与悬浮按钮事件（需 #btwModal DOM 就绪）
     bindBtwPanelEvents();
+}
 
-    // ============ 独立文件浏览器窗口模式 ============
-    // 桌面端多窗口 / 浏览器新标签页通过 ?view=filebrowser&root=...&git=1 进入：
-    // 自动全屏打开文件浏览器（复用同一份前端资源，rootDir 由 URL 参数传入，不依赖会话状态）。
-    (function initStandaloneFileBrowserMode() {
-        var params = new URLSearchParams(window.location.search);
-        if (params.get('view') !== 'filebrowser') return;
-        var root = params.get('root') || '';
-        var withGit = params.get('git') === '1';
-        document.documentElement.classList.add('standalone-file-browser-mode');
-        var modal = document.getElementById('fileBrowserModal');
-        if (modal) modal.classList.add('file-browser-standalone');
-        openFileBrowserModal(root, withGit ? { features: ['git'] } : undefined);
-    })();
-});
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMain, { once: true });
+} else {
+    initMain();
+}
 
 // ============================
 // 输入区域拖动条

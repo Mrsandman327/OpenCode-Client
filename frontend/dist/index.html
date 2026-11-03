@@ -1226,6 +1226,15 @@
          前端据此判定桌面环境并订阅 oc-event/app-ready 事件）；浏览器模式该请求 404，无副作用 -->
     <script type="module" src="/wails/runtime.js"></script>
     <script src="/lib/codemirror-project-config.js"></script>
-    <script type="module" src="/main.js"></script>
+    <!-- 入口分流：独立文件浏览器窗口只加载 filebrowser/entry.js，
+         不加载 main.js 及其依赖（会话树、服务探测、消息面板、配置弹窗等）。
+         这样独立窗口不会重复执行主工作台的启动逻辑，也不会产生跨窗口副作用。 -->
+    <script type="module">
+        if (new URLSearchParams(window.location.search).get('view') === 'filebrowser') {
+            import('/filebrowser/entry.js').then(function(m) { m.initStandaloneFileBrowser(); });
+        } else {
+            import('/main.js');
+        }
+    </script>
 </body>
 </html>
