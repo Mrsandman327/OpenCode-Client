@@ -657,6 +657,7 @@ export async function stopWeb() {
             store.tabCacheVersion = {};
             store.tabRenderedVersion = {};
             store.tabScrollPositions = {};
+            store.tabStickBottom = {};
             store.tabExpandedParts = {};
             var tabsList = document.getElementById('ocTabsList');
             if (tabsList) tabsList.innerHTML = '';

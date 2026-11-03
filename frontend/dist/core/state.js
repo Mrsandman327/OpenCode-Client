@@ -51,6 +51,9 @@ export const store = {
     tabRenderedVersion: {},
     /** 每个会话的滚动位置快照 */
     tabScrollPositions: {},
+    /** 每个会话是否贴底（true/false）：决定该会话渲染时是否自动跟随底部。
+     *  不能复用全局按钮状态——按钮只反映当前激活会话。 */
+    tabStickBottom: {},
     /** 每个会话的展开状态快照 */
     tabExpandedParts: {},
 

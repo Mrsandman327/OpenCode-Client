@@ -312,11 +312,10 @@ export function renderMessages(items, targetBox) {
         return;
     }
 
-    // 跟随底部的唯一判据：右下角「回到会话底部」按钮是否可见。
-    // 按钮由滚动事件实时维护（main.js 在消息池上以捕获阶段监听 scroll），
-    // 可见表示用户已上翻；此时按视口顶部消息的锚点恢复位置，不滚到底。
-    const scrollBtn = document.getElementById('btnScrollBottom');
-    const followBottom = !scrollBtn || !scrollBtn.classList.contains('visible');
+    // 跟随底部必须按「该会话自己是否贴底」判断，不能看全局按钮：
+    // 右下角按钮只反映当前激活会话，未激活会话在后台渲染时会被误判为已上翻。
+    const renderSid = (box.dataset && box.dataset.tab) || store.currentSessionId || '';
+    const followBottom = store.tabStickBottom[renderSid] !== false;
     const scrollAnchor = captureScrollAnchor(box);
     if (!list.length) {
         // 空列表也要给「执行失败」留宿主：若该会话有 sessionErrors（如 execution.failed
@@ -575,6 +574,9 @@ export function captureScrollAnchor(box) {
 
 /** 按锚点恢复滚动位置；followBottom 为真时直接滚到底。 */
 export function restoreScrollAnchor(box, anchor, followBottom) {
+    // 隐藏的 tab 容器（未激活）clientHeight 为 0，此时 scrollHeight 也不可靠：
+    // 任何写入都会把它原有的 scrollTop 冲掉，切回时无法恢复位置。
+    if (!box.clientHeight) return;
     if (followBottom) {
         box.scrollTop = box.scrollHeight;
         updateScrollBottomButton();
@@ -595,13 +597,17 @@ export function restoreScrollAnchor(box, anchor, followBottom) {
     updateScrollBottomButton();
 }
 
-/** 更新「滚到底」按钮可见性 */
+/** 更新「滚到底」按钮可见性，并记录当前会话自己的贴底状态 */
 export function updateScrollBottomButton() {
     const box = getActiveMessagesEl();
     const btn = document.getElementById('btnScrollBottom');
     if (!box || !btn) return;
     const canScroll = box.scrollHeight > box.clientHeight + 8;
     const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < SCROLL_BOTTOM_THRESHOLD;
+    // 按钮只有一个，但「是否跟随底部」必须按会话独立记录：
+    // 否则当前会话上翻会让其他会话也停止跟随。
+    const sid = (box.dataset && box.dataset.tab) || store.currentSessionId || '';
+    if (sid) store.tabStickBottom[sid] = nearBottom;
     btn.classList.toggle('visible', canScroll && !nearBottom);
 }
 

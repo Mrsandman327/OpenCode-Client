@@ -163,6 +163,11 @@ export function switchTab(sessionID) {
     // 切到该会话目录：刷新服务状态面板的 MCP/插件（按 location[directory] 作用域）
     refreshServiceStatus();
     activateTabContainer(sessionID);
+    // 切回会话：按它自己的贴底状态恢复滚动；未贴底则保留原有位置
+    var tabBox = getTabMessagesEl(sessionID);
+    if (tabBox && store.tabStickBottom[sessionID] !== false) {
+        tabBox.scrollTop = tabBox.scrollHeight;
+    }
     // 同步项目树高亮（树节点与当前 tab 一致）
     updateTreeActiveSession();
 
@@ -227,6 +232,7 @@ export function closeSessionTab(sessionID) {
     delete store.tabCacheVersion[sessionID];
     delete store.tabRenderedVersion[sessionID];
     delete store.tabScrollPositions[sessionID];
+    delete store.tabStickBottom[sessionID];
     delete store.tabExpandedParts[sessionID];
 
     if (store.activeTabId === sessionID) {
