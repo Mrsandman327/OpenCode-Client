@@ -26,6 +26,38 @@ import { adaptEvent, normalizeStatuses } from '../core/v2compat.js';
 /** EventSource 断线重连计数（浏览器模式；Wails 模式经 runtime 事件自动重连） */
 let reconnectAttempts = 0;
 
+// ============================
+// 事件流自愈
+// ============================
+// 后端 forwardEvents 已带指数退避重连；前端保留一层兜底：
+// 收到 oc-event-error 时复位 backendStarted 并延迟重建，避免后端协程
+// 因异常退出后前端一直认为「已启动」而永久收不到事件。
+let eventRecoveryAttempts = 0;
+let eventRecoveryTimer = 0;
+
+/** 收到任意事件即视为链路恢复：清空重试计数与待执行的重建定时器 */
+function resetEventRecovery() {
+    if (eventRecoveryAttempts === 0 && !eventRecoveryTimer) return;
+    eventRecoveryAttempts = 0;
+    if (eventRecoveryTimer) {
+        clearTimeout(eventRecoveryTimer);
+        eventRecoveryTimer = 0;
+    }
+}
+
+/** 事件流异常后的兜底重建：2s / 4s / 8s，最多 3 次 */
+function scheduleEventStreamRecovery() {
+    if (eventRecoveryTimer || eventRecoveryAttempts >= 3) return;
+    const delay = 2000 * Math.pow(2, eventRecoveryAttempts);
+    eventRecoveryAttempts++;
+    eventRecoveryTimer = setTimeout(function() {
+        eventRecoveryTimer = 0;
+        // 后端协程异常退出时 backendStarted 仍是 true，必须复位才会重新调用
+        startEventStream.backendStarted = false;
+        startEventStream();
+    }, delay);
+}
+
 /**
  * v2 事件入口：把 OpenCode v2 的事件翻译成 v1 形态后逐条交给既有分发器。
  * 一条 v2 事件可能对应多条 v1 事件（如 user 入队同时产生消息与正文 part）。
@@ -112,9 +144,19 @@ export function startEventStream() {
         // 回调参数为 WailsEvent 对象（{ name, data, sender }），业务载荷在 ev.data。
         startEventStream.bound = true;
         loadWailsRuntime().then((rt) => {
-            rt.Events.On('oc-event', (ev) => dispatchV2Event(parseEventPayload(ev.data)));
+            rt.Events.On('oc-event', (ev) => {
+                resetEventRecovery();
+                dispatchV2Event(parseEventPayload(ev.data));
+            });
             rt.Events.On('oc-event-error', (ev) => {
-                showToast('事件流异常: ' + ev.data, 'error');
+                showThrottledToast('es-error', '事件流异常: ' + ev.data, 'error');
+                scheduleEventStreamRecovery();
+            });
+            // 后端重连成功（或浏览器端缓冲溢出）时通知补齐：
+            // 断线期间的增量事件已丢失，必须全量拉一次，否则卡片停在残缺状态。
+            rt.Events.On('sse-lagged', () => {
+                showThrottledToast('es-lagged', '事件流已重连，正在补齐消息...', 'warning');
+                loadMessages();
             });
         }).catch((err) => {
             // 加载失败时复位标记，使下次调用有机会重试
@@ -125,9 +167,13 @@ export function startEventStream() {
     if (!isDesktopRuntime() && !startEventStream.eventSource) {
         const es = new EventSource('/events');
         startEventStream.eventSource = es;
-        es.addEventListener('oc-event', (event) => dispatchV2Event(parseEventPayload(event.data)));
+        es.addEventListener('oc-event', (event) => {
+            resetEventRecovery();
+            dispatchV2Event(parseEventPayload(event.data));
+        });
         es.addEventListener('oc-event-error', (event) => {
-            showToast('事件流异常: ' + (event.data || '连接已断开'), 'error');
+            showThrottledToast('es-error', '事件流异常: ' + (event.data || '连接已断开'), 'error');
+            scheduleEventStreamRecovery();
         });
         // 服务端缓冲溢出、客户端即将被剔除前发来的显式通知：
         // 说明这段时间的事件已丢失，缓存可能残缺（缺正文/思考 part），
@@ -138,8 +184,12 @@ export function startEventStream() {
         });
         es.onerror = () => {
             if (es.readyState === EventSource.CLOSED) {
-                // 连接彻底关闭（非自动重连）：节流提示，避免重复刷屏
-                showThrottledToast('es-closed', '事件流连接已断开，请刷新页面', 'error');
+                // 彻底关闭（不再自动重连）：丢弃该客户端，交给兜底逻辑重建 EventSource
+                showThrottledToast('es-closed', '事件流连接已断开，正在重连...', 'error');
+                if (startEventStream.eventSource === es) {
+                    startEventStream.eventSource = null;
+                }
+                scheduleEventStreamRecovery();
             } else {
                 reconnectAttempts++;
                 if (reconnectAttempts >= 3) {
@@ -152,6 +202,7 @@ export function startEventStream() {
         let sseEverConnected = false;
         es.onopen = () => {
             reconnectAttempts = 0;
+            resetEventRecovery();
             // 重连成功：断线期间的事件已永久丢失，主动全量补齐一次，
             // 否则残缺缓存（缺 text part）会一直停留在界面上，而刷新又可能被在途锁跳过。
             // 首次连接不补齐（初始加载由会话选择/状态轮询负责），避免无意义的重复请求。
