@@ -150,12 +150,12 @@ const CHILD_SESSION_STATUS_MAP = {
  *  - 列表没有消息上下文（parentMessageId/taskPartId）与输入输出预览，置空串——
  *    卡片点击改走「消息缓存反查」（findCachedSubtaskPart）定位父消息，
  *    反查未命中时打开详情弹窗兜底，不再依赖这两个字段（见 onSubtaskCardClick）。
- *  输出顺序：按 time.updated 升序（旧→新，最新在最下面）。 */
+ *  输出顺序：按 time.updated 降序（新→旧，最新在最上面）。 */
 export function mapChildSessionsToSummaries(list) {
     const children = Array.isArray(list) ? list : [];
-    // 面板排序：按 time.updated 升序（旧在上、**最新在最下面**——用户明确要求）。
-    // 缺 time.updated 的项以 0 参与比较（排最前）；slice() 复制副本，避免修改调用方数组。
-    const sorted = children.slice().sort((a, b) => (Number(a?.time?.updated) || 0) - (Number(b?.time?.updated) || 0));
+    // 面板排序：按 time.updated 降序（后执行的在前、**最新在最上面**）。
+    // 缺 time.updated 的项以 0 参与比较（排最后）；slice() 复制副本，避免修改调用方数组。
+    const sorted = children.slice().sort((a, b) => (Number(b?.time?.updated) || 0) - (Number(a?.time?.updated) || 0));
     return sorted.map(s => {
         const created = Number(s?.time?.created);
         const updated = Number(s?.time?.updated);
