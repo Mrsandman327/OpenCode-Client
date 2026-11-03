@@ -27,11 +27,8 @@ type FrontendWebBridge interface {
 }
 
 type frontendWebSession struct {
-	server   *http.Server
-	listener net.Listener
-	hostname string
-	port     int
-	url      string
+	server *http.Server
+	url    string
 }
 
 var (
@@ -70,7 +67,7 @@ func StartFrontendWebServer(frontendFS fs.FS, bridge FrontendWebBridge, port int
 	actualPort := listener.Addr().(*net.TCPAddr).Port
 	url := fmt.Sprintf("http://%s:%d", hostname, actualPort)
 	server := &http.Server{Handler: handler}
-	sess := &frontendWebSession{server: server, listener: listener, hostname: hostname, port: actualPort, url: url}
+	sess := &frontendWebSession{server: server, url: url}
 
 	frontendWebMu.Lock()
 	frontendCurrent = sess

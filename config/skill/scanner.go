@@ -17,12 +17,7 @@ type Manager struct {
 
 // NewManager 创建新的 Manager 实例，指向全局 opencode 技能目录。
 func NewManager() *Manager {
-	dir := portable.ConfigHome()
-	if dir != "" {
-		return &Manager{globalDir: filepath.Join(dir, "opencode", "skills")}
-	}
-	homeDir, _ := os.UserHomeDir()
-	return &Manager{globalDir: filepath.Join(homeDir, ".config", "opencode", "skills")}
+	return &Manager{globalDir: filepath.Join(portable.OpenCodeConfigDir(), "skills")}
 }
 
 // NewManagerWithDir 创建指向指定技能目录的 Manager 实例。

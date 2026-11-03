@@ -22,69 +22,115 @@ function normalizePort(value, fallback) {
     return String(n);
 }
 
+/** 网络配置默认值（同时决定 readStore 读取的字段白名单与顺序） */
+const NETWORK_CONFIG_DEFAULTS = {
+    serviceHost: '127.0.0.1',
+    servicePort: '49374',
+    servicePassword: '12345678',
+    proxyEnabled: false,
+    proxyHost: '127.0.0.1',
+    proxyPort: '7897',
+    noProxy: '',
+};
+
+/** 页面 Web 服务配置默认值 */
+const FRONTEND_WEB_DEFAULTS = {
+    host: '127.0.0.1',
+    port: '8081',
+};
+
+/** 读取 localStorage 中的 JSON 配置并补齐默认值。
+ *  - 内容缺失 / JSON 损坏 / 非对象：全部使用默认值；
+ *  - 字段缺失、null、空串：回退默认值（false、0 等有效值保留，供迁移逻辑判断）；
+ *  - trimFields 指定的字段统一转字符串并去除首尾空白。
+ *  @param {string} key localStorage 键
+ *  @param {Object} defaults 默认值表（同时决定返回的字段集合）
+ *  @param {string[]} [trimFields] 需要 trim 的字符串字段名
+ *  @returns {Object} 补齐后的配置对象
+ */
+function readStore(key, defaults, trimFields) {
+    const trims = trimFields || [];
+    let saved = {};
+    try {
+        const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+        saved = (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (_) {
+        saved = {}; // 内容损坏时按默认值处理（与旧实现一致）
+    }
+    const result = {};
+    Object.keys(defaults).forEach(function (field) {
+        let value = saved[field];
+        if (value === undefined || value === null || value === '') value = defaults[field];
+        result[field] = trims.indexOf(field) >= 0 ? String(value).trim() : value;
+    });
+    return result;
+}
+
+/** 写入 localStorage：trimFields 指定的字段统一转字符串并 trim；返回实际写入的对象。 */
+function writeStore(key, value, trimFields) {
+    const trims = trimFields || [];
+    const next = {};
+    Object.keys(value || {}).forEach(function (field) {
+        const raw = value[field];
+        next[field] = trims.indexOf(field) >= 0 ? String(raw == null ? '' : raw).trim() : raw;
+    });
+    localStorage.setItem(key, JSON.stringify(next));
+    return next;
+}
+
 /** 从 localStorage 读取网络配置 */
 export function getNetworkConfig() {
-    try {
-        const saved = JSON.parse(localStorage.getItem(NETWORK_CONFIG_KEY) || '{}');
-        // 迁移：老版本（v1）用 servicePort === '0' 表示「随机端口」。本版本已移除随机端口，
-        // 若不处理，界面会直接显示 0（'0' 是真值字符串，不会被 || 兜底）。这里统一按默认端口处理。
-        const rawPort = String(saved.servicePort === undefined || saved.servicePort === null ? '' : saved.servicePort).trim();
-        const migratedPort = rawPort === '0' ? '' : rawPort;
-        return {
-            serviceHost: (saved.serviceHost || '127.0.0.1').trim(),
-            servicePort: normalizePort(migratedPort, '49374'),
-            // servicePassword：OpenCode v2 服务强制 Basic 认证。启动服务时会用此口令
-            // 执行 `opencode service set password`。默认 12345678。
-            servicePassword: (saved.servicePassword || '12345678').trim(),
-            proxyEnabled: !!saved.proxyEnabled,
-            proxyHost: (saved.proxyHost || '127.0.0.1').trim(),
-            proxyPort: (saved.proxyPort || '7897').toString().trim(),
-            // noProxy：追加到 NO_PROXY 的自定义排除项（逗号分隔）；
-            // 默认的 localhost,127.0.0.1 由后端始终保留。
-            noProxy: (saved.noProxy || '').trim(),
-        };
-    } catch (_) {
-        return { serviceHost: '127.0.0.1', servicePort: '49374', servicePassword: '12345678', proxyEnabled: false, proxyHost: '127.0.0.1', proxyPort: '7897', noProxy: '' };
-    }
+    const saved = readStore(NETWORK_CONFIG_KEY, NETWORK_CONFIG_DEFAULTS, [
+        'serviceHost', 'servicePort', 'servicePassword', 'proxyHost', 'proxyPort', 'noProxy',
+    ]);
+    // 迁移：老版本（v1）用 servicePort === '0' 表示「随机端口」。本版本已移除随机端口，
+    // 若不处理，界面会直接显示 0（'0' 是真值字符串，不会被 || 兜底）。这里统一按默认端口处理。
+    const rawPort = String(saved.servicePort === undefined || saved.servicePort === null ? '' : saved.servicePort).trim();
+    const migratedPort = rawPort === '0' ? '' : rawPort;
+    return {
+        serviceHost: saved.serviceHost,
+        servicePort: normalizePort(migratedPort, '49374'),
+        // servicePassword：OpenCode v2 服务强制 Basic 认证。启动服务时会用此口令
+        // 执行 `opencode service set password`。默认 12345678。
+        servicePassword: saved.servicePassword,
+        proxyEnabled: !!saved.proxyEnabled,
+        proxyHost: saved.proxyHost,
+        // proxyPort：readStore 已在缺失 / 空串时回退默认端口
+        proxyPort: saved.proxyPort,
+        // noProxy：追加到 NO_PROXY 的自定义排除项（逗号分隔）；
+        // 默认的 localhost,127.0.0.1 由后端始终保留。
+        noProxy: saved.noProxy,
+    };
 }
 
 /** 保存网络配置到 localStorage */
 export function saveNetworkConfig(config) {
-    const next = {
-        serviceHost: (config.serviceHost || '127.0.0.1').trim(),
+    return writeStore(NETWORK_CONFIG_KEY, {
+        serviceHost: config.serviceHost || '127.0.0.1',
         servicePort: normalizePort(config.servicePort, '49374'),
-        servicePassword: (config.servicePassword || '12345678').trim(),
+        servicePassword: config.servicePassword || '12345678',
         proxyEnabled: !!config.proxyEnabled,
-        proxyHost: (config.proxyHost || '127.0.0.1').trim(),
-        proxyPort: (config.proxyPort || '7897').toString().trim(),
-        noProxy: (config.noProxy || '').trim(),
-    };
-    localStorage.setItem(NETWORK_CONFIG_KEY, JSON.stringify(next));
-    updateProxyButton();
-    return next;
+        proxyHost: config.proxyHost || '127.0.0.1',
+        proxyPort: config.proxyPort || '7897',
+        noProxy: config.noProxy || '',
+    }, ['serviceHost', 'servicePort', 'servicePassword', 'proxyHost', 'proxyPort', 'noProxy']);
 }
 
 /** 从 localStorage 读取页面 Web 服务配置 */
 export function getFrontendWebConfig() {
-    try {
-        const saved = JSON.parse(localStorage.getItem(FRONTEND_WEB_CONFIG_KEY) || '{}');
-        return {
-            host: (saved.host || '127.0.0.1').trim(),
-            port: normalizePort(saved.port, '8081'),
-        };
-    } catch (_) {
-        return { host: '127.0.0.1', port: '8081' };
-    }
+    const saved = readStore(FRONTEND_WEB_CONFIG_KEY, FRONTEND_WEB_DEFAULTS, ['host', 'port']);
+    return {
+        host: saved.host,
+        port: normalizePort(saved.port, '8081'),
+    };
 }
 
 /** 保存页面 Web 服务配置到 localStorage */
 export function saveFrontendWebConfig(config) {
-    const next = {
-        host: (config.host || '127.0.0.1').trim(),
+    return writeStore(FRONTEND_WEB_CONFIG_KEY, {
+        host: config.host || '127.0.0.1',
         port: normalizePort(config.port, '8081'),
-    };
-    localStorage.setItem(FRONTEND_WEB_CONFIG_KEY, JSON.stringify(next));
-    return next;
+    }, ['host', 'port']);
 }
 
 /** 将 Web 服务配置加载到弹窗输入框
@@ -121,11 +167,6 @@ export async function copyFrontendWebUrl() {
     }
 }
 
-/** 构造代理 URL */
-export function proxyUrl(config = getNetworkConfig()) {
-    if (!config.proxyHost || !config.proxyPort) return '';
-    return `http://${config.proxyHost}:${config.proxyPort}`;
-}
 
 /** 构造最终 NO_PROXY：默认 localhost,127.0.0.1 + 用户输入（逗号分隔、去重）。 */
 function composeNoProxy(extra) {
@@ -163,14 +204,6 @@ export function updateProxyPreview() {
     preview.textContent = parts.join('\n');
 }
 
-/** 更新代理按钮的样式和提示 */
-export function updateProxyButton() {
-    const btn = document.getElementById('btnProxySettings');
-    if (!btn) return;
-    const config = getNetworkConfig();
-    btn.classList.toggle('active', config.proxyEnabled);
-    btn.title = store.webRunning ? '配置（服务运行期间仅可查看）' : (config.proxyEnabled ? `代理已启用: ${proxyUrl(config)}` : '配置');
-}
 
 /** 将网络配置加载到输入框（配置弹窗的「网络」分区也复用）。 */
 export function loadProxyConfigToInputs() {
@@ -247,19 +280,6 @@ export function loadProxyConfigToInputs() {
     updateProxyPreview();
 }
 
-/** 兼容旧入口：加载配置并打开旧弹窗（已移除时仅加载） */
-export function showProxyModal() {
-    loadProxyConfigToInputs();
-    const modal = document.getElementById('proxyModal');
-    if (modal) modal.style.display = 'flex';
-}
-
-/** 隐藏网络配置弹窗 */
-export function hideProxyModal() {
-    const modal = document.getElementById('proxyModal');
-    if (modal) modal.style.display = 'none';
-}
-
 /** 应用网络配置 */
 export function applyProxyConfig() {
     const serviceHost = document.getElementById('serviceHost').value.trim() || '127.0.0.1';
@@ -280,7 +300,6 @@ export function applyProxyConfig() {
         return;
     }
     saveNetworkConfig({ serviceHost, servicePort, servicePassword, proxyEnabled, proxyHost, proxyPort, noProxy });
-    hideProxyModal();
 }
 
 // ============================

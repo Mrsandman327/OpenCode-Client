@@ -3,7 +3,7 @@
 // 依赖：core/toast-history.js（数据）、core/utils.js（escapeHtml）
 // ============================================================
 
-import { escapeHtml } from '../core/utils.js';
+import { escapeHtml, copyToClipboard } from '../core/utils.js';
 import {
     TOAST_HISTORY_EVENT,
     readToastHistory,
@@ -24,32 +24,6 @@ function formatNotifyTime(ts) {
 }
 
 const LEVEL_LABELS = { info: 'INFO', success: 'SUCCESS', error: 'ERROR' };
-
-/** 复制文本到剪贴板；优先 Clipboard API，失败时回退到隐藏 textarea。 */
-async function copyText(text) {
-    try {
-        if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(text);
-            return true;
-        }
-    } catch (_) {
-        // 继续走回退方案
-    }
-    try {
-        const area = document.createElement('textarea');
-        area.value = text;
-        area.style.position = 'fixed';
-        area.style.top = '-9999px';
-        area.style.opacity = '0';
-        document.body.appendChild(area);
-        area.select();
-        const ok = document.execCommand('copy');
-        area.remove();
-        return ok;
-    } catch (_) {
-        return false;
-    }
-}
 
 export function initNotifications() {
     const btn = document.getElementById('sidebarNotify');
@@ -144,7 +118,14 @@ export function initNotifications() {
         const idx = Number(btn.dataset.copyIndex);
         const text = renderedMessages[idx];
         if (typeof text !== 'string') return;
-        const ok = await copyText(text);
+        // 复制统一走 core/utils.js 的 copyToClipboard（成功 resolve / 失败 reject）
+        let ok = false;
+        try {
+            await copyToClipboard(text);
+            ok = true;
+        } catch (_) {
+            // 复制失败：按钮显示「复制失败」，稍后自动恢复
+        }
         btn.textContent = ok ? '已复制' : '复制失败';
         btn.classList.toggle('copied', ok);
         btn.classList.toggle('copy-failed', !ok);

@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"oc-manager/internal/portable"
 	"oc-manager/model"
 )
 
@@ -46,11 +47,11 @@ type FileSearchConfig struct {
 // 不提供内置默认值：一切以配置文件为准；文件缺失/解析失败时返回零值配置。
 func loadFileSearchConfig() FileSearchConfig {
 	var cfg FileSearchConfig
-	exePath, err := os.Executable()
-	if err != nil {
+	exeDir := portable.ExeDir()
+	if exeDir == "" {
 		return cfg
 	}
-	configPath := filepath.Join(filepath.Dir(exePath), "configs", "file-types", "search-exclude.json")
+	configPath := filepath.Join(exeDir, "configs", "file-types", "search-exclude.json")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return cfg

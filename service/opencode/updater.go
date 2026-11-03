@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"oc-manager/internal/executil"
+	"oc-manager/internal/portable"
 	"oc-manager/internal/sysproxy"
 	"oc-manager/model"
 )
@@ -65,11 +66,11 @@ func normalizeVersion(v string) string {
 
 // toolsDir 程序目录下的 tools/（与 resolveOpencodeBin 的便携约定一致）。
 func toolsDir() string {
-	exePath, err := os.Executable()
-	if err != nil {
+	dir := portable.ExeDir()
+	if dir == "" {
 		return ""
 	}
-	return filepath.Join(filepath.Dir(exePath), "tools")
+	return filepath.Join(dir, "tools")
 }
 
 // updateDir 更新缓冲目录 tools/.update。
@@ -443,15 +444,7 @@ func newUpdateHTTPClient(proxy model.ProxyConfig) *http.Client {
 		ResponseHeaderTimeout: 30 * time.Second,
 	}
 	if proxy.ProxyEnabled {
-		host := strings.TrimSpace(proxy.ProxyHost)
-		if host == "" {
-			host = "127.0.0.1"
-		}
-		port := strings.TrimSpace(proxy.ProxyPort)
-		if port == "" {
-			port = "7897"
-		}
-		if u, err := url.Parse("http://" + host + ":" + port); err == nil {
+		if u, err := url.Parse(proxy.ProxyURL()); err == nil {
 			transport.Proxy = http.ProxyURL(u)
 		}
 	} else {

@@ -153,9 +153,12 @@ func ListGitHistory(dir string, offset, limit int) (model.GitHistoryResult, erro
 		result.HasMore = true
 		items = items[:limit]
 	}
-	// 计算未同步提交集合
+	// 计算未同步提交集合。
+	// 上游分支只解析一次：既用于 rev-list 计算未同步提交，也用于判断是否需要把全部条目标记为未同步。
+	upstream, upstreamErr := runGitCommand(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	hasUpstream := upstreamErr == nil
 	unsynced := make(map[string]bool)
-	if upstream, err := runGitCommand(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"); err == nil {
+	if hasUpstream {
 		revs, revErr := runGitCommand(dir, "rev-list", strings.TrimSpace(upstream)+"..HEAD")
 		if revErr == nil {
 			sc := bufio.NewScanner(strings.NewReader(revs))
@@ -175,7 +178,7 @@ func ListGitHistory(dir string, offset, limit int) (model.GitHistoryResult, erro
 		}
 	}
 	// 如果没有上游分支，全部标记为未同步
-	if _, err := runGitCommand(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"); err != nil {
+	if !hasUpstream {
 		for i := range items {
 			items[i].Synced = false
 		}
@@ -465,16 +468,9 @@ func runGitRemoteOp(dir, op string, proxy model.ProxyConfig) (model.GitActionRes
 
 	// 构建 git 参数
 	args := []string{op}
-	if proxy.ProxyEnabled {
-		host := strings.TrimSpace(proxy.ProxyHost)
-		port := strings.TrimSpace(proxy.ProxyPort)
-		if host != "" {
-			if port == "" {
-				port = "7897"
-			}
-			proxyURL := fmt.Sprintf("http://%s:%s", host, port)
-			args = append([]string{"-c", "http.proxy=" + proxyURL, "-c", "https.proxy=" + proxyURL}, args...)
-		}
+	// 代理默认值（主机 127.0.0.1、端口 7897）与 URL 拼接统一由 model.ProxyConfig.ProxyURL 提供。
+	if proxyURL := proxy.ProxyURL(); proxyURL != "" {
+		args = append([]string{"-c", "http.proxy=" + proxyURL, "-c", "https.proxy=" + proxyURL}, args...)
 	}
 
 	out, err := runGitCommand(dir, args...)

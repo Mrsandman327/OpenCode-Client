@@ -20,11 +20,6 @@ export function setTheme(theme) {
     }
 }
 
-export function toggleTheme() {
-    const current = getTheme();
-    setTheme(current === 'dark' ? 'light' : 'dark');
-}
-
 function updateThemeIcon(theme) {
     const btn = document.getElementById('btnTheme');
     if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';

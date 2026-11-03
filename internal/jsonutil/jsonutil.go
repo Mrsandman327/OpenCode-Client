@@ -20,27 +20,6 @@ func String(v any) string {
 	}
 }
 
-// Int64 把 JSON 数字值转为 int64；无法转换时返回 0。
-func Int64(v any) int64 {
-	switch n := v.(type) {
-	case float64:
-		return int64(n)
-	case int64:
-		return n
-	case int:
-		return int64(n)
-	}
-	return 0
-}
-
-// Float64 把 JSON 数字值转为 float64；无法转换时返回 0。
-func Float64(v any) float64 {
-	if f, ok := v.(float64); ok {
-		return f
-	}
-	return 0
-}
-
 // RawString 把 json.RawMessage 解析为字符串；失败或空返回 ""。
 func RawString(raw json.RawMessage) string {
 	if len(raw) == 0 {

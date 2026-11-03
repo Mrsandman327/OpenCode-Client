@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"oc-manager/internal/portable"
 )
 
 // FilePreviewTypeConfig 描述单种文件预览分类规则。
@@ -32,11 +34,11 @@ var (
 func loadFilePreviewConfig() map[string]FilePreviewTypeConfig {
 	filePreviewConfigOnce.Do(func() {
 		filePreviewTypeByExt = defaultFilePreviewTypeMap()
-		exePath, err := os.Executable()
-		if err != nil {
+		exeDir := portable.ExeDir()
+		if exeDir == "" {
 			return
 		}
-		configPath := filepath.Join(filepath.Dir(exePath), "configs", "file-types", "file-preview-types.json")
+		configPath := filepath.Join(exeDir, "configs", "file-types", "file-preview-types.json")
 		data, err := os.ReadFile(configPath)
 		if err != nil {
 			return
@@ -103,9 +105,6 @@ func normalizeFileDefaultMode(mode, previewKind string, previewable bool) string
 	}
 	if isEditablePreviewKind(previewKind) {
 		return "edit"
-	}
-	if previewable {
-		return "preview"
 	}
 	return "preview"
 }

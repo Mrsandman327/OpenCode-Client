@@ -21,7 +21,7 @@
 import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
 import { showToast, showApiError, escapeHtml, bindOverlayClose } from '../core/utils.js';
-import { buildBtwPrompt, extractBtwAnswer, parseBtwCommand, btwEndpoint } from '../core/btw.js';
+import { buildBtwPrompt, extractBtwAnswer, btwEndpoint } from '../core/btw.js';
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { hydrateLocalImages } from '../core/local-images.js';
 

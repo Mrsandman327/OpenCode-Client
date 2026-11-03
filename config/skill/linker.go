@@ -38,7 +38,7 @@ func (m *Manager) ensureGlobalDir() error {
 
 // ToggleSkill 切换技能链接状态。
 func (m *Manager) ToggleSkill(skillPath, skillName string, enable bool) (bool, error) {
-	topName, topSource := resolveTopLevelLink(skillPath, skillName)
+	topName, topSource := ResolveTopLevelLink(skillPath, skillName)
 	linkPath := filepath.Join(m.globalDir, topName)
 
 	if enable {
@@ -62,8 +62,10 @@ func (m *Manager) ToggleSkill(skillPath, skillName string, enable bool) (bool, e
 	return false, nil
 }
 
-// resolveTopLevelLink 解析嵌套技能的顶层链接信息。
-func resolveTopLevelLink(skillPath, skillName string) (topName, topSource string) {
+// ResolveTopLevelLink 解析嵌套技能的顶层链接信息：返回应创建的顶层链接名，
+// 以及该链接应指向的源目录。顶层技能原样返回；嵌套技能（如 a/b）返回顶层名 a
+// 并把源目录回溯到对应父目录。
+func ResolveTopLevelLink(skillPath, skillName string) (topName, topSource string) {
 	osName := filepath.FromSlash(skillName)
 	depth := strings.Count(osName, string(filepath.Separator))
 	if depth == 0 {
@@ -79,7 +81,7 @@ func resolveTopLevelLink(skillPath, skillName string) (topName, topSource string
 
 // LinkSkill 创建单个技能链接到全局目录。
 func (m *Manager) LinkSkill(skillPath, skillName string) error {
-	topName, topSource := resolveTopLevelLink(skillPath, skillName)
+	topName, topSource := ResolveTopLevelLink(skillPath, skillName)
 	linkPath := filepath.Join(m.globalDir, topName)
 
 	// 确保全局技能目录存在，避免创建链接时因目录缺失而失败

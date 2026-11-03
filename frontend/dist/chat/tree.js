@@ -11,7 +11,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { store, currentDir } from '../core/state.js';
+import { store } from '../core/state.js';
 import { escapeHtml, showToast, showApiError, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo, updateTreeActiveSession, setTreeActionHandlers } from '../core/utils.js';
 // 相对时间格式化统一走 core/format.js
 import { formatRelativeTime } from '../core/format.js';

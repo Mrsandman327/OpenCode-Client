@@ -35,10 +35,10 @@ func GetProjectConfigSummary(rootDir string) model.ProjectConfigSummary {
 	summary.AgentsMd = scanAgentsMd(rootDir)
 
 	// Tab 4: 用户命令 — .opencode/commands/
-	summary.Commands = scanCommandsDir(ocDir)
+	summary.Commands = scanNamedDir(ocDir, "commands", "无项目命令")
 
 	// Tab 5: 用户规则 — .opencode/rules/
-	summary.Rules = scanRulesDir(ocDir)
+	summary.Rules = scanNamedDir(ocDir, "rules", "无项目规则文件")
 
 	return summary
 }
@@ -186,16 +186,12 @@ func DeleteProjectEntry(rootDir, category, relPath string) error {
 	return os.RemoveAll(fullPath)
 }
 
-// GetGlobalOpenCodeConfig 返回全局 ~/.config/opencode/opencode.jsonc 的路径和内容。
+// GetGlobalOpenCodeConfig 返回全局 opencode 配置（opencode.jsonc，优先于 opencode.json）的路径和内容。
 func GetGlobalOpenCodeConfig() model.GlobalConfigInfo {
-	dir := portable.ConfigHome()
-	if dir == "" {
-		home, _ := os.UserHomeDir()
-		dir = filepath.Join(home, ".config")
-	}
+	dir := portable.OpenCodeConfigDir()
 
 	result := model.GlobalConfigInfo{}
-	jsoncPath := filepath.Join(dir, "opencode", "opencode.jsonc")
+	jsoncPath := filepath.Join(dir, "opencode.jsonc")
 	// 优先读 .jsonc，不存在时回退同名 .json
 	path := fileutil.ResolveJSONC(jsoncPath)
 	if data, err := os.ReadFile(path); err == nil {
@@ -287,56 +283,23 @@ func scanAgentsMd(rootDir string) model.ProjectConfigTab {
 	}
 }
 
-func scanCommandsDir(ocDir string) model.ProjectConfigTab {
-	dir := filepath.Join(ocDir, "commands")
+// scanNamedDir 扫描 ocDir 下的指定子目录（如 commands、rules），
+// 目录不存在或为空时返回 emptyMsg。命令与规则目录结构一致，共用同一实现。
+func scanNamedDir(ocDir, sub, emptyMsg string) model.ProjectConfigTab {
+	dir := filepath.Join(ocDir, sub)
 	entries, err := os.ReadDir(dir)
 	if err != nil || len(entries) == 0 {
-		return model.ProjectConfigTab{
-			Exists:  false,
-			Message: "无项目命令",
-		}
+		return model.ProjectConfigTab{Exists: false, Message: emptyMsg}
 	}
-	var files []model.ProjectConfigFileEntry
+	files := make([]model.ProjectConfigFileEntry, 0, len(entries))
 	for _, e := range entries {
+		entryType := "file"
 		if e.IsDir() {
-			files = append(files, model.ProjectConfigFileEntry{
-				Name: e.Name(), Path: e.Name(), Type: "dir",
-			})
-		} else {
-			files = append(files, model.ProjectConfigFileEntry{
-				Name: e.Name(), Path: e.Name(), Type: "file",
-			})
+			entryType = "dir"
 		}
-	}
-	if len(files) == 0 {
-		return model.ProjectConfigTab{Exists: false, Message: "无项目命令"}
-	}
-	return model.ProjectConfigTab{Exists: true, Message: "", Files: files}
-}
-
-func scanRulesDir(ocDir string) model.ProjectConfigTab {
-	dir := filepath.Join(ocDir, "rules")
-	entries, err := os.ReadDir(dir)
-	if err != nil || len(entries) == 0 {
-		return model.ProjectConfigTab{
-			Exists:  false,
-			Message: "无项目规则文件",
-		}
-	}
-	var files []model.ProjectConfigFileEntry
-	for _, e := range entries {
-		if e.IsDir() {
-			files = append(files, model.ProjectConfigFileEntry{
-				Name: e.Name(), Path: e.Name(), Type: "dir",
-			})
-		} else {
-			files = append(files, model.ProjectConfigFileEntry{
-				Name: e.Name(), Path: e.Name(), Type: "file",
-			})
-		}
-	}
-	if len(files) == 0 {
-		return model.ProjectConfigTab{Exists: false, Message: "无项目规则文件"}
+		files = append(files, model.ProjectConfigFileEntry{
+			Name: e.Name(), Path: e.Name(), Type: entryType,
+		})
 	}
 	return model.ProjectConfigTab{Exists: true, Message: "", Files: files}
 }
@@ -408,19 +371,14 @@ func ImportSkill(rootDir, sourcePath, skillName string) error {
 		return fmt.Errorf("创建技能目录失败: %w", err)
 	}
 
-	// 处理嵌套技能 (superpowers/brainstorming → 顶层链接指向父目录)
-	osName := filepath.FromSlash(skillName)
-	depth := strings.Count(osName, string(filepath.Separator))
-	topName := strings.SplitN(skillName, "/", 2)[0]
+	// 处理嵌套技能 (superpowers/brainstorming → 顶层链接指向父目录)；
+	// 复用 config/skill 的顶层链接解析，避免两处维护同一套回溯逻辑。
+	topName, topSource := skill.ResolveTopLevelLink(sourcePath, skillName)
 	linkDest := filepath.Join(skillsDir, topName)
-	source := sourcePath
-	for i := 0; i < depth; i++ {
-		source = filepath.Dir(source)
-	}
 
 	if symlink.Exists(linkDest) {
 		return fmt.Errorf("技能 %s 已存在", skillName)
 	}
 
-	return symlink.Create(source, linkDest)
+	return symlink.Create(topSource, linkDest)
 }

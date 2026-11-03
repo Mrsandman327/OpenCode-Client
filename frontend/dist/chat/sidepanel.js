@@ -7,7 +7,7 @@
 
 import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
-import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, safeText, modelDisplayLabel, setTodoPanelRefreshHandler, copyToClipboard, bindOverlayClose } from '../core/utils.js';
+import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, modelDisplayLabel, setTodoPanelRefreshHandler, copyToClipboard, bindOverlayClose } from '../core/utils.js';
 import { adaptMessages, formatApiError, unwrapList, nextCursor } from '../core/v2compat.js';
 // 时间格式化统一走 core/format.js
 import { formatSubtaskDuration, formatMinuteTime } from '../core/format.js';

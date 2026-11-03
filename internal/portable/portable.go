@@ -43,13 +43,25 @@ var xdgSubdirs = []struct {
 	{"XDG_RUNTIME_DIR", "runtime"},
 }
 
-// Root 返回便携数据根目录 <exeDir>/agentdatas；无法获取可执行文件路径时返回空串。
-func Root() string {
+// ExeDir 返回当前可执行文件所在目录；无法获取可执行文件路径时返回空串。
+//
+// 这里刻意不做 EvalSymlinks：便携目录以「用户实际启动的那个可执行文件」为准，
+// 调用点若确有解析符号链接的需求（如技能配置目录），应自行在结果上再解析。
+func ExeDir() string {
 	exePath, err := os.Executable()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(filepath.Dir(exePath), DataRootName)
+	return filepath.Dir(exePath)
+}
+
+// Root 返回便携数据根目录 <exeDir>/agentdatas；无法获取可执行文件路径时返回空串。
+func Root() string {
+	dir := ExeDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, DataRootName)
 }
 
 // subdir 返回根目录下的指定子目录；根目录不可用时返回空串。
@@ -64,17 +76,23 @@ func subdir(name string) string {
 // ConfigHome 返回便携配置目录 <root>/config（对齐 XDG_CONFIG_HOME）。
 func ConfigHome() string { return subdir("config") }
 
-// DataHome 返回便携数据目录 <root>/data（对齐 XDG_DATA_HOME）。
-func DataHome() string { return subdir("data") }
-
-// CacheHome 返回便携缓存目录 <root>/cache（对齐 XDG_CACHE_HOME）。
-func CacheHome() string { return subdir("cache") }
+// OpenCodeConfigDir 返回全局 opencode 配置目录：
+// 优先便携配置目录 <root>/config/opencode，不可用时回退用户配置目录下的 opencode。
+// 各业务包统一使用本函数，避免重复维护同一段回退逻辑。
+func OpenCodeConfigDir() string {
+	if dir := ConfigHome(); dir != "" {
+		return filepath.Join(dir, "opencode")
+	}
+	// ConfigHome 不可用（可执行文件路径获取失败）时回退到平台用户配置目录
+	dir, err := os.UserConfigDir()
+	if err != nil || dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, "opencode")
+}
 
 // StateHome 返回便携状态目录 <root>/state（对齐 XDG_STATE_HOME）。
 func StateHome() string { return subdir("state") }
-
-// RuntimeDir 返回便携运行时目录 <root>/runtime（对齐 XDG_RUNTIME_DIR）。
-func RuntimeDir() string { return subdir("runtime") }
 
 // Init 创建便携数据目录。
 //

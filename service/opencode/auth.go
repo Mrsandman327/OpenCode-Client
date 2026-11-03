@@ -128,14 +128,11 @@ type serviceConfig struct {
 // serviceConfigPath 返回 V2 服务配置文件路径（config 侧）。
 // 与 @opencode/client 的 ServiceConfig 一致：XDG_CONFIG_HOME 下的 opencode/service.json。
 func serviceConfigPath() string {
-	if dir := portable.ConfigHome(); dir != "" {
-		return filepath.Join(dir, "opencode", "service.json")
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
+	dir := portable.OpenCodeConfigDir()
+	if dir == "" {
 		return ""
 	}
-	return filepath.Join(home, ".config", "opencode", "service.json")
+	return filepath.Join(dir, "service.json")
 }
 
 // readServiceConfig 读取服务配置文件，文件不存在或损坏时返回 nil。

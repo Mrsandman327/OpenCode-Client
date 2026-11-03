@@ -26,6 +26,8 @@
     --text-muted: #86868b;
     /* 三级文字：介于正文与弱化文本之间，用于知识库卡片摘要这类需要耐读的次要内容 */
     --text-tertiary: #6e6e73;
+    /* 强调色背景上的文字（按钮/胶囊/选中高亮共用，避免各处硬编码白色） */
+    --text-on-accent: #fff;
 
     /* 状态色 */
     --success: #34c759;
@@ -86,6 +88,13 @@
     /* 布局 */
     --header-height: 48px;
     --sidebar-width: 140px;
+
+    /* 兼容旧变量名：统一指向上面已有的语义变量，避免同名含义分散维护 */
+    --bg-code: var(--bg-secondary);
+    --bg-tag: var(--bg-input);
+    --text-dim: var(--text-muted);
+    /* 浅色主题：浏览器原生控件按浅色渲染 */
+    color-scheme: light;
 }
 
 /* ========== CSS 变量 — 深色主题 (Apple 暗色覆盖) ========== */
@@ -149,6 +158,9 @@
         0 14px 28px -6px rgba(0, 0, 0, 0.55),
         0 30px 60px -16px rgba(0, 0, 0, 0.60),
         inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+    /* 深色主题：浏览器原生控件按深色渲染 */
+    color-scheme: dark;
 }
 
 /* ========== 基础重置 ========== */
@@ -228,13 +240,6 @@ input::placeholder, textarea::placeholder {
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     -webkit-app-region: drag;
-}
-
-.header-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    -webkit-app-region: no-drag;
 }
 
 /* 顶部标题：行为上是「折叠/展开侧边栏」的按钮（chat/navigation.js 绑定），
@@ -319,7 +324,7 @@ input::placeholder, textarea::placeholder {
 
 .btn-primary {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     border-radius: var(--radius-sm);
 }
 .btn-primary:hover:not(:disabled) {
@@ -335,24 +340,6 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card-hover);
     color: var(--accent);
     border-color: var(--accent);
-}
-
-.btn-theme {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    font-size: 16px;
-    border-radius: 50%;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--transition);
-}
-.btn-theme:hover {
-    background: var(--bg-input);
 }
 
 .btn-sm {
@@ -405,46 +392,7 @@ input::placeholder, textarea::placeholder {
     color: #fff;
 }
 
-.btn-frontend-web {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.btn-frontend-web-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.btn-frontend-web-dot {
-    width: 8px;
-    height: 8px;
-}
-
-.btn-config:hover:not(:disabled) .btn-frontend-web-dot.off {
-    background: currentColor;
-}
-
-.btn-proxy {
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    font-weight: 600;
-}
-.btn-proxy:hover:not(:disabled) {
-    color: var(--accent);
-    border-color: var(--accent);
-}
-.btn-proxy.active {
-    background: var(--success-bg);
-    color: var(--success);
-    border-color: var(--success);
-}
-
 /* 工具按钮图标：assets SVG 作遮罩，颜色随按钮文字（全站统一的 mask 机制） */
-.btn-proxy-icon,
-.btn-frontend-web-icon,
 .btn-terminal-icon {
     width: 16px;
     height: 16px;
@@ -456,16 +404,6 @@ input::placeholder, textarea::placeholder {
     mask-repeat: no-repeat;
     mask-position: center;
     mask-size: contain;
-}
-
-.btn-proxy-icon {
-    -webkit-mask-image: url("../assets/网络配置.svg");
-    mask-image: url("../assets/网络配置.svg");
-}
-
-.btn-frontend-web-icon {
-    -webkit-mask-image: url("../assets/web服务.svg");
-    mask-image: url("../assets/web服务.svg");
 }
 
 .btn-terminal-icon {
@@ -589,10 +527,6 @@ input::placeholder, textarea::placeholder {
     -webkit-mask-image: url("../assets/技能.svg");
     mask-image: url("../assets/技能.svg");
 }
-.nav-item[data-view="view-commands"] .nav-icon {
-    -webkit-mask-image: url("../assets/控制命令.svg");
-    mask-image: url("../assets/控制命令.svg");
-}
 /* 知识库（新增功能，与其它导航项同一套 mask 渲染方式） */
 .nav-item[data-view="view-knowledge"] .nav-icon {
     -webkit-mask-image: url("../assets/知识库.svg");
@@ -634,18 +568,6 @@ input::placeholder, textarea::placeholder {
     margin-top: auto; /* 底部组整体推至侧栏最下方 */
 }
 
-/* 版本信息项不可点击，保留导航项布局但不显示 hover 高亮 */
-.nav-item.nav-item-static {
-    cursor: default;
-}
-.nav-item.nav-item-static:hover {
-    background: transparent;
-    color: var(--text-secondary);
-}
-.nav-item.nav-item-static:hover .nav-icon {
-    background: var(--text-muted);
-}
-
 /* 消息图标：原 SVG 画布很宽，cover 裁掉两侧空白，视觉尺寸与其它导航图标一致 */
 .nav-icon-message {
     -webkit-mask-image: url("../assets/消息.svg");
@@ -657,17 +579,6 @@ input::placeholder, textarea::placeholder {
     mask-position: center;
     mask-size: cover;
 }
-.nav-icon-info {
-    -webkit-mask-image: url("../assets/信息.svg");
-    -webkit-mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    -webkit-mask-size: contain;
-    mask-image: url("../assets/信息.svg");
-    mask-repeat: no-repeat;
-    mask-position: center;
-    mask-size: contain;
-}
-
 .sidebar-notify-badge {
     flex-shrink: 0;
     min-width: 16px;
@@ -961,26 +872,6 @@ input::placeholder, textarea::placeholder {
 }
 .omo-toolbar .btn-primary:disabled {
     box-shadow: none;
-}
-
-/* 新增方案：次要按钮保持描边蓝字，hover 才实心，不与保存按钮争主次；
-   禁用态退成中性灰，避免"看起来还能点"。 */
-.omo-toolbar .btn-add-type {
-    background: var(--bg-input);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    /* 与「保存配置」同圆角，避免 .btn 默认 pill 圆角与主按钮不一致 */
-    border-radius: var(--radius-sm);
-}
-.omo-toolbar .btn-add-type:hover:not(:disabled) {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-}
-.omo-toolbar .btn-add-type:disabled {
-    color: var(--text-muted);
-    border-color: var(--border);
-    background: var(--bg-input);
 }
 
 #view-omo #modelConfig {
@@ -1337,31 +1228,11 @@ input::placeholder, textarea::placeholder {
     padding: 0;
 }
 
-/* 常用命令视图：整体滚动 */
-#view-commands.active {
-    overflow-y: auto;
-}
-
 /* ============================================================
    View 1: 工作区
    ============================================================ */
-.oc-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 17px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-.oc-toolbar-right {
-    margin-left: auto;
-    display: flex;
-    gap: 8px;
-}
 
 /* ── 工具栏按钮统一体系（Apple 风格，紧凑 30px 高） ── */
-.oc-toolbar .btn,
 .header-actions .btn {
     height: 30px;
     padding: 0 14px;
@@ -1374,23 +1245,18 @@ input::placeholder, textarea::placeholder {
     transition: all var(--transition);
 }
 /* 次级按钮（网络配置/Web服务/终端）：灰描边，hover 转 accent */
-.oc-toolbar .btn-config,
-.oc-toolbar .btn-proxy,
 .header-actions .btn-config {
     background: transparent;
     color: var(--text-secondary);
     border: 1px solid var(--border);
     font-weight: 500;
 }
-.oc-toolbar .btn-config:hover:not(:disabled),
-.oc-toolbar .btn-proxy:hover:not(:disabled),
 .header-actions .btn-config:hover:not(:disabled) {
     background: var(--bg-card-hover);
     color: var(--accent);
     border-color: var(--accent);
 }
 /* 主操作（启动）：实心 accent，运行态由 JS 切换为 .btn-danger-outline */
-.oc-toolbar .btn-primary,
 .header-actions .btn-primary {
     background: var(--accent);
     color: #fff;
@@ -1398,19 +1264,16 @@ input::placeholder, textarea::placeholder {
     font-weight: 600;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
-.oc-toolbar .btn-primary:hover:not(:disabled),
 .header-actions .btn-primary:hover:not(:disabled) {
     background: var(--accent-hover);
 }
 /* 危险操作（停止）：淡红底红字，hover 实心红 */
-.oc-toolbar .btn-danger-outline,
 .header-actions .btn-danger-outline {
     background: var(--danger-bg);
     color: var(--danger);
     border: 1px solid var(--danger);
     font-weight: 600;
 }
-.oc-toolbar .btn-danger-outline:hover:not(:disabled),
 .header-actions .btn-danger-outline:hover:not(:disabled) {
     background: var(--danger);
     color: #fff;
@@ -2299,32 +2162,7 @@ input::placeholder, textarea::placeholder {
     flex: 1;
     min-width: 0;
 }
-.oc-tree-project { padding-left: 0; }
 .oc-tree-directory { padding-left: 4px; }
-
-/* ── 项目行：Apple 分组标题（弱化，仅作最外层分组标签） ── */
-.oc-tree-project-row {
-    padding: 6px 6px 3px;
-    cursor: pointer;
-    border-radius: var(--radius-sm);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-}
-.oc-tree-project-row:hover {
-    color: var(--text-secondary);
-    background: transparent;
-}
-.oc-tree-project-label {
-    color: inherit;
-    font-size: 11px;
-}
-.oc-tree-project-row .oc-tree-toggle {
-    font-size: 9px;
-    opacity: 0.7;
-}
 
 /* ── 目录行：次级分组标题 + 会话计数徽章 ── */
 .oc-tree-dir-row {
@@ -4378,38 +4216,11 @@ input::placeholder, textarea::placeholder {
     margin-top: 20px;
 }
 
-.modal-card .modal-footer.frontend-web-actions {
-    justify-content: center;
-}
-.frontend-web-url-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    flex: 1;
-}
-.frontend-web-url {
-    display: inline-flex;
-    align-items: center;
-    min-width: 0;
-    max-width: 100%;
-    color: var(--accent);
-    text-decoration: none;
-}
-.frontend-web-url:hover {
-    text-decoration: underline;
-}
-.frontend-web-url.disabled {
-    color: var(--text-muted);
-    pointer-events: none;
-    text-decoration: none;
-}
 .frontend-web-status-running {
     color: var(--success);
     font-weight: 600;
 }
 /* Web服务二维码：白底卡片保证扫码识别率（深色主题下不随主题变暗） */
-.frontend-web-qr-section { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .frontend-web-qr-box { background: #ffffff; border-radius: var(--radius-md); padding: 10px; min-width: 176px; min-height: 176px; display: flex; align-items: center; justify-content: center; }
 .frontend-web-qr-box canvas, .frontend-web-qr-box img { display: block; }
 .frontend-web-qr-empty { color: #9a9a9a; font-size: 12px; text-align: center; line-height: 1.6; }
@@ -4827,18 +4638,6 @@ input::placeholder, textarea::placeholder {
     color: var(--text-primary);
 }
 
-.model-type-badge {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    padding: 2px 8px;
-    border-radius: var(--radius-pill);
-    background: var(--bg-input);
-    color: var(--text-muted);
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-}
-
 .model-comment {
     font-size: 11px;
     color: var(--text-muted);
@@ -5120,17 +4919,6 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
 }
 
-.toggle-label {
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--text-muted);
-    white-space: nowrap;
-    width: 52px;
-    text-align: right;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 .toggle input {
     display: none;
 }
@@ -5157,27 +4945,6 @@ input::placeholder, textarea::placeholder {
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 .toggle input:checked + .toggle-slider {
-    background: var(--accent);
-    border-color: var(--accent);
-}
-.toggle input:checked + .toggle-slider::after {
-    background: #fff;
-    left: 21px;
-}
-
-/* .toggle-slider::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    background: var(--text-muted);
-    border-radius: 50%;
-    transition: all var(--transition);
-} */
-
-.toggle input:checked + .toggle-slider {
     background: var(--success);
     border-color: var(--success);
 }
@@ -5191,331 +4958,10 @@ input::placeholder, textarea::placeholder {
     opacity: 0.35;
     cursor: not-allowed;
 }
+/* hover：轻微淡出并保持描边色一致（合并同选择器的两条规则） */
 .toggle:hover .toggle-slider {
     opacity: 0.85;
-}
-
-.toggle:hover .toggle-slider {
     border-color: var(--border-light);
-}
-
-/* ============================================================
-   View 4: 常用命令
-   ============================================================ */
-.cmd-tabs {
-    display: flex;
-    gap: 0;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    padding: 0 17px;
-}
-
-.cmd-tab {
-    padding: 10px 20px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    transition: all var(--transition);
-    font-family: inherit;
-}
-
-.cmd-tab:hover {
-    color: var(--text-primary);
-    background: var(--bg-card-hover);
-}
-
-.cmd-tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-    font-weight: 600;
-}
-
-.cmd-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 24px;
-}
-
-.cmd-group {
-    margin-bottom: 24px;
-}
-
-.cmd-group-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 10px;
-    border-left: 3px solid var(--accent);
-    padding-left: 10px;
-    cursor: pointer;
-    user-select: none;
-}
-
-.cmd-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 10px;
-    /* 同行卡片默认 stretch，视觉上保持等高；子项统一 min-width:0 防止长参数撑破列宽 */
-    align-items: stretch;
-}
-
-.cmd-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 14px 16px 15px;
-    transition: border-color var(--transition), background var(--transition);
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    /* 兜底裁剪：任何超长 token 都不允许把卡片撑出网格列 */
-    overflow: hidden;
-}
-
-.cmd-card:hover {
-    border-color: var(--border-light);
-    background: var(--bg-card-hover);
-}
-
-/* 标题区：命令名与子命令上下分层。
-   命令名（强调色 + 等宽）> 子命令（中性 tag），不再与参数挤在同一行。 */
-.cmd-card-head {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 7px;
-    min-width: 0;
-}
-
-.cmd-card-name {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--accent);
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    letter-spacing: -0.3px;
-    line-height: 1.25;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-}
-
-/* 子命令：轻量中性 tag（弱底色 + 弱描边），与参数保持不同视觉层 */
-.cmd-card-sub {
-    display: inline-block;
-    max-width: 100%;
-    padding: 2px 7px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xs);
-    background: var(--bg-secondary);
-    color: var(--text-secondary);
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    font-size: 11px;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-}
-
-/* 参数区：独占一行、左对齐。
-   小号等宽中性文本 + 弱化「参数 / 快捷键」标签，无胶囊、无大色块。 */
-.cmd-card-options {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: baseline;
-    column-gap: 8px;
-    margin-top: 10px;
-    min-width: 0;
-}
-
-.cmd-card-options-label {
-    color: var(--text-muted);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    line-height: 1.7;
-    white-space: nowrap;
-    user-select: none;
-}
-
-.cmd-card-options-list {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 1px 14px;
-    min-width: 0;
-    color: var(--text-secondary);
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    font-size: 11px;
-    line-height: 1.7;
-}
-
-/* 单个参数片段：无底色、无描边，过长时允许在片段内部自然换行。
-   overflow-wrap:anywhere 兜底 paths [db|home|...] 这类超长 token，
-   保证 3 列布局下 scrollWidth 不超过 clientWidth。 */
-.cmd-card-opt {
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-}
-
-/* 片段内的子命令前缀（如 list: / export:）：比参数正文再弱一级，帮助分段阅读 */
-.cmd-card-opt-label {
-    color: var(--text-muted);
-    font-weight: 600;
-}
-
-/* 描述：层级最低，放在最后；flex:1 吸收同行卡片的高度差，
-   让 grid 拉伸后的剩余空间留在描述区内，而不是卡片底部形成突兀空白。 */
-.cmd-card-desc {
-    flex: 1 1 auto;
-    margin: 9px 0 0;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    line-height: 1.55;
-    overflow-wrap: anywhere;
-}
-
-/* ========== API 文档渲染 ========== */
-
-.api-doc-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.api-doc-row {
-    display: grid;
-    grid-template-columns: 64px 1fr 2fr;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: all var(--transition);
-    position: relative;
-}
-
-.api-doc-row:hover {
-    background: var(--bg-card-hover);
-}
-
-/* 方法标签 */
-.api-method {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    min-width: 56px;
-    text-align: center;
-}
-
-.api-method.get    { background: #d4edda; color: #155724; }
-.api-method.post   { background: #cce5ff; color: #004085; }
-.api-method.put    { background: #fff3cd; color: #856404; }
-.api-method.patch  { background: #e2d4f0; color: #5a2d82; }
-.api-method.delete { background: #f8d7da; color: #721c24; }
-
-.api-path {
-    font-size: 13px;
-    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.api-summary {
-    font-size: 12px;
-    color: var(--text-secondary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* 展开详情 */
-.api-detail {
-    display: none;
-    grid-column: 1 / -1;
-    padding: 12px 16px;
-    margin-top: 4px;
-    background: var(--bg-secondary);
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    color: var(--text-secondary);
-}
-
-.api-doc-row.expanded .api-detail {
-    display: block;
-}
-
-.api-params ul {
-    margin: 6px 0 0 16px;
-    padding: 0;
-}
-
-.api-params li {
-    margin-bottom: 4px;
-    font-size: 13px;
-}
-
-.api-params code {
-    background: var(--bg-card);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: 12px;
-}
-
-.api-params em {
-    color: var(--accent);
-    font-style: normal;
-    font-weight: 600;
-}
-
-.api-request-body pre {
-    margin: 6px 0 0 0;
-    padding: 8px 12px;
-    background: var(--bg-card);
-    border-radius: var(--radius-sm);
-    font-size: 11px;
-    max-height: 200px;
-    overflow: auto;
-}
-
-/* 分组折叠：图标改用 assets 下 SVG 遮罩（mask），伪元素只承载图形 */
-.cmd-group-title::before {
-    content: '';
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    margin-right: 5px;
-    vertical-align: -1px;
-    background: currentColor;
-    -webkit-mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    -webkit-mask-size: contain;
-    mask-repeat: no-repeat;
-    mask-position: center;
-    mask-size: contain;
-    -webkit-mask-image: url("../assets/菜单折叠.svg");
-    mask-image: url("../assets/菜单折叠.svg");
-}
-
-.cmd-group-title:not(.collapsed)::before {
-    -webkit-mask-image: url("../assets/菜单展开.svg");
-    mask-image: url("../assets/菜单展开.svg");
-}
-
-.api-doc-grid.collapsed {
-    display: none;
 }
 
 /* ========== 加载 / 空 / 错误状态 ========== */
@@ -5599,7 +5045,7 @@ input::placeholder, textarea::placeholder {
 
 .toast.info {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
 }
 
 /* ============================================================
@@ -5683,27 +5129,6 @@ input::placeholder, textarea::placeholder {
     flex-shrink: 0;
     align-items: center;
 }
-/* 供应商标识/名称：横向并排，输入框弹性占满 */
-.provider-identity {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-}
-.provider-identity .prov-inline-label {
-    flex-shrink: 0;
-}
-.provider-identity input {
-    flex: 1;
-    min-width: 0;
-}
-.prov-inline-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    white-space: nowrap;
-}
 /* 启用开关：iOS 风格 toggle（位于标题栏左侧、原状态圆点位置） */
 .prov-toggle {
     position: relative;
@@ -5747,10 +5172,6 @@ input::placeholder, textarea::placeholder {
 .prov-toggle input:checked + .prov-toggle-track .prov-toggle-thumb {
     transform: translateX(14px);
 }
-.prov-toggle-label {
-    font-size: 12px;
-    color: var(--text-muted);
-}
 /* 连接配置：纵向堆叠（窄卡片下三栏会显示不全） */
 .provider-conn-row {
     display: flex;
@@ -5791,19 +5212,6 @@ input::placeholder, textarea::placeholder {
     text-align: center;
     border: 1px dashed var(--border);
     border-radius: var(--radius-sm);
-}
-/* 折叠态能力摘要 */
-.abilities-summary {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--accent);
-    background: var(--accent-ghost);
-    border-radius: var(--radius-pill);
-    padding: 1px 8px;
-    max-width: 140px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 /* 默认收起：仅标题栏 + 摘要 + 启用模型名单；点击标题栏展开后显示完整编辑区 */
 .provider-card-body {
@@ -6000,7 +5408,7 @@ input::placeholder, textarea::placeholder {
 }
 .btn-add {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     border: none;
     font-weight: 500;
     border-radius: var(--radius-sm);
@@ -6061,31 +5469,34 @@ input::placeholder, textarea::placeholder {
 .provider-card select:focus {
     border-color: var(--accent);
 }
-/* 保存按钮 */
-.btn-save-card {
-    background: var(--accent) !important;
-    color: #fff !important;
-    border: none !important;
-    border-radius: var(--radius-sm) !important;
-    font-size: 12px !important;
+/* 保存按钮：用 #view-providers 提升优先级替代 !important。
+   ID + class 的权重（1,1,0）高于 .btn / .btn-sm 以及 .btn-sm:hover:not(:disabled)（0,3,0），
+   因此胶囊改方角、配色、字号都能稳定覆盖，无需 !important */
+#view-providers .btn-save-card {
+    background: var(--accent);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: -0.01em;
     cursor: pointer;
 }
-.btn-save-card:hover {
-    background: var(--accent-hover) !important;
+#view-providers .btn-save-card:hover {
+    background: var(--accent-hover);
 }
-.btn-save-card:active {
+#view-providers .btn-save-card:active {
     transform: scale(0.97);
 }
-/* 删除卡片按钮：无边框、默认弱化色，仅悬浮时变红（与通用 .btn-del 口径一致） */
-.btn-del-card {
-    background: transparent !important;
-    color: var(--text-muted) !important;
-    border: none !important;
-    border-radius: var(--radius-sm) !important;
+/* 删除卡片按钮：无边框、默认弱化色，仅悬浮时变红（与通用 .btn-del 口径一致）；
+   同样用 #view-providers 前缀压过 .btn-del / .btn 的默认样式 */
+#view-providers .btn-del-card {
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-radius: var(--radius-sm);
     /* 纯图标按钮：收紧横向内边距，保持方形点击区 */
-    padding: 4px 7px !important;
+    padding: 4px 7px;
     font-size: 12px;
     cursor: pointer;
     font-weight: 500;
@@ -6099,32 +5510,17 @@ input::placeholder, textarea::placeholder {
     -webkit-mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
     mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
 }
-.btn-del-card:hover {
-    background: var(--danger-bg) !important;
-    color: var(--danger) !important;
+#view-providers .btn-del-card:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
 }
-.btn-del-card:active {
+#view-providers .btn-del-card:active {
     transform: scale(0.97);
 }
 
 /* ============================================================
    文件浏览器预览/编辑
    ============================================================ */
-
-.file-browser-preview-title-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    flex: 1;
-}
-
-.file-browser-preview-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
 
 .active-file-preview-action {
     border-color: var(--accent) !important;
@@ -6221,33 +5617,6 @@ input::placeholder, textarea::placeholder {
     border-right: none;
     border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
-/* 添加卡片虚线占位 */
-.provider-card-add {
-    border: 1px dashed var(--border-light) !important;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    color: var(--text-muted);
-    border-radius: var(--radius-lg);
-    font-size: 14px;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    transition: all 0.15s ease;
-}
-.provider-card-add:hover {
-    background: var(--bg-card-hover);
-    color: var(--accent);
-    border-color: var(--accent) !important;
-}
-/* 卡片内图标与文字横向对齐 */
-.provider-card-add > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
 /* ===== 供应商卡片：收起态标题栏 / 摘要 / 启用模型名单 ===== */
 .provider-title {
     flex: 1;
@@ -6470,14 +5839,8 @@ input::placeholder, textarea::placeholder {
     .sidebar {
         display: none;
     }
-    .oc-toolbar {
-        display: none;
-    }
     .main-layout {
         padding-left: 0;
-    }
-    .cmd-grid {
-        grid-template-columns: 1fr;
     }
     .skill-list {
         padding: 8px 12px;
@@ -6740,10 +6103,6 @@ input::placeholder, textarea::placeholder {
     color: var(--text-muted);
 }
 
-/* ======== CSS 变量补丁 ======== */
-:root { --bg-code: var(--bg-secondary); --bg-tag: var(--bg-input); --text-dim: var(--text-muted); color-scheme: light;}
-[data-theme="dark"] { --bg-code: var(--bg-secondary); --bg-tag: var(--bg-input); --text-dim: var(--text-muted);  color-scheme: dark;}
-
 /* ======== 技能卡片扩展 ======== */
 /* 名字 + 冲突标签行：flex-wrap 让长技能名或标签在窄卡片里换行，不溢出卡片 */
 .skill-name-row { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; flex-wrap: wrap; min-width: 0; }
@@ -6792,7 +6151,7 @@ input::placeholder, textarea::placeholder {
 .oc-search-bar .btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 .oc-search-count { font-size: 11px; color: var(--text-dim); min-width: 60px; text-align: center; }
 .oc-search-highlight { background: #ffeb3b; color: #000; border-radius: 2px; padding: 0 1px; }
-.oc-search-highlight.oc-search-active { background: var(--accent); color: #fff; }
+.oc-search-highlight.oc-search-active { background: var(--accent); color: var(--text-on-accent); }
 .oc-search-target-part { animation: oc-search-target-pulse 0.9s ease-out; }
 @keyframes oc-search-target-pulse {
     0% { box-shadow: 0 0 0 2px var(--accent); }
@@ -7053,7 +6412,7 @@ input::placeholder, textarea::placeholder {
     color: var(--text-secondary);
     border: 1px solid var(--border);
     flex-shrink: 0;
-    background-image: url('./assets/上传文件.svg');
+    background-image: url('../assets/上传文件.svg');
 }
 
 .file-browser-upload-plus:hover:not(:disabled) {
@@ -8682,13 +8041,6 @@ input.toolbar-input {
        在弹窗内容区换用 bg-primary 后会显示为不协调的色带，故显式透明化。 */
     background: transparent;
 }
-.path-bar-inline-compact {
-    margin: 8px 0 0 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-}
-
 /* 目录选择列表 */
 .dir-browser-list {
     margin-top: 12px;
@@ -8721,17 +8073,6 @@ input.toolbar-input {
     display: flex;
     flex-direction: column;
     gap: 12px;
-}
-/* 标题行（flex 布局） */
-.subtask-title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-}
-.subtask-title {
-    font-weight: 600;
-    font-size: 15px;
 }
 /* 信息行（元数据文本） */
 .meta-row {
@@ -10558,12 +9899,13 @@ input.toolbar-input {
     mask-image: url("../assets/配置.svg");
 }
 
+/* 配置弹窗遮罩：层级低于命令面板等更高层浮层；背景压暗但不开模糊（后层补丁的最终取值） */
 .cfg-overlay {
     position: fixed;
     inset: 0;
-    z-index: 400;
-    background: rgba(0, 0, 0, 0.48);
-    backdrop-filter: blur(3px);
+    z-index: 300;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: none;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -10579,52 +9921,11 @@ input.toolbar-input {
     overflow: hidden;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: 0 24px 72px rgba(0, 0, 0, 0.5);
-    animation: cfgModalIn 0.18s ease;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    /* 与通用 .modal 共用同一入场动画，不再单独定义 keyframes */
+    animation: modalPopIn 0.18s ease;
 }
-@keyframes cfgModalIn {
-    from { opacity: 0; transform: translateY(8px) scale(0.99); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
-.cfg-topbar {
-    height: 48px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 0 14px 0 18px;
-    border-bottom: 1px solid var(--border);
-}
-.cfg-topbar-icon {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    background: var(--accent);
-    -webkit-mask-image: url("../assets/配置.svg");
-    -webkit-mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    -webkit-mask-size: contain;
-    mask-image: url("../assets/配置.svg");
-    mask-repeat: no-repeat;
-    mask-position: center;
-    mask-size: contain;
-}
-.cfg-topbar-title { font-size: 13.5px; font-weight: 600; }
-.cfg-close {
-    margin-left: auto;
-    width: 26px;
-    height: 26px;
-    flex-shrink: 0;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 13px;
-    cursor: pointer;
-}
-.cfg-close:hover { background: var(--bg-card-hover); color: var(--text-primary); }
-
 .cfg-shell { flex: 1; display: flex; min-height: 0; }
 .cfg-nav {
     width: 170px;
@@ -10694,7 +9995,7 @@ input.toolbar-input {
 .cfg-scroll { flex: 1; overflow-y: auto; padding: 20px 26px 18px; min-height: 0; }
 .cfg-section { display: none; }
 .cfg-section.active { display: block; }
-.cfg-section-head h2 { font-size: 18px; font-weight: 600; letter-spacing: 0.1px; }
+.cfg-section-head h2 { font-size: 16px; font-weight: 600; letter-spacing: 0.1px; }
 .cfg-section-head p {
     margin-top: 5px;
     color: var(--text-muted);
@@ -10702,17 +10003,7 @@ input.toolbar-input {
     line-height: 1.55;
     max-width: 520px;
 }
-.cfg-footbar {
-    height: 36px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    padding: 0 18px;
-    border-top: 1px solid var(--border);
-    color: var(--text-muted);
-    font-size: 10.5px;
-}
-.cfg-esc-hint { margin-left: auto; display: flex; align-items: center; gap: 5px; }
+.cfg-esc-hint { margin-left: 0; display: flex; align-items: center; gap: 5px; font-size: 10.5px; }
 .cfg-esc-hint kbd { height: 18px; min-width: 18px; padding: 0 5px; font-size: 9px; }
 
 /* 界面外观 */
@@ -11176,17 +10467,8 @@ input.toolbar-input {
 /* 侧栏底部「配置」入口：与导航项同尺寸/动画，仅贴底显示 */
 #sidebarNotify { margin-top: auto; }
 
-/* 配置弹窗：与现有 modal-card 的头/身/脚保持一致 */
-.cfg-overlay {
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: none;
-    z-index: 300;
-}
-.cfg-modal {
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    animation: modalPopIn 0.18s ease;
-}
+/* 配置弹窗：与现有 modal-card 的头/身/脚保持一致
+   （尺寸/配色/动画已并入文件前部的 .cfg-modal 主定义，此处只保留差异化细节） */
 .cfg-modal .cfg-shell {
     padding: 0;
     overflow: hidden;
@@ -11194,36 +10476,28 @@ input.toolbar-input {
     min-height: 0;
     background: var(--bg-primary);
 }
+/* 底部栏：压缩高度，左右分栏放置版本信息与 Esc 提示（两次补丁取最终值） */
 .cfg-modal .modal-footer.cfg-footer {
     justify-content: space-between;
-    padding: 8px 18px;
-    min-height: 40px;
+    padding: 0 18px;
+    min-height: 34px;
+    height: 34px;
 }
-.cfg-section-head h2 { font-size: 16px; }
-.cfg-esc-hint { margin-left: 0; }
+/* 配置弹窗底部：比正文更小的辅助信息，避免 v2.0.2 / Esc 提示过大 */
+.cfg-footer {
+    font-size: 10.5px;
+}
 
 .cfg-method.put,
 .cfg-method.patch { color: var(--warning); background: var(--warning-bg); }
 .cfg-method.delete { color: var(--danger); background: var(--danger-bg); }
 
-/* 配置弹窗底部：比正文更小的辅助信息，避免 v2.0.2 / Esc 提示过大 */
-.cfg-footer {
-    font-size: 10.5px;
-}
-.cfg-esc-hint {
-    font-size: 10.5px;
-}
 .cfg-mode .cfg-esc-hint kbd,
 .cfg-footer kbd {
     height: 16px;
     min-width: 16px;
     padding: 0 4px;
     font-size: 8px;
-}
-.cfg-modal .modal-footer.cfg-footer {
-    padding: 0 18px;
-    min-height: 34px;
-    height: 34px;
 }
 /* Web 服务操作按钮：与原型一致的小圆角，不要全局 .btn 的胶囊形 */
 .cfg-web-actions .btn {
@@ -11274,8 +10548,6 @@ input.toolbar-input {
     outline: none;
 }
 .cfg-network .modal-field input:focus { border-color: var(--accent); }
-.cfg-network .pwd-row { display: flex; align-items: center; gap: 6px; }
-.cfg-network .pwd-row input { flex: 1; }
 .cfg-network .proxy-separator { margin: 14px 0; border: none; border-top: 1px solid var(--border); }
 .cfg-network .proxy-switch-row {
     display: flex;

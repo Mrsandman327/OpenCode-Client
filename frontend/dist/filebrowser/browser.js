@@ -8,6 +8,7 @@
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
 import { showToast, escapeHtml, showApiError, isDesktopRuntime, copyToClipboard } from '../core/utils.js';
+import { dirname } from '../core/path.js';
 import { formatApiError } from '../core/v2compat.js';
 import {
     fileBrowserClearObjectURL,
@@ -153,11 +154,10 @@ export function findNodeByPath(node, path) {
 }
 
 /** 由节点路径计算父目录路径：结果以 / 开头且无尾斜杠，根目录的父级仍返回 "/"。
- *  说明：兼容带尾斜杠的输入（目录节点的后端原始格式），避免 substring 误算。 */
+ *  说明：兼容带尾斜杠的输入（目录节点的后端原始格式），避免 substring 误算。
+ *  目录推导统一走 core/path.js；空路径按旧行为回退根目录。 */
 function fileBrowserParentPath(p) {
-    var clean = String(p || '').replace(/\/+$/, '');
-    var idx = clean.lastIndexOf('/');
-    return idx <= 0 ? '/' : clean.substring(0, idx);
+    return dirname(p) || '/';
 }
 
 /** 加载目录节点的 children（懒加载） */

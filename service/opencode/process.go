@@ -44,12 +44,6 @@ const (
 var (
 	WebSess   *webSession
 	WebSessMu sync.Mutex
-	// LastCfgHost / LastCfgPort 记录前端最近一次配置的服务地址。
-	// 由 lastCfgMu 保护：StartOpenCodeWeb / GetWebStatus 都会写入，
-	// 单独一把锁避免与 WebSessMu 交错加锁。
-	lastCfgMu   sync.Mutex
-	LastCfgHost = defaultHostname
-	LastCfgPort = defaultPort
 )
 
 // ========== opencode service 命令封装 ==========
@@ -58,8 +52,8 @@ var (
 // 优先使用程序目录下 tools/opencode.exe（便携模式，与 configs/ 同级），
 // 不存在时回退到 PATH 上的 opencode（开发环境、未放置便携版时保持可用）。
 func resolveOpencodeBin() string {
-	if exePath, err := os.Executable(); err == nil {
-		toolsDir := filepath.Join(filepath.Dir(exePath), "tools")
+	if exeDir := portable.ExeDir(); exeDir != "" {
+		toolsDir := filepath.Join(exeDir, "tools")
 		// 按平台常见命名依次探测：Windows 为 opencode.exe，类 Unix 为 opencode
 		for _, name := range []string{"opencode.exe", "opencode"} {
 			candidate := filepath.Join(toolsDir, name)
@@ -134,10 +128,6 @@ func StartOpenCodeWeb(port int, hostname string, password string, proxy model.Pr
 	if port <= 0 {
 		port = defaultPort
 	}
-	lastCfgMu.Lock()
-	LastCfgHost = hostname
-	LastCfgPort = port
-	lastCfgMu.Unlock()
 
 	// 1) 本会话已连接的服务
 	WebSessMu.Lock()
@@ -224,15 +214,7 @@ func applyProxyToService(proxy model.ProxyConfig) {
 		return
 	}
 
-	host := strings.TrimSpace(proxy.ProxyHost)
-	proxyPort := strings.TrimSpace(proxy.ProxyPort)
-	if host == "" {
-		host = "127.0.0.1"
-	}
-	if proxyPort == "" {
-		proxyPort = "7897"
-	}
-	proxyURL := fmt.Sprintf("http://%s:%s", host, proxyPort)
+	proxyURL := proxy.ProxyURL()
 	for _, kv := range [][2]string{
 		{"HTTP_PROXY", proxyURL},
 		{"HTTPS_PROXY", proxyURL},
@@ -313,19 +295,12 @@ func discoverOpenCodeServer() (string, int, string, bool) {
 }
 
 // probeOpenCodeHealth 严格探测 /api/info：仅 2xx 视为存活。
+// 复用 getOpenCodeHealthWithAuth 的请求与解析逻辑，避免重复实现同一套探测。
+// 注意：这里仍要求状态为"在线"（即 2xx）；401"需口令"表示口令不匹配，
+// 不能当作可用存活，否则 discoverOpenCodeServer 会跳过手填口令回退。
 func probeOpenCodeHealth(hostname string, port int, password string) bool {
-	client := http.Client{Timeout: 2 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, serverInfoURL(hostname, port), nil)
-	if err != nil {
-		return false
-	}
-	applyAuth(req, password)
-	resp, err := client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
+	health, _, ok := getOpenCodeHealthWithAuth(hostname, port, password)
+	return ok && health == "在线"
 }
 
 // GetWebStatus 返回当前服务状态。hostname/port 为前端配置的服务地址。
@@ -336,10 +311,6 @@ func GetWebStatus(hostname string, port int) model.WebResult {
 	if port <= 0 {
 		port = defaultPort
 	}
-	lastCfgMu.Lock()
-	LastCfgHost = hostname
-	LastCfgPort = port
-	lastCfgMu.Unlock()
 
 	WebSessMu.Lock()
 	if WebSess != nil {

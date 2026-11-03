@@ -8,14 +8,14 @@
 // ============================
 import { isBrowserRuntimeForMain, showToast, showApiError, isDesktopRuntime, loadWailsRuntime, bindOverlayClose } from './core/utils.js';
 import { api } from './core/apicall.js';
-import { store, currentDir } from './core/state.js';
-import { toModelOptions, formatApiError } from './core/v2compat.js';
+import { store } from './core/state.js';
+import { formatApiError } from './core/v2compat.js';
 import {
     isMobileTreeMode, toggleMobileTree, closeMobileTree,
     toggleSessions, toggleSidepanel,
 } from './chat/mobile.js';
 import {
-    applyProxyConfig, updateProxyPreview, updateProxyButton,
+    applyProxyConfig, updateProxyPreview,
     copyFrontendWebUrl, persistFrontendWebConfigFromInputs, loadFrontendWebConfigToInputs,
     checkFrontendWebStatus, ensureLanIPv4,
 } from './chat/config.js';
@@ -39,14 +39,11 @@ import {
     openFileBrowserModal,
 } from './filebrowser/browser.js';
 import {
-    showAddPresetModal, loadModelConfig, handleSlimSave, openSlimDir,
+    showAddPresetModal, handleSlimSave, openSlimDir,
 } from './views/omo-config.js';
 import {
     loadSkillsData, renderSkillList, bindSkillManagerEvents,
 } from './views/skill-manager.js';
-import {
-    renderCommandsCard, renderApiDocs, apiDocLoaded,
-} from './views/commands.js';
 import { bindKnowledgeEvents } from './views/knowledge.js';
 import { loadProviders } from './views/provider.js';
 // 知识库 @ 引用：输入框输入 @ 弹出知识库搜索面板（需 DOM 就绪后显式初始化）
@@ -287,7 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.getElementById(id);
         if (el) el.addEventListener(id === 'proxyEnabled' ? 'change' : 'input', updateProxyPreview);
     });
-    updateProxyButton();
     loadFrontendWebConfigToInputs();
 
     // 右侧面板折叠
@@ -350,35 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // （数据在切换到「知识库」时按需加载，见 chat/navigation.js）
     // ========================
     bindKnowledgeEvents();
-
-    // ========================
-    // 命令视图事件绑定
-    // ========================
-
-    document.querySelector('.cmd-tabs').addEventListener('click', (e) => {
-        const tabBtn = e.target.closest('.cmd-tab');
-        if (!tabBtn || !tabBtn.dataset.cmdTab) return;
-
-        const tab = tabBtn.dataset.cmdTab;
-        if (tab === store.cmdActiveTab) return;
-
-        store.cmdActiveTab = tab;
-
-        document.querySelectorAll('.cmd-tab').forEach(t => {
-            t.classList.toggle('active', t.dataset.cmdTab === tab);
-        });
-        renderCommandsCard(tab);
-    });
-
-    var apiDocSearchInput = document.getElementById('apiDocSearch');
-    if (apiDocSearchInput) {
-        apiDocSearchInput.addEventListener('input', function(e) {
-            store.apiDocKeyword = e.target.value || '';
-            if (store.cmdActiveTab === 'api' && apiDocLoaded) {
-                renderApiDocs();
-            }
-        });
-    }
 
     // ========================
     // 供应商配置事件绑定

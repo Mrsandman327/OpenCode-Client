@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"oc-manager/internal/portable"
 )
 
 // writeProbeName 是写权限探测文件名，探测结束后立即删除。
@@ -27,14 +29,15 @@ func VaultDir() (string, error) {
 
 // executableDir 返回当前可执行文件所在目录（解析符号链接）。
 func executableDir() (string, error) {
-	exePath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("获取可执行文件路径失败: %w", err)
+	dir := portable.ExeDir()
+	if dir == "" {
+		return "", fmt.Errorf("获取可执行文件路径失败")
 	}
-	if resolved, err := filepath.EvalSymlinks(exePath); err == nil {
-		exePath = resolved
+	// 保持原有语义：解析目录上的符号链接，软链启动时仍定位到真实安装目录
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
 	}
-	return filepath.Dir(exePath), nil
+	return dir, nil
 }
 
 // resolveVaultDir 在 exeDir 下优先使用 vault/ 子目录，不可写时回退到 fallbackBase。

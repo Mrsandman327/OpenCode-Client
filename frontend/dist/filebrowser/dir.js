@@ -6,6 +6,7 @@
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
 import { showToast, escapeHtml, showApiError } from '../core/utils.js';
+import { dirname } from '../core/path.js';
 
 /** 打开目录浏览器弹窗，返回 Promise<dir> */
 export async function openDirBrowserModal() {
@@ -67,18 +68,16 @@ export async function selectDirBrowserCurrent() {
 	document.getElementById('dirBrowserModal').style.display = 'none';
 }
 
-/** 目录浏览器返回上一级 */
+/** 目录浏览器返回上一级（目录推导统一走 core/path.js，含盘符根处理） */
 export async function goDirBrowserUp() {
 	if (!store.dirBrowserCurrentPath) return;
-	const current = String(store.dirBrowserCurrentPath).replace(/[\\/]+$/);
-	let parent = current.replace(/[\\/][^\\/]+$/, '');
-	if (!parent || parent === current) {
+	const current = String(store.dirBrowserCurrentPath);
+	const parent = dirname(current);
+	// 推导不出父级（已是根 / 无法解析），或 POSIX 一级目录的上一级：
+	// 沿用旧行为回到「根目录」入口（空路径由后端枚举根，Windows 为盘符列表）。
+	if (!parent || parent === current || parent === '/') {
 		await loadDirBrowserList('');
 		return;
-	}
-	// Windows 盘符（如 E:）不是根目录，需补 \ 才能正确指向盘符根
-	if (/^[A-Za-z]:$/.test(parent)) {
-		parent += '\\';
 	}
 	await loadDirBrowserList(parent);
 }

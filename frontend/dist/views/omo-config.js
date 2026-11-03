@@ -21,7 +21,8 @@
 // ============================================================
 import { api } from '../core/apicall.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
-import { showToast, escapeAttr, bindOverlayClose } from '../core/utils.js';
+import { showToast, escapeAttr, bindOverlayClose, VARIANT_ORDER } from '../core/utils.js';
+import { dirname } from '../core/path.js';
 import { store, currentDir } from '../core/state.js';
 import { toModelOptions, formatApiError } from '../core/v2compat.js';
 
@@ -58,8 +59,10 @@ export const SLIM_AGENT_KEYS = [
     'orchestrator', 'oracle', 'librarian', 'explorer',
     'designer', 'fixer', 'observer', 'council',
 ];
-// variant（思考力度）选项；文件里的当前值若不在列表会被合并出现，避免吞掉自定义值
-export const SLIM_VARIANT_OPTIONS = ['', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+// variant（思考力度）选项；文件里的当前值若不在列表会被合并出现，避免吞掉自定义值。
+// 顺序与「默认空档」口径统一由 core/utils.js 的 VARIANT_ORDER 维护（唯一事实源）；
+// 这里保留原导出名，避免调用点改动。复制一份数组，防止调用方误改共享常量。
+export const SLIM_VARIANT_OPTIONS = [...VARIANT_ORDER];
 
 // ========== 小工具 ==========
 
@@ -1408,24 +1411,13 @@ export async function handleSlimSave() {
 }
 
 // ========== 打开配置目录 ==========
-/** 取文件路径的所在目录（兼容 \ 与 / 两种分隔符；推导不出时返回空串） */
-function dirNameOf(filePath) {
-    if (!filePath) return '';
-    const idx = Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/'));
-    if (idx < 0) return '';             // 无分隔符：无法推断目录
-    if (idx === 0) return filePath[0];  // 根目录（如 /file.jsonc → /）
-    if (idx === 2 && filePath[1] === ':') {
-        return filePath.slice(0, 3);    // 盘符根（如 C:\file.jsonc → C:\）
-    }
-    return filePath.slice(0, idx);
-}
-
 /**
  * 「📂 打开」：用**站内文件浏览器**打开配置文件所在目录（不是文件本身），
  * 与「供应商配置」的 📂 打开行为一致；目录推导失败时 toast 提示。
+ * 目录推导复用 core/path.js 的跨平台实现（兼容 \ 与 /、盘符根）。
  */
 export function openSlimDir() {
-    const dir = dirNameOf(slimPath);
+    const dir = dirname(slimPath);
     if (!dir) {
         showToast('尚未获取到配置文件路径，无法打开目录', 'error');
         return;

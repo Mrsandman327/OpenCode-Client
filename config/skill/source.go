@@ -9,6 +9,7 @@ import (
 
 	"oc-manager/internal/fileutil"
 	"oc-manager/internal/pathutil"
+	"oc-manager/internal/portable"
 	"oc-manager/model"
 )
 
@@ -17,15 +18,16 @@ func SkillConfigDir() (string, error) {
 	if dir := os.Getenv("SKILL_CONFIG_DIR"); dir != "" {
 		return filepath.Clean(dir), nil
 	}
-	exePath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("获取可执行文件路径失败: %w", err)
+	exeDir := portable.ExeDir()
+	if exeDir == "" {
+		return "", fmt.Errorf("获取可执行文件路径失败")
 	}
-	exePath, err = filepath.EvalSymlinks(exePath)
+	// 保持原有语义：解析符号链接，确保通过软链启动时仍定位到真实安装目录
+	exeDir, err := filepath.EvalSymlinks(exeDir)
 	if err != nil {
 		return "", fmt.Errorf("解析可执行文件符号链接失败: %w", err)
 	}
-	return filepath.Join(filepath.Dir(exePath), "configs"), nil
+	return filepath.Join(exeDir, "configs"), nil
 }
 
 // SkillConfigPath 返回技能源配置文件（skill-config.json）的完整路径。

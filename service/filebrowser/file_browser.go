@@ -2,6 +2,7 @@ package filebrowser
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"mime"
 	"os"
@@ -124,13 +125,8 @@ func SaveBrowserFile(rootDir, relPath, content string) (model.SaveResult, error)
 	if !editable {
 		return model.SaveResult{Success: false, Error: "该文件类型不支持编辑保存"}, nil
 	}
-	// 空内容是合法的（编辑器清空文件），而 AtomicWriteRaw 拒绝零字节写入，故为空时直接落盘
-	data := []byte(content)
-	if len(data) == 0 {
-		if err := os.WriteFile(absPath, data, info.Mode().Perm()); err != nil {
-			return model.SaveResult{}, fmt.Errorf("写入文件失败: %w", err)
-		}
-	} else if err := fileutil.AtomicWriteRaw(absPath, data, info.Mode().Perm()); err != nil {
+	// 空内容是合法的（编辑器清空文件），writeAllowingEmpty 内部会为空内容选择直接落盘
+	if err := writeAllowingEmpty(absPath, []byte(content), info.Mode().Perm()); err != nil {
 		return model.SaveResult{}, fmt.Errorf("写入文件失败: %w", err)
 	}
 	return model.SaveResult{Success: true}, nil
@@ -194,12 +190,8 @@ func UploadBrowserFile(rootDir, relPath, fileName, base64Data string, overwrite 
 	if err != nil {
 		return model.FileBrowserUploadResult{Success: false, Error: "文件内容解析失败"}, nil
 	}
-	// 空文件（0 字节）是合法上传内容，而 AtomicWriteRaw 拒绝零字节写入，故为空时直接落盘
-	if len(data) == 0 {
-		if err := os.WriteFile(targetPath, data, 0644); err != nil {
-			return model.FileBrowserUploadResult{}, fmt.Errorf("写入文件失败: %w", err)
-		}
-	} else if err := fileutil.AtomicWriteRaw(targetPath, data, 0644); err != nil {
+	// 空文件（0 字节）是合法上传内容，writeAllowingEmpty 内部会为空内容选择直接落盘
+	if err := writeAllowingEmpty(targetPath, data, 0644); err != nil {
 		return model.FileBrowserUploadResult{}, fmt.Errorf("写入文件失败: %w", err)
 	}
 	return model.FileBrowserUploadResult{Success: true, Name: fileName}, nil
@@ -209,14 +201,8 @@ func UploadBrowserFile(rootDir, relPath, fileName, base64Data string, overwrite 
 func CreateBrowserDir(rootDir, relPath, dirName string) (model.SaveResult, error) {
 	relPath = normalizeBrowserRelPath(relPath)
 	dirName = strings.TrimSpace(dirName)
-	if dirName == "" {
-		return model.SaveResult{Success: false, Error: "文件夹名称不能为空"}, nil
-	}
-	if strings.ContainsAny(dirName, `\\/:*?"<>|`) {
-		return model.SaveResult{Success: false, Error: "文件夹名称包含非法字符（\\ / : * ? \" < > |）"}, nil
-	}
-	if dirName == "." || dirName == ".." {
-		return model.SaveResult{Success: false, Error: "文件夹名称不合法"}, nil
+	if err := validateEntryName(dirName); err != nil {
+		return model.SaveResult{Success: false, Error: "文件夹名称" + err.Error()}, nil
 	}
 	absDir, _, err := resolveBrowserPath(rootDir, relPath)
 	if err != nil {
@@ -250,14 +236,8 @@ func CreateBrowserDir(rootDir, relPath, dirName string) (model.SaveResult, error
 func CreateBrowserFile(rootDir, relPath, fileName string) (model.SaveResult, error) {
 	relPath = normalizeBrowserRelPath(relPath)
 	fileName = strings.TrimSpace(fileName)
-	if fileName == "" {
-		return model.SaveResult{Success: false, Error: "文件名不能为空"}, nil
-	}
-	if strings.ContainsAny(fileName, `\\/:*?"<>|`) {
-		return model.SaveResult{Success: false, Error: "文件名包含非法字符（\\ / : * ? \" < > |）"}, nil
-	}
-	if fileName == "." || fileName == ".." {
-		return model.SaveResult{Success: false, Error: "文件名不合法"}, nil
+	if err := validateEntryName(fileName); err != nil {
+		return model.SaveResult{Success: false, Error: "文件名" + err.Error()}, nil
 	}
 	absDir, _, err := resolveBrowserPath(rootDir, relPath)
 	if err != nil {
@@ -297,14 +277,8 @@ func RenameBrowserEntry(rootDir, relPath, newName string) (model.SaveResult, err
 		return model.SaveResult{Success: false, Error: "禁止重命名根目录"}, nil
 	}
 	newName = strings.TrimSpace(newName)
-	if newName == "" {
-		return model.SaveResult{Success: false, Error: "名称不能为空"}, nil
-	}
-	if strings.ContainsAny(newName, `\\/:*?"<>|`) {
-		return model.SaveResult{Success: false, Error: "名称包含非法字符（\\ / : * ? \" < > |）"}, nil
-	}
-	if newName == "." || newName == ".." {
-		return model.SaveResult{Success: false, Error: "名称不合法"}, nil
+	if err := validateEntryName(newName); err != nil {
+		return model.SaveResult{Success: false, Error: "名称" + err.Error()}, nil
 	}
 	absPath, _, err := resolveBrowserPath(rootDir, relPath)
 	if err != nil {
@@ -462,6 +436,33 @@ func parentBrowserPath(currentPath string) string {
 		return "/"
 	}
 	return parent
+}
+
+// writeAllowingEmpty 写入文件内容，允许写入零字节。
+// 项目内的 fileutil.AtomicWriteRaw 拒绝零字节写入，但「清空编辑器内容」与「上传空文件」
+// 都是合法场景，因此内容为空时退化为 os.WriteFile 直接落盘；非空内容仍走原子写入。
+func writeAllowingEmpty(path string, data []byte, perm os.FileMode) error {
+	if len(data) == 0 {
+		return os.WriteFile(path, data, perm)
+	}
+	return fileutil.AtomicWriteRaw(path, data, perm)
+}
+
+// validateEntryName 校验用户输入的文件/文件夹名称。
+// 校验顺序为：空名称、Windows 非法字符、"." / ".."。
+// 返回的错误只包含原因片段（如「不能为空」），由调用方拼接对象名（文件名 / 文件夹名称 / 名称），
+// 以便保持前端依赖的既有错误文案不变。
+func validateEntryName(name string) error {
+	if name == "" {
+		return errors.New("不能为空")
+	}
+	if strings.ContainsAny(name, `\\/:*?"<>|`) {
+		return errors.New(`包含非法字符（\ / : * ? " < > |）`)
+	}
+	if name == "." || name == ".." {
+		return errors.New("不合法")
+	}
+	return nil
 }
 
 func detectBrowserMime(path string, isDir bool) string {

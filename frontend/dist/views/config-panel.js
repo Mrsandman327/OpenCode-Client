@@ -6,7 +6,7 @@
 
 import { getTheme, setTheme } from '../core/theme.js';
 import { api } from '../core/apicall.js';
-import { escapeHtml } from '../core/utils.js';
+import { escapeHtml, copyToClipboard } from '../core/utils.js';
 import { store } from '../core/state.js';
 import { loadFrontendWebConfigToInputs, checkFrontendWebStatus, toggleFrontendWeb, loadProxyConfigToInputs } from '../chat/config.js';
 
@@ -22,28 +22,6 @@ let configApiDocLoading = false;
 let configApiDocError = '';
 let aboutVersionLoaded = false;
 let aboutVersionLoading = false;
-
-async function copyText(text) {
-    try {
-        if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(text);
-            return true;
-        }
-    } catch (_) {}
-    try {
-        const area = document.createElement('textarea');
-        area.value = text;
-        area.style.position = 'fixed';
-        area.style.opacity = '0';
-        document.body.appendChild(area);
-        area.select();
-        const ok = document.execCommand('copy');
-        area.remove();
-        return ok;
-    } catch (_) {
-        return false;
-    }
-}
 
 function renderThemeSelection() {
     const theme = getTheme();
@@ -346,7 +324,14 @@ export function initConfigPanel() {
         if (!btn) return;
         const text = btn.dataset.copy || '';
         if (!text) return;
-        const ok = await copyText(text);
+        // 复制统一走 core/utils.js 的 copyToClipboard（成功 resolve / 失败 reject）
+        let ok = false;
+        try {
+            await copyToClipboard(text);
+            ok = true;
+        } catch (_) {
+            // 复制失败：按钮显示「复制失败」
+        }
         const old = btn.textContent;
         btn.textContent = ok ? '已复制' : '复制失败';
         btn.classList.toggle('copied', ok);

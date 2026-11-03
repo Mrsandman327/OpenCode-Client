@@ -69,14 +69,11 @@ func NewConverterWithRoot(store *Store, globalRoot string) *Converter {
 // globalOpenCodeDir 解析全局 opencode 配置目录：
 // 优先 XDG_CONFIG_HOME，其次 ~/.config；与 config/skill 的全局技能目录约定保持一致。
 func globalOpenCodeDir() (string, error) {
-	if dir := portable.ConfigHome(); dir != "" {
-		return filepath.Join(dir, "opencode"), nil
+	dir := portable.OpenCodeConfigDir()
+	if dir == "" {
+		return "", fmt.Errorf("获取全局 opencode 配置目录失败")
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("获取用户主目录失败: %w", err)
-	}
-	return filepath.Join(home, ".config", "opencode"), nil
+	return dir, nil
 }
 
 // Preview 计算转化目标与内容，纯读取计算，不产生任何写入。

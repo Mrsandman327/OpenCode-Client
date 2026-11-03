@@ -8,6 +8,7 @@
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
 import { showToast, escapeHtml, showApiError } from '../core/utils.js';
+import { dirname } from '../core/path.js';
 // Markdown 清洗（白名单 + href 协议校验）统一走 core/sanitize.js 的公共实现
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { formatApiError } from '../core/v2compat.js';
@@ -373,13 +374,20 @@ export function normalizeRelativePath(p) {
     return result.join('/');
 }
 
+/** 取文件所在目录并补结尾 "/"，供相对路径直接拼接（目录推导复用 core/path.js）。
+ *  无目录（如纯文件名）时返回空串，保持原有拼接行为。 */
+function dirWithSlash(filePath) {
+    const dir = dirname(filePath);
+    return dir && !/[\\/]$/.test(dir) ? dir + '/' : dir;
+}
+
 // 解析 markdown HTML 中图片的相对路径，替换为 blob URL
 export async function resolveMarkdownImages(rawHtml, rootDir, mdFilePath) {
     var template = document.createElement('template');
     template.innerHTML = rawHtml;
     var imgs = template.content.querySelectorAll('img');
     if (imgs.length === 0) return rawHtml;
-    var mdDir = mdFilePath.substring(0, mdFilePath.lastIndexOf('/') + 1);
+    var mdDir = dirWithSlash(mdFilePath);
     var tasks = [];
     imgs.forEach(function(img) {
         var src = (img.getAttribute('src') || '').trim();
@@ -403,7 +411,7 @@ export async function resolveMarkdownImages(rawHtml, rootDir, mdFilePath) {
 export async function resolveHtmlResources(rawHtml, rootDir, htmlFilePath) {
     var template = document.createElement('template');
     template.innerHTML = rawHtml;
-    var htmlDir = htmlFilePath.substring(0, htmlFilePath.lastIndexOf('/') + 1);
+    var htmlDir = dirWithSlash(htmlFilePath);
     var tasks = [];
 
     template.content.querySelectorAll('img[src]').forEach(function(img) {
@@ -479,7 +487,7 @@ export async function renderHtmlPreview(item, readData, isCurrentRequest) {
     // 注入导航拦截脚本：在页面内最前面运行，拦截所有相对路径跳转
     // （window.location.href / replace / assign 以及 <a href> 点击）
     // 通过 postMessage 与父页面通信，将相对路径解析为 blob URL 后再导航
-    var htmlDir = item.path.substring(0, item.path.lastIndexOf('/') + 1);
+    var htmlDir = dirWithSlash(item.path);
     var navInterceptScript = '<script>' +
         '(function(){' +
             // 通过 postMessage 请求父页面解析相对路径

@@ -3,6 +3,7 @@
 // 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import。
 import { api } from '../core/apicall.js';
 import { escapeHtml, showToast, showApiError, isBrowserRuntimeForMain } from '../core/utils.js';
+import { shortPath } from '../core/path.js';
 import { store } from '../core/state.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
@@ -36,11 +37,7 @@ var CFG_ICON_PLUS = '<svg class="cfg-i" viewBox="0 0 24 24" aria-hidden="true"><
 // 颜色由 .skill-icon 容器统一走 --accent，尺寸由 .skill-icon-i 控制
 var SKILL_ICON = '<svg class="skill-icon-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z"/></svg>';
 
-// 取路径末两段作为 chip 上的短标签（完整路径仍保留在 title 提示里）
-function shortPath(p) {
-    var parts = String(p).split(/[\\/]/).filter(Boolean);
-    return parts.length <= 2 ? parts.join('\\') : parts.slice(-2).join('\\');
-}
+// 路径末两段作为 chip 短标签（完整路径仍保留在 title 提示里）由 core/path.js 统一实现
 
 export async function loadSkillsData() {
     if (store.skillsLoaded) return;

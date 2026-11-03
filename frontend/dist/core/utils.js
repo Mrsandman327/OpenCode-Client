@@ -222,8 +222,13 @@ export function variantLabel(value) {
     return v.charAt(0).toUpperCase() + v.slice(1);
 }
 
-// 标准档位顺序：模型上报的 variants 顺序可能是元数据顺序，这里统一排序。
-const VARIANT_ORDER = ['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+// 标准档位顺序（唯一事实源）：模型上报的 variants 顺序可能是元数据顺序，这里统一排序。
+// 空串代表「默认 / 不指定档位」的选项；其余为具体思考强度。
+export const VARIANT_ORDER = ['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+
+/** 供应商配置页的思考强度档位：保持固定的 6 档（不含 minimal），
+ *  与 VARIANT_ORDER 的先后顺序一致。这是既有 UI 口径，调整需同步确认供应商页。 */
+export const MODEL_EFFORTS = ['none', 'low', 'medium', 'high', 'xhigh', 'max'];
 
 /** 按标准顺序排序并去重；未知档位保留在末尾（供应商自定义值不被吞掉）。 */
 function sortVariantValues(values) {

@@ -27,12 +27,7 @@ const defaultProviderPackage = "aisdk:@ai-sdk/openai-compatible"
 
 // OpenCodeConfigPath 返回 opencode.jsonc 的完整路径（不存在时回退同名 .json）。
 func OpenCodeConfigPath() string {
-	dir := portable.ConfigHome()
-	if dir != "" {
-		return fileutil.ResolveJSONC(filepath.Join(dir, "opencode", "opencode.jsonc"))
-	}
-	home, _ := os.UserHomeDir()
-	return fileutil.ResolveJSONC(filepath.Join(home, ".config", "opencode", "opencode.jsonc"))
+	return fileutil.ResolveJSONC(filepath.Join(portable.OpenCodeConfigDir(), "opencode.jsonc"))
 }
 
 func loadOpenCodeConfig() (*model.OpenCodeConfig, error) {

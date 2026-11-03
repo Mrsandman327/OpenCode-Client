@@ -65,14 +65,14 @@
         </nav>
 
         <!-- 内容区域 -->
-        <div class="content-area" id="contentArea">
+        <div class="content-area">
 
             <!-- ===== View 1: 工作区 ===== -->
             <div class="view-panel active" id="view-opencode">
                 <!-- 自研轻量客户端 -->
                 <div class="oc-client" id="webContainer">
                     <button type="button" class="oc-toggle-btn oc-toggle-left" id="btnToggleSessions" title="隐藏会话栏">◀</button>
-                    <aside class="oc-sessions" id="ocSessions">
+                    <aside class="oc-sessions">
                         <div class="oc-panel-head oc-sessions-head">
                             <span class="oc-sessions-title">会话列表</span>
                             <button type="button" class="oc-head-icon-btn" id="ocTreeSearchToggle" title="搜索会话" aria-label="搜索会话" aria-expanded="false" aria-controls="ocTreeSearchBar">
@@ -134,7 +134,7 @@
                                 <button type="button" class="oc-user-nav-btn" id="btnUserNavNext" title="下一条用户消息">▼</button>
                             </div>
                         </div>
-                        <div class="oc-model-info" id="ocModelInfo">
+                        <div class="oc-model-info">
                             <span class="oc-select-icon oc-select-icon-agent"></span>
                             <select class="oc-model-select" id="ocAgentSelect">
                                 <option value="">默认</option>
@@ -435,23 +435,6 @@
                 </div>
             </div>
 
-            <!-- ===== View 4: 常用命令 ===== -->
-            <div class="view-panel" id="view-commands">
-                <div class="cmd-tabs">
-                    <button type="button" class="cmd-tab active" data-cmd-tab="cli">CLI 命令</button>
-                    <button type="button" class="cmd-tab" data-cmd-tab="tui">TUI 命令</button>
-                    <button type="button" class="cmd-tab" data-cmd-tab="api">API 文档</button>
-                </div>
-                <section class="path-bar" id="apiDocSearchBar" style="display:none">
-                    <span class="path-label">搜索：</span>
-                    <input type="text" id="apiDocSearch" class="toolbar-input" placeholder="输入关键字过滤 API 文档..." />
-                </section>
-                <div id="apiDocEmptyState" style="display:none">未找到匹配的 API 接口</div>
-                <div class="cmd-content" id="cmdContent">
-                    <div class="loading"><div class="spinner"></div><p>正在加载命令列表...</p></div>
-                </div>
-            </div>
-
             <!-- ===== View 5: 供应商配置 ===== -->
             <div class="view-panel" id="view-providers">
                 <!-- 工具栏（照知识库 .kb-toolbar）：搜索 + 展开/折叠 + 列表/卡片切换 + 打开配置文件 + 添加供应商 -->
@@ -726,7 +709,7 @@
                                     </div>
                                     <div class="cfg-qr-card">
                                         <div class="frontend-web-qr-box" id="frontendWebQrBox">
-                                            <div class="frontend-web-qr-empty" id="frontendWebQrEmpty">启动服务后显示二维码</div>
+                                            <div class="frontend-web-qr-empty">启动服务后显示二维码</div>
                                         </div>
                                         <div class="frontend-web-qr-hint" id="frontendWebQrHint">手机扫码打开此页面</div>
                                     </div>
@@ -970,7 +953,7 @@
                 </div>
                 <button type="button" class="modal-close-btn" id="subtaskModalCloseBtn" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
-            <div class="subtask-modal-section" id="subtaskModalSummary">
+            <div class="subtask-modal-section">
                 <div class="meta-row">
                     <span id="subtaskAgent"></span>
                     <span class="meta-sep">·</span>

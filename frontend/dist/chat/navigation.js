@@ -2,7 +2,7 @@
 // OpenCode 管理中心 - 侧边栏导航
 // 依赖：core/utils.js（$$）、chat/service.js（checkWebStatus）；
 //       views/omo-config.js（loadModelConfig）、views/skill-manager.js（loadSkillsData）、
-//       views/commands.js（loadCommands）——views 层尚未改造，保留全局守卫调用
+//       views/knowledge.js（loadKnowledgeView）
 // ============================================================
 
 import { $$ } from '../core/utils.js';
@@ -11,7 +11,6 @@ import { checkWebStatus } from './service.js';
 import { loadModelConfig } from '../views/omo-config.js';
 import { loadSkillsData } from '../views/skill-manager.js';
 import { loadKnowledgeView } from '../views/knowledge.js';
-import { loadCommands } from '../views/commands.js';
 
 export function switchView(viewId) {
     // 更新导航项高亮
@@ -32,8 +31,6 @@ export function switchView(viewId) {
     } else if (viewId === 'view-knowledge') {
         // 知识库：切换到该视图时按需拉取条目与分类
         loadKnowledgeView();
-    } else if (viewId === 'view-commands') {
-        loadCommands();
     } else if (viewId === 'view-opencode') {
         // 检查 web 状态
         checkWebStatus();

@@ -23,8 +23,6 @@ function loadDesktopBindings() {
 export const api = new Proxy({}, {
     get(_, prop) {
         if (prop === 'OpenCodeCall') {
-            // return async (method, path, data) => {
-            //     const result = await api.OpenCodeAPI(method, path, data ? JSON.stringify(data) : '');
             return async (...args) => {
                 const requestMethod = args[0];
                 const origPath = args[1];
@@ -51,20 +49,7 @@ export const api = new Proxy({}, {
                     throw err;
                 }
                 if (!result.body) return null;
-                if(origPath === '/provider'){
-                    var data = JSON.parse(result.body);
-                    var models = [];
-                    (data.all || []).forEach(function(provider) {
-                        Object.values(provider.models || {}).forEach(function(m) {
-                            // value 保持 providerID/modelID（对话请求按 '/' 切分，必须是真实模型 ID）
-                            // label 用模型 name 展示（name 缺失时兜底用 id）
-                            models.push({ value: provider.id + '/' + m.id, label: provider.id + '/' + (m.name || m.id) });
-                        });
-                    });
-                    return models;
-                }else{
-                    return JSON.parse(result.body);
-                }
+                return JSON.parse(result.body);
             };
         }
         if (isDesktopRuntime()) {

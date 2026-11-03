@@ -12,7 +12,7 @@ import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
 import { showToast, showApiError, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop, refreshTodoPanel } from '../core/utils.js';
 import { getNetworkConfig } from './config.js';
-import { startEventStream, loadSessionStatuses } from './events.js';
+import { startEventStream } from './events.js';
 import { buildTree } from './tree.js';
 import { loadAgentModelSelectors } from './session.js';
 import { initSearch, initUserNav } from './search.js';

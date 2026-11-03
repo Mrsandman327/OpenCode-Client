@@ -16,6 +16,7 @@ import (
 	"oc-manager/config/provider"
 	"oc-manager/config/skill"
 	"oc-manager/internal/logger"
+	"oc-manager/internal/portable"
 	"oc-manager/model"
 	"oc-manager/service/filebrowser"
 	"oc-manager/service/knowledge"
@@ -82,15 +83,10 @@ func (a *App) ServiceShutdown() error {
 // ========== 技能管理 ==========
 
 // GetSkillConfig 返回技能管理页面需要的完整聚合数据（统一接口）。
+// 技能列表复用 getAggregatedSkills，来源目录仍单独读取用于返回给前端。
 func (a *App) GetSkillConfig() model.SkillConfigResult {
 	dirs, _ := skill.ListSourceDirs()
-	var skills []model.SkillInfo
-
-	if len(dirs) == 0 {
-		skills = a.sm.GetAllSkills()
-	} else {
-		skills = a.sm.ScanWithGlobal(dirs)
-	}
+	skills := a.getAggregatedSkills()
 
 	return model.SkillConfigResult{
 		SourceDirs: dirs,
@@ -481,9 +477,14 @@ func (a *App) OpenDirectoryDialog() string {
 	if a.app == nil {
 		return ""
 	}
+	// 默认定位到可执行文件目录；获取失败时退回当前目录
+	exeDir := portable.ExeDir()
+	if exeDir == "" {
+		exeDir = "."
+	}
 	dir, err := a.app.Dialog.OpenFile().
 		SetTitle("选择工作目录").
-		SetDirectory(filepath.Dir(executablePath())).
+		SetDirectory(exeDir).
 		CanChooseDirectories(true).
 		CanChooseFiles(false).
 		PromptForSingleSelection()
@@ -491,15 +492,6 @@ func (a *App) OpenDirectoryDialog() string {
 		return ""
 	}
 	return dir
-}
-
-// executablePath 返回当前进程可执行文件的路径（作为目录选择对话框的默认目录）。
-func executablePath() string {
-	p, err := os.Executable()
-	if err != nil {
-		return "."
-	}
-	return p
 }
 
 // OpenFileBrowserWindow 打开独立的文件浏览器窗口（桌面端 Wails 多窗口）。
@@ -747,7 +739,7 @@ func (a *App) ImportSession(exportJSON string) model.APIResult {
 
 // appVersion 是 OC Manager 客户端自身的版本号（与右侧服务面板展示的 opencode 服务端版本区分）。
 // 单一来源：前端通过 GetAppVersion 读取；build/config.yml 的 info.version 保持同步。
-const appVersion = "2.0.2"
+const appVersion = "2.0.3"
 
 // GetAppVersion 返回 OC Manager 客户端版本号（右侧服务面板"客户端"行显示）。
 func (a *App) GetAppVersion() string {

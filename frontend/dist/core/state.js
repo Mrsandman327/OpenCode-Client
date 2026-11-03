@@ -179,10 +179,6 @@ export const store = {
     availableModels: [],
     /** 技能数据是否已加载（views/skill-manager.js 读写，main.js 刷新时写） */
     skillsLoaded: false,
-    /** 命令视图当前激活 tab：'cli'|'api'（views/commands.js 读写，main.js 切换时写） */
-    cmdActiveTab: 'cli',
-    /** 命令视图 API 文档搜索关键字（views/commands.js 读写，main.js 输入时写） */
-    apiDocKeyword: '',
 
     // ============================
     // 文件浏览器（filebrowser/ 层）

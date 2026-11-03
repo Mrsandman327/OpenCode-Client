@@ -3,6 +3,7 @@ package model
 
 import (
 	"encoding/json"
+	"strings"
 )
 
 // ========== 技能管理相关 ==========
@@ -411,6 +412,24 @@ type ProxyConfig struct {
 	// NoProxy 是追加到 NO_PROXY 的自定义排除项（逗号分隔），
 	// 默认的 localhost,127.0.0.1 始终保留。
 	NoProxy string `json:"noProxy"`
+}
+
+// ProxyURL 返回应用内代理配置对应的代理 URL。
+// 未启用代理时返回空字符串；主机留空时回退到 127.0.0.1，端口留空时回退到 7897，
+// 使 git、opencode 服务与更新下载三处共享同一套默认值。
+func (p ProxyConfig) ProxyURL() string {
+	if !p.ProxyEnabled {
+		return ""
+	}
+	host := strings.TrimSpace(p.ProxyHost)
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	port := strings.TrimSpace(p.ProxyPort)
+	if port == "" {
+		port = "7897"
+	}
+	return "http://" + host + ":" + port
 }
 
 // TreeNode 项目-目录-会话树节点。

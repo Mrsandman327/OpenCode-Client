@@ -53,8 +53,6 @@ import (
 var (
 	// slimWriteMu 保护配置文件写入的并发安全。
 	slimWriteMu sync.Mutex
-	// slimPathOverride 仅供测试注入配置文件路径；生产环境保持空。
-	slimPathOverride string
 )
 
 // ========== 路径与描述表 ==========
@@ -66,18 +64,8 @@ const slimDescriptionsFileName = "./configs/oh-my-opencode-slim/agents-comments.
 // 与插件自身一致：$XDG_CONFIG_HOME/opencode/oh-my-opencode-slim.jsonc；
 // 优先 .jsonc，其次同名 .json。
 func SlimConfigPath() string {
-	if slimPathOverride != "" {
-		return slimPathOverride
-	}
-	var dir string
-	if xdg := portable.ConfigHome(); xdg != "" {
-		dir = filepath.Join(xdg, "opencode")
-	} else {
-		home, _ := os.UserHomeDir()
-		dir = filepath.Join(home, ".config", "opencode")
-	}
 	// 优先 .jsonc，其次同名 .json（与供应商配置相同的回退语义）
-	return fileutil.ResolveJSONC(filepath.Join(dir, "oh-my-opencode-slim.jsonc"))
+	return fileutil.ResolveJSONC(filepath.Join(portable.OpenCodeConfigDir(), "oh-my-opencode-slim.jsonc"))
 }
 
 // ProjectSlimConfigPath 返回项目级配置文件路径（<dir>/.opencode/oh-my-opencode-slim.jsonc）。
@@ -97,11 +85,11 @@ func ProjectSlimConfigPath(projectDir string) string {
 }
 
 func slimDescriptionsPath() (string, error) {
-	exePath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("获取可执行文件路径失败: %w", err)
+	dir := portable.ExeDir()
+	if dir == "" {
+		return "", fmt.Errorf("获取可执行文件路径失败")
 	}
-	return filepath.Join(filepath.Dir(exePath), slimDescriptionsFileName), nil
+	return filepath.Join(dir, slimDescriptionsFileName), nil
 }
 
 // builtinSlimAgentComments 是内置 agent 描述兜底（描述文件缺失时使用）。

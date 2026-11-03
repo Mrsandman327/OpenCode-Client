@@ -14,6 +14,7 @@
 //   - 非图片扩展名（避免把任意文件读进 DOM）
 
 import { api } from './apicall.js';
+import { dirname, basename } from './path.js';
 
 /** 只处理常见图片扩展名 */
 const IMAGE_EXT = /\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i;
@@ -51,8 +52,9 @@ function toPathParts(src, baseDir) {
     p = p.replace(/\//g, '\\');
     if (/^[a-zA-Z]:\\/.test(p)) {
         const idx = p.lastIndexOf('\\');
-        if (idx <= 2) return null; // 只有盘符，没有文件名
-        return { rootDir: p.slice(0, idx), relPath: '/' + p.slice(idx + 1) };
+        if (idx <= 2) return null; // 只有盘符，没有文件名（保持旧行为：不读取盘符根下的文件）
+        // 目录 / 文件名切分统一走 core/path.js，避免各处重复实现
+        return { rootDir: dirname(p), relPath: '/' + basename(p) };
     }
     if (!baseDir) return null;
     return { rootDir: baseDir, relPath: '/' + p.replace(/^\\+/, '') };

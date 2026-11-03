@@ -7,6 +7,8 @@
 // ============================================================
 import { api } from '../core/apicall.js';
 import { escapeHtml, escapeAttr, $, showToast, showApiError, bindOverlayClose } from '../core/utils.js';
+// 路径末段展示复用 core/path.js 的跨平台实现
+import { basename } from '../core/path.js';
 // 当前会话所在目录（转化弹窗的「目标项目」默认值）取自会话状态
 import { store } from '../core/state.js';
 // 复用 core/sanitize.js 的 Markdown 白名单清洗（与 project-config.js 的用法一致），不重复实现安全逻辑
@@ -1012,10 +1014,9 @@ function kbSlugFromTitle(title, fallback) {
     return s || fallback;
 }
 
-/** 取路径末段作为项目显示名（如 E:\code\git\xxx → xxx） */
+/** 取路径末段作为项目显示名（如 E:\code\git\xxx → xxx）；纯分隔符路径回退原值 */
 function kbDirLabel(path) {
-    var parts = String(path || '').replace(/[\\/]+$/, '').split(/[\\/]/);
-    return (parts.length && parts[parts.length - 1]) || String(path || '');
+    return basename(path) || String(path || '');
 }
 
 /**

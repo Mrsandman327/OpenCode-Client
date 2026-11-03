@@ -4,7 +4,8 @@
 // 说明：ES Modules 化改造。core 层依赖静态导入；filebrowser 依赖
 // 暂以 typeof 守卫调用，待 filebrowser 改造完成后改为静态 import。
 import { api } from '../core/apicall.js';
-import { escapeHtml, showToast, showApiError, bindOverlayClose } from '../core/utils.js';
+import { escapeHtml, showToast, showApiError, bindOverlayClose, MODEL_EFFORTS } from '../core/utils.js';
+import { dirname } from '../core/path.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 
 export let providerCache = [];
@@ -12,10 +13,9 @@ export let providerCache = [];
 // 当前配置文件完整路径（原 path-bar 已移除：改为内存保存，供「打开配置文件」定位所在目录）
 var providerConfigPath = '';
 
+/** 取配置文件所在目录（复用 core/path.js 的跨平台实现；保留原导出名与调用点） */
 export function getProviderConfigDir(cfgPath) {
-    var fullPath = String(cfgPath || '').trim();
-    if (!fullPath) return '';
-    return fullPath.replace(/[\\/][^\\/]+$/, '');
+    return dirname(String(cfgPath || '').trim());
 }
 
 export async function openProviderConfigDirInBrowser() {
@@ -53,7 +53,9 @@ export const MODALITY_OUTPUT = ['text', 'image', 'audio', 'video'];
 
 // 思考强度档位（capabilities.reasoning.effort）：
 // 与输入/输出一致，只提供固定勾选项，不支持删除或自定义；未勾选时不写 reasoning。
-export const MODEL_EFFORTS = ['none', 'low', 'medium', 'high', 'xhigh', 'max'];
+// 档位定义统一在 core/utils.js 维护（唯一事实源），这里只做兼容性再导出；
+// 注意：供应商页保持固定 6 档（不含 minimal），理由见 utils.js 中 MODEL_EFFORTS 的注释。
+export { MODEL_EFFORTS };
 
 // 渲染模型能力芯片（按 capabilities 回填勾选状态）
 // capabilities 形如 { tools?, input?, output?, reasoning?: { effort? } }
