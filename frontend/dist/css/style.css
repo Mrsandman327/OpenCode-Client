@@ -278,20 +278,25 @@ input::placeholder, textarea::placeholder {
     outline-offset: 2px;
 }
 
-/* 标题左侧图标：assets/侧边栏.svg 作遮罩，颜色随标题文字（同侧栏导航图标的 mask 机制） */
+/* 标题左侧图标：随侧栏展开/折叠切换（展开=收起图标，折叠=展开图标） */
 .app-title-icon {
     width: 20px;
     height: 20px;
     flex-shrink: 0;
     background: currentColor;
-    -webkit-mask-image: url("../assets/侧边栏.svg");
+    -webkit-mask-image: url("../assets/sidebar-hide.svg");
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
     -webkit-mask-size: contain;
-    mask-image: url("../assets/侧边栏.svg");
+    mask-image: url("../assets/sidebar-hide.svg");
     mask-repeat: no-repeat;
     mask-position: center;
     mask-size: contain;
+}
+/* 侧栏折叠：显示「展开侧栏」图标 */
+.app-title.sidebar-collapsed .app-title-icon {
+    -webkit-mask-image: url("../assets/sidebar-show.svg");
+    mask-image: url("../assets/sidebar-show.svg");
 }
 
 /* ========== 按钮 (Apple 风格) ========== */

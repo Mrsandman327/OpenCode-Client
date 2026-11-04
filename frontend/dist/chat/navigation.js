@@ -51,6 +51,9 @@ export function applySidebarCollapseState(collapsed) {
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
     sidebar.classList.toggle('collapsed', collapsed);
+    // 顶栏标题图标跟随状态：折叠时显示「展开侧栏」图标
+    const title = document.getElementById('appTitle');
+    if (title) title.classList.toggle('sidebar-collapsed', collapsed);
 }
 
 export function loadSidebarCollapseState() {
