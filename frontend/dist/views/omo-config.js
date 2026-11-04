@@ -1269,38 +1269,62 @@ export function showAddEntryModal(presetName) {
  * 选继承时，直接用父方案当前的合成结果作为新方案的「继承行」（前端合成，标「继承」）。
  */
 export function showAddPresetModal() {
-    const old = document.querySelector('.modal-overlay');
-    if (old) old.remove();
+    // 只清理自己，避免误删页面上其他弹窗
+    const existing = document.getElementById('addPresetModal');
+    if (existing) existing.remove();
 
     // 「继承自」下拉：列出当前可见的方案名
     const names = presets.filter(p => !p.deleted).map(p => p.name);
 
     const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+    overlay.className = 'cfg-overlay';
+    overlay.id = 'addPresetModal';
+    // 统一弹窗结构：modal-card + header / body / footer
     overlay.innerHTML = `
-        <div class="modal">
-            <h3>新增方案</h3>
-            <div class="modal-field">
-                <label>方案名</label>
-                <input id="modalPresetName" placeholder="如 my-plan" />
+        <div class="modal-card add-preset-modal" role="dialog" aria-modal="true" aria-label="新增方案">
+            <div class="modal-header">
+                <h3>新增方案</h3>
+                <button type="button" class="modal-close-btn" id="btnCloseAddPreset" title="关闭（Esc）" aria-label="关闭">
+                    <span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span>
+                </button>
             </div>
-            <div class="modal-field">
-                <label>继承自</label>
-                <select id="modalPresetBase" class="modal-select">
-                    <option value="">不继承</option>
-                    ${names.map(n => `<option value="${escapeAttr(n)}">${escapeAttr(n)}</option>`).join('')}
-                </select>
+            <div class="modal-body">
+                <div class="modal-field">
+                    <label>方案名</label>
+                    <input id="modalPresetName" placeholder="如 my-plan" />
+                </div>
+                <div class="modal-field">
+                    <label>继承自</label>
+                    <select id="modalPresetBase" class="modal-select">
+                        <option value="">不继承</option>
+                        ${names.map(n => `<option value="${escapeAttr(n)}">${escapeAttr(n)}</option>`).join('')}
+                    </select>
+                </div>
             </div>
-            <div class="modal-actions">
+            <div class="modal-footer">
                 <button class="btn btn-cancel" id="btnCancelAddPreset">取消</button>
                 <button class="btn btn-primary" id="btnConfirmAddPreset">确定</button>
             </div>
         </div>`;
     document.body.appendChild(overlay);
-    // 点遮罩关闭（仅当按下与松开都在遮罩上才触发；新机制不再需要子元素 stopPropagation）
-    bindOverlayClose(overlay, () => overlay.remove());
 
-    overlay.querySelector('#btnCancelAddPreset').addEventListener('click', () => overlay.remove());
+    function closeModal() {
+        document.removeEventListener('keydown', onKeydown);
+        overlay.remove();
+    }
+
+    function onKeydown(e) {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeModal();
+        }
+    }
+
+    // 点遮罩关闭（仅当按下与松开都在遮罩上才触发）
+    bindOverlayClose(overlay, closeModal);
+    document.addEventListener('keydown', onKeydown);
+    overlay.querySelector('#btnCloseAddPreset').addEventListener('click', closeModal);
+    overlay.querySelector('#btnCancelAddPreset').addEventListener('click', closeModal);
     overlay.querySelector('#btnConfirmAddPreset').addEventListener('click', () => {
         const name = overlay.querySelector('#modalPresetName').value.trim();
         if (!name) { showToast('方案名不能为空', 'error'); return; }
@@ -1330,7 +1354,7 @@ export function showAddPresetModal() {
             collapsed: false,
             agents,
         });
-        overlay.remove();
+        closeModal();
         checkUnsavedChanges();
         renderModelConfig();
         showToast(`已添加方案 ${name}（点击保存生效）`, 'info');

@@ -7574,11 +7574,18 @@ body.file-browser-diff-dragging {
 
 /* ========== 项目配置弹窗 ========== */
 
+/* 新增方案弹窗：沿用统一 modal-card 结构，仅收敛宽度 */
+.add-preset-modal {
+    width: min(92vw, 420px);
+    max-width: 100%;
+    border: 1px solid var(--border);
+}
+
 .project-config-modal {
-    width: 92vw;
-    max-width: 1600px;
+    width: min(92vw, 1600px);
+    max-width: 100%;
     height: 90vh;
-    max-height: 92vh;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
     padding: 0;

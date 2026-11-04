@@ -795,7 +795,9 @@ export function bindAddEntryButton(category, basePath, onDone) {
 // 事件初始化
 // ============================
 
-document.addEventListener('DOMContentLoaded', function() {
+// 主入口是动态 import，模块可能在 DOMContentLoaded 之后才求值：
+// 不能只依赖该事件，否则关闭按钮/遮罩/Esc 都不会绑定（表现为弹窗关不掉）。
+function initProjectConfigModal() {
     var modal = document.getElementById('projectConfigModal');
     if (!modal) return;
 
@@ -815,4 +817,10 @@ document.addEventListener('DOMContentLoaded', function() {
             closeProjectConfig();
         }
     });
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initProjectConfigModal, { once: true });
+} else {
+    initProjectConfigModal();
+}
