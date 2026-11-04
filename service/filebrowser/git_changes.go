@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"oc-manager/internal/executil"
+	"oc-manager/internal/sysproxy"
 	"oc-manager/model"
 )
 
@@ -455,8 +456,37 @@ func GitCommit(dir, message string) (model.GitActionResult, error) {
 	return model.GitActionResult{Success: true}, nil
 }
 
+// resolveGitProxyURL 决定给 git 注入的代理地址：
+// 应用内显式配置 > 环境变量（由 git 自己读取）> 系统代理 > 直连。
+// 存在环境变量时返回空串，避免 -c 覆盖用户的 HTTP_PROXY/HTTPS_PROXY。
+func resolveGitProxyURL(proxy model.ProxyConfig) string {
+	if proxy.ProxyEnabled {
+		return proxy.ProxyURL()
+	}
+	if hasEnvProxy() {
+		return ""
+	}
+	if u := sysproxy.DetectSystemProxyURL(); u != nil {
+		return u.String()
+	}
+	return ""
+}
+
+// hasEnvProxy 检查常见代理环境变量是否有值（大小写两种写法 git 都会读取）。
+func hasEnvProxy() bool {
+	for _, key := range []string{
+		"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+		"http_proxy", "https_proxy", "all_proxy",
+	} {
+		if strings.TrimSpace(os.Getenv(key)) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // runGitRemoteOp 执行 git push/pull 操作，包含仓库和远端检查。
-// proxy 用于配置 http.proxy/https.proxy，支持系统代理。
+// proxy 用于配置 http.proxy/https.proxy，支持应用内代理、环境变量与系统代理。
 func runGitRemoteOp(dir, op string, proxy model.ProxyConfig) (model.GitActionResult, error) {
 	if !IsGitRepository(dir) {
 		return model.GitActionResult{Success: false, Message: "当前目录未启用 Git 版本管理"}, nil
@@ -468,8 +498,8 @@ func runGitRemoteOp(dir, op string, proxy model.ProxyConfig) (model.GitActionRes
 
 	// 构建 git 参数
 	args := []string{op}
-	// 代理默认值（主机 127.0.0.1、端口 7897）与 URL 拼接统一由 model.ProxyConfig.ProxyURL 提供。
-	if proxyURL := proxy.ProxyURL(); proxyURL != "" {
+	// 代理优先级：应用内显式配置 > 环境变量（交给 git 继承）> 系统代理 > 直连。
+	if proxyURL := resolveGitProxyURL(proxy); proxyURL != "" {
 		args = append([]string{"-c", "http.proxy=" + proxyURL, "-c", "https.proxy=" + proxyURL}, args...)
 	}
 
