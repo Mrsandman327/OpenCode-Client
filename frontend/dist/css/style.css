@@ -2804,6 +2804,8 @@ input::placeholder, textarea::placeholder {
     user-select: none;
     overflow: hidden;
     min-width: 0;
+    /* 标签（读取文件/编辑文件等）不换行；路径由 strong 省略号截断 */
+    white-space: nowrap;
 }
 .oc-tool-head strong {
     overflow: hidden;
@@ -2813,7 +2815,7 @@ input::placeholder, textarea::placeholder {
     flex-shrink: 1;
 }
 .oc-tool-head:hover { background: var(--bg-card-hover); }
-.oc-tool-icon { font-size: 13px; flex-shrink: 0; }
+.oc-tool-icon { font-size: 15px; flex-shrink: 0; }
 .oc-tool-status { margin-left: auto; font-size: 11px; font-weight: 600; flex-shrink: 0; }
 .oc-tool-status.ok { color: var(--success); }
 .oc-tool-status.err { color: var(--danger); }
