@@ -2,7 +2,7 @@
 // chat-sidepanel.js — 右侧面板（Diff + 子任务 + 代办）
 // 依赖：core/state.js、core/utils.js（escapeHtml, showToast, getActiveMessagesEl, getCachedMessages,
 //       normalizeMessageItem, isInternalUserMessage, safeText）、core/apicall.js（api）、
-//       chat/render.js（renderPart, setRenderTodosHandler）
+//       chat/render.js（buildMessageNode, setRenderTodosHandler）
 // ============================================================
 
 import { api } from '../core/apicall.js';
@@ -11,7 +11,7 @@ import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, modelDis
 import { adaptMessages, formatApiError, unwrapList, nextCursor } from '../core/v2compat.js';
 // 时间格式化统一走 core/format.js
 import { formatSubtaskDuration, formatMinuteTime } from '../core/format.js';
-import { renderPart, setRenderTodosHandler } from './render.js';
+import { buildMessageNode, setRenderTodosHandler } from './render.js';
 
 // 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（sidepanel→render 单向依赖，无环）。
 // 同时向 core 层注册"待办面板刷新"入口：service.js 在服务状态变化后触发。
@@ -135,6 +135,10 @@ let subtaskRefreshQueued = false;
 let subtaskRefreshTimer = 0;
 /** 面板刷新轮次序号：用于丢弃过期请求的结果（快速切会话 / 连续刷新时） */
 let subtaskPanelRefreshSeq = 0;
+
+// 子任务详情消息全量读取：v2 消息接口是游标分页，单次请求只返回默认一页。
+const SUBTASK_MESSAGE_PAGE = 200;      // 单页条数，与主会话向上翻页一致
+const SUBTASK_MESSAGE_MAX_PAGES = 50;  // 防御上限：最多 1 万条，避免游标异常时死循环
 
 /** child session 的 outcome → 面板状态键（renderSubtaskCard/fillModalSummary 使用）：
  *  服务端仅提供 succeeded / failed / interrupted；进行中的子任务没有 outcome 字段。 */
@@ -590,11 +594,26 @@ export async function loadSubtaskDetailMessages(childSessionId) {
     const thisSeq = ++store.detailMessageLoadSeq;
 
     try {
-        const res = await api.OpenCodeCall('GET', '/api/session/' + encodeURIComponent(childSessionId) + '/message');
-        if (thisSeq !== store.detailMessageLoadSeq) return;
+        // 全量读取：按 cursor.next 逐页翻到空页/无续翻游标，避免只显示服务端默认的一页。
+        // 每页请求后检查 seq，切走子任务立即中止。
+        let items = [];
+        let cursor = '';
+        for (let page = 0; page < SUBTASK_MESSAGE_MAX_PAGES; page++) {
+            let path = '/api/session/' + encodeURIComponent(childSessionId) + '/message?limit=' + SUBTASK_MESSAGE_PAGE;
+            if (cursor) path += '&cursor=' + encodeURIComponent(cursor);
+            const res = await api.OpenCodeCall('GET', path);
+            if (thisSeq !== store.detailMessageLoadSeq) return;
 
-        // v2 返回 {data:[扁平消息], cursor}，需还原为 v1 的 [{info,parts}] 且按旧→新排列
-        const items = adaptMessages(childSessionId, res);
+            // v2 返回 {data:[扁平消息], cursor}，需还原为 v1 的 [{info,parts}] 且按旧→新排列
+            const pageItems = adaptMessages(childSessionId, res);
+            const rawCount = Array.isArray(res && res.data) ? res.data.length : pageItems.length;
+            if (!pageItems.length) break;
+            // 后续页是更早的消息：拼到前面，保持整体旧→新
+            items = pageItems.concat(items);
+            cursor = nextCursor(res) || '';
+            // 到顶判定看原始页条数（解析层会过滤 idle 等边界消息）
+            if (!cursor || rawCount < SUBTASK_MESSAGE_PAGE) break;
+        }
         // 子会话消息通常只有助手回复：用父任务 part 反查到的提示词补一条「子任务输入」，
         // 保证详情内容区能看到发给子 agent 的原始提示词
         if (currentSubtaskPrompt && !items.some(it => (it.info || it).role === 'user')) {
@@ -605,7 +624,7 @@ export async function loadSubtaskDetailMessages(childSessionId) {
             return;
         }
         if (thisSeq !== store.detailMessageLoadSeq) return;
-        renderDetailMessages(items);
+        renderDetailMessages(items, childSessionId);
     } catch (err) {
         if (thisSeq !== store.detailMessageLoadSeq) return;
         if (msgBox) msgBox.innerHTML = '<div class="oc-empty error">加载失败：' + escapeHtml(formatApiError(err) || '网络错误') + '</div>';
@@ -614,47 +633,12 @@ export async function loadSubtaskDetailMessages(childSessionId) {
     }
 }
 
-/** 渲染子任务详情消息列表 */
-export function renderDetailMessages(items) {
+/** 渲染子任务详情消息列表：与会话区共用同一套消息卡片（外观与交互自动保持一致） */
+export function renderDetailMessages(items, sessionID) {
     const box = document.getElementById('subtaskMessages');
     if (!box) return;
     box.innerHTML = '';
     (items || []).forEach(item => {
-        const info = item.info || item;
-        const role = info.role || 'message';
-        const displayRole = role === 'user' ? '子任务输入' : (role === 'assistant' ? '助手' : role);
-        const parts = item.parts || [];
-        const node = document.createElement('div');
-        node.className = 'oc-message ' + role;
-        node.innerHTML = '<div class="oc-message-role">' + escapeHtml(displayRole) + '</div>';
-        const body = document.createElement('div');
-        body.className = 'oc-message-parts';
-        const partList = Array.isArray(parts) ? parts : [parts];
-        if (partList.length) {
-            partList.forEach(part => {
-                const partEl = renderDetailPart(part);
-                if (partEl) body.appendChild(partEl);
-            });
-        } else {
-            const empty = document.createElement('div');
-            empty.className = 'oc-part pending';
-            empty.textContent = info.time?.completed ? '已停止或本次未产生回复内容' : '（空内容）';
-            body.appendChild(empty);
-        }
-        node.appendChild(body);
-        box.appendChild(node);
+        box.appendChild(buildMessageNode(item, sessionID));
     });
-}
-
-/** 渲染子任务详情中的单个 part */
-export function renderDetailPart(part) {
-    const type = part?.type || '';
-    if (type === 'tool' && (part.tool === 'question' || part.name === 'question')) {
-        const saved = part.state ? { ...part.state } : null;
-        if (part.state) part.state._readOnly = true;
-        const el = renderPart(part);
-        if (saved) part.state = saved;
-        return el;
-    }
-    return renderPart(part);
 }

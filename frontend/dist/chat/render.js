@@ -164,8 +164,10 @@ function buildSyntheticNoticeCard(info, partList) {
 }
 
 /** 构建单条消息节点（user/assistant 卡片），供 renderMessages 与分帧渲染复用 */
-export function buildMessageNode(item) {
+export function buildMessageNode(item, sessionID) {
     const info = item.info || item;
+    // 详情弹窗等场景可传入目标会话 id；不传时沿用当前会话（既有调用行为不变）
+    const sid = sessionID || store.currentSessionId;
     const role = info.role || info.author || 'message';
     const displayRole = role === 'user' ? '用户'
         : (role === 'assistant' ? '助手'
@@ -203,15 +205,15 @@ export function buildMessageNode(item) {
     } else if (role === 'assistant') {
         if (messageErrorText) {
             // 已在上方输出 message-level error
-        } else if (isSessionBusy(store.currentSessionId)) {
+        } else if (isSessionBusy(sid)) {
             const pending = document.createElement('div');
             pending.className = 'oc-part pending';
-            pending.textContent = getSessionPendingText(store.currentSessionId);
+            pending.textContent = getSessionPendingText(sid);
             body.appendChild(pending);
-        } else if (hasSessionError(store.currentSessionId)) {
+        } else if (hasSessionError(sid)) {
             const errEl = document.createElement('div');
             errEl.className = 'oc-part error-msg';
-            errEl.textContent = '模型调用失败：' + (store.sessionErrors[store.currentSessionId] || '未知错误，请检查 opencode 提供商配置');
+            errEl.textContent = '模型调用失败：' + (store.sessionErrors[sid] || '未知错误，请检查 opencode 提供商配置');
             body.appendChild(errEl);
         } else {
             const empty = document.createElement('div');
@@ -1108,6 +1110,18 @@ export function renderQuestionTool(part) {
     return el;
 }
 
+/** 解析工具输入：v2 的 state.input 可能是对象，也可能是 JSON 字符串。
+ *  解析失败返回 null（调用方回退到原展示）。 */
+function toolInputObject(input) {
+    if (input == null) return null;
+    if (typeof input === 'string') {
+        const t = input.trim();
+        if (!t.startsWith('{')) return null;
+        try { return JSON.parse(t); } catch (_) { return null; }
+    }
+    return typeof input === 'object' ? input : null;
+}
+
 /** 渲染通用工具调用（Shell/文件操作，带输入/输出/错误展示） */
 export function renderTool(part) {
     const tool = part.tool || part.name || '';
@@ -1159,8 +1173,14 @@ export function renderTool(part) {
     else if (isRunning) { statusText = '⏳ 运行中'; statusClass = 'running'; }
     else { statusText = status || '等待'; statusClass = 'pending'; }
 
-    const title = state.title || tool;
-    head.innerHTML = `<span class="oc-tool-icon">${icon}</span> ${label}: <strong>${escapeHtml(title)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>` + buildDurationHtml(part, true);
+    // 文件类工具的输入里带绝对路径（input 可能是对象或 JSON 字符串），
+    // 标题优先用它，避免只显示工具名；其他工具仍用 state.title。
+    const fileInput = fc ? toolInputObject(state.input) : null;
+    const filePath = fileInput
+        ? (fileInput.filePath || fileInput.file_path || fileInput.path || fileInput.filename || '')
+        : '';
+    const title = filePath || state.title || tool;
+    head.innerHTML = `<span class="oc-tool-icon">${icon}</span> ${label}: <strong title="${escapeHtml(title)}">${escapeHtml(title)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>` + buildDurationHtml(part, true);
 
     const body = document.createElement('div');
     body.className = 'oc-tool-body';

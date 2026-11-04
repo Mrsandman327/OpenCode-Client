@@ -296,6 +296,9 @@ function contentToPart(content, sessionID, messageID, counters) {
                 error: errorText(st.error),
                 metadata: st.metadata,
             };
+            // 工具标题（若服务端提供）：文件类工具渲染时会优先用 input 里的绝对路径，
+            // 这里保留 title 作为兜底，避免卡片只显示工具名。
+            if (st.title) state.title = st.title;
             // v2 的时间戳在 tool 项顶层（time.created/ran/completed），
             // v1 在 state.time（start/end）——映射后工具卡片才能显示「用时」。
             const time = toSpanTime(content.time);

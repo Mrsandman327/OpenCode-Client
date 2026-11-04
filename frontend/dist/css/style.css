@@ -8138,11 +8138,12 @@ input.toolbar-input {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
-    padding: 12px 20px;
+    /* 与会话区 .oc-messages 保持一致：相同内边距与卡片间距 */
+    padding: 17px;
     /* 消息卡片纵向排列并留出间距（与主消息区同构，user/assistant 才能左右对齐） */
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 17px;
 }
 /* 信息行（元数据文本） */
 .meta-row {
