@@ -2732,7 +2732,8 @@ input::placeholder, textarea::placeholder {
 }
 .oc-reasoning-head:hover { background: var(--bg-card-hover); }
 .oc-reasoning-icon { font-size: 13px; }
-.oc-reasoning-toggle { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+/* 思考过程的用时靠右，与工具卡片的用时/状态位置一致 */
+.oc-reasoning-head .oc-tool-duration { margin-left: auto; }
 .oc-reasoning-body { padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); line-height: 1.7; }
 .oc-reasoning-body h1,
 .oc-reasoning-body h2,

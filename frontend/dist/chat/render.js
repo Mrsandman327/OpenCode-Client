@@ -90,7 +90,9 @@ function refreshLiveToolDurations() {
     els.forEach((el) => {
         const start = parseInt(el.getAttribute('data-live-start'), 10);
         if (!start) return;
-        el.textContent = '已运行 ' + formatToolDuration(now - start);
+        // 支持自定义文案（思考过程用「思考中」，工具默认「已运行」）
+        const label = el.getAttribute('data-live-label') || '已运行';
+        el.textContent = label + ' ' + formatToolDuration(now - start);
     });
 }
 // 秒表全局定时器：仅当页面存在运行中工具时才做实际更新，开销可忽略
@@ -792,7 +794,17 @@ export function renderReasoning(part) {
     const key = partExpandKey(part, 'reasoning');
     const head = document.createElement('div');
     head.className = 'oc-reasoning-head';
-    head.innerHTML = '<span class="oc-reasoning-icon">🧠</span> 思考过程 <span class="oc-reasoning-toggle">展开</span>';
+    // 与工具卡片一致：标题 + 用时；进行中实时刷新，结束后显示总用时。
+    // 不使用「展开/收起」文字，点击标题行即可折叠。
+    const t = part.time || {};
+    let durHtml = '';
+    if (t.start && t.end) {
+        durHtml = '<span class="oc-tool-duration">用时 ' + formatToolDuration(t.end - t.start) + '</span>';
+    } else if (t.start) {
+        durHtml = '<span class="oc-tool-duration" data-live-start="' + t.start + '" data-live-label="思考中">思考中 '
+            + formatToolDuration(Date.now() - t.start) + '</span>';
+    }
+    head.innerHTML = '<span class="oc-reasoning-icon">🧠</span> 思考过程 ' + durHtml;
     const body = document.createElement('div');
     const expanded = !!store.expandedParts[key];
     body.className = 'oc-reasoning-body' + (expanded ? '' : ' hidden');
@@ -802,11 +814,9 @@ export function renderReasoning(part) {
         : `<pre>${escapeHtml(part.text || '')}</pre>`;
     // 本地图片（C:\... / file:// / 相对路径）异步替换为 data URL，避免破图
     hydrateLocalImages(body, currentDir());
-    head.querySelector('.oc-reasoning-toggle').textContent = expanded ? '收起' : '展开';
     head.addEventListener('click', () => {
         store.expandedParts[key] = !store.expandedParts[key];
         body.classList.toggle('hidden', !store.expandedParts[key]);
-        head.querySelector('.oc-reasoning-toggle').textContent = store.expandedParts[key] ? '收起' : '展开';
     });
     el.appendChild(head);
     el.appendChild(body);

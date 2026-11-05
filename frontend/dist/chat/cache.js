@@ -120,6 +120,11 @@ export function mergeMessage(existing, incoming) {
 export function mergePart(existing, incoming) {
     if (!existing) return incoming;
     const merged = { ...existing, ...incoming };
+    // 顶层 time 也要深合并：reasoning 的 start 来自 started 事件、end 来自 ended 事件，
+    // 直接浅合并会让 ended 的 {end} 覆盖 {start}，导致结束后拿不到总用时。
+    if (existing.time || incoming.time) {
+        merged.time = { ...(existing.time || {}), ...(incoming.time || {}) };
+    }
     // state 需要浅合并而不是整体替换：适配层把一次工具调用拆成多次 part 更新
     // （input.started 给 time.start、called 给 input、success 给 time.end/output），
     // 整体替换会把先到的字段抹掉（表现为工具卡片没有用时、输入消失）。

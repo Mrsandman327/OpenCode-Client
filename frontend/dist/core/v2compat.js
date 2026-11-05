@@ -617,7 +617,8 @@ export function adaptEvent(event) {
             if (!msgID) return [];
             return [{
                 type: 'message.part.updated',
-                part: { id: reasoningPartId(msgID, data.ordinal), messageID: msgID, sessionID, type: 'reasoning', text: '', state: data.state },
+                // 记录开始时间：渲染层据此实时显示「思考中 X」，结束时再补 end。
+                part: { id: reasoningPartId(msgID, data.ordinal), messageID: msgID, sessionID, type: 'reasoning', text: '', state: data.state, time: { start: event.created } },
             }];
         }
         case 'session.reasoning.delta': {
