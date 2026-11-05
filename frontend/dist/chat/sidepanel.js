@@ -297,22 +297,39 @@ export function scheduleSubtaskExtraction(sessionID) {
     });
 }
 
-/** 渲染子任务面板 */
+/** 渲染子任务面板
+ *  内容指纹：列表结构/状态未变化时跳过整块重建，避免高频事件导致的 DOM 抖动；
+ *  运行时长每秒由独立定时器更新文本，不参与指纹。 */
 export function renderSubtaskPanel() {
     const box = document.getElementById('ocSubtasks');
     if (!box) return;
     if (!store.webRunning || !store.currentSessionId) {
-        box.innerHTML = '<div class="oc-empty">启动服务并选择会话后查看子任务</div>';
+        if (box.dataset.fp !== 'off') {
+            box.innerHTML = '<div class="oc-empty">启动服务并选择会话后查看子任务</div>';
+            box.dataset.fp = 'off';
+        }
         return;
     }
     if (!store.subtaskSummaries.length) {
-        box.innerHTML = '<div class="oc-empty">当前会话暂无子任务<br><small>子任务会在主会话触发 task 工具后显示在这里</small></div>';
+        if (box.dataset.fp !== 'empty') {
+            box.innerHTML = '<div class="oc-empty">当前会话暂无子任务<br><small>子任务会在主会话触发 task 工具后显示在这里</small></div>';
+            box.dataset.fp = 'empty';
+        }
         return;
     }
+    // 指纹只取影响外观/点击定位的稳定字段；durationMs 每秒变化，排除在外。
+    // startedAt 纳入指纹：首次缺失、后续补全时需要重建一次，秒表才会启动。
+    const fp = store.subtaskSummaries.map(function(s) {
+        return [s.childSessionId, s.title, s.agent, s.model, s.status,
+            s.interrupted ? '1' : '0', s.parentMessageId, s.startedAt || 0].join('\u0001');
+    }).join('\u0002');
+    if (box.dataset.fp === fp) return;
     let html = '';
     store.subtaskSummaries.forEach((s, idx) => {
         html += renderSubtaskCard(s, idx);
     });
+    // 先成功拼出 HTML 再写指纹，避免渲染异常留下「有指纹、无内容」的空面板
+    box.dataset.fp = fp;
     box.innerHTML = html;
     attachSubtaskCardEvents();
 }
@@ -324,7 +341,11 @@ export function renderSubtaskCard(s, idx) {
     const statusClass = 'status-' + (s.status || 'pending');
     const statusLabels = { completed: '已完成', running: '运行中', error: '失败', interrupt: '已中断', pending: '等待中', ended: '已结束' };
     const statusLabel = statusLabels[s.status] || s.status || '未知';
-    const durationText = s.durationMs != null ? formatSubtaskDuration(s.durationMs) : (s.status === 'running' ? '运行中…' : '—');
+    // 运行中的卡片写入开始时间，由每秒定时器只更新文本，实现实时走秒
+    const startedAt = (s.status === 'running' && Number(s.startedAt)) ? Number(s.startedAt) : 0;
+    const durationText = startedAt
+        ? formatSubtaskDuration(Math.max(0, Date.now() - startedAt))
+        : (s.durationMs != null ? formatSubtaskDuration(s.durationMs) : (s.status === 'running' ? '运行中…' : '—'));
     // agent / model 任一可能缺失，避免渲染出孤立的「·」
     const metaText = [s.agent, s.model].filter(Boolean).join(' · ') || '—';
 
@@ -332,7 +353,7 @@ export function renderSubtaskCard(s, idx) {
         + '<div class="oc-subtask-card-row oc-subtask-card-row-main">'
         + '<span class="oc-subtask-card-title" title="' + escapeHtml(s.title) + '">' + escapeHtml(s.title) + '</span>'
         + '<button type="button" class="oc-subtask-detail-btn" data-index="' + idx + '" ' + (s.childSessionId ? '' : 'disabled') + '>详情</button>'
-        + '<span class="oc-subtask-card-duration">' + durationText + '</span>'
+        + '<span class="oc-subtask-card-duration"' + (startedAt ? ' data-started-at="' + startedAt + '"' : '') + '>' + durationText + '</span>'
         + '</div>'
         + '<div class="oc-subtask-card-row oc-subtask-card-row-sub">'
         + '<span class="oc-subtask-card-meta" title="' + escapeHtml(metaText) + '">' + escapeHtml(metaText) + '</span>'
@@ -340,6 +361,23 @@ export function renderSubtaskCard(s, idx) {
         + '</div>'
         + '</div>';
 }
+
+/** 子任务运行时长秒表：只改 textContent，不重建 DOM。 */
+let subtaskDurationTimer = 0;
+function startSubtaskDurationTicker() {
+    if (subtaskDurationTimer) return;
+    subtaskDurationTimer = setInterval(function() {
+        const nodes = document.querySelectorAll('.oc-subtask-card-duration[data-started-at]');
+        if (!nodes.length) return;
+        const now = Date.now();
+        nodes.forEach(function(el) {
+            const start = Number(el.getAttribute('data-started-at'));
+            if (!start) return;
+            el.textContent = formatSubtaskDuration(Math.max(0, now - start));
+        });
+    }, 1000);
+}
+startSubtaskDurationTicker();
 
 /** 绑定子任务卡片事件 */
 export function attachSubtaskCardEvents() {

@@ -748,7 +748,12 @@ export function clearClientUI() {
     } else {
         getActiveMessagesEl().innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
     }
-    document.getElementById('ocSubtasks').innerHTML = '<div class="oc-empty">当前会话暂无子任务</div>';
+    var subtaskBox = document.getElementById('ocSubtasks');
+    if (subtaskBox) {
+        subtaskBox.innerHTML = '<div class="oc-empty">当前会话暂无子任务</div>';
+        // 清掉内容指纹：否则下次刷新若指纹相同会跳过渲染，面板会一直空白
+        delete subtaskBox.dataset.fp;
+    }
     document.getElementById('ocTodos').innerHTML = '<div class="oc-empty">当前会话暂无代办</div>';
     renderServiceStatus();
     document.getElementById('ocPrompt').value = '';

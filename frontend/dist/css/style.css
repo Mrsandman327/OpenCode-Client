@@ -2908,6 +2908,9 @@ input::placeholder, textarea::placeholder {
     line-height: 1.7;
     color: var(--text-primary);
     font-size: 14px;
+    /* 表格等宽内容超出时在文本块内横向滚动，避免被 .oc-part 的 overflow:hidden 裁掉 */
+    max-width: 100%;
+    overflow-x: auto;
 }
 .oc-text h1, .oc-text h2, .oc-text h3, .oc-text h4, .oc-text h5, .oc-text h6 {
     margin: 12px 0 6px;
@@ -2956,7 +2959,9 @@ input::placeholder, textarea::placeholder {
 }
 .oc-text table {
     border-collapse: collapse;
-    width: 100%;
+    /* 表格按内容自然撑开，超出时由 .oc-text 横向滚动；窄表格仍占满宽度 */
+    width: max-content;
+    min-width: 100%;
     margin: 8px 0;
     font-size: 12px;
 }
@@ -2964,6 +2969,9 @@ input::placeholder, textarea::placeholder {
     border: 1px solid var(--border);
     padding: 6px 10px;
     text-align: left;
+    /* 长路径等连续字符在单元格内换行，不撑破单元格 */
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 .oc-text th {
     background: var(--bg-secondary);
