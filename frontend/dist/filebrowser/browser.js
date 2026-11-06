@@ -1223,12 +1223,15 @@ export function renderGitTreeNodes(node, groupName, depth) {
         }
         html += '<div class="file-browser-git-tree-dir" data-tree-dir="' + escapeHtml(collapseKey) + '"' +
             // 行内 padding 会覆盖 CSS 的 padding:0 2px，这里把左侧内边距一起算进去
-            ' style="padding-left:' + (depth * INDENT + 2) + 'px" title="' + escapeHtml(child.path) + '">' +
+            ' style="padding-left:' + (depth * INDENT) + 'px" title="' + escapeHtml(child.path) + '">' +
             '<span class="file-browser-git-tree-toggle ' + (collapsed ? 'is-collapsed' : 'is-expanded') + '"></span>' +
-            // 文件夹图标：assets/文件夹.svg 作遮罩（mask 机制），颜色随行文字
-            '<span class="file-browser-git-tree-icon"></span>' +
-            '<span class="file-browser-git-tree-name">' + escapeHtml(dirName) + '</span>' +
-            dirActions +
+            // hover 背景只覆盖内容层（图标+名字+按钮），不含左侧箭头
+            '<div class="file-browser-git-row-body">' +
+                // 文件夹图标：assets/文件夹.svg 作遮罩（mask 机制），颜色随行文字
+                '<span class="file-browser-git-tree-icon"></span>' +
+                '<span class="file-browser-git-tree-name">' + escapeHtml(dirName) + '</span>' +
+                dirActions +
+            '</div>' +
         '</div>';
         if (!collapsed) html += renderGitTreeNodes(child, groupName, depth + 1);
     });
@@ -1254,6 +1257,8 @@ export function renderGitTreeFileRow(item, groupName, depth, indentUnit) {
         actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="unstage" title="移出暂存区" ' + (store.fileBrowserState.git.unstageLoadingPath === item.path ? 'disabled' : '') + '>-</button>';
     }
     return '<div class="file-browser-git-item-row" style="padding-left:' + (depth * INDENT + 20) + 'px">' +
+        // hover 背景只覆盖内容层（徽章+名字+按钮）
+        '<div class="file-browser-git-row-body">' +
         '<button type="button" class="file-browser-git-item" data-git-path="' + escapeHtml(item.path) + '" data-git-group="' + escapeHtml(groupName) + '" title="' + escapeHtml(fullPath) + '">' +
             '<span class="file-browser-git-status status-' + escapeHtml(gitStatusClass(item.statusCode || 'xx')) + '">' + escapeHtml(item.statusCode || '') + '</span>' +
             '<span class="file-browser-git-text">' +
@@ -1262,6 +1267,7 @@ export function renderGitTreeFileRow(item, groupName, depth, indentUnit) {
         '</button>' +
         discardBtn +
         actionBtn +
+        '</div>' +
     '</div>';
 }
 

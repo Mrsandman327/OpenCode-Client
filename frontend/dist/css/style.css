@@ -6612,6 +6612,8 @@ input::placeholder, textarea::placeholder {
     align-items: center;
     gap: 4px;
     min-height: var(--fb-row-h);
+    /* 与目录行保持一致的右侧余量，使 hover 背景右边缘对齐 */
+    padding-right: 2px;
 }
 .file-browser-git-item-row .file-browser-git-item {
     flex: 1;
@@ -6831,7 +6833,8 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 0 2px;
+    /* 水平内边距交给外层 .file-browser-git-row-body，避免背景边缘与内容距离翻倍 */
+    padding: 0;
     min-height: calc(var(--fb-row-h) - 2px);
     border: none;
     background: transparent;
@@ -6840,9 +6843,6 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     text-align: left;
     font-size: var(--fb-font);
-}
-.file-browser-git-item:hover {
-    background: var(--bg-card-hover);
 }
 .file-browser-git-item.active {
     background: var(--accent-ghost);
@@ -6920,6 +6920,24 @@ input::placeholder, textarea::placeholder {
     white-space: nowrap;
     text-overflow: ellipsis;
 }
+/* 行内容层：hover 背景只覆盖它，不含左侧缩进与折叠箭头 */
+.file-browser-git-row-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    /* 左右各留 2px，背景比内容略宽，视觉上不贴边 */
+    padding: 0 2px;
+    border-radius: var(--radius-sm);
+}
+.file-browser-git-tree-dir:hover .file-browser-git-row-body,
+.file-browser-git-tree-dir:focus-within .file-browser-git-row-body,
+.file-browser-git-item-row:hover .file-browser-git-row-body,
+.file-browser-git-item-row:focus-within .file-browser-git-row-body {
+    background: var(--bg-card-hover);
+}
+
 /* ===== 变更文件目录树 ===== */
 .file-browser-git-tree-dir {
     display: flex;
@@ -6933,9 +6951,6 @@ input::placeholder, textarea::placeholder {
     border-radius: var(--radius-sm);
     user-select: none;
     -webkit-user-select: none;
-}
-.file-browser-git-tree-dir:hover {
-    background: var(--bg-card-hover);
 }
 .file-browser-git-tree-toggle {
     flex-shrink: 0;
