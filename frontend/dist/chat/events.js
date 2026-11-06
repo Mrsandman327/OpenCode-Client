@@ -249,6 +249,14 @@ export function handleOcEvent(event) {
         return;
     }
 
+    // 插件列表/状态变化（plugin.updated）：安装、卸载、重载插件后服务端会发出此事件，
+    // 载荷形如 {id:"opencode-dcp"}。复用 MCP 的防抖刷新链（重新拉 /api/plugin 并重渲染服务面板），
+    // 让插件面板不再依赖「MCP 重连顺带触发」这种间接路径，单独改插件也能即时反映。
+    if (type === 'plugin.updated') {
+        scheduleMcpStatusRefresh();
+        return;
+    }
+
     if (type.includes('permission')) {
         if (type.includes('asked')) {
             // 权限请求（permission.asked / permission.v2.asked）：弹窗提供 允许一次 / 始终允许 / 拒绝
