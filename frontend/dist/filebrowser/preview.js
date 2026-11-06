@@ -173,6 +173,7 @@ export function clearFileBrowserPreview() {
         downloadBtn.style.display = 'none';
         downloadBtn.disabled = true;
     }
+    hideFileExternalChangeBanner();
     renderFilePreviewToolbar();
 }
 
@@ -241,6 +242,67 @@ export function fileBrowserGetPreferredRenderMode(meta) {
 export function fileBrowserIsDirty() {
     var state = store.fileBrowserState;
     return (state.previewEditorValue || '') !== (state.previewOriginalContent || '');
+}
+
+// ============================================================
+// 外部文件变更：轮询比对用到的几个入口
+// ============================================================
+
+/** 当前打开文件中「真实磁盘文件」的元信息快照；git diff 等虚拟 tab 返回 null */
+export function fileBrowserActiveFileMeta() {
+    var state = store.fileBrowserState;
+    if (!state || !state.activeFileTabPath) return null;
+    var path = state.activeFileTabPath;
+    if (path.indexOf('git:') === 0 || path.indexOf('git-history:') === 0) return null;
+    var meta = state.previewMeta;
+    if (!meta || meta.path !== path) return null;
+    return { path: path, modifiedAt: meta.modifiedAt || '', size: meta.size || 0 };
+}
+
+/** 是否是可从磁盘重载的普通文件 tab */
+function isReloadableTabPath(path) {
+    return !!path && path.indexOf('git:') !== 0 && path.indexOf('git-history:') !== 0;
+}
+
+/** 显示「文件已在外部修改」提示条 */
+export function showFileExternalChangeBanner(text) {
+    var el = document.getElementById('fileBrowserExternalChange');
+    var txt = document.getElementById('fileBrowserExternalChangeText');
+    if (txt && text) txt.textContent = text;
+    if (el) el.style.display = 'flex';
+}
+
+/** 隐藏外部修改提示条 */
+export function hideFileExternalChangeBanner() {
+    var el = document.getElementById('fileBrowserExternalChange');
+    if (el) el.style.display = 'none';
+}
+
+/**
+ * 丢弃本地编辑状态，强制从磁盘重新读取当前文件。
+ * 注意：走 renderFilePreview 且不传 keepMode，才能让第 928 行的
+ * 「非 keepMode 时无条件用磁盘内容覆盖 editorValue」生效。
+ */
+export function fileBrowserReloadActiveFromDisk() {
+    var state = store.fileBrowserState;
+    if (!state || !isReloadableTabPath(state.activeFileTabPath)) return;
+    var path = state.activeFileTabPath;
+    var tab = state.fileTabs.find(function(t) { return t.path === path; });
+    if (!tab) return;
+    // 重载会销毁并重建编辑器，先记住焦点是否在预览区，渲染完成后恢复
+    var active = document.activeElement;
+    var hadPreviewFocus = !!(active && active.closest && active.closest('.file-browser-preview-body'));
+    delete state.fileTabCache[path];
+    state.previewEditorValue = '';
+    state.previewOriginalContent = '';
+    hideFileExternalChangeBanner();
+    var rendering = renderFilePreview(tab, { skipMetaReload: false });
+    if (hadPreviewFocus && rendering && typeof rendering.then === 'function') {
+        rendering.then(function() {
+            var content = document.querySelector('.file-browser-preview-body .cm-content');
+            if (content) content.focus();
+        }).catch(function() {});
+    }
 }
 
 export function renderFilePreviewToolbar() {

@@ -870,9 +870,10 @@
                                     <textarea class="file-browser-git-commit-input" id="fileBrowserGitCommitInput" placeholder="输入提交信息" rows="2"></textarea>
                                     <button type="button" class="btn btn-sm file-browser-git-commit-btn" id="btnFileBrowserGitCommit">提交</button>
                                 </div>
-                                <div class="file-browser-empty">正在检查 Git 状态...</div>
-                            </div>
-                        </div>
+                                <div id="fileBrowserGitCurrentList">
+                                    <div class="file-browser-empty">正在检查 Git 状态...</div>
+                                </div>
+                            </div>                        </div>
                         <div class="file-browser-git-resize-handle" id="fileBrowserGitResizeHandle" aria-hidden="true"></div>
                         <div class="file-browser-git-section file-browser-git-history-section">
                             <div class="file-browser-git-header" id="fileBrowserGitHistoryTitle">
@@ -919,10 +920,14 @@
                         </div>
                         <div class="file-browser-preview-meta" id="filePreviewMeta"></div>
                     </div>
+                    <!-- 外部修改提示：仅在文件被其它程序改动且当前有未保存编辑时出现 -->
+                    <div class="fb-external-change" id="fileBrowserExternalChange" style="display:none">
+                        <span class="fb-external-change-text" id="fileBrowserExternalChangeText">该文件已在外部修改</span>
+                        <button type="button" class="btn btn-xs" id="btnFileBrowserExternalReload">重新加载</button>
+                    </div>
                     <div class="file-browser-preview-body" id="filePreviewBody">
                         <div class="file-browser-empty">请选择左侧文件进行预览</div>
-                    </div>
-                    <!-- ===== 内嵌终端抽屉（默认隐藏，由顶部「终端」按钮打开） ===== -->
+                    </div>                    <!-- ===== 内嵌终端抽屉（默认隐藏，由顶部「终端」按钮打开） ===== -->
                     <div class="fb-terminal collapsed" id="fileBrowserTerminal">
                         <div class="fb-terminal-grip" id="fileBrowserTerminalGrip" title="拖动调整终端高度"></div>
                         <div class="fb-terminal-head">

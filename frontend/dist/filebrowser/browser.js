@@ -19,7 +19,14 @@ import {
     fileBrowserOpenGitHistoryTab,
     renderFileBrowserTabs,
     clearFileBrowserPreview,
-    fileBrowserOpenFileAtLine
+    fileBrowserOpenFileAtLine,
+    fileBrowserCloseTab,
+    fileBrowserApiStat,
+    fileBrowserIsDirty,
+    fileBrowserActiveFileMeta,
+    showFileExternalChangeBanner,
+    hideFileExternalChangeBanner,
+    fileBrowserReloadActiveFromDisk
 } from './preview.js';
 import { syncTerminalEntry, disposeTerminals } from './terminal.js';
 
@@ -971,6 +978,8 @@ export function openFileBrowserModal(rootDir, options) {
     renderFileBrowserMode();
     // 终端入口随根目录更新；每次打开都是新会话，之前残留的终端已在关闭时清掉
     syncTerminalEntry(rootDir || '');
+    // 开始轮询感知文件增删/重命名（关闭弹窗时停止）
+    startFileBrowserAutoRefresh();
     loadFileBrowserList('/');
 }
 
@@ -980,6 +989,8 @@ export function closeFileBrowserModal() {
         modal.style.display = 'none';
         modal.classList.remove('file-browser-compact');
     }
+    // 停止文件变化轮询，避免弹窗关闭后仍在后台空转
+    stopFileBrowserAutoRefresh();
     // 关闭弹窗即结束所有终端进程（不做「留在服务端」的处理）
     disposeTerminals();
     fileBrowserClearObjectURL();
@@ -1004,9 +1015,11 @@ export async function downloadCurrentFilePreview() {
     }
 }
 
-export async function loadFileBrowserGitStatus() {
+export async function loadFileBrowserGitStatus(options) {
     var state = store.fileBrowserState;
     if (!state.rootDir) return;
+    // 轮询场景先记签名：数据没变就不重渲染，避免无谓重建 DOM（重建会打断输入）
+    var before = gitStatusSignature(state.git);
     try {
         var data = await fileBrowserApiGitStatus(state.rootDir);
         state.git.isGitRepo = !!data.isGitRepo;
@@ -1017,7 +1030,19 @@ export async function loadFileBrowserGitStatus() {
         state.git.files = [];
         state.git.message = formatApiError(err);
     }
+    if (options && options.onlyIfChanged && before === gitStatusSignature(state.git)) return;
     renderFileBrowserGitSection();
+}
+
+/** git 变更列表的签名：只包含「有哪些文件、处于什么状态」，不含提交信息 */
+function gitStatusSignature(git) {
+    if (!git) return 'none';
+    if (!git.isGitRepo) return 'norepo:' + (git.message || '');
+    var parts = (git.files || []).map(function(f) {
+        return [f.path || '', f.gitPath || '', f.hasStaged ? 1 : 0, f.hasUnstaged ? 1 : 0, f.tracked ? 1 : 0].join('|');
+    });
+    parts.sort();
+    return 'repo:' + parts.join('\n');
 }
 
 export async function loadFileBrowserGitHistory(loadMore) {
@@ -1086,26 +1111,33 @@ export async function loadFileBrowserList(path) {
 }
 
 export function renderFileBrowserGitSection() {
-    var currentBodyEl = document.getElementById('fileBrowserGitCurrentBody');
+    var listEl = document.getElementById('fileBrowserGitCurrentList');
     var historyBodyEl = document.getElementById('fileBrowserGitHistoryBody');
     var state = store.fileBrowserState;
-    if (!currentBodyEl || !historyBodyEl) return;
+    if (!listEl || !historyBodyEl) return;
+
+    // 提交栏是静态 DOM（见 index.html），这里只同步状态，永远不重建它，
+    // 因此自动刷新列表时不会打断用户输入。
+    var commitInput = document.getElementById('fileBrowserGitCommitInput');
+    if (commitInput && document.activeElement !== commitInput) {
+        commitInput.value = state.git.commitMessage || '';
+    }
+    var commitBtn = document.getElementById('btnFileBrowserGitCommit');
+    if (commitBtn) commitBtn.disabled = !!state.git.commitSubmitting;
+
     if (!state.git.isGitRepo) {
-        currentBodyEl.innerHTML = '<div class="file-browser-empty">' + escapeHtml(state.git.message || '当前目录未启用 Git 版本管理') + '</div>';
+        listEl.innerHTML = '<div class="file-browser-empty">' + escapeHtml(state.git.message || '当前目录未启用 Git 版本管理') + '</div>';
         historyBodyEl.innerHTML = '<div class="file-browser-empty">当前目录未启用 Git 版本管理</div>';
         return;
     }
     var errorHtml = state.git.gitActionError ? '<div class="file-browser-git-action-error" style="padding:4px 8px">' + escapeHtml(state.git.gitActionError) + '</div>' : '';
     var staged = state.git.files.filter(function(item) { return !!item.hasStaged; });
     var unstaged = state.git.files.filter(function(item) { return !item.tracked || !!item.hasUnstaged; });
-    currentBodyEl.innerHTML = errorHtml +
-        '<div class="file-browser-git-commit-bar">' +
-            '<textarea class="file-browser-git-commit-input" placeholder="输入提交信息" rows="2">' + escapeHtml(state.git.commitMessage || '') + '</textarea>' +
-            '<button type="button" class="btn btn-sm file-browser-git-commit-btn"' + (state.git.commitSubmitting ? ' disabled' : '') + '>提交</button>' +
-        '</div>' +
+    // 只替换变更列表，提交栏与它的焦点/光标完全不受影响
+    listEl.innerHTML = errorHtml +
         renderFileBrowserGitGroup('已暂存', staged, 'staged') +
         renderFileBrowserGitGroup('未暂存', unstaged, 'unstaged');
-    bindCurrentGitFileEvents(currentBodyEl);
+    bindCurrentGitFileEvents(listEl);
     renderFileBrowserGitHistory(historyBodyEl);
 }
 
@@ -1263,23 +1295,8 @@ export function bindCurrentGitFileEvents(bodyEl) {
         });
     }
 
-    // 提交按钮
-    var commitBtn = bodyEl.querySelector('.file-browser-git-commit-btn');
-    if (commitBtn) {
-        commitBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            gitCommit();
-        });
-    }
-
-    // 提交输入框
-    var commitInput = bodyEl.querySelector('.file-browser-git-commit-input');
-    if (commitInput) {
-        commitInput.addEventListener('input', function() {
-            store.fileBrowserState.git.commitMessage = this.value || '';
-            store.fileBrowserState.git.gitActionError = '';
-        });
-    }
+    // 提交按钮与提交输入框是静态 DOM（见 renderFileBrowserGitSection 的说明），
+    // 绑定在 bindFileBrowserEvents 里一次性完成，这里不再重复绑定。
 }
 
 export function renderFileBrowserGitHistory(bodyEl) {
@@ -1701,6 +1718,227 @@ export function refreshFileBrowser() {
         loadFileBrowserGitHistory(false);
     }
 }
+
+// ============================================================
+// 自动感知文件变化（纯轮询，不依赖任何会话事件）
+//
+// 设计取舍：
+//   - 文件树只比对「路径集合」，新增/删除/重命名（文件与文件夹）都能发现；
+//     文件内容变化不触发重绘，避免保存时列表闪动。
+//   - 只有当前打开的文件才比对 size + modifiedAt，变化时重载或提示。
+//   - 目录条目过多时自动降频，避免大目录每 2 秒全量 stat。
+// ============================================================
+
+var FB_REFRESH_INTERVAL = 2000;
+var FB_REFRESH_INTERVAL_LARGE = 5000;
+var FB_REFRESH_LARGE_DIR = 800;
+
+var fbRefreshEnabled = false;
+var fbRefreshTimer = 0;
+var fbRefreshGen = 0;
+var fbRefreshRunning = false;
+var fbRefreshEntryCount = 0;
+var fbExternalBannerPath = '';
+
+/** 递归收集需要刷新的目录：根层 + 当前展开的子目录 */
+function collectVisibleDirs(node, out) {
+    if (!node || node.type !== 'dir' || !node.loaded) return out;
+    out.push(node);
+    if (!node.expanded) return out;
+    (node.children || []).forEach(function(child) {
+        if (child.type === 'dir') collectVisibleDirs(child, out);
+    });
+    return out;
+}
+
+/** 目录 children 的路径指纹：只关心有哪些条目，不关心大小与时间 */
+function dirPathSignature(children) {
+    var paths = (children || []).map(function(c) { return c.path; });
+    paths.sort();
+    return paths.join('\n');
+}
+
+/** 后端 items 的路径指纹（与 createTreeNode 的规范化保持一致：去掉尾斜杠） */
+function itemPathSignature(items) {
+    var paths = (items || []).map(function(item) {
+        var p = String(item.path || '/');
+        if (p.length > 1) p = p.replace(/\/+$/, '');
+        return p || '/';
+    });
+    paths.sort();
+    return paths.join('\n');
+}
+
+/** 用新的目录项更新节点，保留同名子目录的展开状态与已加载的子节点 */
+function applyDirItems(node, items) {
+    var prev = {};
+    (node.children || []).forEach(function(child) { prev[child.path] = child; });
+    node.children = (items || []).map(function(item) {
+        var next = createTreeNode(item);
+        var old = prev[next.path];
+        if (old && old.type === 'dir') {
+            next.expanded = old.expanded;
+            next.loaded = old.loaded;
+            next.children = old.children || [];
+        }
+        return next;
+    });
+    node.loaded = true;
+}
+
+/** 重绘树并保持滚动位置与选中态 */
+function rerenderTreeKeepingView() {
+    var state = store.fileBrowserState;
+    var listEl = document.getElementById('fileBrowserList');
+    var scrollTop = listEl ? listEl.scrollTop : 0;
+    renderFileTree(state.rootNode);
+    markTreeSelection(state.rootNode, state.selectedPath);
+    if (listEl) listEl.scrollTop = scrollTop;
+}
+
+/** 当前是否有会打断用户的操作（保存中、inline 输入、分栏拖拽） */
+function fileBrowserBusy() {
+    var state = store.fileBrowserState;
+    if (state.savingPreview) return true;
+    var inline = document.getElementById('fileBrowserCreateDirInline');
+    if (inline && inline.style.display !== 'none') return true;
+    if (document.querySelector('#fileBrowserResizeHandle.dragging')) return true;
+    return false;
+}
+
+/** 检查当前打开的文件是否被外部改动或删除。
+ *  仅有未保存修改时不重载（避免覆盖用户输入）；单纯把光标放在编辑器里不影响自动更新。 */
+async function checkActiveFileExternalChange() {
+    var state = store.fileBrowserState;
+    var base = fileBrowserActiveFileMeta();
+    if (!base) {
+        if (fbExternalBannerPath) {
+            fbExternalBannerPath = '';
+            hideFileExternalChangeBanner();
+        }
+        return;
+    }
+
+    var meta;
+    try {
+        meta = await fileBrowserApiStat(state.rootDir, base.path);
+    } catch (e) {
+        // 被删除或重命名：关闭 tab 并提示（不做重命名跟随）
+        fbExternalBannerPath = '';
+        hideFileExternalChangeBanner();
+        showToast('文件已被删除或重命名：' + base.path, 'warning');
+        fileBrowserCloseTab(base.path);
+        return;
+    }
+
+    var changed = (meta.modifiedAt || '') !== base.modifiedAt || (meta.size || 0) !== base.size;
+    if (!changed) {
+        if (fbExternalBannerPath) {
+            fbExternalBannerPath = '';
+            hideFileExternalChangeBanner();
+        }
+        return;
+    }
+
+    if (fileBrowserIsDirty()) {
+        // 有未保存修改：不覆盖用户输入，只提示
+        if (fbExternalBannerPath !== base.path) {
+            fbExternalBannerPath = base.path;
+            showFileExternalChangeBanner('该文件已在外部修改，保存将覆盖磁盘内容');
+        }
+        return;
+    }
+
+    fbExternalBannerPath = '';
+    hideFileExternalChangeBanner();
+    fileBrowserReloadActiveFromDisk();
+}
+
+/** 跑一轮检查 */
+async function runFileBrowserAutoRefresh() {
+    var state = store.fileBrowserState;
+    var modal = document.getElementById('fileBrowserModal');
+    if (!state.rootDir || !state.rootNode) return;
+    if (!modal || modal.style.display === 'none') return;
+    if (document.hidden) return;
+    if (fileBrowserBusy()) return;
+
+    var dirs = collectVisibleDirs(state.rootNode, []);
+    var entries = 0;
+    var treeChanged = false;
+    for (var i = 0; i < dirs.length; i++) {
+        var node = dirs[i];
+        var data;
+        try {
+            data = await fileBrowserApiList(state.rootDir, node.path);
+        } catch (e) {
+            continue; // 目录被删：交给上一级的指纹变化统一处理
+        }
+        var items = data.items || [];
+        entries += items.length;
+        if (dirPathSignature(node.children) !== itemPathSignature(items)) {
+            applyDirItems(node, items);
+            treeChanged = true;
+        }
+    }
+    fbRefreshEntryCount = entries;
+
+    if (treeChanged) rerenderTreeKeepingView();
+    await checkActiveFileExternalChange();
+    // git 模式：只刷新「当前变更」列表；提交栏是静态 DOM，刷新不会打断输入
+    if (state.mode === 'git') loadFileBrowserGitStatus({ onlyIfChanged: true });
+}
+
+/** 安排下一轮（setTimeout 递归，便于按目录规模动态调整间隔） */
+function scheduleFileBrowserAutoRefresh(gen, delay) {
+    fbRefreshTimer = setTimeout(async function() {
+        if (!fbRefreshEnabled || gen !== fbRefreshGen) return;
+        if (!fbRefreshRunning) {
+            fbRefreshRunning = true;
+            try {
+                await runFileBrowserAutoRefresh();
+            } catch (e) {
+                // 轮询失败静默处理：目录临时不可读不应该弹窗打扰用户
+            }
+            fbRefreshRunning = false;
+        }
+        if (!fbRefreshEnabled || gen !== fbRefreshGen) return;
+        var interval = fbRefreshEntryCount > FB_REFRESH_LARGE_DIR ? FB_REFRESH_INTERVAL_LARGE : FB_REFRESH_INTERVAL;
+        scheduleFileBrowserAutoRefresh(gen, interval);
+    }, delay);
+}
+
+/** 打开文件浏览器时启动（幂等） */
+export function startFileBrowserAutoRefresh() {
+    stopFileBrowserAutoRefresh();
+    fbRefreshEnabled = true;
+    fbRefreshEntryCount = 0;
+    fbExternalBannerPath = '';
+    var gen = ++fbRefreshGen;
+    // 首轮延后一个周期，避免与打开时的全量加载抢资源
+    scheduleFileBrowserAutoRefresh(gen, FB_REFRESH_INTERVAL);
+}
+
+/** 关闭文件浏览器时停止 */
+export function stopFileBrowserAutoRefresh() {
+    fbRefreshEnabled = false;
+    fbRefreshGen++;
+    if (fbRefreshTimer) clearTimeout(fbRefreshTimer);
+    fbRefreshTimer = 0;
+    fbRefreshRunning = false;
+    fbRefreshEntryCount = 0;
+    fbExternalBannerPath = '';
+}
+
+/** 从后台切回前台时立刻补一次检查 */
+function handleFileBrowserVisibilityChange() {
+    if (document.hidden || !fbRefreshEnabled || fbRefreshRunning) return;
+    fbRefreshRunning = true;
+    runFileBrowserAutoRefresh()
+        .catch(function() {})
+        .finally(function() { fbRefreshRunning = false; });
+}
+document.addEventListener('visibilitychange', handleFileBrowserVisibilityChange);
 
 // ============================================================
 // 文件列表右键菜单

@@ -17,9 +17,10 @@ import {
     closeFileBrowserModal, closeFileBrowserUploadConflictModal, refreshFileBrowser,
     openFileBrowserUploadPicker, handleBrowserUploadSelected, submitBrowserUpload,
     showFileBrowserRenameMode, switchFileBrowserMode, downloadCurrentFilePreview,
-    openFileBrowserModal,
+    openFileBrowserModal, gitCommit,
 } from './browser.js';
 import { bindTerminalEvents } from './terminal.js';
+import { fileBrowserReloadActiveFromDisk } from './preview.js';
 
 /** 绑定文件浏览器工具栏、上传弹窗、模式切换等交互（主窗口与独立窗口共用一套）。 */
 export function bindFileBrowserEvents() {
@@ -75,6 +76,19 @@ export function bindFileBrowserEvents() {
     });
     // 内嵌终端：状态栏入口、抽屉按钮、尺寸自适应
     bindTerminalEvents();
+    // git 提交栏是静态 DOM（列表刷新时不重建），因此在这里一次性绑定
+    document.getElementById('btnFileBrowserGitCommit')?.addEventListener('click', function(e) {
+        e.stopPropagation();
+        gitCommit();
+    });
+    document.getElementById('fileBrowserGitCommitInput')?.addEventListener('input', function() {
+        store.fileBrowserState.git.commitMessage = this.value || '';
+        store.fileBrowserState.git.gitActionError = '';
+    });
+    // 外部修改提示条：放弃本地编辑，重新读取磁盘内容
+    document.getElementById('btnFileBrowserExternalReload')?.addEventListener('click', function() {
+        fileBrowserReloadActiveFromDisk();
+    });
 }
 
 /** 独立文件浏览器窗口初始化：全屏打开浏览器，rootDir 完全由 URL 参数提供。 */
