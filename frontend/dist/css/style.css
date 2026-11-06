@@ -6620,8 +6620,9 @@ input::placeholder, textarea::placeholder {
     min-width: 0;
 }
 .file-browser-git-action-btn {
-    width: 24px;
-    height: 24px;
+    /* 尺寸必须小于行高（--fb-row-h），否则 hover 时按钮会撑高行、造成列表跳动 */
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     border: 1px solid var(--border);
     background: var(--bg-card);
@@ -6632,7 +6633,7 @@ input::placeholder, textarea::placeholder {
     justify-content: center;
     flex-shrink: 0;
     padding: 0;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
 }
 .file-browser-git-action-btn:hover:not(:disabled) {
@@ -6980,9 +6981,22 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-git-tree-name {
     min-width: 0;
+    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+/* 目录行的操作按钮：与文件行一致，hover 才出现 */
+.file-browser-git-dir-actions {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+.file-browser-git-tree-dir:hover .file-browser-git-dir-actions,
+.file-browser-git-tree-dir:focus-within .file-browser-git-dir-actions {
+    display: flex;
 }
 .file-browser-git-history-files {
     padding: 0 0 0 10px;

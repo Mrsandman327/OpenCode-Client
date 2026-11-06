@@ -524,40 +524,64 @@ func GitPull(dir string, proxy model.ProxyConfig) (model.GitActionResult, error)
 	return runGitRemoteOp(dir, "pull", proxy)
 }
 
-// DiscardFile 丢弃指定文件的所有未提交修改，未跟踪文件将被删除。
+// DiscardFile 丢弃指定文件（或目录）的所有未提交修改，未跟踪文件将被删除。
+//
+// 目录同样支持：path 为目录时按「路径前缀」匹配其下所有变更文件，
+// 一次调用完成 reset / checkout / clean，避免前端逐个文件发请求。
 func DiscardFile(dir, filePath string) (model.GitActionResult, error) {
 	if !IsGitRepository(dir) {
 		return model.GitActionResult{Success: false, Message: "当前目录未启用 Git 版本管理"}, nil
 	}
 	rel := strings.TrimPrefix(filePath, "/")
-	// 先检查文件状态
+	if rel == "" {
+		return model.GitActionResult{Success: false, Message: "路径不能为空"}, nil
+	}
+
+	// 收集受影响的文件：精确匹配单文件，或匹配目录前缀下的全部文件
+	prefix := rel + "/"
 	status := ListGitChanges(dir)
-	var changed *model.GitChangedFile
-	for i := range status.Files {
-		if status.Files[i].Path == filePath {
-			changed = &status.Files[i]
-			break
+	var matched []model.GitChangedFile
+	for _, f := range status.Files {
+		p := strings.TrimPrefix(f.Path, "/")
+		if p == rel || strings.HasPrefix(p, prefix) {
+			matched = append(matched, f)
 		}
 	}
-	if changed == nil {
-		return model.GitActionResult{Success: false, Message: "未找到该文件"}, nil
+	if len(matched) == 0 {
+		return model.GitActionResult{Success: false, Message: "未找到变更文件"}, nil
 	}
-	// 未跟踪文件：直接删除
-	if !changed.Tracked {
-		if _, err := runGitCommand(dir, "clean", "-f", "--", rel); err != nil {
-			return model.GitActionResult{Success: false, Message: err.Error()}, nil
+
+	hasStaged := false
+	hasTracked := false
+	hasUntracked := false
+	for _, f := range matched {
+		if f.HasStaged {
+			hasStaged = true
 		}
-		return model.GitActionResult{Success: true}, nil
+		if f.Tracked {
+			hasTracked = true
+		} else {
+			hasUntracked = true
+		}
 	}
-	// 已暂存：先取消暂存
-	if changed.HasStaged {
+
+	// 1) 已暂存的内容先取消暂存（否则 checkout 只还原工作区，暂存区仍保留改动）
+	if hasStaged {
 		if _, err := runGitCommand(dir, "reset", "HEAD", "--", rel); err != nil {
 			return model.GitActionResult{Success: false, Message: err.Error()}, nil
 		}
 	}
-	// 撤销工作区改动
-	if _, err := runGitCommand(dir, "checkout", "--", rel); err != nil {
-		return model.GitActionResult{Success: false, Message: err.Error()}, nil
+	// 2) 已跟踪文件还原到 HEAD
+	if hasTracked {
+		if _, err := runGitCommand(dir, "checkout", "--", rel); err != nil {
+			return model.GitActionResult{Success: false, Message: err.Error()}, nil
+		}
+	}
+	// 3) 未跟踪的新文件用 clean 删除（不带 -x，.gitignore 中忽略的文件不受影响）
+	if hasUntracked {
+		if _, err := runGitCommand(dir, "clean", "-f", "--", rel); err != nil {
+			return model.GitActionResult{Success: false, Message: err.Error()}, nil
+		}
 	}
 	return model.GitActionResult{Success: true}, nil
 }

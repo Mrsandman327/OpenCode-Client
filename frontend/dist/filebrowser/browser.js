@@ -831,14 +831,22 @@ export function setGitRemoteActionLoading(action, loading) {
     }
 }
 
-export async function discardFile(path) {
+export async function discardFile(path, options) {
     var state = store.fileBrowserState;
-    if (!state.rootDir || !path) return;
+    // 根目录/空路径不提供撤销（应使用「全部撤销」之类的显式入口）
+    if (!state.rootDir || !path || path === '/') return;
+    var isDir = !!(options && options.isDir);
+    var name = String(path).replace(/\/+$/, '').split('/').filter(Boolean).pop() || path;
+    // 撤销不可恢复，文件与文件夹都必须二次确认
+    var message = isDir
+        ? '确定撤销文件夹「' + name + '」下的全部变更吗？\n未跟踪的新文件会被删除，此操作不可恢复。'
+        : '确定撤销文件「' + name + '」的变更吗？\n未跟踪的新文件会被删除，此操作不可恢复。';
+    if (!window.confirm(message)) return;
     state.git.gitActionError = '';
     try {
         var result = await fileBrowserApiDiscardFile(state.rootDir, path);
         if (result.success) {
-            showToast('已撤销变更', 'success');
+            showToast(isDir ? '已撤销该文件夹的变更' : '已撤销该文件的变更', 'success');
         } else {
             showToast(result.message || '撤销失败', 'error');
         }
@@ -1198,6 +1206,21 @@ export function renderGitTreeNodes(node, groupName, depth) {
         var child = node.children[dirName];
         var collapseKey = groupName + '|' + child.path;
         var collapsed = !!(state.git.collapsedDirs && state.git.collapsedDirs[collapseKey]);
+        // 目录级操作：与文件行保持同一套规则与顺序（撤销在前，暂存/取消暂存在后）；
+        // 已暂存分组只能取消暂存，未暂存分组可整体暂存。后端对目录路径原生支持。
+        var dirActions = '';
+        var dirDiscard = '<button type="button" class="file-browser-git-action-btn file-browser-git-discard-btn" data-dir-path="' + escapeHtml(child.path) + '" data-dir-action="discard" title="撤销该文件夹的变更">↩</button>';
+        if (groupName === 'unstaged') {
+            dirActions = '<span class="file-browser-git-dir-actions">' +
+                dirDiscard +
+                '<button type="button" class="file-browser-git-action-btn" data-dir-path="' + escapeHtml(child.path) + '" data-dir-action="stage" title="暂存该文件夹">+</button>' +
+            '</span>';
+        } else if (groupName === 'staged') {
+            dirActions = '<span class="file-browser-git-dir-actions">' +
+                dirDiscard +
+                '<button type="button" class="file-browser-git-action-btn" data-dir-path="' + escapeHtml(child.path) + '" data-dir-action="unstage" title="将文件夹移出暂存区">−</button>' +
+            '</span>';
+        }
         html += '<div class="file-browser-git-tree-dir" data-tree-dir="' + escapeHtml(collapseKey) + '"' +
             // 行内 padding 会覆盖 CSS 的 padding:0 2px，这里把左侧内边距一起算进去
             ' style="padding-left:' + (depth * INDENT + 2) + 'px" title="' + escapeHtml(child.path) + '">' +
@@ -1205,6 +1228,7 @@ export function renderGitTreeNodes(node, groupName, depth) {
             // 文件夹图标：assets/文件夹.svg 作遮罩（mask 机制），颜色随行文字
             '<span class="file-browser-git-tree-icon"></span>' +
             '<span class="file-browser-git-tree-name">' + escapeHtml(dirName) + '</span>' +
+            dirActions +
         '</div>';
         if (!collapsed) html += renderGitTreeNodes(child, groupName, depth + 1);
     });
@@ -1283,10 +1307,26 @@ export function bindCurrentGitFileEvents(bodyEl) {
         });
     });
 
-    bodyEl.querySelectorAll('.file-browser-git-discard-btn').forEach(function(btn) {
+    // 必须带 data-action 限定：目录行的撤销按钮同样带 file-browser-git-discard-btn 类，
+    // 不加限定会同时触发文件级逻辑（path 为空），导致弹两次确认框。
+    bodyEl.querySelectorAll('.file-browser-git-action-btn[data-action="discard"]').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
             discardFile(this.dataset.gitPath || '/');
+        });
+    });
+
+    // 目录级操作按钮（暂存 / 取消暂存 / 撤销整个文件夹）
+    bodyEl.querySelectorAll('[data-dir-action]').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            // 目录行整行可点击展开/折叠，按钮必须阻止冒泡
+            e.stopPropagation();
+            var dirPath = this.dataset.dirPath || '';
+            var action = this.dataset.dirAction;
+            if (!dirPath) return;
+            if (action === 'stage') stageSingleFile(dirPath);
+            else if (action === 'unstage') unstageSingleFile(dirPath);
+            else if (action === 'discard') discardFile(dirPath, { isDir: true });
         });
     });
 
