@@ -234,7 +234,8 @@ export function createTreeNodeRow(node, depth) {
 
     var indent = document.createElement('span');
     indent.className = 'file-browser-tree-indent';
-    indent.style.width = (depth * 18) + 'px';
+    // 缩进步长与 CSS 变量 --fb-indent（16px）保持一致
+    indent.style.width = (depth * 16) + 'px';
     row.appendChild(indent);
 
     var toggle = document.createElement('span');
@@ -1189,7 +1190,8 @@ export function buildGitFileTree(files) {
  */
 export function renderGitTreeNodes(node, groupName, depth) {
     var state = store.fileBrowserState;
-    var INDENT = 14;
+    // 与文件树统一：每级 16px（对应 CSS 变量 --fb-indent）
+    var INDENT = 16;
     var html = '';
     var dirNames = Object.keys(node.children).sort(function(a, b) { return a.localeCompare(b); });
     dirNames.forEach(function(dirName) {
@@ -1197,7 +1199,8 @@ export function renderGitTreeNodes(node, groupName, depth) {
         var collapseKey = groupName + '|' + child.path;
         var collapsed = !!(state.git.collapsedDirs && state.git.collapsedDirs[collapseKey]);
         html += '<div class="file-browser-git-tree-dir" data-tree-dir="' + escapeHtml(collapseKey) + '"' +
-            ' style="padding-left:' + (depth * INDENT + 6) + 'px" title="' + escapeHtml(child.path) + '">' +
+            // 行内 padding 会覆盖 CSS 的 padding:0 2px，这里把左侧内边距一起算进去
+            ' style="padding-left:' + (depth * INDENT + 2) + 'px" title="' + escapeHtml(child.path) + '">' +
             '<span class="file-browser-git-tree-toggle ' + (collapsed ? 'is-collapsed' : 'is-expanded') + '"></span>' +
             // 文件夹图标：assets/文件夹.svg 作遮罩（mask 机制），颜色随行文字
             '<span class="file-browser-git-tree-icon"></span>' +
@@ -1226,7 +1229,7 @@ export function renderGitTreeFileRow(item, groupName, depth, indentUnit) {
     } else if (groupName === 'staged') {
         actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="unstage" title="移出暂存区" ' + (store.fileBrowserState.git.unstageLoadingPath === item.path ? 'disabled' : '') + '>-</button>';
     }
-    return '<div class="file-browser-git-item-row" style="padding-left:' + (depth * INDENT) + 'px">' +
+    return '<div class="file-browser-git-item-row" style="padding-left:' + (depth * INDENT + 20) + 'px">' +
         '<button type="button" class="file-browser-git-item" data-git-path="' + escapeHtml(item.path) + '" data-git-group="' + escapeHtml(groupName) + '" title="' + escapeHtml(fullPath) + '">' +
             '<span class="file-browser-git-status status-' + escapeHtml(gitStatusClass(item.statusCode || 'xx')) + '">' + escapeHtml(item.statusCode || '') + '</span>' +
             '<span class="file-browser-git-text">' +

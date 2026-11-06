@@ -6237,6 +6237,12 @@ input::placeholder, textarea::placeholder {
     display: flex;
     flex-direction: column;
     padding: 10px;
+    /* 文件树与 Git 变更树共用的行度量：两处缩进/行高/字号必须一致，
+       否则并排看会出现错位。改这里就能同时影响两侧。 */
+    --fb-row-h: 22px;
+    --fb-indent: 16px;
+    --fb-toggle-w: 16px;
+    --fb-font: 12.5px;
 }
 /* 独立窗口模式（?view=filebrowser）：文件浏览器铺满整个窗口（无模态边距/圆角） */
 #fileBrowserModal.file-browser-standalone {
@@ -6605,6 +6611,7 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: center;
     gap: 4px;
+    min-height: var(--fb-row-h);
 }
 .file-browser-git-item-row .file-browser-git-item {
     flex: 1;
@@ -6821,17 +6828,17 @@ input::placeholder, textarea::placeholder {
 .file-browser-git-item {
     width: 100%;
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 4px 0px 4px 0px;
+    align-items: center;
+    gap: 4px;
+    padding: 0 2px;
+    min-height: calc(var(--fb-row-h) - 2px);
     border: none;
     background: transparent;
     color: var(--text-primary);
     border-radius: var(--radius-sm);
     cursor: pointer;
     text-align: left;
-    font-size: 12px;
-    font-family: "SF Mono", "Cascadia Code", monospace;
+    font-size: var(--fb-font);
 }
 .file-browser-git-item:hover {
     background: var(--bg-card-hover);
@@ -6859,10 +6866,10 @@ input::placeholder, textarea::placeholder {
     font-size: 11px;
 }
 .file-browser-git-status {
-    min-width: 28px;
+    min-width: 22px;
     text-align: center;
     border-radius: var(--radius-pill);
-    padding: 2px 6px;
+    padding: 2px 4px;
     font-size: 10px;
     font-weight: 600;
     flex-shrink: 0;
@@ -6916,38 +6923,37 @@ input::placeholder, textarea::placeholder {
 .file-browser-git-tree-dir {
     display: flex;
     align-items: center;
-    gap: 0px;
-    padding: 1px 1px;
-    font-size: 12px;
-    color: var(--text-secondary);
+    gap: 4px;
+    padding: 0 2px;
+    min-height: var(--fb-row-h);
+    font-size: var(--fb-font);
+    color: var(--text-primary);
     cursor: pointer;
     border-radius: var(--radius-sm);
     user-select: none;
     -webkit-user-select: none;
-    font-family: "SF Mono", "Cascadia Code", monospace;
 }
 .file-browser-git-tree-dir:hover {
     background: var(--bg-card-hover);
 }
 .file-browser-git-tree-toggle {
     flex-shrink: 0;
-    width: 12px;
-    font-size: 9px;
+    width: var(--fb-toggle-w);
+    height: var(--fb-toggle-w);
     line-height: 1;
     color: var(--text-muted);
     text-align: center;
 }
-/* 折叠/展开图标：SVG 遮罩（mask 机制），颜色随行文字 */
+/* 折叠/展开图标：与文件树保持同一尺寸（16px 容器内 12px 图形） */
 .file-browser-git-tree-toggle.is-collapsed,
 .file-browser-git-tree-toggle.is-expanded {
-    height: 12px;
     background: currentColor;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
-    -webkit-mask-size: contain;
+    -webkit-mask-size: 12px 12px;
     mask-repeat: no-repeat;
     mask-position: center;
-    mask-size: contain;
+    mask-size: 12px 12px;
 }
 .file-browser-git-tree-toggle.is-collapsed {
     -webkit-mask-image: url("../assets/菜单折叠.svg");
@@ -6957,11 +6963,11 @@ input::placeholder, textarea::placeholder {
     -webkit-mask-image: url("../assets/菜单展开.svg");
     mask-image: url("../assets/菜单展开.svg");
 }
-/* Git 变更树的文件夹图标：assets/文件夹.svg 作遮罩（mask 机制），颜色随行文字 */
+/* Git 变更树的文件夹图标：与文件树同尺寸（15px） */
 .file-browser-git-tree-icon {
     flex-shrink: 0;
-    width: 12px;
-    height: 12px;
+    width: 15px;
+    height: 15px;
     background: currentColor;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
@@ -6993,22 +6999,25 @@ input::placeholder, textarea::placeholder {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 1px 1px;
+    padding: 0 2px;
+    min-height: calc(var(--fb-row-h) - 2px);
     border: none;
     background: transparent;
     color: var(--text-primary);
     text-align: left;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--fb-font);
 }
 .file-browser-item-row {
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	min-height: var(--fb-row-h);
 }
+/* 行间距交给统一行高控制，避免两棵树节奏不同 */
 .file-browser-item-row + .file-browser-item-row {
-	margin-top: 4px;
+	margin-top: 0;
 }
 .file-browser-item:hover {
     background: var(--bg-card-hover);
@@ -7053,8 +7062,8 @@ input::placeholder, textarea::placeholder {
 }
 .file-browser-tree-toggle {
     flex-shrink: 0;
-    width: 16px;
-    height: 16px;
+    width: var(--fb-toggle-w);
+    height: var(--fb-toggle-w);
     display: inline-flex;
     align-items: center;
     justify-content: center;
