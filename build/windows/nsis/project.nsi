@@ -32,6 +32,17 @@ Unicode true
 ####
 ## Include the wails tools
 ####
+
+## Project info: define before including wails_tools.nsh so these values
+## override the template defaults inside that generated file.
+!define INFO_PROJECTNAME    "oc-manager"
+!define INFO_COMPANYNAME    "Linsn"
+!define INFO_PRODUCTNAME    "OC Manager"
+!define INFO_PRODUCTVERSION "2.0.4"
+!define INFO_COPYRIGHT      "(c) 2026, Linsn"
+!define PRODUCT_EXECUTABLE  "oc-manager.exe"
+!define UNINST_KEY_NAME     "LinsnOCManager"
+
 !include "wails_tools.nsh"
 
 # The version information for this two must consist of 4 parts

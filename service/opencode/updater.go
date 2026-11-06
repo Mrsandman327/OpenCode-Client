@@ -99,16 +99,37 @@ func installedBinaryPath() string {
 	return filepath.Join(td, installedBinaryName())
 }
 
-// platformAssetName 当前平台的官方资产文件名。仅支持 win/linux 的 x64。
+// platformAssetName 当前平台的官方资产文件名。
+//
+// 官方分发目录的命名规则：
+//
+//	Windows  opencode-windows-{x64|arm64}.zip
+//	Linux    opencode-linux-{x64|arm64}.tar.gz
+//	macOS    opencode-darwin-{x64|arm64}.zip
+//
+// 注意：macOS 的资产是 zip（不是 tar.gz），与 Windows 一样走 extractFromZip。
 func platformAssetName() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
-		if runtime.GOARCH == "amd64" {
+		switch runtime.GOARCH {
+		case "amd64":
 			return "opencode-windows-x64.zip", nil
+		case "arm64":
+			return "opencode-windows-arm64.zip", nil
 		}
 	case "linux":
-		if runtime.GOARCH == "amd64" {
+		switch runtime.GOARCH {
+		case "amd64":
 			return "opencode-linux-x64.tar.gz", nil
+		case "arm64":
+			return "opencode-linux-arm64.tar.gz", nil
+		}
+	case "darwin":
+		switch runtime.GOARCH {
+		case "amd64":
+			return "opencode-darwin-x64.zip", nil
+		case "arm64":
+			return "opencode-darwin-arm64.zip", nil
 		}
 	}
 	return "", fmt.Errorf("当前平台暂不支持自动更新（%s/%s）", runtime.GOOS, runtime.GOARCH)

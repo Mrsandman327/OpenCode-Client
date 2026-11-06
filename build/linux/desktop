@@ -1,13 +1,11 @@
 [Desktop Entry]
 Version=1.0
-Name=My Product
-Comment=A demo-w3 application
+Name=OC Manager
+Comment=OpenCode 全能工作台
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/demo-w3.exe %u
+Exec=/usr/local/bin/oc-manager %u
 Terminal=false
 Type=Application
-Icon=demo-w3.exe
-Categories=Utility;
-StartupWMClass=demo-w3.exe
-
- 
+Icon=oc-manager
+Categories=Development;
+StartupWMClass=oc-manager

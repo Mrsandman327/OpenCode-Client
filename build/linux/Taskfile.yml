@@ -17,24 +17,29 @@ tasks:
   build:
     summary: Builds the application for Linux
     cmds:
-      # Linux requires CGO - use Docker when:
-      # 1. Cross-compiling from non-Linux, OR
-      # 2. No C compiler is available, OR
-      # 3. Target architecture differs from host architecture (cross-arch compilation)
-      - task: '{{if and (eq OS "linux") (eq .HAS_CC "true") (eq .TARGET_ARCH ARCH)}}build:native{{else}}build:docker{{end}}'
+      # purego（无 CGO 后端）：任何主机、任何架构都直接用 Go 工具链交叉编译；
+      # 传统 CGO 构建：本机有 C 编译器且架构一致时走 native，其余走 Docker。
+      - task: '{{if or (ne .CGO_ENABLED "1") (and (eq OS "linux") (eq .HAS_CC "true") (eq .TARGET_ARCH ARCH))}}build:native{{else}}build:docker{{end}}'
         vars:
           ARCH: '{{.ARCH}}'
           DEV: '{{.DEV}}'
           OUTPUT: '{{.OUTPUT}}'
           EXTRA_TAGS: '{{.EXTRA_TAGS}}'
+          CGO_ENABLED: '{{.CGO_ENABLED}}'
     vars:
-      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
+      # 目标架构：go env 会读取 GOARCH 环境变量（交叉编译时已设置），
+      # 未设置时返回宿主架构。必须放在 DEFAULT_OUTPUT 之前求值。
+      TARGET_ARCH:
+        sh: go env GOARCH
+      # 交叉编译时产物名带上平台和架构，避免 Linux / macOS 互相覆盖
+      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}-linux-{{.TARGET_ARCH}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
-      # Determine target architecture (defaults to host ARCH if not specified)
-      TARGET_ARCH: '{{.ARCH | default ARCH}}'
-      # Check if a C compiler is available (gcc or clang)
+      # 由 EXTRA_TAGS 是否包含 purego 推导 CGO 开关：
+      # WAILS_PUREGO=1 会被 wails3 展开成 EXTRA_TAGS=purego，此时必须 CGO_ENABLED=0。
+      CGO_ENABLED: '{{.CGO_ENABLED | default (ternary "0" "1" (has "purego" (splitList "," (.EXTRA_TAGS | default ""))))}}'
+      # 跨平台的 C 编译器探测（wails3 tool has 在 Windows 上也可用）
       HAS_CC:
-        sh: '(command -v gcc >/dev/null 2>&1 || command -v clang >/dev/null 2>&1) && echo "true" || echo "false"'
+        sh: 'wails3 tool has "gcc|clang"'
 
   build:native:
     summary: Builds the application natively on Linux
@@ -48,17 +53,22 @@ tasks:
           DEV:
             ref: .DEV
       - task: common:generate:icons
-      - task: generate:dotdesktop
+      # dotdesktop 只用于 Linux 安装包，打包任务（create:appimage/deb/rpm/aur）
+      # 会单独生成；这里不再依赖它，避免在 Windows 上交叉编译时执行 mkdir -p 失败。
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.OUTPUT}}
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
-      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
+      TARGET_ARCH:
+        sh: go env GOARCH
+      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}-linux-{{.TARGET_ARCH}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
+      # 上游传入的 CGO_ENABLED 优先；未传入时按 EXTRA_TAGS 是否含 purego 推导
+      CGO_FLAG: '{{.CGO_ENABLED | default (ternary "0" "1" (has "purego" (splitList "," (.EXTRA_TAGS | default ""))))}}'
     env:
       GOOS: linux
-      CGO_ENABLED: 1
-      GOARCH: '{{.ARCH | default ARCH}}'
+      CGO_ENABLED: '{{.CGO_FLAG}}'
+      GOARCH: '{{.TARGET_ARCH}}'
 
   build:docker:
     summary: Builds for Linux using Docker (for non-Linux hosts or when no C compiler available)

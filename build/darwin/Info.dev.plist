@@ -1,20 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
     <dict>
         <key>CFBundlePackageType</key>
             <string>APPL</string>
         <key>CFBundleName</key>
-            <string>My Product</string>
+            <string>OC Manager (Dev)</string>
+        <key>CFBundleDisplayName</key>
+            <string>OC Manager (Dev)</string>
         <key>CFBundleExecutable</key>
-            <string>demo-w3.exe</string>
+            <string>oc-manager</string>
         <key>CFBundleIdentifier</key>
-            <string>com.example.demow3</string>
+            <string>com.linsn.ocmanager.dev</string>
         <key>CFBundleVersion</key>
-            <string>0.1.0</string>
+            <string>2.0.4</string>
         <key>CFBundleGetInfoString</key>
-            <string>This is a comment</string>
+            <string>OpenCode 全能工作台（开发版）</string>
         <key>CFBundleShortVersionString</key>
-            <string>0.1.0</string>
+            <string>2.0.4</string>
         <key>CFBundleIconFile</key>
             <string>icons</string>
         <key>CFBundleIconName</key>
@@ -24,11 +27,13 @@
         <key>NSHighResolutionCapable</key>
             <string>true</string>
         <key>NSHumanReadableCopyright</key>
-            <string>© 2026, My Company</string>
+            <string>(c) 2026, Linsn</string>
         <key>NSAppTransportSecurity</key>
         <dict>
             <key>NSAllowsLocalNetworking</key>
             <true/>
         </dict>
+        <key>NSAppleEventsUsageDescription</key>
+            <string>OC Manager 需要在外部终端中打开 OpenCode，请允许控制“终端”。</string>
     </dict>
 </plist>

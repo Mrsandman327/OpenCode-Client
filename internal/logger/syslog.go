@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"oc-manager/internal/portable"
 )
 
 var (
@@ -31,14 +33,30 @@ func CreateSysLog() error {
 	return nil
 }
 
+// logDirectory 返回日志目录。
+//
+// 不能使用相对路径 "./log"：macOS 从 Finder 启动时工作目录是 "/"，
+// Linux 从桌面启动器启动时也可能是 "/" 或 home，都会导致日志目录创建失败。
+// 优先放到便携目录 <exeDir>/agentdatas/log；可执行文件路径不可用时回退用户缓存目录。
+func logDirectory() string {
+	if root := portable.Root(); root != "" {
+		return filepath.Join(root, "log")
+	}
+	if cache, err := os.UserCacheDir(); err == nil && cache != "" {
+		return filepath.Join(cache, "oc-manager", "log")
+	}
+	return "./log"
+}
+
 func NewSysLog() (*SysLog, error) {
-	filePath := fmt.Sprintf("./log/sys-%s_%09d.log", time.Now().Format("20060102_150405"), time.Now().Nanosecond())
+	logDir := logDirectory()
 	// 确保目录存在，如果不存在则创建它
-	dir, _ := filepath.Split(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	filePath := filepath.Join(logDir,
+		fmt.Sprintf("sys-%s_%09d.log", time.Now().Format("20060102_150405"), time.Now().Nanosecond()))
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
 	if err != nil {
 		return nil, err
 	}

@@ -8,46 +8,44 @@
         AllowPromptForPassword="false">
     </Settings>
     <Installer
-        Path="demo-w3.exe"
+        Path="oc-manager.exe"
         Arguments=""
-        InstallLocation="C:\Program Files\My Company\My Product">
+        InstallLocation="C:\Program Files\Linsn\OC Manager">
     </Installer>
     <PackageInformation
-        PackageName="My Product"
-        PackageDisplayName="My Product"
-        PublisherName="CN=My Company"
-        PublisherDisplayName="My Company"
-        Version="0.1.0.0"
-        PackageDescription="A demo-w3 application">
+        PackageName="Linsn.OCManager"
+        PackageDisplayName="OC Manager"
+        PublisherName="CN=Linsn"
+        PublisherDisplayName="Linsn"
+        Version="2.0.4.0"
+        PackageDescription="OpenCode 全能工作台">
         <Capabilities>
             <Capability Name="runFullTrust" />
-            
         </Capabilities>
         <Applications>
             <Application
-                Id="com.example.demow3"
-                Description="A demo-w3 application"
-                DisplayName="My Product"
-                ExecutableName="demo-w3.exe"
+                Id="com.linsn.ocmanager"
+                Description="OpenCode 全能工作台"
+                DisplayName="OC Manager"
+                ExecutableName="oc-manager.exe"
                 EntryPoint="Windows.FullTrustApplication">
-                
             </Application>
         </Applications>
         <Resources>
-            <Resource Language="en-us" />
+            <Resource Language="zh-CN" />
         </Resources>
         <Dependencies>
             <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
         </Dependencies>
         <Properties>
             <Framework>false</Framework>
-            <DisplayName>My Product</DisplayName>
-            <PublisherDisplayName>My Company</PublisherDisplayName>
-            <Description>A demo-w3 application</Description>
+            <DisplayName>OC Manager</DisplayName>
+            <PublisherDisplayName>Linsn</PublisherDisplayName>
+            <Description>OpenCode 全能工作台</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>
-    <SaveLocation PackagePath="demo-w3.msix" />
+    <SaveLocation PackagePath="oc-manager.msix" />
     <PackageIntegrity>
         <CertificatePath></CertificatePath>
     </PackageIntegrity>

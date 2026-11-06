@@ -16,14 +16,21 @@ tasks:
   build:
     summary: Builds the application
     cmds:
-      - task: '{{if eq OS "darwin"}}build:native{{else}}build:docker{{end}}'
+      # purego：任何主机都能直接用 Go 工具链交叉编译；
+      # 传统 CGO 在非 macOS 主机上仍然走 Docker。
+      - task: '{{if or (eq OS "darwin") (has "purego" (splitList "," (.EXTRA_TAGS | default "")))}}build:native{{else}}build:docker{{end}}'
         vars:
           ARCH: '{{.ARCH}}'
           DEV: '{{.DEV}}'
           OUTPUT: '{{.OUTPUT}}'
           EXTRA_TAGS: '{{.EXTRA_TAGS}}'
     vars:
-      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
+      # 目标架构：go env 会读取 GOARCH 环境变量（交叉编译时已设置），
+      # 未设置时返回宿主架构。必须放在 DEFAULT_OUTPUT 之前求值。
+      TARGET_ARCH:
+        sh: go env GOARCH
+      # 交叉编译时产物名带上平台和架构，避免 Linux / macOS 互相覆盖
+      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}-darwin-{{.TARGET_ARCH}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
 
   build:native:
@@ -39,15 +46,22 @@ tasks:
             ref: .DEV
       - task: common:generate:icons
     cmds:
+      # 在 macOS 上把输出目录从 iCloud / File Provider 重定位到本地磁盘，
+      # 避免 Finder 元数据写进 .app 导致签名失效；非 darwin 主机上是空操作。
+      - wails3 tool prepare-macos-output --dir "{{.BIN_DIR}}"
       - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}"
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
-      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
+      TARGET_ARCH:
+        sh: go env GOARCH
+      DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}-darwin-{{.TARGET_ARCH}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
+      # 上游传入的 CGO_ENABLED 优先；未传入时按 EXTRA_TAGS 是否含 purego 推导
+      CGO_FLAG: '{{.CGO_ENABLED | default (ternary "0" "1" (has "purego" (splitList "," (.EXTRA_TAGS | default ""))))}}'
     env:
       GOOS: darwin
-      CGO_ENABLED: 1
-      GOARCH: '{{.ARCH | default ARCH}}'
+      CGO_ENABLED: '{{.CGO_FLAG}}'
+      GOARCH: '{{.TARGET_ARCH}}'
       CGO_CFLAGS: "-mmacosx-version-min=12.0"
       CGO_LDFLAGS: "-mmacosx-version-min=12.0"
       MACOSX_DEPLOYMENT_TARGET: "12.0"

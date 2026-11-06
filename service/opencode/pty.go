@@ -347,12 +347,35 @@ type PtyShell struct {
 }
 
 // PtyShells 返回当前平台可选的 shell 列表。
-// Windows 提供 CMD 与 PowerShell；类 Unix 只有系统默认 shell 一个选项。
+// Windows 提供 CMD 与 PowerShell；macOS 提供 zsh 与 bash；
+// 其他 Unix 只返回系统默认 shell 一个选项。
 func PtyShells() []PtyShell {
 	if runtime.GOOS == "windows" {
 		return []PtyShell{
 			{Command: "cmd.exe", Label: "CMD", Default: true},
 			{Command: "powershell.exe", Label: "PowerShell"},
+		}
+	}
+	// macOS 预装 zsh 和 bash，两个都列出来，默认 zsh（与系统默认 shell 一致）。
+	if runtime.GOOS == "darwin" {
+		var shells []PtyShell
+		for _, item := range []struct {
+			Command string
+			Label   string
+		}{
+			{"/bin/zsh", "zsh"},
+			{"/bin/bash", "bash"},
+		} {
+			if info, err := os.Stat(item.Command); err == nil && !info.IsDir() {
+				shells = append(shells, PtyShell{
+					Command: item.Command,
+					Label:   item.Label,
+					Default: len(shells) == 0,
+				})
+			}
+		}
+		if len(shells) > 0 {
+			return shells
 		}
 	}
 	def := defaultShellCommand()
