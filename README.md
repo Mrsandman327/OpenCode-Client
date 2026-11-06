@@ -207,6 +207,7 @@ go vet ./internal/... ./model/... ./service/... ./config/...   # 静态检查（
 
 ```cmd
 build.cmd                 # 交互式选择平台和架构
+build.cmd -All            # 一次生成全部 6 个目标
 build.cmd windows amd64
 build.cmd linux arm64 -Clean
 build.cmd mac arm64
@@ -214,13 +215,13 @@ build.cmd mac arm64
 
 PowerShell 中把 `build.cmd` 换成 `.\build.ps1`。
 
-产物固定命名，按平台分目录：
+产物固定命名，按平台 / 架构分目录：
 
 | 平台 | 产物 |
 |---|---|
-| Windows | `bin-win/oc-manager.exe` |
-| Linux | `bin-linux/oc-manager` |
-| macOS | `bin-darwin/oc-manager` |
+| Windows | `bin-win/amd64/oc-manager.exe`、`bin-win/arm64/oc-manager.exe` |
+| Linux | `bin-linux/amd64/oc-manager`、`bin-linux/arm64/oc-manager` |
+| macOS | `bin-darwin/amd64/oc-manager`、`bin-darwin/arm64/oc-manager` |
 
 Linux / macOS 使用 Wails v3.1.0 的纯 Go（purego）后端：
 

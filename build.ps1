@@ -6,6 +6,8 @@ param(
     [Parameter(Position = 1)]
     [string]$Arch,
 
+    [switch]$All,
+
     [switch]$Clean,
 
     [switch]$Help
@@ -13,7 +15,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# 平台配置：界面显示名、Go 的 GOOS、输出目录、可执行文件后缀
+# 平台配置：界面显示名、Go 的 GOOS、输出根目录、可执行文件后缀
 $platformMap = @{
     'windows' = [pscustomobject]@{ Label = 'Windows'; Goos = 'windows'; Dir = 'bin-win';    Ext = '.exe' }
     'linux'   = [pscustomobject]@{ Label = 'Linux';   Goos = 'linux';   Dir = 'bin-linux';  Ext = '' }
@@ -21,31 +23,62 @@ $platformMap = @{
 }
 $platforms = @('windows', 'linux', 'mac')
 $arches = @('amd64', 'arm64')
-$defaultPlatform = 'windows'
-$defaultArch = 'amd64'
 
-# 产物名固定，不拼平台和架构；不同架构写同一路径时后者覆盖前者
+# 产物名固定，平台和架构用目录区分
 $binName = 'oc-manager'
+
+# 构造一个构建目标；Output 使用正斜杠：
+# Taskfile 的命令由 sh 执行，Windows 的反斜杠会被当成转义符。
+function New-BuildTarget {
+    param(
+        [string]$TargetPlatform,
+        [string]$TargetArch
+    )
+    $info = $platformMap[$TargetPlatform]
+    [pscustomobject]@{
+        Platform = $TargetPlatform
+        Arch     = $TargetArch
+        Label    = $info.Label
+        Goos     = $info.Goos
+        Dir      = $info.Dir
+        Ext      = $info.Ext
+        Output   = "$($info.Dir)/$TargetArch/$binName$($info.Ext)"
+    }
+}
+
+# 全部目标：Windows / Linux / macOS × amd64 / arm64，共 6 个
+$allTargets = @()
+foreach ($p in $platforms) {
+    foreach ($a in $arches) {
+        $allTargets += New-BuildTarget -TargetPlatform $p -TargetArch $a
+    }
+}
 
 function Show-Usage {
     Write-Host ''
     Write-Host '用法: build.ps1 [平台] [架构] [选项]'
+    Write-Host '      build.ps1 -All'
     Write-Host ''
     Write-Host '  不传平台和架构时进入交互菜单（方向键选择，无法读取按键时回退数字菜单）'
     Write-Host '  平台   windows、linux、mac'
     Write-Host '  架构   amd64、arm64'
     Write-Host ''
     Write-Host '选项:'
+    Write-Host '  -All     一次生成全部 6 个目标（Windows / Linux / macOS × amd64 / arm64）'
     Write-Host '  -Clean   构建前删除对应的输出目录'
     Write-Host '  -Help    显示帮助'
     Write-Host ''
-    Write-Host '输出:'
-    Write-Host '  bin-win/oc-manager.exe'
-    Write-Host '  bin-linux/oc-manager'
-    Write-Host '  bin-darwin/oc-manager'
+    Write-Host '输出（按平台 / 架构分目录）:'
+    Write-Host '  bin-win/amd64/oc-manager.exe'
+    Write-Host '  bin-win/arm64/oc-manager.exe'
+    Write-Host '  bin-linux/amd64/oc-manager'
+    Write-Host '  bin-linux/arm64/oc-manager'
+    Write-Host '  bin-darwin/amd64/oc-manager'
+    Write-Host '  bin-darwin/arm64/oc-manager'
     Write-Host ''
     Write-Host '示例:'
     Write-Host '  build.ps1'
+    Write-Host '  build.ps1 -All'
     Write-Host '  build.ps1 linux amd64'
     Write-Host '  build.ps1 mac arm64 -Clean'
     Write-Host '  build.ps1 windows'
@@ -166,54 +199,72 @@ if ([string]::IsNullOrWhiteSpace($Root)) {
 }
 Set-Location $Root
 
-# 未传平台和架构时进入交互菜单，只生成选择的那一个目标
-$needsMenu = -not (
-    $PSBoundParameters.ContainsKey('Platform') -or
-    $PSBoundParameters.ContainsKey('Arch')
-)
+$selected = @()
 
-if ($needsMenu) {
-    $platformMenu = @(
-        'Windows'
-        'Linux'
-        'macOS'
+if ($All) {
+    # -All：一次生成全部 6 个目标
+    $selected = $allTargets
+} else {
+    # 未传平台和架构时进入交互菜单
+    $needsMenu = -not (
+        $PSBoundParameters.ContainsKey('Platform') -or
+        $PSBoundParameters.ContainsKey('Arch')
     )
-    $picked = Select-Menu "选择目标平台（项目: $Root）" $platformMenu 0
-    if ($null -eq $picked) {
-        exit 0
+
+    if ($needsMenu) {
+        $platformMenu = @(
+            'Windows'
+            'Linux'
+            'macOS'
+            '全部生成（6 个目标）'
+        )
+        $picked = Select-Menu "选择目标平台（项目: $Root）" $platformMenu 0
+        if ($null -eq $picked) {
+            exit 0
+        }
+
+        if ($picked -like '全部*') {
+            $selected = $allTargets
+        } else {
+            switch ($picked) {
+                'Windows' { $Platform = 'windows' }
+                'Linux'   { $Platform = 'linux' }
+                'macOS'   { $Platform = 'mac' }
+            }
+
+            $archMenu = @(
+                'amd64 (x64)'
+                'arm64'
+            )
+            $picked = Select-Menu "选择架构（平台: $picked）" $archMenu 0
+            if ($null -eq $picked) {
+                exit 0
+            }
+            $Arch = if ($picked -like 'amd64*') { 'amd64' } else { 'arm64' }
+        }
     }
-    switch ($picked) {
-        'Windows' { $Platform = 'windows' }
-        'Linux'   { $Platform = 'linux' }
-        'macOS'   { $Platform = 'mac' }
+
+    if ($selected.Count -eq 0) {
+        # 参数模式或菜单里选了单平台：补默认值并校验
+        if ([string]::IsNullOrWhiteSpace($Platform)) { $Platform = 'windows' }
+        if ([string]::IsNullOrWhiteSpace($Arch)) { $Arch = 'amd64' }
+
+        $Platform = $Platform.ToLowerInvariant()
+        $Arch = $Arch.ToLowerInvariant()
+
+        if ($platforms -notcontains $Platform) {
+            Write-Host "无效平台: $Platform" -ForegroundColor Red
+            Write-Host "有效平台: $($platforms -join '、')"
+            exit 1
+        }
+        if ($arches -notcontains $Arch) {
+            Write-Host "无效架构: $Arch" -ForegroundColor Red
+            Write-Host "有效架构: $($arches -join '、')"
+            exit 1
+        }
+
+        $selected = @(New-BuildTarget -TargetPlatform $Platform -TargetArch $Arch)
     }
-
-    $archMenu = @(
-        'amd64 (x64)'
-        'arm64'
-    )
-    $picked = Select-Menu "选择架构（平台: $picked）" $archMenu 0
-    if ($null -eq $picked) {
-        exit 0
-    }
-    $Arch = if ($picked -like 'amd64*') { 'amd64' } else { 'arm64' }
-}
-
-if ([string]::IsNullOrWhiteSpace($Platform)) { $Platform = $defaultPlatform }
-if ([string]::IsNullOrWhiteSpace($Arch)) { $Arch = $defaultArch }
-
-$Platform = $Platform.ToLowerInvariant()
-$Arch = $Arch.ToLowerInvariant()
-
-if ($platforms -notcontains $Platform) {
-    Write-Host "无效平台: $Platform" -ForegroundColor Red
-    Write-Host "有效平台: $($platforms -join '、')"
-    exit 1
-}
-if ($arches -notcontains $Arch) {
-    Write-Host "无效架构: $Arch" -ForegroundColor Red
-    Write-Host "有效架构: $($arches -join '、')"
-    exit 1
 }
 
 if (-not (Get-Command wails3 -ErrorAction SilentlyContinue)) {
@@ -221,49 +272,64 @@ if (-not (Get-Command wails3 -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$info = $platformMap[$Platform]
-$outDir = Join-Path $Root $info.Dir
-
-if ($Clean -and (Test-Path $outDir)) {
-    Remove-Item $outDir -Recurse -Force
-}
-New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-
-# 每次构建前重置环境变量，避免上一次构建的设置残留
-Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED, Env:WAILS_PUREGO -ErrorAction SilentlyContinue
-$env:GOOS = $info.Goos
-$env:GOARCH = $Arch
-# Windows 与 purego 后端都要求 CGO_ENABLED=0
-$env:CGO_ENABLED = '0'
-if ($info.Goos -ne 'windows') {
-    # wails3 看到 WAILS_PUREGO=1 会自动把 purego 加入构建标签
-    $env:WAILS_PUREGO = '1'
+# -Clean：只删除本次涉及的「平台 / 架构」子目录，
+# 保留 bin-*/agentdatas 等运行数据，避免误删便携数据。
+if ($Clean) {
+    foreach ($t in $selected) {
+        $outDir = Join-Path $Root "$($t.Dir)/$($t.Arch)"
+        if (Test-Path $outDir) {
+            Remove-Item $outDir -Recurse -Force
+        }
+    }
 }
 
-# OUTPUT 是 Taskfile 的自定义变量，决定最终产物路径。
-# 必须用正斜杠：Taskfile 的命令由 sh 执行，反斜杠会被当成转义符。
-$outFile = "$($info.Dir)/$binName$($info.Ext)"
+$failed = @()
+
+foreach ($t in $selected) {
+    $outDir = Join-Path $Root "$($t.Dir)/$($t.Arch)"
+    New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+    # 每次构建前重置环境变量，避免上一次构建的设置残留
+    Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED, Env:WAILS_PUREGO -ErrorAction SilentlyContinue
+    $env:GOOS = $t.Goos
+    $env:GOARCH = $t.Arch
+    # Windows 与 purego 后端都要求 CGO_ENABLED=0
+    $env:CGO_ENABLED = '0'
+    if ($t.Goos -ne 'windows') {
+        # wails3 看到 WAILS_PUREGO=1 会自动把 purego 加入构建标签
+        $env:WAILS_PUREGO = '1'
+    }
+
+    Write-Host ''
+    Write-Host "正在构建 $($t.Label) / $($t.Arch) -> $($t.Output)（CGO_ENABLED=0）..." -ForegroundColor Green
+
+    & wails3 build "OUTPUT=$($t.Output)"
+    $code = $LASTEXITCODE
+
+    # 恢复环境变量，避免影响当前终端后续的普通构建
+    Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED, Env:WAILS_PUREGO -ErrorAction SilentlyContinue
+
+    if ($code -ne 0) {
+        $failed += "$($t.Label)/$($t.Arch)"
+        Write-Host "构建失败：$($t.Label)/$($t.Arch)" -ForegroundColor Red
+        continue
+    }
+
+    $outPath = Join-Path $Root $t.Output
+    if (-not (Test-Path $outPath)) {
+        $failed += "$($t.Label)/$($t.Arch)"
+        Write-Host "构建命令成功，但未找到产物：$($t.Output)" -ForegroundColor Red
+        continue
+    }
+
+    $sizeMB = [math]::Round((Get-Item $outPath).Length / 1MB, 2)
+    Write-Host "已生成：$($t.Output)（$sizeMB MB）" -ForegroundColor Green
+}
 
 Write-Host ''
-Write-Host "正在构建 $($info.Label) / $Arch -> $outFile（CGO_ENABLED=0）..." -ForegroundColor Green
-
-& wails3 build "OUTPUT=$outFile"
-$code = $LASTEXITCODE
-
-# 恢复环境变量，避免影响当前终端后续的普通构建
-Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED, Env:WAILS_PUREGO -ErrorAction SilentlyContinue
-
-if ($code -ne 0) {
-    Write-Host "构建失败，退出码 $code。" -ForegroundColor Red
-    exit $code
-}
-
-$outPath = Join-Path $Root $outFile
-if (-not (Test-Path $outPath)) {
-    Write-Host "构建命令成功，但未找到产物: $outFile" -ForegroundColor Red
+if ($failed.Count -gt 0) {
+    Write-Host "失败目标：$($failed -join '、')" -ForegroundColor Red
     exit 1
 }
-
-$sizeMB = [math]::Round((Get-Item $outPath).Length / 1MB, 2)
-Write-Host "已生成: $outFile（$sizeMB MB）" -ForegroundColor Green
+Write-Host "全部构建成功。" -ForegroundColor Green
 exit 0
