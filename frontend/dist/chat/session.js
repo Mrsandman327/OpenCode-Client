@@ -20,7 +20,7 @@ import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { refreshSubtaskPanel, scheduleSubtaskExtraction } from './sidepanel.js';
 import { loadSessionStatuses } from './events.js';
-import { isSessionBusy, smartScroll, updateSendButton, renderMessages, ensureSelectOption } from './render.js';
+import { isSessionBusy, smartScroll, updateSendButton, renderMessages, ensureSelectOption, updateScrollBottomButton } from './render.js';
 // 解环后与 cmd-palette 的依赖为单向：它经 core/utils.js 注册中心调用本模块的
 // loadMessages 等动作（见 setSessionActionHandlers），本模块只在发送流程运行时
 // 调用它的 isKnownCommand/isKnownSkill。
@@ -492,7 +492,6 @@ export async function loadOlderMessages(sessionID) {
         // 渲染到目标会话自己的容器；仅当前激活会话保持滚动位置与同步用户定位
         const isCurrent = targetId === store.currentSessionId;
         const box = isCurrent ? ensureTabMessagesEl(targetId) : null;
-        const prevHeight = box ? box.scrollHeight : 0;
         // 续翻游标：desc 顺序下 cursor.next 指向更早（见函数头注释）
         const moreCursor = nextCursor(res);
         if (!messages.length) {
@@ -511,9 +510,15 @@ export async function loadOlderMessages(sessionID) {
             const addedUserCount = messages.filter(m => (m.info?.role || m.role) === 'user').length;
             shiftUserNavIndex(addedUserCount);
             if (box && isCurrent) {
+                // 上滑分页时用户必然在顶部，强制不跟随底部；
+                // renderMessages 内部会按消息锚点把视口停回「原来看到的那一条」。
+                // （此前用「高度差补偿」，但 followBottom 判定会被陈旧状态置真，
+                //   结果推进来的历史消息反而把列表滚到了最底部。）
+                // 加载更早的消息属于「改变上方内容」，语义上永远不该跟随底部；
+                // 这里显式声明，避免经由非滚动入口（命令面板、用户定位按钮）触发时
+                // 依赖滚动状态而出现跳底。
+                store.tabStickBottom[targetId] = false;
                 renderMessages(getCachedMessages(targetId), box);
-                const nextHeight = box.scrollHeight;
-                box.scrollTop += nextHeight - prevHeight; // 保持加载前滚动位置
                 updateUserNav(); // 同步用户定位（新加载的用户消息可定位、计数更新）
             } else if (box) {
                 renderCachedMessages(targetId); // 非当前会话：仅合并缓存，激活时渲染
@@ -1474,8 +1479,14 @@ export function bindMessagePagingEvents() {
     if (pool && !pool.dataset.pagingBound) {
         pool.dataset.pagingBound = 'true';
         let scrollTimer = null;
+        let scrollStateTimer = null;
         // 第三个参数 true = 捕获阶段：scroll 不冒泡，但捕获可到达子容器的滚动事件
-        pool.addEventListener('scroll', function() {
+        pool.addEventListener('scroll', function(e) {
+            // 滚动时同步「是否贴底」并刷新「滚到底」按钮。
+            // 缺了这一步：用户在顶部停留后 store.tabStickBottom 仍是上次渲染的值
+            // （默认视为贴底），触发上滑加载时 renderMessages 会把列表滚到底部。
+            if (scrollStateTimer) clearTimeout(scrollStateTimer);
+            scrollStateTimer = setTimeout(updateScrollBottomButton, 60);
             if (scrollTimer) clearTimeout(scrollTimer);
             scrollTimer = setTimeout(function() {
                 const box = getActiveMessagesEl();
