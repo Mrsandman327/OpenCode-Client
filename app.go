@@ -75,6 +75,8 @@ func (a *App) emitAppReady() {
 
 // ServiceShutdown 在应用关闭时调用（v3 Service 生命周期，替代 v2 的 OnShutdown），清理资源。
 func (a *App) ServiceShutdown() error {
+	// 结束所有内嵌终端，避免应用退出后留下无人观察的 shell 进程
+	opencode.PtyCloseAll()
 	a.StopOpenCodeEvents()
 	a.StopOpenCodeWeb()
 	a.StopFrontendWeb()
@@ -126,6 +128,39 @@ func (a *App) ListBrowsableDirs(path string) ([]model.DirectoryEntry, error) {
 // ListBrowserFiles 返回站内文件浏览器目录列表。
 func (a *App) ListBrowserFiles(rootDir, path string) (model.FileBrowserListResult, error) {
 	return filebrowser.ListBrowserFiles(rootDir, path)
+}
+
+// ========== 文件浏览器内嵌终端（PTY） ==========
+
+// PtyCreate 在 rootDir 下创建一个终端（PowerShell/默认 shell）。
+// 前端不能直连上游 WebSocket（浏览器无法携带 Authorization），因此由后端中转。
+func (a *App) PtyCreate(rootDir, command, title string) (opencode.PtyInfo, error) {
+	return opencode.PtyCreate(rootDir, command, title)
+}
+
+// PtyRead 取走终端自上次调用以来累积的输出（base64 块）。
+func (a *App) PtyRead(id string) (opencode.PtyReadResult, error) {
+	return opencode.PtyRead(id)
+}
+
+// PtyInput 把键盘输入写入终端。
+func (a *App) PtyInput(id, data string) error {
+	return opencode.PtyInput(id, data)
+}
+
+// PtyResize 同步终端行列数。
+func (a *App) PtyResize(id string, rows, cols int) error {
+	return opencode.PtyResize(id, rows, cols)
+}
+
+// PtyDelete 关闭终端并结束其进程（关闭标签即杀进程）。
+func (a *App) PtyDelete(id string) error {
+	return opencode.PtyDelete(id)
+}
+
+// PtyShells 返回当前平台可选的终端 shell（Windows 为 CMD / PowerShell）。
+func (a *App) PtyShells() []opencode.PtyShell {
+	return opencode.PtyShells()
 }
 
 // SearchBrowserFiles 在会话目录内做文件内容搜索（类 VSCode 全局搜索）。

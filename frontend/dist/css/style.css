@@ -7183,6 +7183,248 @@ input::placeholder, textarea::placeholder {
     overflow: auto;
     padding: 16px;
 }
+
+/* ======== 文件浏览器：内嵌终端 ======== */
+/* 顶部「终端」入口：与「刷新」同排，数量角标贴在文字右侧 */
+.file-browser-terminal-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.file-browser-terminal-btn.on {
+    border-color: rgba(64, 128, 255, 0.55);
+    background: rgba(64, 128, 255, 0.14);
+    color: #1565c0;
+}
+[data-theme="dark"] .file-browser-terminal-btn.on { color: #7cb0ff; }
+.fb-term-badge {
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--accent, #1565c0);
+    color: #ffffff;
+    font-size: 10px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 终端抽屉：默认隐藏，打开后固定在预览区底部（不覆盖文件树） */
+.fb-terminal {
+    display: none;
+    position: relative;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: 0;
+    border-top: 1px solid var(--border);
+    background: var(--bg-card);
+}
+.fb-terminal.open { display: flex; }
+/* 高度由拖拽写入的 CSS 变量控制，默认 280px */
+.fb-terminal.open:not(.collapsed) {
+    height: var(--fb-term-height, 280px);
+    flex: 0 0 var(--fb-term-height, 280px);
+}
+.fb-terminal.collapsed {
+    height: 32px;
+    flex: 0 0 32px;
+}
+.fb-terminal.collapsed .fb-terminal-body { display: none; }
+/* 折叠时只剩标题条，抓手没有意义 */
+.fb-terminal.collapsed .fb-terminal-grip { display: none; }
+/* 顶部拖拽抓手：绝对定位在抽屉上边框，不占布局高度 */
+.fb-terminal-grip {
+    position: absolute;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    z-index: 6;
+    cursor: ns-resize;
+    background: transparent;
+    transition: background 0.12s ease;
+}
+.fb-terminal-grip:hover,
+body.fb-term-resizing .fb-terminal-grip {
+    background: rgba(64, 128, 255, 0.55);
+}
+/* 拖拽期间禁用文本选中与终端鼠标事件，避免选中文字/输入焦点丢失 */
+body.fb-term-resizing {
+    cursor: ns-resize;
+    user-select: none;
+}
+body.fb-term-resizing .fb-term-host { pointer-events: none; }
+.fb-terminal-head {
+    height: 32px;
+    flex: 0 0 32px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(127, 127, 127, 0.06);
+}
+.fb-terminal-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 8px 0 2px;
+}
+.fb-terminal-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+}
+.fb-term-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: var(--text-secondary, var(--text-muted));
+    cursor: pointer;
+    white-space: nowrap;
+}
+.fb-term-tab:hover { background: rgba(127, 127, 127, 0.12); }
+.fb-term-tab.active {
+    background: rgba(64, 128, 255, 0.16);
+    color: #1565c0;
+    font-weight: 600;
+}
+[data-theme="dark"] .fb-term-tab.active { color: #7cb0ff; }
+.fb-term-tab-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #9e9e9e;
+    flex-shrink: 0;
+}
+.fb-term-tab-dot.on { background: #22c55e; }
+.fb-term-tab-close {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+}
+.fb-term-tab-close:hover { color: #e53935; }
+.fb-terminal-add,
+.fb-terminal-collapse {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+/* 图标统一用内联 SVG，避免字符在不同字体下大小/基线不一致 */
+.fb-terminal-add svg,
+.fb-term-add-more svg,
+.fb-terminal-collapse svg {
+    display: block;
+    pointer-events: none;
+}
+.fb-terminal-add:hover,
+.fb-terminal-collapse:hover { background: rgba(127, 127, 127, 0.16); }
+/* 折叠时图标翻转 180°，保持同一个 chevron */
+.fb-terminal-collapse svg { transition: transform 0.14s ease; }
+.fb-terminal-collapse.is-collapsed svg { transform: rotate(180deg); }
+
+/* 新建终端拆分按钮：左侧直接建默认 shell，右侧小三角选 shell */
+.fb-term-add-group {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.fb-term-add-group .fb-terminal-add { border-radius: 5px 0 0 5px; }
+.fb-term-add-more {
+    width: 17px;
+    height: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-left: 1px solid var(--border);
+    border-radius: 0 5px 5px 0;
+    background: transparent;
+    color: var(--text-muted);
+    line-height: 1;
+    cursor: pointer;
+}
+.fb-term-add-more:hover { background: rgba(127, 127, 127, 0.16); }
+.fb-term-shell-menu {
+    position: absolute;
+    top: 25px;
+    left: 0;
+    z-index: 30;
+    min-width: 136px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+.fb-term-shell-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.fb-term-shell-item:hover { background: rgba(64, 128, 255, 0.14); }
+.fb-term-shell-tag {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+.fb-terminal-spacer { flex: 1; }
+.fb-terminal-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding-right: 4px;
+    white-space: nowrap;
+}
+.fb-terminal-status.is-ok { color: #22c55e; }
+.fb-terminal-body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-card);
+}
+/* 每条终端一个绝对定位宿主，切换标签只需切 active，避免重排 xterm */
+.fb-term-host {
+    position: absolute;
+    inset: 0;
+    padding: 4px 6px;
+    display: none;
+}
+.fb-term-host.active { display: block; }
+.fb-term-host .xterm { height: 100%; }
+.fb-term-host .xterm-viewport::-webkit-scrollbar { width: 10px; }
+.fb-term-host .xterm-viewport::-webkit-scrollbar-thumb {
+    background: rgba(127, 127, 127, 0.4);
+    border-radius: 5px;
+}
 .file-browser-empty {
     color: var(--text-muted);
     font-size: 13px;

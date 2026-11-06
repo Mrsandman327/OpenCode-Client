@@ -819,6 +819,10 @@
             <div class="modal-header">
                 <h3 id="fileBrowserTitle">文件浏览</h3>
                 <div class="btn-group">
+                    <button type="button" class="btn btn-sm file-browser-terminal-btn" id="btnFileBrowserTerminalToggle" title="打开/收起终端">
+                        <span>终端</span>
+                        <span class="fb-term-badge" id="fileBrowserTerminalCount">0</span>
+                    </button>
                     <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshFiles"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</button>
                     <button type="button" class="btn btn-sm" id="btnCloseFileBrowser">✕</button>
                 </div>
@@ -917,6 +921,35 @@
                     </div>
                     <div class="file-browser-preview-body" id="filePreviewBody">
                         <div class="file-browser-empty">请选择左侧文件进行预览</div>
+                    </div>
+                    <!-- ===== 内嵌终端抽屉（默认隐藏，由顶部「终端」按钮打开） ===== -->
+                    <div class="fb-terminal collapsed" id="fileBrowserTerminal">
+                        <div class="fb-terminal-grip" id="fileBrowserTerminalGrip" title="拖动调整终端高度"></div>
+                        <div class="fb-terminal-head">
+                            <span class="fb-terminal-title">终端</span>
+                            <div class="fb-terminal-tabs" id="fileBrowserTerminalTabs"></div>
+                            <div class="fb-term-add-group">
+                                <button type="button" class="fb-terminal-add" id="btnFileBrowserTerminalAdd" title="新建终端" aria-label="新建终端">
+                                    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+                                        <path d="M8 3.2v9.6M3.2 8h9.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+                                <button type="button" class="fb-term-add-more" id="btnFileBrowserTerminalAddMore" title="选择 shell" aria-label="选择 shell">
+                                    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false">
+                                        <path d="M3.5 6.2 8 10.6l4.5-4.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </button>
+                                <div class="fb-term-shell-menu" id="fileBrowserTerminalShellMenu" style="display:none"></div>
+                            </div>
+                            <span class="fb-terminal-spacer"></span>
+                            <span class="fb-terminal-status" id="fileBrowserTerminalStatus">未连接</span>
+                            <button type="button" class="fb-terminal-collapse" id="btnFileBrowserTerminalCollapse" title="折叠终端" aria-label="折叠终端">
+                                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+                                    <path d="M3.5 6 8 10.4 12.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="fb-terminal-body" id="fileBrowserTerminalBody"></div>
                     </div>
                 </section>
             </div>

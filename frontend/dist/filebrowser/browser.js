@@ -21,6 +21,7 @@ import {
     clearFileBrowserPreview,
     fileBrowserOpenFileAtLine
 } from './preview.js';
+import { syncTerminalEntry, disposeTerminals } from './terminal.js';
 
 store.fileBrowserState = {
     rootDir: '',
@@ -968,6 +969,8 @@ export function openFileBrowserModal(rootDir, options) {
     }
     modal.style.display = 'flex';
     renderFileBrowserMode();
+    // 终端入口随根目录更新；每次打开都是新会话，之前残留的终端已在关闭时清掉
+    syncTerminalEntry(rootDir || '');
     loadFileBrowserList('/');
 }
 
@@ -977,6 +980,8 @@ export function closeFileBrowserModal() {
         modal.style.display = 'none';
         modal.classList.remove('file-browser-compact');
     }
+    // 关闭弹窗即结束所有终端进程（不做「留在服务端」的处理）
+    disposeTerminals();
     fileBrowserClearObjectURL();
     destroyFileBrowserEditor();
     closeFileBrowserCreateDirInline();

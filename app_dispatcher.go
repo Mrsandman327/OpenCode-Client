@@ -115,6 +115,39 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.RenameBrowserEntry(rootDir, path, newName)
+	case "PtyCreate":
+		var rootDir, command, title string
+		if err := decodeArgs(args, &rootDir, &command, &title); err != nil {
+			return nil, err
+		}
+		return a.PtyCreate(rootDir, command, title)
+	case "PtyRead":
+		var id string
+		if err := decodeArgs(args, &id); err != nil {
+			return nil, err
+		}
+		return a.PtyRead(id)
+	case "PtyInput":
+		var id, data string
+		if err := decodeArgs(args, &id, &data); err != nil {
+			return nil, err
+		}
+		return nil, a.PtyInput(id, data)
+	case "PtyResize":
+		var id string
+		var rows, cols int
+		if err := decodeArgs(args, &id, &rows, &cols); err != nil {
+			return nil, err
+		}
+		return nil, a.PtyResize(id, rows, cols)
+	case "PtyDelete":
+		var id string
+		if err := decodeArgs(args, &id); err != nil {
+			return nil, err
+		}
+		return nil, a.PtyDelete(id)
+	case "PtyShells":
+		return a.PtyShells(), nil
 	case "OpenURL":
 		var target string
 		if err := decodeArgs(args, &target); err != nil {

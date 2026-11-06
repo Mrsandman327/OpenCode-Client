@@ -56,10 +56,15 @@ export const api = new Proxy({}, {
             // 桌面模式：统一走 wails3 绑定（首次调用时动态加载绑定模块并转发到对应方法）
             return (...args) => loadDesktopBindings().then((mod) => {
                 const fn = mod[prop];
-                if (typeof fn !== 'function') {
-                    throw new Error('桌面绑定缺少方法: ' + String(prop));
+                if (typeof fn === 'function') {
+                    return fn(...args);
                 }
-                return fn(...args);
+                // 绑定文件由 wails3 generate bindings 生成，新增的后端方法未必已经存在。
+                // 此时退回统一分发入口 AppCall，避免每加一个方法都要重新生成绑定。
+                if (typeof mod.AppCall === 'function') {
+                    return mod.AppCall(String(prop), args);
+                }
+                throw new Error('桌面绑定缺少方法: ' + String(prop));
             });
         }
         if (webApi[prop]) {
