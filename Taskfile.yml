@@ -16,12 +16,14 @@ tasks:
   build:
     summary: Builds the application
     cmds:
-      - task: "{{OS}}:build"
+      # GOOS 由 wails3 build 作为 Task 变量传入（交叉编译）；
+      # 直接执行 task 时为空，回退到宿主系统 OS。
+      - task: "{{.GOOS | default OS}}:build"
 
   package:
     summary: Packages a production build of the application
     cmds:
-      - task: "{{OS}}:package"
+      - task: "{{.GOOS | default OS}}:package"
 
   run:
     summary: Runs the application
