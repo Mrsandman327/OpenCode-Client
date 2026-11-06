@@ -7,6 +7,7 @@ import { shortPath } from '../core/path.js';
 import { store } from '../core/state.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
+import { showConfirm, showPrompt } from '../core/dialog.js';
 
 export let skills = [];
 
@@ -381,7 +382,11 @@ export async function removeSourceDir(dir) {
                 enabledSkills.map(function(s) { return ' · ' + s; }).join('\n') +
                 '\n\n确定删除吗？';
         }
-        if (!confirm(msg)) return;
+        if (!(await showConfirm({
+            title: '删除来源目录',
+            message: msg,
+            okText: '删除'
+        }))) return;
         var result = await api.RemoveSkillSourceDir(dir);
         if (result && result.success === false) {
             showToast('删除目录失败: ' + (result.error || '未知错误'), 'error');
@@ -432,7 +437,11 @@ export async function loadSkillSchemes() {
 }
 
 export async function saveSkillScheme() {
-    var name = prompt('请输入方案名称：');
+    var name = await showPrompt({
+        title: '保存方案',
+        message: '请输入方案名称：',
+        okText: '保存'
+    });
     if (!name || name.trim() === '') return;
     name = name.trim();
     // 检查非法字符
@@ -460,7 +469,11 @@ export async function deleteSkillScheme(name) {
         showToast('请先选择要删除的方案', 'error');
         return;
     }
-    if (!confirm('确定删除方案「' + name + '」？')) return;
+    if (!(await showConfirm({
+        title: '删除方案',
+        message: '确定删除方案「' + name + '」？',
+        okText: '删除'
+    }))) return;
     try {
         var result = await api.DeleteSkillScheme(name);
         if (result && result.success === false) {

@@ -13,6 +13,7 @@ import { basename } from '../core/path.js';
 import { store } from '../core/state.js';
 // 复用 core/sanitize.js 的 Markdown 白名单清洗（与 project-config.js 的用法一致），不重复实现安全逻辑
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
+import { showConfirm, showPrompt } from '../core/dialog.js';
 
 // ---------- 内联线性图标（不使用 emoji） ----------
 var ICONS = {
@@ -712,7 +713,11 @@ export async function deleteKbEntryById(id) {
     if (!id) return;
     var meta = kbFindEntryMeta(id);
     var title = meta ? meta.title : id;
-    if (!confirm('确定删除条目「' + title + '」？删除后不可恢复。')) return;
+    if (!(await showConfirm({
+        title: '删除条目',
+        message: '确定删除条目「' + title + '」？删除后不可恢复。',
+        okText: '删除'
+    }))) return;
 
     try {
         // 成功后后端无返回值，失败会抛错
@@ -771,8 +776,12 @@ async function saveKbCategories(successText) {
 }
 
 /** 新建顶层分类 */
-export function kbAddRootCategory() {
-    var name = prompt('请输入新分类名称：');
+export async function kbAddRootCategory() {
+    var name = await showPrompt({
+        title: '新建分类',
+        message: '请输入新分类名称：',
+        okText: '创建'
+    });
     if (name === null) return;
     name = String(name).trim();
     if (!name) return;
@@ -785,10 +794,14 @@ export function kbAddRootCategory() {
 }
 
 /** 在指定分类下新建子分类 */
-export function kbCreateSubCategory(parentId) {
+export async function kbCreateSubCategory(parentId) {
     var parent = kbFindCat(parentId);
     if (!parent) return;
-    var name = prompt('请输入「' + parent.name + '」下的子分类名称：');
+    var name = await showPrompt({
+        title: '新建子分类',
+        message: '请输入「' + parent.name + '」下的子分类名称：',
+        okText: '创建'
+    });
     if (name === null) return;
     name = String(name).trim();
     if (!name) return;
@@ -803,10 +816,15 @@ export function kbCreateSubCategory(parentId) {
 }
 
 /** 重命名分类 */
-export function kbRenameCategory(catId) {
+export async function kbRenameCategory(catId) {
     var cat = kbFindCat(catId);
     if (!cat) return;
-    var name = prompt('重命名分类「' + cat.name + '」：', cat.name);
+    var name = await showPrompt({
+        title: '重命名分类',
+        message: '重命名分类「' + cat.name + '」：',
+        defaultValue: cat.name,
+        okText: '重命名'
+    });
     if (name === null) return;
     name = String(name).trim();
     if (!name || name === cat.name) return;
@@ -823,7 +841,7 @@ export function kbRenameCategory(catId) {
 }
 
 /** 删除分类及其子树 */
-export function kbDeleteCategory(catId) {
+export async function kbDeleteCategory(catId) {
     var cat = kbFindCat(catId);
     if (!cat) return;
     var ids = kbCatSubtreeIds(cat);
@@ -832,7 +850,11 @@ export function kbDeleteCategory(catId) {
     var msg = '确定删除分类「' + kbCatPath(catId) + '」？';
     if (cat.children && cat.children.length) msg += '\n该分类下的子分类会一并删除。';
     if (affected) msg += '\n有 ' + affected + ' 个条目属于该分类，删除后这些条目将显示为「未分类」。';
-    if (!confirm(msg)) return;
+    if (!(await showConfirm({
+        title: '删除分类',
+        message: msg,
+        okText: '删除'
+    }))) return;
 
     kbRemoveCat(kbState.categories, catId);
     // 当前选中的分类被删除时回到「全部条目」
@@ -1436,16 +1458,16 @@ export function bindKnowledgeEvents() {
     // ---- 右键菜单项 ----
     var catMenu = $('#kbCatMenu');
     if (catMenu) {
-        catMenu.addEventListener('click', function (e) {
+        catMenu.addEventListener('click', async function (e) {
             var item = e.target.closest('[data-cat-action]');
             if (!item) return;
             var catId = kbCatMenuCatId;
             var action = item.dataset.catAction;
             hideKbCatMenu();
             if (!catId) return;
-            if (action === 'new-sub') kbCreateSubCategory(catId);
-            else if (action === 'rename') kbRenameCategory(catId);
-            else if (action === 'delete') kbDeleteCategory(catId);
+            if (action === 'new-sub') await kbCreateSubCategory(catId);
+            else if (action === 'rename') await kbRenameCategory(catId);
+            else if (action === 'delete') await kbDeleteCategory(catId);
         });
     }
     document.addEventListener('click', function (e) {

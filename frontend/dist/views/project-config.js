@@ -10,6 +10,7 @@ import { fileBrowserHighlightCode } from '../filebrowser/preview.js';
 // Markdown 清洗统一走 core/sanitize.js 的白名单公共实现
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { formatApiError } from '../core/v2compat.js';
+import { showConfirm, showPrompt } from '../core/dialog.js';
 
 window._projectConfig = {
     rootDir: '',
@@ -76,18 +77,22 @@ export function isProjectConfigEditorDirty() {
     return false;
 }
 
-export function confirmProjectConfigDiscardChanges() {
+export async function confirmProjectConfigDiscardChanges() {
     if (!isProjectConfigEditorDirty()) {
         return true;
     }
-    return confirm('当前文件有未保存修改，确定要放弃吗？');
+    return showConfirm({
+        title: '放弃修改',
+        message: '当前文件有未保存修改，确定要放弃吗？',
+        okText: '放弃修改'
+    });
 }
 
-export function ensureProjectConfigCanLeaveEditMode() {
+export async function ensureProjectConfigCanLeaveEditMode() {
     if (!window._projectConfig.editorInstance) {
         return true;
     }
-    if (!confirmProjectConfigDiscardChanges()) {
+    if (!(await confirmProjectConfigDiscardChanges())) {
         return false;
     }
     destroyProjectConfigEditor();
@@ -170,8 +175,8 @@ export function openProjectConfig(rootDir) {
     loadProjectConfigSummary();
 }
 
-export function closeProjectConfig() {
-    if (!ensureProjectConfigCanLeaveEditMode()) {
+export async function closeProjectConfig() {
+    if (!(await ensureProjectConfigCanLeaveEditMode())) {
         return;
     }
     document.getElementById('projectConfigModal').style.display = 'none';
@@ -202,8 +207,8 @@ export async function loadProjectConfigSummary() {
 // Tab 切换
 // ============================
 
-export function switchProjectConfigTab(tabName) {
-    if (!ensureProjectConfigCanLeaveEditMode()) {
+export async function switchProjectConfigTab(tabName) {
+    if (!(await ensureProjectConfigCanLeaveEditMode())) {
         return;
     }
     var state = window._projectConfig;
@@ -300,10 +305,14 @@ export function renderSkillsTab(tab) {
     });
     // 删除按钮
     body.querySelectorAll('.pc-skill-del').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
+        btn.addEventListener('click', async function(e) {
             e.stopPropagation();
             var path = btn.dataset.delPath;
-            if (!confirm('确定要删除技能 "' + path + '" 吗？')) return;
+            if (!(await showConfirm({
+                title: '删除技能',
+                message: '确定要删除技能 "' + path + '" 吗？',
+                okText: '删除'
+            }))) return;
             api.DeleteProjectEntry(window._projectConfig.rootDir, 'skills', path).then(function() {
                 showToast('已删除: ' + path, 'success');
                 loadProjectConfigSummary();
@@ -752,12 +761,16 @@ export async function saveCurrentFile() {
 
 export function bindDeleteButtons(category, basePath, onDone) {
     document.querySelectorAll('.pc-file-del').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
+        btn.addEventListener('click', async function(e) {
             e.stopPropagation();
             var path = btn.dataset.delPath;
             var type = btn.dataset.delType;
             var label = type === 'dir' ? '目录' : '文件';
-            if (!confirm('确定要删除' + label + ' "' + path + '" 吗？此操作不可撤销。')) return;
+            if (!(await showConfirm({
+                title: '删除' + label,
+                message: '确定要删除' + label + ' "' + path + '" 吗？此操作不可撤销。',
+                okText: '删除'
+            }))) return;
             api.DeleteProjectEntry(window._projectConfig.rootDir, category, path).then(function() {
                 showToast('已删除: ' + path, 'success');
                 onDone();
@@ -776,8 +789,12 @@ export function bindAddEntryButton(category, basePath, onDone) {
     if (btn._bound) return;
     btn._bound = true;
 
-    btn.addEventListener('click', function() {
-        var name = prompt('请输入文件名（如 build.md）：');
+    btn.addEventListener('click', async function() {
+        var name = await showPrompt({
+            title: '新建文件',
+            message: '请输入文件名（如 build.md）：',
+            okText: '创建'
+        });
         if (!name || !name.trim()) return;
         name = name.trim();
         // 自动补全 .md
@@ -807,14 +824,14 @@ function initProjectConfigModal() {
     document.getElementById('btnCloseProjectConfig').addEventListener('click', closeProjectConfig);
 
     document.querySelectorAll('#projectConfigTabs .pc-tab').forEach(function(tab) {
-        tab.addEventListener('click', function() {
-            switchProjectConfigTab(tab.dataset.pcTab);
+        tab.addEventListener('click', async function() {
+            await switchProjectConfigTab(tab.dataset.pcTab);
         });
     });
 
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', async function(e) {
         if (e.key === 'Escape' && modal.style.display === 'flex') {
-            closeProjectConfig();
+            await closeProjectConfig();
         }
     });
 }

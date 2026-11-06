@@ -4347,6 +4347,37 @@ input::placeholder, textarea::placeholder {
     justify-content: center;
     height: 34px;
 }
+/* 通用确认弹窗（core/dialog.js）：替代 window.confirm，标题可自定义 */
+.confirm-modal {
+    width: 420px;
+    max-width: calc(100vw - 32px);
+}
+.confirm-modal .confirm-modal-body {
+    white-space: normal;
+    line-height: 1.65;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+}
+.prompt-modal .prompt-message {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.prompt-modal .prompt-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+}
+.prompt-modal .prompt-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
 /* Modal 头部关闭按钮：透明底图标按钮（关闭.svg 遮罩，颜色随主题文字色）。
    通用类，不限于 .modal-card——项目配置 / 知识库等头部同样使用。 */
 .modal-close-btn {

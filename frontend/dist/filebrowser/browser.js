@@ -8,6 +8,7 @@
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
 import { showToast, escapeHtml, showApiError, isDesktopRuntime, copyToClipboard } from '../core/utils.js';
+import { showConfirm, showPrompt } from '../core/dialog.js';
 import { dirname } from '../core/path.js';
 import { formatApiError } from '../core/v2compat.js';
 import {
@@ -540,6 +541,37 @@ export async function submitFileBrowserInline() {
     }
 }
 
+/** 用弹窗新建文件 / 文件夹（替代原来的内联输入框） */
+async function promptCreateBrowserEntry(mode, dirPath) {
+    var isFile = mode === 'create-file';
+    var name = await showPrompt({
+        title: isFile ? '新建文件' : '新建文件夹',
+        message: isFile ? '请输入文件名称：' : '请输入文件夹名称：',
+        placeholder: isFile ? '例如 build.md' : '',
+        okText: '创建'
+    });
+    if (name === null) return;
+    name = name.trim();
+    if (!name) return;
+
+    var state = store.fileBrowserState;
+    try {
+        var result = isFile
+            ? await fileBrowserApiCreateFile(state.rootDir, dirPath || '/', name)
+            : await fileBrowserApiCreateDir(state.rootDir, dirPath || '/', name);
+        if (!result.success) {
+            showToast(result.error || (isFile ? '创建文件失败' : '创建文件夹失败'), 'error');
+            return;
+        }
+        showToast((isFile ? '已创建文件：' : '已创建文件夹：') + name, 'success');
+        await reloadDirChildren(dirPath || '/');
+        renderFileTree(state.rootNode);
+        markTreeSelection(state.rootNode, state.selectedPath);
+    } catch (err) {
+        showApiError('创建失败: ', err);
+    }
+}
+
 /** 重命名成功后清理失效的选中与打开标签（被重命名项及其后代路径已失效） */
 function handleFileBrowserRenamed(oldPath) {
     var state = store.fileBrowserState;
@@ -662,9 +694,11 @@ export async function fileBrowserConfirmDelete(item) {
     var name = item && item.name ? item.name : '该条目';
     var typeLabel = item && item.type === 'dir' ? '文件夹' : '文件';
     var message = '确定删除' + typeLabel + '「' + name + '」吗？';
-    // 桌面（WebView2）与浏览器统一使用脚本原生确认框：
-    // wails v3 未禁用 WebView2 脚本对话框，window.confirm 可直接使用（与 window.prompt 同机制）。
-    return confirm(message);
+    return showConfirm({
+        title: '删除' + typeLabel,
+        message: message,
+        okText: '删除'
+    });
 }
 
 (function initFileBrowserResize() {
@@ -837,11 +871,17 @@ export async function discardFile(path, options) {
     if (!state.rootDir || !path || path === '/') return;
     var isDir = !!(options && options.isDir);
     var name = String(path).replace(/\/+$/, '').split('/').filter(Boolean).pop() || path;
-    // 撤销不可恢复，文件与文件夹都必须二次确认
     var message = isDir
         ? '确定撤销文件夹「' + name + '」下的全部变更吗？\n未跟踪的新文件会被删除，此操作不可恢复。'
         : '确定撤销文件「' + name + '」的变更吗？\n未跟踪的新文件会被删除，此操作不可恢复。';
-    if (!window.confirm(message)) return;
+    // 撤销不可恢复，文件与文件夹都必须二次确认。
+    // 用自定义弹窗而不是 window.confirm：后者的标题固定显示页面 origin，
+    // 无法改成「撤销文件变更」这类有意义的标题。
+    if (!(await showConfirm({
+        title: isDir ? '撤销文件夹变更' : '撤销文件变更',
+        message: message,
+        okText: '确定撤销'
+    }))) return;
     state.git.gitActionError = '';
     try {
         var result = await fileBrowserApiDiscardFile(state.rootDir, path);
@@ -2052,17 +2092,17 @@ export function initFileBrowserContextMenu() {
     if (!menu || menu.dataset.ctxBound) return;
     menu.dataset.ctxBound = 'true';
     menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
-        item.addEventListener('click', function() {
+        item.addEventListener('click', async function() {
             var action = item.dataset.action;
             var target = fileBrowserContextTarget;
             if (!target) return;
             hideFileBrowserContextMenu();
             if (action === 'new-file') {
                 // 右键菜单的新建文件作用于被右键的目录
-                openFileBrowserInlineInput({ mode: 'create-file', dirPath: target.path });
+                await promptCreateBrowserEntry('create-file', target.path);
             } else if (action === 'new-folder') {
                 // 右键菜单的新建文件夹作用于被右键的目录
-                openFileBrowserInlineInput({ mode: 'create-dir', dirPath: target.path });
+                await promptCreateBrowserEntry('create-dir', target.path);
             } else if (action === 'copy-path') {
                 copyToClipboard(fileBrowserAbsolutePath(target.path)).then(function() {
                     showToast('已复制路径', 'success');
@@ -2070,7 +2110,31 @@ export function initFileBrowserContextMenu() {
                     showToast('复制路径失败', 'error');
                 });
             } else if (action === 'rename') {
-                openFileBrowserInlineInput({ mode: 'rename', targetPath: target.path, initialName: target.title });
+                var newName = await showPrompt({
+                    title: '重命名' + (target.type === 'dir' ? '文件夹' : '文件'),
+                    message: '请输入新名称：',
+                    defaultValue: target.title,
+                    okText: '重命名'
+                });
+                if (newName === null) return;
+                newName = newName.trim();
+                if (!newName || newName === target.title) return;
+                try {
+                    var renameResult = await fileBrowserApiRename(
+                        store.fileBrowserState.rootDir, target.path, newName
+                    );
+                    if (!renameResult.success) {
+                        showToast(renameResult.error || '重命名失败', 'error');
+                        return;
+                    }
+                    showToast('已重命名：' + newName, 'success');
+                    handleFileBrowserRenamed(target.path);
+                    await reloadDirChildren(fileBrowserParentPath(target.path));
+                    renderFileTree(store.fileBrowserState.rootNode);
+                    markTreeSelection(store.fileBrowserState.rootNode, store.fileBrowserState.selectedPath);
+                } catch (err) {
+                    showApiError('重命名失败: ', err);
+                }
             } else if (action === 'delete') {
                 var node = findNodeByPath(store.fileBrowserState.rootNode, target.path);
                 if (node) deleteBrowserTreeItem(node);
@@ -2111,8 +2175,8 @@ export function initFileBrowserContextMenu() {
     var createFileBtn = document.getElementById('btnFileBrowserCreateFile');
     if (createFileBtn && !createFileBtn.dataset.bound) {
         createFileBtn.dataset.bound = 'true';
-        createFileBtn.addEventListener('click', function() {
-            openFileBrowserInlineInput({ mode: 'create-file', dirPath: '/' });
+        createFileBtn.addEventListener('click', async function() {
+            await promptCreateBrowserEntry('create-file', '/');
         });
     }
 
@@ -2120,8 +2184,8 @@ export function initFileBrowserContextMenu() {
     var createDirBtn = document.getElementById('btnFileBrowserCreateDir');
     if (createDirBtn && !createDirBtn.dataset.bound) {
         createDirBtn.dataset.bound = 'true';
-        createDirBtn.addEventListener('click', function() {
-            openFileBrowserInlineInput({ mode: 'create-dir', dirPath: '/' });
+        createDirBtn.addEventListener('click', async function() {
+            await promptCreateBrowserEntry('create-dir', '/');
         });
     }
 

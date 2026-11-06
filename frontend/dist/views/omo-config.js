@@ -25,6 +25,7 @@ import { showToast, escapeAttr, bindOverlayClose, VARIANT_ORDER } from '../core/
 import { dirname } from '../core/path.js';
 import { store, currentDir } from '../core/state.js';
 import { toModelOptions, formatApiError } from '../core/v2compat.js';
+import { showConfirm, showPrompt } from '../core/dialog.js';
 
 // ========== 视图状态（全部由 loadModelConfig 填充） ==========
 export let slimPath = '';           // 配置文件路径
@@ -932,9 +933,9 @@ function createPresetGroup(preset) {
     renameBtn.className = 'btn-rename-preset';
     renameBtn.title = '重命名方案';
     renameBtn.innerHTML = '<span class="omo-ic omo-ic-rename" aria-hidden="true"></span>';
-    renameBtn.addEventListener('click', (e) => {
+    renameBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        renamePreset(preset);
+        await renamePreset(preset);
     });
     actions.appendChild(renameBtn);
 
@@ -942,9 +943,13 @@ function createPresetGroup(preset) {
     delBtn.className = 'btn-delete-type';
     delBtn.title = '删除方案';
     delBtn.innerHTML = '<span class="omo-ic omo-ic-del" aria-hidden="true"></span>';
-    delBtn.addEventListener('click', (e) => {
+    delBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (!confirm(`确定删除方案 ${preset.name} ？保存后生效。`)) return;
+        if (!(await showConfirm({
+            title: '删除方案',
+            message: `确定删除方案 ${preset.name} ？保存后生效。`,
+            okText: '删除'
+        }))) return;
         // 不从数组移除：标记 deleted，保存时显式提交（后端对「缺失」默认保留）
         preset.deleted = true;
         // 若删除的是当前启用方案，把启用项挪到剩余第一个方案，避免提交悬空引用
@@ -1081,8 +1086,12 @@ function createAgentRow(preset, agent) {
     if (!preset.extends) {
         // ① 无继承方案：直接删除该行
         rowDel.title = '删除条目';
-        rowDel.addEventListener('click', () => {
-            if (!confirm(`确定删除条目 ${agent.key} ？保存后生效。`)) return;
+        rowDel.addEventListener('click', async () => {
+            if (!(await showConfirm({
+                title: '删除条目',
+                message: `确定删除条目 ${agent.key} ？保存后生效。`,
+                okText: '删除'
+            }))) return;
             preset.agents = preset.agents.filter(a => a !== agent);
             checkUnsavedChanges();
             renderModelConfig();
@@ -1145,9 +1154,14 @@ function revertOverride(preset, agent) {
  *   3) 若改的是当前激活方案，activePresetName 一并跟随；
  *   保存由「保存配置」统一提交（后端会按新名重建 presets 块）。
  */
-function renamePreset(preset) {
+async function renamePreset(preset) {
     const oldName = preset.name;
-    const input = prompt('请输入新的方案名：', oldName);
+    const input = await showPrompt({
+        title: '重命名方案',
+        message: '请输入新的方案名：',
+        defaultValue: oldName,
+        okText: '重命名'
+    });
     if (input === null) return; // 用户取消
     const newName = input.trim();
     if (!newName) { showToast('方案名不能为空', 'error'); return; }

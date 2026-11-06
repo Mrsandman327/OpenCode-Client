@@ -7,6 +7,7 @@ import { api } from '../core/apicall.js';
 import { escapeHtml, showToast, showApiError, bindOverlayClose, MODEL_EFFORTS } from '../core/utils.js';
 import { dirname } from '../core/path.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
+import { showConfirm } from '../core/dialog.js';
 
 export let providerCache = [];
 
@@ -343,9 +344,13 @@ export function bindProviderEvents(providers) {
     });
 
     document.querySelectorAll('.btn-del-card').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
             const key = btn.dataset.key;
-            if (!confirm(`确定删除供应商 "${key}" 吗？`)) return;
+            if (!(await showConfirm({
+                title: '删除供应商',
+                message: `确定删除供应商 "${key}" 吗？`,
+                okText: '删除'
+            }))) return;
             api.DeleteProvider(key).then(r => {
                 if (r.success) { showToast(`已删除 ${key}`, 'success'); loadProviders(); }
                 else showToast('删除失败: '+r.error, 'error');

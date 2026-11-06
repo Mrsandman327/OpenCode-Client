@@ -15,6 +15,7 @@ import { store } from '../core/state.js';
 import { escapeHtml, showToast, showApiError, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo, updateTreeActiveSession, setTreeActionHandlers } from '../core/utils.js';
 // 相对时间格式化统一走 core/format.js
 import { formatRelativeTime } from '../core/format.js';
+import { showConfirm, showPrompt } from '../core/dialog.js';
 import { isMobileTreeMode, closeMobileTree } from './mobile.js';
 import { switchSession } from './events.js';
 import { closeSessionTab, renderTabsBar } from './tabs.js';
@@ -487,7 +488,11 @@ export async function pickDirectory() {
 /** 删除指定会话及相关缓存 */
 export async function deleteSession(id) {
     if (!id) return;
-    if (!confirm('确定要删除该会话吗？此操作不可撤销。')) return;
+    if (!(await showConfirm({
+        title: '删除会话',
+        message: '确定要删除该会话吗？此操作不可撤销。',
+        okText: '删除'
+    }))) return;
     try {
         // 记一笔，让随之而来的 session.deleted 事件跳过整树重建。
         // 节点下方已直接从 DOM 摘掉，重建只会闪一下。
@@ -673,7 +678,12 @@ export async function renameSession(sid) {
     if (!sid) return;
     var info = store.sessionMap && store.sessionMap[sid];
     var oldTitle = (info && info.title) || sid;
-    var newTitle = prompt('请输入新名称：', oldTitle);
+    var newTitle = await showPrompt({
+        title: '重命名会话',
+        message: '请输入新名称：',
+        defaultValue: oldTitle,
+        okText: '重命名'
+    });
     if (!newTitle || newTitle.trim() === '' || newTitle.trim() === oldTitle) return;
     newTitle = newTitle.trim();
     try {
