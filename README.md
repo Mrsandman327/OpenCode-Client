@@ -3,10 +3,10 @@
 > OpenCode 全能工作台——让 AI 编程更优雅
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" />
-  <img src="https://img.shields.io/badge/Wails-v3.0.0--beta.28-DF0000?logo=wails" />
+  <img src="https://img.shields.io/badge/Go-1.27.3+-00ADD8?logo=go" />
+  <img src="https://img.shields.io/badge/Wails-v3.1.0-DF0000?logo=wails" />
   <img src="https://img.shields.io/badge/OpenCode-v1%20%2F%20v2-1F1F1F" />
-  <img src="https://img.shields.io/badge/三端-Windows%20|%20Web%20|%20Mobile-0066cc" />
+  <img src="https://img.shields.io/badge/平台-Windows%20%7C%20Linux%20%7C%20macOS%20%7C%20Web%20%7C%20Mobile-0066cc" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
 </p>
 
@@ -87,20 +87,20 @@ OC Manager 是**绿色便携**应用：程序目录自带一切，拷走即用�
 
 ```
 <程序目录>/
-  oc-manager.exe          # 主程序
-  tools/opencode.exe      # 自带的 opencode —— 优先使用，无需系统安装
+  oc-manager.exe          # 主程序（Windows；Linux / macOS 为 oc-manager）
+  tools/opencode.exe      # 自带的 opencode（Windows；Linux / macOS 为 tools/opencode）
   agentdatas/             # 便携数据（opencode 与 OC Manager 共用）
     config/opencode/      # 配置：opencode.jsonc、OMO 方案、service.json
     data/opencode/        # 数据：会话、凭据
     cache/opencode/       # 缓存（可再生）
     state/opencode/       # 状态：服务注册 service.json
     runtime/              # 运行时目录（Linux）
+    log/                  # 运行日志
   configs/                # 内置配置模板
   vault/                  # 知识库数据（独立于 OpenCode）
-  log/                    # 运行日志
 ```
 
-- **自带 opencode**——启动服务时优先使用 `tools/opencode.exe`，不依赖系统 `PATH`，系统未安装 opencode 也能正常运行。
+- **自带 opencode**——启动服务时优先使用 `tools/opencode.exe`（Linux / macOS 为 `tools/opencode`），不依赖系统 `PATH`，系统未安装 opencode 也能正常运行。
 - **免安装 / 整体搬迁**——整个目录拷到任意路径或另一台机器即可运行，配置、会话、知识库全在目录内，不污染 `~/.config`、`~/.local`。
 - **便携数据目录**——程序启动最早期通过 5 个 XDG 环境变量，把 opencode 的配置 / 数据 / 缓存 / 状态指向程序目录下的 `agentdatas/`。
 - **启动拦截**——启动服务前检测系统中是否已有 opencode 服务在运行（外部启动或上次残留），命中则拒绝启动，避免两套服务并存。
@@ -110,14 +110,19 @@ OC Manager 是**绿色便携**应用：程序目录自带一切，拷走即用�
 OC Manager 与 opencode **v1、v2** 均可配合使用：
 
 - **v1**——GitHub 发布页下载：[anomalyco/opencode releases](https://github.com/anomalyco/opencode/releases)
-- **v2**——按版本号下载https://opencode.ai/files/bin/{版本号}/{软件版本}，例如 `2.0.26`、`windows版本`：
+- **v2**——按版本号下载 `https://opencode.ai/files/bin/{版本号}/{资产}`，资产按平台区分：
+  - Windows：`opencode-windows-x64.zip` / `opencode-windows-arm64.zip`
+  - Linux：`opencode-linux-x64.tar.gz` / `opencode-linux-arm64.tar.gz`
+  - macOS：`opencode-darwin-x64.zip` / `opencode-darwin-arm64.zip`
+
+  例如 Windows x64 的 `2.0.26` 版本：
   `https://opencode.ai/files/bin/2.0.26/opencode-windows-x64.zip`
 
 ### 迁移到便携版
 
 若此前使用系统安装的 opencode，可按下列步骤迁入便携目录：
 
-1. 把 opencode 可执行文件放到 `<程序目录>/tools/opencode.exe`
+1. 把 opencode 可执行文件放到 `<程序目录>/tools/opencode.exe`（Linux / macOS 为 `tools/opencode`）
 2. 旧配置 → `<程序目录>/agentdatas/config/opencode/`（`opencode.jsonc`、OMO 方案、`skills/`、`commands/`、`rules/`）
 3. 旧数据 / 凭据（通常 `~/.local/share/opencode`）→ `<程序目录>/agentdatas/data/opencode/`
 4. `vault/` 放到程序目录（与 `configs/` 同级）
@@ -191,12 +196,40 @@ OC Manager 与 opencode **v1、v2** 均可配合使用：
 
 ```bash
 wails3 dev          # 开发模式（热重载）
-wails3 build        # 生产构建 → bin/oc-manager(.exe)
+wails3 build        # 当前平台构建 → bin/oc-manager(.exe)
 go build .          # 仅编译 Go 后端（构建走 wails3；build/ 下为 wails 模板，故勿用 ./...）
 go vet ./internal/... ./model/... ./service/... ./config/...   # 静态检查（同上，避开 build/ 模板）
 ```
 
-> **前置条件**：Go 1.25+ · wails3 CLI · Windows WebView2 / Linux WebKitGTK（`sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev pkg-config gcc`）
+### 多平台构建
+
+仓库根目录提供 `build.ps1` 和 `build.cmd`，可以在 Windows 上直接交叉编译 Linux / macOS：
+
+```cmd
+build.cmd                 # 交互式选择平台和架构
+build.cmd windows amd64
+build.cmd linux arm64 -Clean
+build.cmd mac arm64
+```
+
+PowerShell 中把 `build.cmd` 换成 `.\build.ps1`。
+
+产物固定命名，按平台分目录：
+
+| 平台 | 产物 |
+|---|---|
+| Windows | `bin-win/oc-manager.exe` |
+| Linux | `bin-linux/oc-manager` |
+| macOS | `bin-darwin/oc-manager` |
+
+Linux / macOS 使用 Wails v3.1.0 的纯 Go（purego）后端：
+
+- `CGO_ENABLED=0`，不需要 C 工具链、Docker 或 Linux sysroot
+- 构建标签为 `production,purego`
+- Linux 运行时需要 GTK 4.8+ 与 WebKitGTK 6.0（Debian 12 / Ubuntu 24.04 及以上）
+- macOS 产物是裸二进制，不是 `.app`；签名和公证仍需要在 macOS 上完成
+
+> **前置条件**：Go 1.27.3+ · wails3 v3.1.0 · Windows WebView2 / Linux GTK4 + WebKitGTK 6.0
 
 ---
 
