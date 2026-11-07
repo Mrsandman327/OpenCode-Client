@@ -3552,6 +3552,12 @@ input::placeholder, textarea::placeholder {
 .btw-modal { width: 780px; max-width: calc(100vw - 48px); height: 650px; max-height: calc(100vh - 48px); }
 /* 线程容器：flex column 让 .oc-message 的 align-self 生效（用户靠右 / 助手靠左） */
 .btw-thread { display: flex; flex-direction: column; gap: 12px; }
+/* 侧问回答需要能复制：body 默认 user-select:none，这里显式放开 */
+#btwModal .btw-thread,
+#btwModal .btw-answer {
+    user-select: text;
+    -webkit-user-select: text;
+}
 .btw-answer { font-size: 14px; line-height: 1.6; color: var(--text-primary); word-break: break-word; }
 
 /* ========== 侧问悬浮按钮：与「回到会话底部」按钮同列同基准（.oc-messages-wrap 内 absolute）==========
@@ -8489,6 +8495,14 @@ input.toolbar-input {
     flex-shrink: 0;
     padding: 12px 20px;
     border-bottom: 1px solid var(--border);
+}
+/* 子任务详情（标题、元信息、描述、消息）需要能复制：
+   body 默认 user-select:none，这里对整块放开 */
+#subtaskModal .subtask-modal,
+#subtaskModal .subtask-modal-section,
+#subtaskModal .subtask-modal-body {
+    user-select: text;
+    -webkit-user-select: text;
 }
 .subtask-modal-body {
     flex: 1;
