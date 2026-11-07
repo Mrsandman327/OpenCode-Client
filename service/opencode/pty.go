@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -351,10 +352,18 @@ type PtyShell struct {
 // 其他 Unix 只返回系统默认 shell 一个选项。
 func PtyShells() []PtyShell {
 	if runtime.GOOS == "windows" {
-		return []PtyShell{
+		shells := []PtyShell{
 			{Command: "cmd.exe", Label: "CMD", Default: true},
 			{Command: "powershell.exe", Label: "PowerShell"},
 		}
+		// PowerShell 7（pwsh.exe）不一定安装，PATH 中能找到才加入列表。
+		// 传绝对路径，避免 opencode 服务进程的 PATH 与当前进程不一致。
+		if pwsh, err := exec.LookPath("pwsh.exe"); err == nil {
+			shells = append(shells, PtyShell{Command: pwsh, Label: "PowerShell 7"})
+		} else if pwsh, err := exec.LookPath("pwsh"); err == nil {
+			shells = append(shells, PtyShell{Command: pwsh, Label: "PowerShell 7"})
+		}
+		return shells
 	}
 	// macOS 预装 zsh 和 bash，两个都列出来，默认 zsh（与系统默认 shell 一致）。
 	if runtime.GOOS == "darwin" {
