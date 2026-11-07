@@ -149,7 +149,7 @@ func SaveProvider(ps model.ProviderSave) error {
 	if len(ps.Models) > 0 {
 		entry.Models = make(map[string]*model.ModelDef, len(ps.Models))
 		for _, m := range ps.Models {
-			def := &model.ModelDef{Name: m.Name, ModelID: m.ModelID, Capabilities: m.Capabilities}
+			def := &model.ModelDef{Name: m.Name, ModelID: m.ModelID, Capabilities: m.Capabilities, Limit: m.Limit}
 			if old != nil {
 				if oldDef := old.Models[m.ID]; oldDef != nil {
 					// 保留真实 modelID：UI 只有单一「模型ID」输入，提交端可能把 modelID 写成 map key；
@@ -274,6 +274,7 @@ func readModels(entry *model.ProviderEntry) []model.ModelInfo {
 			if mi.Capabilities == nil {
 				mi.Capabilities = legacyCapabilities(def.Extra)
 			}
+			mi.Limit = def.Limit
 		}
 		out = append(out, mi)
 	}
@@ -541,7 +542,7 @@ var providerLegacyKeys = map[string]bool{
 // modelLegacyKeys 是模型级中已迁移的 v1 键，保存时不再作为 Extra 透传。
 var modelLegacyKeys = map[string]bool{
 	"id": true, "modalities": true, "tool_call": true,
-	"name": true, "modelID": true, "capabilities": true,
+	"name": true, "modelID": true, "capabilities": true, "limit": true,
 }
 
 // carryExtra 复制 extra 中不在 drop 集合内的键；无剩余则返回 nil。

@@ -5365,9 +5365,10 @@ input::placeholder, textarea::placeholder {
 }
 .model-subcard {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    align-items: flex-start;
     gap: 10px;
-    padding: 8px 14px;
+    padding: 8px 6px;
     border: none;
     border-radius: var(--radius-sm);
     margin-bottom: 4px;
@@ -5381,8 +5382,9 @@ input::placeholder, textarea::placeholder {
 .model-subcard .btn-toggle-abilities,
 .model-subcard .btn-del-model {
     align-self: flex-start;
-    margin-top: 2px;
+    margin-top: 0;
 }
+.model-subcard .btn-del-model { margin-top: 3px; }
 /* 模型子卡片：ID/名称行与能力区纵向堆叠，占满剩余宽度 */
 .model-subcard-fields {
     flex: 1;
@@ -5394,30 +5396,134 @@ input::placeholder, textarea::placeholder {
 /* 能力区默认折叠：display:none 初始隐藏，.abilities-open 时展开为 flex。
    checkbox 仍在 DOM 中，saveProviderFromDom 用 .mod-input:checked /
    .mod-output:checked 收集勾选值不受折叠影响 */
+/* 模型 ID / 名称：每组 label + 输入框，label 紧跟输入框，不再用固定列宽 */
+.model-head-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.model-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 0;
+    min-width: 0;
+}
+.model-head-label {
+    width: 32px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+}
+.model-field input {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    height: 30px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 12px;
+    outline: none;
+}
+.provider-card .model-field input {
+    height: 30px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    background: var(--bg-input);
+    border-radius: 6px;
+}
+.model-field input:focus { border-color: var(--accent); }
+
+/* 展开区：二级面板，和卡片主体区分层级 */
 .model-abilities {
     display: none;
+    flex: 0 0 calc(100% - 34px);
+    width: calc(100% - 34px);
+    margin-left: 0;
+    margin-top: 0;
     flex-direction: column;
-    gap: 5px;
-    padding-top: 2px;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
 }
 .model-subcard.abilities-open .model-abilities {
     display: flex;
 }
+.setting-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.setting-group + .setting-group {
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+}
+.setting-title {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .4px;
+}
 .mod-row {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    min-height: 28px;
+}
+.mod-label {
+    width: auto;
+    text-align: right;
+    color: var(--text-muted);
+    font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    line-height: 1.43;
+}
+.model-abilities .mod-chip {
+    min-height: 24px;
+    padding: 2px 10px;
+    font-size: 11.5px;
+}
+.model-abilities .mod-chip-text { font-size: 11.5px; }
+.model-limit-input {
+    width: 140px;
+    height: 30px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 12px;
+    outline: none;
+}
+/* 覆盖 .provider-card input 的 13px / 大 padding，限制区输入框固定 12px */
+.provider-card .model-limit-input {
+    height: 30px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-family: inherit;
+}
+.model-limit-input:focus { border-color: var(--accent); }
+.limit-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-width: 0;
 }
-.mod-label {
-    width: 30px;
-    flex-shrink: 0;
+.mod-unit {
     color: var(--text-muted);
-    font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: -0.2px;
-    line-height: 1.43;
+    font-size: 10.5px;
 }
 .mod-chip-list {
     display: flex;

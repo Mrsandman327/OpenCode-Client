@@ -258,12 +258,21 @@ type ReasoningCapability struct {
 	Budget    json.RawMessage `json:"budget,omitempty"`
 }
 
+// ModelLimit 模型上下文/输出上限（OpenCode v2 的 models.<id>.limit）。
+// 未设置时不写，交给 models.dev 目录或 OpenCode 默认值兜底。
+type ModelLimit struct {
+	Context *int `json:"context,omitempty"`
+	Input   *int `json:"input,omitempty"`
+	Output  *int `json:"output,omitempty"`
+}
+
 // ModelDef 模型定义（OpenCode v2 的 models.<id>）。
-// 未建模字段（cost / limit / variants / disabled 等）由 Extra 原样透传。
+// 未建模字段（cost / variants / disabled 等）由 Extra 原样透传。
 type ModelDef struct {
 	Name         string                     `json:"name,omitempty"`
 	ModelID      string                     `json:"modelID,omitempty"`
 	Capabilities *Capabilities              `json:"capabilities,omitempty"`
+	Limit        *ModelLimit                `json:"limit,omitempty"`
 	Extra        map[string]json.RawMessage `json:"-"`
 }
 
@@ -290,6 +299,12 @@ func (m *ModelDef) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		delete(raw, "capabilities")
+	}
+	if v, ok := raw["limit"]; ok {
+		if err := json.Unmarshal(v, &m.Limit); err != nil {
+			return err
+		}
+		delete(raw, "limit")
 	}
 	m.Extra = raw
 	return nil
@@ -322,6 +337,13 @@ func (m ModelDef) MarshalJSON() ([]byte, error) {
 		}
 		out["capabilities"] = b
 	}
+	if m.Limit != nil {
+		b, err := json.Marshal(m.Limit)
+		if err != nil {
+			return nil, err
+		}
+		out["limit"] = b
+	}
 	return json.Marshal(out)
 }
 
@@ -342,6 +364,7 @@ type ModelInfo struct {
 	Name         string        `json:"name"`
 	ModelID      string        `json:"modelID,omitempty"`
 	Capabilities *Capabilities `json:"capabilities,omitempty"`
+	Limit        *ModelLimit   `json:"limit,omitempty"`
 }
 
 // ProviderSave 前端提交的供应商保存数据。
@@ -552,8 +575,8 @@ type FileSearchLineMatch struct {
 
 // FileSearchFileResult 表示一个文件内的全部命中。
 type FileSearchFileResult struct {
-	Path    string               `json:"path"`    // 绝对路径
-	RelPath string               `json:"relPath"` // 相对搜索根目录（/ 开头）
+	Path    string                `json:"path"`    // 绝对路径
+	RelPath string                `json:"relPath"` // 相对搜索根目录（/ 开头）
 	Matches []FileSearchLineMatch `json:"matches"`
 }
 

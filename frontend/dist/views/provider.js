@@ -60,8 +60,9 @@ export { MODEL_EFFORTS };
 
 // 渲染模型能力芯片（按 capabilities 回填勾选状态）
 // capabilities 形如 { tools?, input?, output?, reasoning?: { effort? } }
-function modelAbilitiesHtml(capabilities) {
+function modelAbilitiesHtml(capabilities, limit) {
     const caps   = capabilities || {};
+    const lim    = limit || {};
     const input  = caps.input  || [];
     const output = caps.output || [];
     const reasoning = caps.reasoning || {};
@@ -78,10 +79,32 @@ function modelAbilitiesHtml(capabilities) {
         toggle: reasoning.toggle,
         budget: reasoning.budget,
     }));
-    return `<div class="model-abilities" data-reasoning-extra="${escapeHtml(reasoningExtra)}">
-        <div class="mod-row"><span class="mod-label">输入</span><div class="mod-chip-list">${boxes(MODALITY_INPUT, 'mod-input', input)}</div></div>
-        <div class="mod-row"><span class="mod-label">输出</span><div class="mod-chip-list">${boxes(MODALITY_OUTPUT, 'mod-output', output)}</div></div>
-        <div class="mod-row"><span class="mod-label">思考强度</span><div class="mod-chip-list">${effortBoxes}</div></div>
+    // limit.input 不在 UI 管理，保存时原样带回；context/output 由下方输入框编辑。
+    const limitExtra = encodeURIComponent(JSON.stringify({ input: lim.input }));
+    const contextValue = lim.context != null ? escapeHtml(String(lim.context)) : '';
+    const outputValue = lim.output != null ? escapeHtml(String(lim.output)) : '';
+    return `<div class="model-abilities" data-reasoning-extra="${escapeHtml(reasoningExtra)}" data-limit-extra="${escapeHtml(limitExtra)}">
+        <div class="setting-group">
+            <div class="setting-title">能力</div>
+            <div class="mod-row"><span class="mod-label">输入</span><div class="mod-chip-list">${boxes(MODALITY_INPUT, 'mod-input', input)}</div></div>
+            <div class="mod-row"><span class="mod-label">输出</span><div class="mod-chip-list">${boxes(MODALITY_OUTPUT, 'mod-output', output)}</div></div>
+            <div class="mod-row"><span class="mod-label">思考强度</span><div class="mod-chip-list">${effortBoxes}</div></div>
+        </div>
+        <div class="setting-group">
+            <div class="setting-title">限制</div>
+            <div class="mod-row"><span class="mod-label">上下文</span>
+                <div class="limit-row">
+                    <input class="model-limit-input model-limit-context" type="number" min="1" placeholder="默认 200000" value="${contextValue}">
+                    <span class="mod-unit">tokens</span>
+                </div>
+            </div>
+            <div class="mod-row"><span class="mod-label">最大输出</span>
+                <div class="limit-row">
+                    <input class="model-limit-input model-limit-output" type="number" min="1" placeholder="默认 32000" value="${outputValue}">
+                    <span class="mod-unit">tokens</span>
+                </div>
+            </div>
+        </div>
     </div>`;
 }
 
@@ -99,19 +122,23 @@ function modelSubcardHtml(model, capabilities) {
     return `
         <div class="model-subcard">
             <div class="model-subcard-fields">
-                <div style="display:flex;align-items:center;gap:8px">
-                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0;">模型ID</span>
-                    <input class="model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr} style="flex:1;width:50%" />
-                    <span style="font-size:11px;font-weight:600;color:var(--text-muted);width:45px;flex-shrink:0;padding-left:20px;">名称</span>
-                    <input class="model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" style="flex:1;width:50%" />
+                <div class="model-head-row">
+                    <div class="model-field">
+                        <span class="model-head-label">模型ID</span>
+                        <input class="model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr} />
+                    </div>
+                    <div class="model-field">
+                        <span class="model-head-label">名称</span>
+                        <input class="model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" />
+                    </div>
                 </div>
-                ${modelAbilitiesHtml(capabilities)}
             </div>
             <button class="btn-toggle-abilities" type="button" aria-expanded="false" title="展开/收起模型能力设置">
-                <span class="btn-toggle-abilities-text">模型设置</span>
+                <span class="btn-toggle-abilities-text">设置</span>
                 <span class="toggle-arrow">▾</span>
             </button>
             <button class="btn btn-del btn-del-model" title="删除">✕</button>
+            ${modelAbilitiesHtml(capabilities, m.limit)}
         </div>`;
 }
 
@@ -259,7 +286,7 @@ export function providerCardHtml(p) {
         ? `<span class="prov-models-label">模型</span><span class="prov-models-names" title="${escapeHtml(allModels.map(m => m.id).join('、'))}">${escapeHtml(modelsLineNames)}</span>${modelsLineMore}`
         : '<span class="prov-models-label">模型</span><span class="prov-models-empty">暂无模型</span>';
     const modelsHtml = allModels.length
-        ? allModels.map(m => modelSubcardHtml({ id: m.id, name: m.name || '' }, m.capabilities)).join('')
+        ? allModels.map(m => modelSubcardHtml({ id: m.id, name: m.name || '', limit: m.limit }, m.capabilities)).join('')
         : '<div class="prov-empty">暂无模型，点击「手动添加」或「 获取模型列表」</div>';
     const baseHost = (p.baseURL || '').trim().replace(/^https?:\/\//, '');
     // 说明：接口格式下拉的类名 .prov-edit-npm 与 data-raw-npm 保留 v1 命名（CSS/事件绑定依赖），
@@ -510,6 +537,23 @@ export function collectProviderData(card) {
             capabilities.reasoning = reasoning;
         }
         if (Object.keys(capabilities).length) model.capabilities = capabilities;
+        // limit：上下文/输出由输入框编辑；input 不在 UI 管理，按 data-limit-extra 原样保留。
+        const limitContext = parseInt(row.querySelector('.model-limit-context')?.value || '', 10);
+        const limitOutput  = parseInt(row.querySelector('.model-limit-output')?.value || '', 10);
+        const hasContext = Number.isFinite(limitContext) && limitContext > 0;
+        const hasOutput  = Number.isFinite(limitOutput) && limitOutput > 0;
+        let limitExtra = {};
+        try {
+            const raw = row.querySelector('.model-abilities')?.dataset.limitExtra || '';
+            limitExtra = JSON.parse(decodeURIComponent(raw)) || {};
+        } catch (_) { limitExtra = {}; }
+        if (hasContext || hasOutput || limitExtra.input != null) {
+            const limit = {};
+            if (hasContext) limit.context = limitContext;
+            if (hasOutput) limit.output = limitOutput;
+            if (limitExtra.input != null) limit.input = limitExtra.input;
+            model.limit = limit;
+        }
         data.models.push(model);
     });
 
