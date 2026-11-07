@@ -133,11 +133,10 @@ func AddSourceDir(dir string, globalDir string) (*model.SkillConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, existingDir := range cfg.SourceDirs {
-		existingNormalized, err := pathutil.Norm(existingDir)
-		if err == nil && pathutil.Equal(normalized, existingNormalized) {
-			return nil, fmt.Errorf("目录已存在: %s", normalized)
-		}
+	// 重复校验复用 findSourceDirIndex：配置里若有失效目录，
+	// 用 pathutil.Norm 逐条归一化会因报错被跳过，导致误判「不重复」而重复添加。
+	if findSourceDirIndex(cfg.SourceDirs, normalized) >= 0 {
+		return nil, fmt.Errorf("目录已存在: %s", normalized)
 	}
 	cfg.SourceDirs = append(cfg.SourceDirs, normalized)
 	if err := SaveSkillConfig(cfg); err != nil {
@@ -146,24 +145,40 @@ func AddSourceDir(dir string, globalDir string) (*model.SkillConfig, error) {
 	return cfg, nil
 }
 
-// RemoveSourceDir 从配置中移除指定的技能源目录。
-func RemoveSourceDir(dir string) (*model.SkillConfig, error) {
-	normalized, err := pathutil.Norm(dir)
-	if err != nil {
-		return nil, err
+// findSourceDirIndex 在来源目录配置列表中定位目标条目，返回下标（-1 表示未找到）。
+//
+// 匹配分两步，确保「当前系统上已不存在的目录」同样能被命中：
+//  1. 原样比较：界面删除时传入的就是配置里存的原始字符串，绝大多数情况在这一步命中；
+//  2. 宽松归一化比较：处理斜杠、大小写、相对/绝对等书写差异。
+//     这里必须用 NormLoose 而不是 Norm——Norm 要求路径存在，
+//     对失效条目会直接报错，导致这类条目永远删不掉。
+func findSourceDirIndex(dirs []string, target string) int {
+	for i, d := range dirs {
+		if pathutil.Equal(d, target) {
+			return i
+		}
 	}
+	targetNorm, err := pathutil.NormLoose(target)
+	if err != nil {
+		return -1
+	}
+	for i, d := range dirs {
+		if dNorm, err := pathutil.NormLoose(d); err == nil && pathutil.Equal(dNorm, targetNorm) {
+			return i
+		}
+	}
+	return -1
+}
+
+// RemoveSourceDir 从配置中移除指定的技能源目录。
+// 该目录在当前系统上不存在（被删除、被移动，或配置来自其他机器）时也必须能移除，
+// 否则这类历史条目会永久滞留，用户无法清理。
+func RemoveSourceDir(dir string) (*model.SkillConfig, error) {
 	cfg, err := LoadSkillConfig()
 	if err != nil {
 		return nil, err
 	}
-	idx := -1
-	for i, existingDir := range cfg.SourceDirs {
-		existingNormalized, err := pathutil.Norm(existingDir)
-		if err == nil && pathutil.Equal(normalized, existingNormalized) {
-			idx = i
-			break
-		}
-	}
+	idx := findSourceDirIndex(cfg.SourceDirs, dir)
 	if idx < 0 {
 		return nil, fmt.Errorf("目录不在配置中: %s", dir)
 	}
