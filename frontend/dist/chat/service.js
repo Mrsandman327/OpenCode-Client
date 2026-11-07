@@ -79,12 +79,11 @@ export async function checkWebStatus() {
 // 服务状态
 // ============================
 
-/** 加载服务健康状态（Server / MCP / LSP / 插件） */
+/** 加载服务健康状态（Server / MCP / 插件） */
 export async function loadServiceStatus() {
     const config = getNetworkConfig();
     try {
-        // v2：/api/mcp（MCP 运行时状态）与 /api/plugin（插件运行时状态）；
-        // v1 的 /lsp 已移除——OpenCode v2 不再运行语言服务器、不暴露 LSP 工具，故不查询 lsp 状态。
+        // v2：/api/mcp（MCP 运行时状态）与 /api/plugin（插件运行时状态）。
         // 目录来源：不再依赖「当前会话」，改为**服务端默认 location**
         // （GET /api/location 不带 location 参数，即官方文档的 "the server default location"）。
         // 这样启动/连接服务后即可取模型与 MCP/插件状态，与是否打开会话解耦。
@@ -95,10 +94,6 @@ export async function loadServiceStatus() {
             store.webURL = web.url || '';
         }
         store.serverStatus = normalizeServerStatus(web);
-        // v2 无 /api/lsp 端点（不运行语言服务器），故 lspStatus 恒为 null、
-        // lspSupported 为 false，服务面板据此**整段不渲染** LSP 分组。
-        store.lspStatus = null;
-        store.lspSupported = false;
         // MCP/插件：需要 location[directory]，且服务端为**异步就绪**（MCP 要 spawn 子进程连接），
         // 首次查询常常为空 —— 故先查一次，再安排有限次延迟重试。
         const effectiveDir = store.webRunning ? dir : '';
@@ -115,7 +110,6 @@ export async function loadServiceStatus() {
     } catch (e) {
         store.serverStatus = normalizeServerStatus(null);
         store.mcpStatus = null;
-        store.lspStatus = null;
         store.pluginStatus = null;
         refreshTodoPanel();
         renderServiceStatus();
@@ -343,7 +337,17 @@ async function handleMcpAction(action, name, btn) {
     }
 }
 
-/** 渲染服务状态面板（包含 Server / MCP / LSP 三栏） */
+/** 分组标题右侧的状态统计：绿点=正常数；异常数 > 0 时才追加灰点 */
+function renderServiceCounts(normal, abnormal) {
+    let html = '<span class="oc-service-counts">' +
+        '<span class="oc-service-count"><span class="oc-service-dot on"></span>' + normal + '</span>';
+    if (abnormal > 0) {
+        html += '<span class="oc-service-count"><span class="oc-service-dot off"></span>' + abnormal + '</span>';
+    }
+    return html + '</span>';
+}
+
+/** 渲染服务状态面板（服务器 / MCP / 插件） */
 export function renderServiceStatus() {
     const box = document.getElementById('ocServices');
     // 重渲染前记录各分组的展开状态（按下标）。
@@ -360,7 +364,7 @@ export function renderServiceStatus() {
     const version = store.serverStatus.version || '--';
     const serverSec = document.createElement('div');
     serverSec.className = 'oc-service-group';
-    // 卡片包在 oc-service-body 里（与 MCP/LSP/插件分组同构）：
+    // 卡片包在 oc-service-body 里（与 MCP/插件分组同构）：
     // 折叠样式 .oc-service-group.collapsed .oc-service-body 只作用于 body 层。
     serverSec.innerHTML =
         '<div class="oc-service-group-title clickable">' +
@@ -387,16 +391,17 @@ export function renderServiceStatus() {
     // 状态提取用 core/utils.js 的 mcpState（与重试循环共用同一实现）。
     if (store.mcpStatus) {
         const list = Array.isArray(store.mcpStatus) ? store.mcpStatus : Object.values(store.mcpStatus || {});
-        const anyRunning = list.some(i => mcpState(i) === 'connected');
-        const anyFailed = list.some(i => { const s = mcpState(i); return s === 'failed' || s === 'needs_auth'; });
-        const dotClass = list.length === 0 ? 'off' : (anyFailed ? 'off' : (anyRunning ? 'on' : 'off'));
+        // 状态口径：只有 connected 算正常，其余（pending / disabled / failed / needs_auth）都算异常
+        const normal = list.filter(i => mcpState(i) === 'connected').length;
+        const abnormal = list.length - normal;
+        const dotClass = list.length === 0 ? 'off' : (normal > 0 ? 'on' : 'off');
         const collapsed = ' collapsed';
 
         const sec = document.createElement('div');
         sec.className = 'oc-service-group' + collapsed;
         sec.innerHTML = '<div class="oc-service-group-title clickable">' +
             '<span class="oc-service-dot ' + dotClass + '"></span>MCP 服务' +
-            (list.length ? ' <span class="oc-service-state">' + list.length + '</span>' : '') +
+            (list.length ? renderServiceCounts(normal, abnormal) : '') +
         '</div>';
         if (list.length === 0) {
             sec.innerHTML += '<div class="oc-service-body"><div class="oc-service-item"><span class="oc-service-dot off"></span>无已配置的 MCP 服务</div></div>';
@@ -456,61 +461,24 @@ export function renderServiceStatus() {
         box.appendChild(sec);
     }
 
-    // ── LSP 服务 ──
-    // OpenCode v2 不再运行语言服务器、不暴露 LSP 工具，也没有 /api/lsp 端点，
-    // 因此 v2 下拿不到任何 LSP 状态。
-    //
-    // 服务端不支持时**整段不渲染**，而不是渲染一个「不支持」的占位分组：
-    // 占位分组会长期占着侧栏位置、看起来像个坏了的功能，而它永远不会有内容。
-    // 若将来接上支持 LSP 的服务端，lspSupported 转 true，下面的分支自然恢复。
-    if (store.lspStatus) {
-        const entries = Array.isArray(store.lspStatus) ? store.lspStatus : Object.values(store.lspStatus || {});
-        const anyRunning = entries.some(info => info?.status === 'connected' || info?.status === 'running' || info?.running || info?.connected);
-        const anyFailed = entries.some(info => info?.status === 'error');
-        const dotClass = entries.length === 0 ? 'off' : (anyFailed ? 'off' : (anyRunning ? 'on' : 'off'));
-        const collapsed = ' collapsed';
-
-        const sec = document.createElement('div');
-        sec.className = 'oc-service-group' + collapsed;
-        sec.innerHTML = '<div class="oc-service-group-title clickable">' +
-            '<span class="oc-service-dot ' + dotClass + '"></span>LSP 服务' +
-        '</div>';
-        if (entries.length === 0) {
-            sec.innerHTML += '<div class="oc-service-body"><div class="oc-service-item"><span class="oc-service-dot off"></span>已从文件类型自动检测 LSP，打开代码文件后会启动匹配的服务</div></div>';
-        } else {
-            let body = '<div class="oc-service-body">';
-            entries.forEach(info => {
-                const name = info?.name || info?.server || info?.language || '?';
-                const status = info?.status || '';
-                const running = status === 'connected' || status === 'running' || info?.running || info?.connected;
-                const failed = status === 'error';
-                const stateText = failed ? '异常' : (running ? '已连接' : '未启动');
-                body += '<div class="oc-service-item"><span class="oc-service-dot ' + (running ? 'on' : 'off') + '"></span>' + escapeHtml(name) + ' <span class="oc-service-state">' + stateText + '</span></div>';
-            });
-            body += '</div>';
-            sec.innerHTML += body;
-        }
-        sec.querySelector('.oc-service-group-title.clickable').addEventListener('click', function() {
-            sec.classList.toggle('collapsed');
-        });
-        box.appendChild(sec);
-    }
-
     // ── 插件 — 来自 GET /api/plugin（Plugin.Info[]，含运行时状态）──
     // 与 MCP 一致：仅在已按当前会话目录查询过（pluginStatus !== null）时渲染；
     // 无会话/无目录时 pluginStatus 为 null，整块不渲染。
     if (store.pluginStatus) {
         const plugins = store.pluginStatus || [];
         const builtin = store.pluginBuiltin || null;
-        const anyActive = plugins.some(p => p.state === 'active');
-        const anyFailed = plugins.some(p => p.state === 'failed') || (builtin ? builtin.failed > 0 : false);
+        // 标题统计只算用户插件（内置插件在下方单独一行汇总）
+        const pluginNormal = plugins.filter(p => p.state === 'active').length;
+        const pluginAbnormal = plugins.filter(p => p.state === 'failed').length;
+        const anyActive = pluginNormal > 0;
+        const anyFailed = pluginAbnormal > 0 || (builtin ? builtin.failed > 0 : false);
         const pluginDot = (!plugins.length && !builtin) ? 'off' : (anyFailed ? 'off' : ((anyActive || builtin) ? 'on' : 'off'));
         const pluginSec = document.createElement('div');
         pluginSec.className = 'oc-service-group collapsed';
         // 标题只计用户插件数（内置插件另行汇总，避免出现「88 个插件」之类的噪音）
         pluginSec.innerHTML = '<div class="oc-service-group-title clickable">' +
             '<span class="oc-service-dot ' + pluginDot + '"></span>插件' +
-            (plugins.length ? ' <span class="oc-service-state">' + plugins.length + '</span>' : '') +
+            (plugins.length ? renderServiceCounts(pluginNormal, pluginAbnormal) : '') +
         '</div>';
         let body = '<div class="oc-service-body">';
         // 内置插件：仅展示一行汇总（数量 + 状态），不逐条列出
@@ -667,7 +635,6 @@ export async function stopWeb() {
         }
         store.serverStatus = normalizeServerStatus(null);
         store.mcpStatus = null;
-        store.lspStatus = null;
         // 插件区块也要随之隐藏：此前漏清 pluginStatus，导致停止服务后 MCP 隐藏而插件仍显示
         store.pluginStatus = null;
         store.pluginBuiltin = null;

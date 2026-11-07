@@ -72,11 +72,6 @@ export const store = {
     serverStatus: { url: '', health: '未知', version: '' },
     /** MCP 服务状态 */
     mcpStatus: null,
-    /** LSP 服务状态 */
-    lspStatus: null,
-    /** 服务端是否提供 LSP 能力。OpenCode v2 已移除（不运行语言服务器、无 /api/lsp 端点），
-     *  此时服务面板显式说明该能力不可用，而不是渲染一个恒空的分组。 */
-    lspSupported: false,
     /** 插件列表（来自 /config 的 plugin 数组，服务实际加载的插件；空=未配置） */
     pluginStatus: null,
 

@@ -3192,7 +3192,7 @@ input::placeholder, textarea::placeholder {
     -webkit-user-select: none;
 }
 /* 服务状态区：不参与拖动固定高度分配，section / body / 列表整条链路
-   高度均由内容撑开（MCP/LSP/插件等分组折叠、展开时高度实时跟随）；
+   高度均由内容撑开（MCP/插件等分组折叠、展开时高度实时跟随）；
    flex-shrink:0 保证内容较长时不被压缩，交给外层整体滚动 */
 #servicePanelSection {
     min-height: 0;
@@ -3274,6 +3274,25 @@ input::placeholder, textarea::placeholder {
 }
 .oc-service-dot.warn {
     background: var(--warning);
+}
+/* 分组标题右侧的状态统计：绿点=正常数，灰点=异常数（异常为 0 时不显示灰点） */
+.oc-service-counts {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.oc-service-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.oc-service-count .oc-service-dot {
+    width: 6px;
+    height: 6px;
 }
 .oc-service-state {
     margin-left: auto;
