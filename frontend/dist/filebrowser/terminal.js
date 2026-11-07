@@ -349,14 +349,17 @@ async function createTerminal(shellCommand) {
     hostEl.dataset.key = key;
     bodyEl.appendChild(hostEl);
 
-    var term = new window.Terminal({
+    var termOptions = {
         fontSize: 12.5,
         fontFamily: 'Consolas, "Cascadia Mono", "DejaVu Sans Mono", "Liberation Mono", Menlo, "Courier New", monospace',
         cursorBlink: true,
         allowProposedApi: true,
         scrollback: 5000,
         theme: readTermTheme()
-    });
+    };
+    // Windows 的 ConPTY 扩大视口时会重印屏幕；保留历史行在滚动缓冲中，避免被重印覆盖。
+    if (/Win/.test(navigator.platform)) termOptions.windowsPty = { backend: 'conpty' };
+    var term = new window.Terminal(termOptions);
     var fit = new window.FitAddon.FitAddon();
     term.loadAddon(fit);
     term.open(hostEl);
@@ -657,9 +660,8 @@ function initTerminalResize() {
         var next = startHeight + (startY - e.clientY);
         next = Math.min(maxHeight(), Math.max(140, next));
         root.style.setProperty('--fb-term-height', next + 'px');
-        // 拖动过程中持续重算行列；PtyResize 由 onResize 的防抖控制
-        var t = activeTerminal();
-        if (t) fitTerminal(t);
+        // 拖动时只裁剪可见区域，不调整 PTY 行数；Windows ConPTY 缩小行数会丢掉屏幕早期内容。
+        // 松手后再 fit 一次，避免中间尺寸被提交给上游。
     }
 
     function onUp() {
