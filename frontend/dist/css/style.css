@@ -1331,9 +1331,14 @@ input::placeholder, textarea::placeholder {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    /* 展开时允许拖拽条（right:-4px）露在边界外；树自身 overflow 已裁剪内容 */
+    overflow: visible;
     transition: border 0.2s;
     position: relative;
+}
+/* 收起后侧栏宽度为 0，必须裁剪，否则内容会溢出覆盖聊天区 */
+.oc-client.hide-left .oc-sessions {
+    overflow: hidden;
 }
 .hide-left .oc-sessions {
     border-right: none;
@@ -1430,30 +1435,39 @@ input::placeholder, textarea::placeholder {
     right: 0;
 }
 
+/* 侧栏宽度拖拽条：放在边界「右侧」4px，位于滚动条之外，两者互不干扰。
+   默认透明，hover 时显示淡色（与右侧属性面板同一套观感）。
+   因为要越过 .oc-sessions 的边界，侧栏的 overflow 在展开时改为 visible；
+   收起（hide-left）时恢复 hidden，避免内容溢出到聊天区。 */
 .oc-tree-resize-handle {
     position: absolute;
     top: 0;
     bottom: 0;
     right: -4px;
-    width: 8px;
+    width: 4px;
     cursor: col-resize;
     opacity: 0;
     transition: opacity 0.15s ease, background 0.15s ease;
     z-index: 8;
 }
 
-.oc-sessions:hover .oc-tree-resize-handle,
 .oc-tree-resize-handle:hover {
     opacity: 1;
-}
-
-.oc-tree-resize-handle:hover {
     background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .oc-tree-resize-handle.dragging {
     opacity: 1;
     background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+/* 侧栏已收起 / 移动端抽屉模式：不存在可拖拽的边界 */
+.oc-client.tree-resizing .oc-tree-resize-handle,
+.oc-client.hide-left .oc-tree-resize-handle {
+    pointer-events: none;
+}
+.oc-client.hide-left .oc-tree-resize-handle {
+    opacity: 0;
 }
 
 .oc-client.tree-resizing {
@@ -5924,6 +5938,10 @@ input::placeholder, textarea::placeholder {
    响应式
    ============================================================ */
 @media (max-width: 800px) {
+    /* 移动端侧栏是 fixed 抽屉，不存在可拖拽的固定边界 */
+    .oc-tree-resize-handle {
+        display: none;
+    }
     .sidebar {
         display: none;
     }
