@@ -366,7 +366,20 @@ export function handleOcEvent(event) {
         return;
     }
     if (type === 'session.updated') {
-        // 会话更新事件：无需处理
+        // 会话元信息变更——最常见的是服务端异步生成标题后推送。
+        // 之前这里是空实现，导致新建会话的标题停在占位值：
+        // 轮询可能已自行停止，事件又不处理，就再也没有更新时机。
+        const updatedId = props.sessionID || props.sessionId || props.info?.id || props.id || sid;
+        if (!updatedId || updatedId === store.currentSessionId) {
+            refreshSessionTitle();
+        } else if (props.info?.title || props.title) {
+            // 非当前会话：直接落库，切回时即可显示真标题（不额外发请求）
+            const title = props.info?.title || props.title;
+            if (!store.sessionMap) store.sessionMap = {};
+            if (!store.sessionMap[updatedId]) store.sessionMap[updatedId] = {};
+            store.sessionMap[updatedId].title = title;
+        }
+        return;
     }
 }
 

@@ -216,6 +216,12 @@ export function switchTab(sessionID) {
         }
     });
     updateScrollBottomButton();
+
+    // 通知会话模块：切回后若标题仍是占位值需重启标题轮询。
+    // 用事件而不是直接 import，避免 tabs↔session 循环依赖。
+    try {
+        document.dispatchEvent(new CustomEvent('oc-session-activated', { detail: { sessionID: sessionID } }));
+    } catch (_) {}
 }
 
 /** 关闭会话 Tab：销毁容器（释放 DOM + 缓存） */

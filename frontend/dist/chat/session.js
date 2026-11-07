@@ -241,6 +241,21 @@ let titlePollTimer = null;
 let titlePollCount = 0;
 const TITLE_POLL_MAX = 20;
 const TITLE_POLL_INTERVAL = 1000;
+
+/** 是否是「服务端还没生成真标题」的占位值。
+ *  轮询必须能区分「已有标题」和「只有占位标题」，否则一见到占位值就停，
+ *  真标题永远补不上（新建会话最常见：树里先出现默认标题，轮询第一秒就自杀）。 */
+function isPlaceholderSessionTitle(title, sessionID) {
+    const t = String(title == null ? '' : title).trim();
+    if (!t) return true;
+    if (t === sessionID) return true;
+    // 新建会话期间前端写入的占位标题
+    if (t.indexOf('新建会话') === 0) return true;
+    // 服务端默认标题
+    if (t === '新会话' || t.toLowerCase() === 'untitled' || t.toLowerCase() === 'new session') return true;
+    return false;
+}
+
 function scheduleSessionTitleRefresh(sessionID) {
     if (!sessionID) return;
     titlePollCount = 0;
@@ -252,9 +267,9 @@ function scheduleSessionTitleRefresh(sessionID) {
             titlePollTimer = null;
             return;
         }
-        // 标题已从占位值更新为真实标题：停止轮询，避免空转浪费请求
+        // 拿到真标题才停止；占位标题（默认标题 / 会话 id / 新建会话 @ 目录）继续轮询
         const mappedTitle = store.sessionMap?.[sessionID]?.title;
-        if (mappedTitle && mappedTitle !== sessionID) {
+        if (!isPlaceholderSessionTitle(mappedTitle, sessionID)) {
             clearInterval(titlePollTimer);
             titlePollTimer = null;
             return;
@@ -374,6 +389,11 @@ export async function selectSession(id) {
     openSessionTab(id, info?.title);
     store.currentSessionId = id;
     store.activeTabId = id;
+    // 首次打开不经过 switchTab，这里补一次「会话已激活」通知，
+    // 否则占位标题的轮询不会启动（新建会话标题停在占位值）。
+    try {
+        document.dispatchEvent(new CustomEvent('oc-session-activated', { detail: { sessionID: id } }));
+    } catch (_) {}
     // 切会话：重置历史同步守卫，并按该会话自己的选择上下文恢复——
     // 有手动标记用标记值（手动选择优先于历史），无标记则清空等待本会话历史
     // 同步一次。避免把上一个会话的选择带进新会话，也避免历史回填覆盖手选项。
@@ -479,7 +499,12 @@ export async function loadOlderMessages(sessionID) {
     if (paging.loading) return;
     if (paging.loadedAll) { note('已经是最早的消息了'); return; }
     const cursor = paging.cursor;
-    if (!cursor) { paging.loadedAll = true; note('暂时没有更早的消息（若刚打开会话，稍后再试）'); return; }
+    if (!cursor) {
+        // 没有续翻游标通常意味着「本来就没有更早的消息」或「首屏尚未完成」，
+        // 属于内部状态而非用户可处理的问题，静默标记即可，不弹提示。
+        paging.loadedAll = true;
+        return;
+    }
     paging.loading = true;
     try {
         const res = await api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=200&cursor=${encodeURIComponent(cursor)}`);
@@ -1468,6 +1493,17 @@ setTabActivationHandler(function() {
     if (store.currentSessionId) loadMessages();
 });
 
+// 切回会话时：若标题仍是占位值，重新启动轮询补齐。
+// 轮询在切走时已自行停止（sessionID !== currentSessionId），不重启就再也拿不到真标题。
+// tabs.js 用自定义事件通知，避免 tabs↔session 循环依赖。
+document.addEventListener('oc-session-activated', function(e) {
+    const sid = e && e.detail && e.detail.sessionID;
+    if (!sid || sid !== store.currentSessionId) return;
+    if (isPlaceholderSessionTitle(store.sessionMap?.[sid]?.title, sid)) {
+        scheduleSessionTitleRefresh(sid);
+    }
+});
+
 // ============================================================
 // 分页事件绑定：消息容器滚动到顶加载更早；用户定位到边界触发
 // ============================================================
@@ -1490,8 +1526,13 @@ export function bindMessagePagingEvents() {
             if (scrollTimer) clearTimeout(scrollTimer);
             scrollTimer = setTimeout(function() {
                 const box = getActiveMessagesEl();
-                if (box && box.scrollTop <= 5) {
-                    loadOlderMessages(store.currentSessionId);
+                if (!box) return;
+                const sid = store.currentSessionId;
+                // 内容不满一屏时 scrollTop 恒为 0，这是布局结果而非「用户上滑」，
+                // 不能据此触发分页（新建会话只发一两条消息时最典型）。
+                if (box.scrollHeight - box.clientHeight <= 8) return;
+                if (box.scrollTop <= 5) {
+                    loadOlderMessages(sid);
                 }
             }, 250);
         }, true);
