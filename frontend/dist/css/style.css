@@ -5439,11 +5439,12 @@ input::placeholder, textarea::placeholder {
 }
 .provider-card .model-field input {
     height: 30px;
-    padding: 4px 8px;
-    font-size: 12px;
+    padding: 4px 4px;
+    font-size: 11.5px;
     font-family: inherit;
     background: var(--bg-input);
     border-radius: 6px;
+    font-family: Cascadia Code;
 }
 .model-field input:focus { border-color: var(--accent); }
 
@@ -5498,9 +5499,9 @@ input::placeholder, textarea::placeholder {
     line-height: 1.43;
 }
 .model-abilities .mod-chip {
-    min-height: 24px;
     padding: 2px 10px;
     font-size: 11.5px;
+    font-family: Cascadia Code;
 }
 .model-abilities .mod-chip-text { font-size: 11.5px; }
 .model-limit-input {
@@ -5516,10 +5517,10 @@ input::placeholder, textarea::placeholder {
 }
 /* 覆盖 .provider-card input 的 13px / 大 padding，限制区输入框固定 12px */
 .provider-card .model-limit-input {
-    height: 30px;
+    height: 24px;
     padding: 4px 8px;
-    font-size: 12px;
-    font-family: inherit;
+    font-size: 10px;
+    font-family: Cascadia Code;
 }
 .model-limit-input:focus { border-color: var(--accent); }
 .limit-row {
@@ -5600,12 +5601,12 @@ input::placeholder, textarea::placeholder {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 5px 12px;
+    padding: 4px 8px;
     background: transparent;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     letter-spacing: -0.224px;
     white-space: nowrap;
@@ -5668,8 +5669,9 @@ input::placeholder, textarea::placeholder {
     background: transparent;
     color: var(--text-secondary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-xs);
     padding: 4px 12px;
+    font-family: Cascadia Code;
 }
 .provider-card .btn-add-model-card:hover,
 .provider-card .btn-fetch-models:hover {
@@ -5704,6 +5706,7 @@ input::placeholder, textarea::placeholder {
     outline: none;
     font-size: 13px;
     letter-spacing: -0.01em;
+    font-family: Cascadia Code;
 }
 .provider-card select:focus {
     border-color: var(--accent);
