@@ -70,6 +70,11 @@ export function renderSkillList(filter) {
     var noSourcesMode = skills.length > 0 && skills.every(function(s) { return s.noSources; });
 
     var filtered = filter ? skills.filter(function(s) { return s.name.toLowerCase().indexOf(filter.toLowerCase()) >= 0; }) : skills;
+    // 已启用的技能排在前面：同一分组内保持后端返回的名称顺序
+    // （Array#sort 稳定排序）。复制一份再排，避免就地打乱 skills 的原始顺序。
+    filtered = filtered.slice().sort(function(a, b) {
+        return (b.linked ? 1 : 0) - (a.linked ? 1 : 0);
+    });
 
     list.innerHTML = filtered.map(function(s) {
         var safeName = escapeHtml(s.name);
