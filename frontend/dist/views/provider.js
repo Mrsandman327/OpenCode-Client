@@ -360,7 +360,7 @@ export function providerCardHtml(p) {
                     </label>
                 </div>
                 <div class="provider-models">
-                    <div class="provider-models-title">模型 <button class="btn btn-sm btn-add btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-sm btn-add btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">📡 获取模型列表</button></div>
+                    <div class="provider-models-title">模型 <button class="btn btn-sm btn-add btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-sm btn-add btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">获取模型列表</button></div>
                     <div class="card-models-list" data-key="${escapeHtml(p.key)}">
                         ${modelsHtml}
                     </div>
@@ -657,17 +657,17 @@ export function saveProviderFromDom(key) {
 
 export async function showModelListModal(key, name, baseURL, apiKey) {
     var btn = document.querySelector('.btn-fetch-models[data-key="' + CSS.escape(key) + '"]');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ 获取中...'; }
+    if (btn) { btn.disabled = true; btn.textContent = '获取中...'; }
 
     var models = [];
     try {
         models = await api.GetModelList(baseURL, apiKey) || [];
     } catch (e) {
         showApiError('获取模型列表失败: ', e);
-        if (btn) { btn.disabled = false; btn.textContent = '📡 获取模型列表'; }
+        if (btn) { btn.disabled = false; btn.textContent = '获取模型列表'; }
         return;
     }
-    if (btn) { btn.disabled = false; btn.textContent = '📡 获取模型列表'; }
+    if (btn) { btn.disabled = false; btn.textContent = '获取模型列表'; }
 
     if (!models.length) { showToast('未获取到模型列表', 'info'); return; }
 
