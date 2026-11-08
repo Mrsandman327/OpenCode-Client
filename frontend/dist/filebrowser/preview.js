@@ -7,7 +7,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { showToast, escapeHtml, showApiError } from '../core/utils.js';
+import { showToast, escapeHtml, escapeAttr, showApiError } from '../core/utils.js';
 import { dirname } from '../core/path.js';
 // Markdown 清洗（白名单 + href 协议校验）统一走 core/sanitize.js 的公共实现
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
@@ -67,6 +67,13 @@ export async function fileBrowserResolveRawResource(rootDir, relPath) {
     var blob = base64ToBlob(raw.base64 || '', raw.mime || 'application/octet-stream');
     var url = fileBrowserTrackObjectURL(URL.createObjectURL(blob));
     return { url: url, name: raw.name || '', mime: raw.mime || 'application/octet-stream' };
+}
+
+/** 生成支持 HTTP Range 的原始文件 URL，供 <video> / <audio> 边下边播。
+ *  不经过 base64/blob，避免整文件读入内存；拖动进度由浏览器发 Range 请求。 */
+export function fileBrowserRawUrl(rootDir, relPath) {
+    return '/files/raw?root=' + encodeURIComponent(rootDir || '') +
+        '&path=' + encodeURIComponent(relPath || '');
 }
 
 export function fileBrowserTrackObjectURL(url) {
@@ -968,6 +975,21 @@ export async function renderFilePreview(item, options) {
             var previewImageRes = await fileBrowserResolveRawResource(state.rootDir, item.path);
             if (!isCurrentRequest()) return;
             bodyEl.innerHTML = '<div class="file-browser-image-wrap"><img class="file-browser-image" src="' + previewImageRes.url + '" alt="' + escapeHtml(item.name) + '"></div>';
+            return;
+        }
+        if (previewKind === 'video') {
+            // 直接指向支持 Range 的原始文件端点，浏览器按需分段加载。
+            var videoSrc = fileBrowserRawUrl(state.rootDir, item.path);
+            bodyEl.innerHTML = '<div class="file-browser-media-wrap">' +
+                '<video class="file-browser-video" controls preload="metadata" src="' + escapeAttr(videoSrc) + '"></video>' +
+                '</div>';
+            return;
+        }
+        if (previewKind === 'audio') {
+            var audioSrc = fileBrowserRawUrl(state.rootDir, item.path);
+            bodyEl.innerHTML = '<div class="file-browser-audio-wrap">' +
+                '<audio class="file-browser-audio" controls preload="metadata" src="' + escapeAttr(audioSrc) + '"></audio>' +
+                '</div>';
             return;
         }
         if (previewKind === 'pdf') {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"oc-manager/model"
+	"oc-manager/service/filebrowser"
 	"oc-manager/service/opencode"
 )
 
@@ -192,6 +193,8 @@ func newFrontendWebHandler(frontendFS fs.FS, bridge FrontendWebBridge) http.Hand
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/app-call", h.handleAppCall)
 	mux.HandleFunc("/events", h.handleEvents)
+	// 原始文件读取：支持 Range，供视频/音频预览边下边播。
+	mux.HandleFunc("/files/raw", filebrowser.ServeRawFile)
 	mux.Handle("/", http.FileServer(http.FS(frontendFS)))
 	return mux
 }

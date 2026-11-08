@@ -2,9 +2,12 @@ package main
 
 import (
 	"embed"
+	"net/http"
+	"strings"
 
 	"oc-manager/internal/logger"
 	"oc-manager/internal/portable"
+	"oc-manager/service/filebrowser"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -28,6 +31,10 @@ func main() {
 	// v3 应用实例在 application.New 之后回注给业务 App（事件/对话框/浏览器需要）。
 	myApp := NewApp()
 
+	// 静态资源 handler：默认走 embed 的前端资源；
+	// /files/raw 交给 filebrowser 处理，支持视频/音频的 Range 请求。
+	staticAssets := application.AssetFileServerFS(assets)
+
 	// 主窗口引用：供单实例回调激活使用（闭包按引用捕获，在 application.New 之后赋值）。
 	var window *application.WebviewWindow
 
@@ -37,7 +44,13 @@ func main() {
 			application.NewService(myApp),
 		},
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasPrefix(r.URL.Path, "/files/raw") {
+					filebrowser.ServeRawFile(w, r)
+					return
+				}
+				staticAssets.ServeHTTP(w, r)
+			}),
 		},
 		// 单实例模式：防止多开。第二次启动时把启动信息发给第一实例后自动退出；
 		// 第一实例收到通知后显示并聚焦主窗口（若窗口在托盘中则一并恢复）。

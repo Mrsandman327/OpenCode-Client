@@ -7763,6 +7763,31 @@ body.fb-term-resizing .fb-term-host { pointer-events: none; }
     flex-wrap: wrap;
     gap: 8px;
 }
+.file-browser-media-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 12px;
+    background: #000;
+    overflow: hidden;
+}
+.file-browser-video {
+    max-width: 100%;
+    max-height: 100%;
+    outline: none;
+}
+.file-browser-audio-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 24px;
+}
+.file-browser-audio {
+    width: min(680px, 100%);
+    outline: none;
+}
 .file-browser-image-wrap {
     display: flex;
     align-items: flex-start;

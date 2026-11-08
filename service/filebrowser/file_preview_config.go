@@ -83,6 +83,8 @@ func defaultFilePreviewTypeMap() map[string]FilePreviewTypeConfig {
 		{Name: "csv", PreviewKind: "csv", Previewable: true, DefaultMode: "edit", Extensions: []string{".csv"}},
 		{Name: "spreadsheet", PreviewKind: "spreadsheet", Previewable: true, DefaultMode: "preview", Extensions: []string{".xlsx", ".xls"}},
 		{Name: "image", PreviewKind: "image", Previewable: true, DefaultMode: "preview", Extensions: []string{".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}},
+		{Name: "video", PreviewKind: "video", Previewable: true, DefaultMode: "preview", Extensions: []string{".mp4", ".webm", ".mov", ".m4v"}},
+		{Name: "audio", PreviewKind: "audio", Previewable: true, DefaultMode: "preview", Extensions: []string{".mp3", ".wav", ".ogg", ".m4a", ".flac"}},
 		{Name: "pdf", PreviewKind: "pdf", Previewable: true, DefaultMode: "preview", Extensions: []string{".pdf"}},
 		{Name: "binary", PreviewKind: "binary", Previewable: false, DefaultMode: "preview", Extensions: []string{".zip", ".rar", ".7z", ".exe", ".dll", ".so", ".bin"}},
 	}
