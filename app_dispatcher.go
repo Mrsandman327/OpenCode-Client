@@ -318,6 +318,20 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return map[string]bool{"success": a.OpenDir(path) == nil}, nil
+	case "RevealInFileManager":
+		var path string
+		var isDir bool
+		if err := decodeArgs(args, &path, &isDir); err != nil {
+			return nil, err
+		}
+		// 与其他「动作型」方法一致返回 {success, error}：
+		// 前端在 AppCall 回退路径上拿不到 Go 的 error 值，只能从返回值里读失败原因。
+		err := a.RevealInFileManager(path, isDir)
+		result := map[string]any{"success": err == nil}
+		if err != nil {
+			result["error"] = err.Error()
+		}
+		return result, nil
 	case "SaveSkillScheme":
 		var name string
 		if err := decodeArgs(args, &name); err != nil {

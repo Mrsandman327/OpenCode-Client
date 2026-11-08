@@ -17,6 +17,7 @@ import (
 	"oc-manager/config/skill"
 	"oc-manager/internal/logger"
 	"oc-manager/internal/portable"
+	"oc-manager/internal/reveal"
 	"oc-manager/model"
 	"oc-manager/service/filebrowser"
 	"oc-manager/service/knowledge"
@@ -296,6 +297,13 @@ func (a *App) OpenDir(path string) error {
 	default:
 		return exec.Command("xdg-open", path).Start()
 	}
+}
+
+// RevealInFileManager 在系统文件管理器中打开指定路径：
+// 目录直接打开；文件则打开其所在目录并选中该文件。
+// Linux 上「选中文件」依赖文件管理器的 FileManager1 接口，不支持时回退为打开父目录。
+func (a *App) RevealInFileManager(path string, isDir bool) error {
+	return reveal.Open(path, isDir)
 }
 
 // OpenURL 用系统默认浏览器打开指定 URL（外部链接统一走这里，避免 WebView 导航离开工作台）。

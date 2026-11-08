@@ -2049,15 +2049,18 @@ function showFileBrowserContextMenu(e, target) {
     var menu = document.getElementById('fileBrowserContextMenu');
     if (!menu) return;
     fileBrowserContextTarget = target;
+    // 「打开位置」只在桌面端提供：Web 端无法调用系统文件管理器
+    var desktop = isDesktopRuntime();
     menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
         var action = item.dataset.action;
         if (target.type === 'dir') {
-            // 目录行：新建文件 / 新建文件夹 / 复制路径 / 重命名 / 删除 全显
+            // 目录行：新建文件 / 新建文件夹 / 复制路径 / 打开位置 / 重命名 / 删除 全显
             item.style.display = '';
         } else {
-            // 文件行：仅保留复制路径 / 重命名 / 删除
-            item.style.display = (action === 'copy-path' || action === 'rename' || action === 'delete') ? '' : 'none';
+            // 文件行：仅保留复制路径 / 打开位置 / 重命名 / 删除
+            item.style.display = (action === 'copy-path' || action === 'reveal' || action === 'rename' || action === 'delete') ? '' : 'none';
         }
+        if (action === 'reveal' && !desktop) item.style.display = 'none';
     });
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
@@ -2108,6 +2111,18 @@ export function initFileBrowserContextMenu() {
                     showToast('已复制路径', 'success');
                 }).catch(function() {
                     showToast('复制路径失败', 'error');
+                });
+            } else if (action === 'reveal') {
+                // 在系统文件管理器中打开：目录直接打开，文件打开所在目录并选中
+                Promise.resolve(
+                    api.RevealInFileManager(fileBrowserAbsolutePath(target.path), target.type === 'dir')
+                ).then(function(res) {
+                    // AppCall 回退路径返回 {success, error} 而不是抛错，需一并处理
+                    if (res && res.success === false) {
+                        showToast('打开位置失败: ' + (res.error || '未知错误'), 'error');
+                    }
+                }).catch(function(e) {
+                    showToast('打开位置失败: ' + ((e && e.message) || e), 'error');
                 });
             } else if (action === 'rename') {
                 var newName = await showPrompt({

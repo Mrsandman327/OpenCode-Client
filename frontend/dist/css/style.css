@@ -2171,6 +2171,12 @@ input::placeholder, textarea::placeholder {
     mask-image: url("../assets/复制路径.svg");
 }
 
+/* 「打开位置」：复用打开目录图标（在文件管理器中定位） */
+.oc-menu-icon-reveal {
+    -webkit-mask-image: url("../assets/打开目录.svg");
+    mask-image: url("../assets/打开目录.svg");
+}
+
 .oc-menu-icon-rename {
     -webkit-mask-image: url("../assets/重命名.svg");
     mask-image: url("../assets/重命名.svg");
