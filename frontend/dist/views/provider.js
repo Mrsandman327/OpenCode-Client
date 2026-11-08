@@ -32,15 +32,33 @@ export async function openProviderConfigDirInBrowser() {
     }
 }
 
-// v2 供应商「接口格式」选项（对应 opencode v2 的 package 字段）：
-// 值统一为 "aisdk:" 前缀 + AI SDK 包名；v1 的无前缀 @ai-sdk/* 写法已废弃。
+// v2 供应商「接口格式」选项（对应 opencode v2 的 package 字段）。
+//
+// 全部使用 v2 原生 runtime 包（@opencode/ai/providers/*）：只有原生包才能吃到
+// OpenCode 专有的 provider 设置（settings.transport / encoding、compatibility、
+// OpenAI Responses / WebSocket 等按包实现的能力）。
+// 旧配置里的 aisdk:@ai-sdk/* 属于 AI SDK 兼容层：读取时原样保留（下拉显示「未匹配保留」），
+// 用户可手动切换到原生包，不做静默迁移。
 // 常量名保留 NPM 字样以免波及外部引用；但对外读写/提交的字段名一律为 package。
+export const PROVIDER_DEFAULT_PACKAGE = '@opencode/ai/providers/openai-compatible';
+
 export const PROVIDER_NPM_OPTIONS = [
-    { label: 'OpenAI Responses', value: 'aisdk:@ai-sdk/openai' },
-    { label: 'OpenAI Compatible', value: 'aisdk:@ai-sdk/openai-compatible' },
-    { label: 'Anthropic', value: 'aisdk:@ai-sdk/anthropic' },
-    { label: 'Amazon Bedrock', value: 'aisdk:@ai-sdk/amazon-bedrock' },
-    { label: 'Google (Gemini)', value: 'aisdk:@ai-sdk/google' },
+    // OpenAI 系
+    { label: 'OpenAI（Responses）', value: '@opencode/ai/providers/openai' },
+    { label: 'OpenAI Chat', value: '@opencode/ai/providers/openai/chat' },
+    { label: 'OpenAI Compatible', value: '@opencode/ai/providers/openai-compatible' },
+    { label: 'OpenAI Compatible（Responses）', value: '@opencode/ai/providers/openai-compatible/responses' },
+    // Anthropic 系
+    { label: 'Anthropic', value: '@opencode/ai/providers/anthropic' },
+    { label: 'Anthropic Compatible', value: '@opencode/ai/providers/anthropic-compatible' },
+    // Google 系
+    { label: 'Google (Gemini)', value: '@opencode/ai/providers/google' },
+    { label: 'Google Vertex', value: '@opencode/ai/providers/google-vertex' },
+    // 云厂商与网关
+    { label: 'Amazon Bedrock', value: '@opencode/ai/providers/amazon-bedrock' },
+    { label: 'Azure', value: '@opencode/ai/providers/azure' },
+    { label: 'OpenRouter', value: '@opencode/ai/providers/openrouter' },
+    { label: 'xAI', value: '@opencode/ai/providers/xai' },
 ];
 
 // 未匹配保留的哨兵值：后端返回的 package 不在上方列表时，
@@ -215,8 +233,8 @@ export async function loadProviders() {
 })();
 
 export function emptyProvider() {
-    // v2 字段迁移：package/packageRaw 取代 v1 的 npm/npmRaw，默认 package 带 aisdk: 前缀
-    return { key: '', name: '', baseURL: '', apiKey: '', package: 'aisdk:@ai-sdk/openai-compatible', packageRaw: 'aisdk:@ai-sdk/openai-compatible', enabled: true, models: [], _new: true };
+    // v2 字段迁移：package/packageRaw 取代 v1 的 npm/npmRaw；默认使用原生 runtime 包
+    return { key: '', name: '', baseURL: '', apiKey: '', package: PROVIDER_DEFAULT_PACKAGE, packageRaw: PROVIDER_DEFAULT_PACKAGE, enabled: true, models: [], _new: true };
 }
 
 // 供应商列表视图状态：搜索词 + 视图模式（card=多列瀑布流 / list=单列）
@@ -270,7 +288,7 @@ export function renderProviders(providers) {
 export function providerCardHtml(p) {
     const isNew = p._new;
     // v2：接口格式字段为 package（不再读 v1 的 npm）；packageRaw 作为新增卡片/兜底时的原始值
-    const packageValue = p.package || p.packageRaw || 'aisdk:@ai-sdk/openai-compatible';
+    const packageValue = p.package || p.packageRaw || PROVIDER_DEFAULT_PACKAGE;
     const matchedOption = PROVIDER_NPM_OPTIONS.find(item => item.value === (p.package || ''));
     const selectedPackageValue = matchedOption ? matchedOption.value : PROVIDER_NPM_UNMATCHED;
     const packageOptionsHtml = [

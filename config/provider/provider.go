@@ -20,8 +20,9 @@ import (
 var providerWriteMu sync.Mutex
 
 // defaultProviderPackage 是 OpenCode v2 中 OpenAI 兼容运行时的默认包名。
-// v1 的 @ai-sdk/* 包在 v2 中统一加 aisdk: 前缀。
-const defaultProviderPackage = "aisdk:@ai-sdk/openai-compatible"
+// v2 的原生 runtime 包统一为 @opencode/ai/providers/* 命名空间；
+// 早期写法的 aisdk:@ai-sdk/* 属于 AI SDK 兼容层，读取旧配置时原样保留，不自动迁移。
+const defaultProviderPackage = "@opencode/ai/providers/openai-compatible"
 
 // ========== 供应商配置 ==========
 
