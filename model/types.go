@@ -661,6 +661,9 @@ type GitHistoryItem struct {
 	Author    string `json:"author"`
 	Date      string `json:"date"`
 	Synced    bool   `json:"synced"`
+	// Tag 指向该提交的发布标签名（如 v1.9.0）；无标签时为空。
+	// 同一提交有多个标签时只保留版本号最高的那个（与 GitHub Desktop 一致，每行只显示一个）。
+	Tag string `json:"tag,omitempty"`
 }
 
 // GitHistoryResult 表示提交历史列表接口返回。

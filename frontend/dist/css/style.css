@@ -6853,6 +6853,19 @@ input::placeholder, textarea::placeholder {
     margin-left: 4px;
 }
 
+/* 发布标签（指向该提交的版本标签）：次要信息，用灰色药丸，不抢提交标题的注意力 */
+.file-browser-git-tag {
+    flex-shrink: 0;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
 /* 全部暂存按钮 */
 .file-browser-git-group-header {
     display: flex;

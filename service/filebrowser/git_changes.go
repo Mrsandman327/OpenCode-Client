@@ -107,6 +107,54 @@ func ListGitChanges(dir string) model.GitStatusResult {
 	return model.GitStatusResult{IsGitRepo: true, Files: files, Message: ""}
 }
 
+// parseTagOutput 解析 `git for-each-ref` 的标签输出，返回「提交 sha → 标签名」。
+//
+// 输入每行格式（制表符分隔）：
+//
+//	<标签名> \t <对象 sha> \t <解引用的提交 sha>
+//
+// 轻量标签的第三列为空，对象 sha 就是提交 sha；附注标签的对象 sha 是标签对象，
+// 第三列才是真正的提交。调用方用 `--sort=-v:refname` 排序（版本号大的在前），
+// 因此同一提交首次出现时记录的就是版本号最高的标签，后续同提交标签直接跳过，
+// 每个提交只保留一个标签（与 GitHub Desktop 的单标签展示一致）。
+func parseTagOutput(out string) map[string]string {
+	byCommit := make(map[string]string)
+	sc := bufio.NewScanner(strings.NewReader(out))
+	sc.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
+	for sc.Scan() {
+		parts := strings.Split(sc.Text(), "\t")
+		if len(parts) < 3 {
+			continue
+		}
+		name := strings.TrimSpace(parts[0])
+		sha := strings.TrimSpace(parts[1])
+		// 附注标签：第三列是解引用后的提交 sha，优先使用
+		if deref := strings.TrimSpace(parts[2]); deref != "" {
+			sha = deref
+		}
+		if name == "" || sha == "" {
+			continue
+		}
+		if _, exists := byCommit[sha]; exists {
+			continue // 已记录版本号更高的标签
+		}
+		byCommit[sha] = name
+	}
+	return byCommit
+}
+
+// loadTagMap 读取仓库全部标签，返回「提交 sha → 版本号最高的标签名」。
+// 一次 git 调用拿到所有标签，再由调用方按当前页的提交过滤，避免逐条提交查询。
+// 无标签或读取失败时返回空 map（历史列表不带标签即可，不影响主体功能）。
+func loadTagMap(dir string) map[string]string {
+	out, err := runGitCommand(dir, "for-each-ref", "--sort=-v:refname",
+		"--format=%(refname:short)%09%(objectname)%09%(*objectname)", "refs/tags")
+	if err != nil {
+		return map[string]string{}
+	}
+	return parseTagOutput(out)
+}
+
 // ListGitHistory 返回指定目录的 Git 提交历史，支持分页。
 func ListGitHistory(dir string, offset, limit int) (model.GitHistoryResult, error) {
 	result := model.GitHistoryResult{Items: []model.GitHistoryItem{}, Offset: offset, Limit: limit}
@@ -182,6 +230,13 @@ func ListGitHistory(dir string, offset, limit int) (model.GitHistoryResult, erro
 	if !hasUpstream {
 		for i := range items {
 			items[i].Synced = false
+		}
+	}
+	// 给当前页的提交挂上发布标签（每行只显示版本号最高的一个）
+	tagMap := loadTagMap(dir)
+	for i := range items {
+		if tag, ok := tagMap[items[i].Hash]; ok {
+			items[i].Tag = tag
 		}
 	}
 	result.Items = items

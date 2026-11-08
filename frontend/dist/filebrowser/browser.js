@@ -1111,6 +1111,7 @@ export async function loadFileBrowserGitHistory(loadMore) {
                 author: item.author,
                 date: item.date,
                 synced: item.synced,
+                tag: item.tag || '',
                 expanded: false,
                 loadingFiles: false,
                 filesLoaded: false,
@@ -1402,6 +1403,8 @@ export function renderFileBrowserGitHistory(bodyEl) {
         var expanded = state.git.expandedCommitHash === item.hash;
         var fileHtml = '';
         var syncedIcon = item.synced === false ? '<span class="file-browser-git-sync-icon" title="未同步到服务器">⬆</span>' : '';
+        // 发布标签：指向该提交的版本标签（每行只显示一个，版本号最高）
+        var tagHtml = item.tag ? '<span class="file-browser-git-tag" title="标签：' + escapeHtml(item.tag) + '">' + escapeHtml(item.tag) + '</span>' : '';
         if (expanded) {
             if (item.loadingFiles) {
                 fileHtml = '<div class="file-browser-empty">正在读取提交文件...</div>';
@@ -1426,6 +1429,7 @@ export function renderFileBrowserGitHistory(bodyEl) {
                     '<span class="file-browser-git-name">' + escapeHtml(item.subject || '(无标题提交)') + '</span>' +
                     '<span class="file-browser-git-path">' + escapeHtml([item.author || '', formatGitCommitDate(item.date || '')].filter(Boolean).join(' · ')) + '</span>' +
                 '</span>' +
+                tagHtml +
                 syncedIcon +
             '</button>' + fileHtml +
         '</div>';
