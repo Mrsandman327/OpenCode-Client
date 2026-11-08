@@ -3163,6 +3163,7 @@ input::placeholder, textarea::placeholder {
    默认透明，hover / 拖动时显示居中指示条，垂直拖动调整子任务高度 */
 .oc-panel-resize-handle {
     height: 6px;
+    margin-top: -6px
     flex-shrink: 0;
     align-self: stretch;
     cursor: row-resize;
