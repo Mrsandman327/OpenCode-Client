@@ -12,7 +12,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { escapeHtml, showToast, showApiError, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo, updateTreeActiveSession, setTreeActionHandlers } from '../core/utils.js';
+import { escapeHtml, showToast, showApiError, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo, updateTreeActiveSession, setTreeActionHandlers, copyToClipboard } from '../core/utils.js';
 // 相对时间格式化统一走 core/format.js
 import { formatRelativeTime } from '../core/format.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
@@ -594,7 +594,8 @@ export function showTreeContextMenu(e, type, data) {
             item.style.display = (action === 'new-session' || action === 'project-config' || action === 'open-file-browser' || action === 'import') ? '' : 'none';
         } else if (type === 'session') {
             item.style.display = (action === 'rename' || action === 'delete'
-                || action === 'export' || action === 'move') ? '' : 'none';
+                || action === 'export' || action === 'move'
+                || action === 'copy-session-id') ? '' : 'none';
         } else {
             item.style.display = 'none';
         }
@@ -660,6 +661,12 @@ export function initTreeContextMenu() {
                 exportSession(data.sid);
             } else if (type === 'session' && action === 'move') {
                 moveSessionDialog(data.sid);
+            } else if (type === 'session' && action === 'copy-session-id') {
+                copyToClipboard(data.sid).then(function() {
+                    showToast('已复制会话 ID', 'success');
+                }).catch(function() {
+                    showToast('复制会话 ID 失败', 'error');
+                });
             } else if (action === 'import') {
                 importSessionDialog();
             }

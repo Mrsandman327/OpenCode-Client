@@ -2170,6 +2170,10 @@ input::placeholder, textarea::placeholder {
     -webkit-mask-image: url("../assets/复制路径.svg");
     mask-image: url("../assets/复制路径.svg");
 }
+.oc-menu-icon-copy {
+    -webkit-mask-image: url("../assets/复制.svg");
+    mask-image: url("../assets/复制.svg");
+}
 
 /* 「打开位置」：复用打开目录图标（在文件管理器中定位） */
 .oc-menu-icon-reveal {
