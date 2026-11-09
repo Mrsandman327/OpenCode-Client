@@ -6507,6 +6507,14 @@ input::placeholder, textarea::placeholder {
     -webkit-mask-image: url("../assets/文件夹.svg");
     mask-image: url("../assets/文件夹.svg");
 }
+.oc-fb-icon-root {
+    -webkit-mask-image: url("../assets/根目录.svg");
+    mask-image: url("../assets/根目录.svg");
+}
+.oc-fb-icon-back {
+    -webkit-mask-image: url("../assets/返回.svg");
+    mask-image: url("../assets/返回.svg");
+}
 .oc-fb-icon-new-folder {
     -webkit-mask-image: url("../assets/新建文件夹.svg");
     mask-image: url("../assets/新建文件夹.svg");
@@ -8644,10 +8652,155 @@ input.toolbar-input {
     background: transparent;
 }
 /* 目录选择列表 */
+/* ========== Web 端目录选择器 ========== */
+.dir-browser-modal {
+    width: 720px;
+    max-width: calc(100vw - 40px);
+    /* 固定高度，避免内容多少导致弹窗忽高忽低；内部列表自己滚动 */
+    height: 62vh;
+    max-height: 620px;
+}
+.modal-card .dir-browser-body {
+    display: flex;
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.dir-browser-places {
+    width: 180px;
+    flex-shrink: 0;
+    padding: 10px 8px;
+    border-right: 1px solid var(--border);
+    background: var(--bg-secondary);
+    overflow-y: auto;
+}
+.dir-browser-places-label {
+    padding: 4px 8px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+.dir-browser-place {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    margin-bottom: 2px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.dir-browser-place:hover {
+    background: var(--bg-sidebar-hover);
+    color: var(--text-primary);
+}
+.dir-browser-place.active {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+}
+.dir-browser-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+}
+.dir-browser-address {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+.dir-browser-up {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.dir-browser-up:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+.dir-browser-path {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+}
+.dir-browser-path:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
+}
 .dir-browser-list {
-    margin-top: 12px;
-    max-height: 360px;
-    overflow: auto;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px;
+}
+.dir-browser-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    margin-bottom: 2px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.dir-browser-item:hover {
+    background: var(--bg-sidebar-hover);
+}
+.dir-browser-item.selected {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+}
+.modal-card .dir-browser-footer {
+    justify-content: space-between;
+}
+.dir-browser-selected {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.dir-browser-place .oc-fb-icon,
+.dir-browser-item .oc-fb-icon,
+.dir-browser-up .oc-fb-icon {
+    width: 14px;
+    height: 14px;
 }
 
 /* 代理弹窗内的服务组标题间距 */

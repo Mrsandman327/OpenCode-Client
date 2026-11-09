@@ -32,7 +32,7 @@ import {
     initSidepanelResize, loadSidepanelWidth, applySidepanelWidth,
     treePanelWidth, sidepanelWidth,
 } from './chat/session.js';
-import { closeDirBrowserModal, goDirBrowserUp, selectDirBrowserCurrent } from './filebrowser/dir.js';
+import { closeDirBrowserModal, goDirBrowserUp, selectDirBrowserCurrent, goDirBrowserPath } from './filebrowser/dir.js';
 import { bindFileBrowserEvents } from './filebrowser/entry.js';
 import {
     showAddPresetModal, handleSlimSave, openSlimDir,
@@ -228,6 +228,16 @@ function initMain() {
     document.getElementById('btnDirBrowserClose').addEventListener('click', closeDirBrowserModal);
     document.getElementById('btnDirBrowserBack').addEventListener('click', goDirBrowserUp);
     document.getElementById('btnDirBrowserSelect').addEventListener('click', selectDirBrowserCurrent);
+    document.getElementById('btnDirBrowserCancel')?.addEventListener('click', closeDirBrowserModal);
+    document.getElementById('btnDirBrowserGo')?.addEventListener('click', function() {
+        goDirBrowserPath(document.getElementById('dirBrowserPath').value);
+    });
+    document.getElementById('dirBrowserPath')?.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            goDirBrowserPath(this.value);
+        }
+    });
     // 文件浏览弹窗 (Web 端)：绑定统一由 bindFileBrowserEvents() 提供（独立窗口复用）
     bindFileBrowserEvents();
     document.getElementById('btnSaveProxy').addEventListener('click', applyProxyConfig);

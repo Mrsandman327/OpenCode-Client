@@ -798,17 +798,32 @@
     </div>
 
     <div class="modal-overlay" id="dirBrowserModal" style="display:none">
-        <div class="modal proxy-modal">
-            <h3>选择工作目录</h3>
-            <div class="path-bar path-bar-inline">
-                <span class="path-label">当前路径：</span>
-                <span class="path-value" id="dirBrowserPath">--</span>
+        <div class="modal modal-card dir-browser-modal" role="dialog" aria-modal="true">
+            <div class="modal-header">
+                <h3>选择工作目录</h3>
+                <button type="button" class="modal-close-btn" id="btnDirBrowserClose" title="关闭（Esc）" aria-label="关闭">
+                    <span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span>
+                </button>
             </div>
-            <div class="providers-list dir-browser-list" id="dirBrowserList"></div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-sm" id="btnDirBrowserBack">返回上一级</button>
-                <button type="button" class="btn btn-primary" id="btnDirBrowserSelect">选择当前目录</button>
-                <button type="button" class="btn-cancel" id="btnDirBrowserClose">关闭</button>
+            <div class="modal-body dir-browser-body">
+                <aside class="dir-browser-places" id="dirBrowserPlaces"></aside>
+                <section class="dir-browser-main">
+                    <div class="dir-browser-address">
+                        <button type="button" class="dir-browser-up" id="btnDirBrowserBack" title="返回上一级">
+                            <span class="oc-fb-icon oc-fb-icon-back" aria-hidden="true"></span>
+                        </button>
+                        <input type="text" class="dir-browser-path" id="dirBrowserPath" placeholder="输入路径">
+                        <button type="button" class="btn btn-sm" id="btnDirBrowserGo">转到</button>
+                    </div>
+                    <div class="dir-browser-list" id="dirBrowserList"></div>
+                </section>
+            </div>
+            <div class="modal-footer dir-browser-footer">
+                <span class="dir-browser-selected" id="dirBrowserSelected"></span>
+                <div>
+                    <button type="button" class="btn btn-cancel" id="btnDirBrowserCancel">取消</button>
+                    <button type="button" class="btn btn-primary" id="btnDirBrowserSelect">选择此目录</button>
+                </div>
             </div>
         </div>
     </div>
