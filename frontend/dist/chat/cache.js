@@ -172,6 +172,23 @@ export function scheduleRenderCachedMessages(sessionID) {
     });
 }
 
+/** 移除发送失败时残留的 assistant 占位（ensurePendingAssistant 生成，id 以 pending_ 开头）。
+ *  失败回滚时若不删除，消息区会一直显示「正在等待模型回复...」，
+ *  用户会误以为消息已发出、模型仍在处理。 */
+export function removePendingAssistant(sessionID) {
+    if (!sessionID) return;
+    const list = getCachedMessages(sessionID);
+    const filtered = list.filter(item => {
+        const info = item.info || item;
+        const id = String(info.id || '');
+        const role = info.role;
+        return !(role === 'assistant' && id.startsWith('pending_'));
+    });
+    if (filtered.length !== list.length) {
+        store.messageCache[sessionID] = filtered;
+    }
+}
+
 /** 移除本地乐观用户消息（发送失败时回滚，避免残留"已发送"假象）。
  *  乐观消息与服务端消息共用同一个 id，因此按 id 精确删除即可。 */
 export function removeLocalUserMessage(sessionID, messageId) {

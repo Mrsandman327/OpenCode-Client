@@ -610,6 +610,7 @@ export async function stopWeb() {
         store.currentSessionId = '';
         store.sessions = [];
         store.sessionStatuses = {};
+        store.sessionStatusMeta = {};
         store.sessionErrors = {};
         store.messageCache = {};
         store.expandedParts = {};
@@ -761,7 +762,7 @@ export function updateWebUI() {
         btnWt.disabled = false;
         btnRefresh.disabled = false;
         btnNewSession.disabled = false;
-        btnSend.disabled = false;
+        btnSend.disabled = btnSend.dataset.sending === '1';
         btnRefreshStatus.disabled = false;
         prompt.disabled = false;
         btnAttach.disabled = false;

@@ -29,6 +29,10 @@ export const store = {
     sessions: [],
     /** 会话状态映射表，key=会话ID，value='busy'|'idle' */
     sessionStatuses: {},
+    /** 会话状态元信息：key=会话ID，value={ holdUntil, source }。
+     *  holdUntil 是本地操作意图的保护截止时间：发送/停止后的窗口内，
+     *  延迟到达的 active 快照若与本地状态相反，不得覆盖本地意图。 */
+    sessionStatusMeta: {},
     /** 会话错误信息映射表 */
     sessionErrors: {},
     /** 新建会话的待用工作目录（tree.js 写入，session.js 首次发送时读取） */

@@ -180,7 +180,11 @@ export function normalizeStatuses(res) {
     for (const sid of Object.keys(map)) {
         const v = map[sid];
         if (v == null) continue;
-        if (typeof v === 'string') { out[sid] = v; continue; }
+        if (typeof v === 'string') {
+            // 防御服务端以字符串返回 running：统一成 v1 的 busy 契约
+            out[sid] = v === 'running' ? 'busy' : v;
+            continue;
+        }
         const t = v.type ?? v.status;
         if (t === 'running' || t === 'busy') out[sid] = 'busy';
         else if (t === 'idle') out[sid] = 'idle';
@@ -826,10 +830,21 @@ export function adaptEvent(event) {
         case 'session.execution.interrupted': {
             const reason = data.reason || '';
             if (!reason || reason === 'user') return [{ type: 'session.idle', sessionID }];
-            return [{ type: 'session.error', sessionID, error: '会话执行被中断（' + reason + '）' }];
+            // 非 user 的异常终止：服务端已经不再执行，先补一条 session.idle 再报错。
+            // 用 idle（终止事件）而不是 status：events.js 会强制采纳并清除本地保护窗口，
+            // 不会被停止/失败瞬间的本地意图挡住。
+            return [
+                { type: 'session.idle', sessionID },
+                { type: 'session.error', sessionID, error: '会话执行被中断（' + reason + '）' },
+            ];
         }
         case 'session.execution.failed':
-            return [{ type: 'session.error', sessionID, error: errorText(data.error) }];
+            // 执行级失败 = 会话已终止：必须同时置回 idle（否则按钮停在「停止」）。
+            // step.failed 不在此列——单个 step 失败后可能重试/继续，不能误判空闲。
+            return [
+                { type: 'session.idle', sessionID },
+                { type: 'session.error', sessionID, error: errorText(data.error) },
+            ];
 
         // 单个 step 失败（如模型调用报错）：服务端会把 error 记入 assistant 消息，
         // 但事件流层面先直接提示，避免消息列表尚未刷新时界面上看不到任何失败信号。

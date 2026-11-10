@@ -24,10 +24,10 @@ import {
     toggleWeb, checkWebStatus, loadServiceStatus, launchTerminal,
 } from './chat/service.js';
 import { refreshTree, createNewSession } from './chat/tree.js';
-import { isSessionBusy, scrollMessagesToBottom, updateScrollBottomButton } from './chat/render.js';
+import { updateSendButton, scrollMessagesToBottom, updateScrollBottomButton } from './chat/render.js';
 import { respondPermission } from './chat/permission.js';
 import {
-    sendPrompt, abortSession, addAttachment, refreshCurrentSession, scheduleRefresh,
+    sendPrompt, abortSession, addAttachment, refreshCurrentSession,
     initTreePanelResize, loadTreePanelWidth, applyTreePanelWidth,
     initSidepanelResize, loadSidepanelWidth, applySidepanelWidth,
     treePanelWidth, sidepanelWidth,
@@ -112,9 +112,12 @@ function initMain() {
     });
     document.getElementById('ocMobileTreeMask').addEventListener('click', closeMobileTree);
 
-    // 发送/停止按钮
+    // 发送/停止按钮：先按实时状态重绘，再读同一来源的 dataset.mode，
+    // 保证按钮文案与实际动作永远一致（不再出现文案是旧快照、点击读实时值）。
     document.getElementById('btnSendPrompt').addEventListener('click', () => {
-        if (isSessionBusy(store.currentSessionId)) {
+        const btn = document.getElementById('btnSendPrompt');
+        updateSendButton();
+        if (btn.dataset.mode === 'stop') {
             abortSession();
         } else {
             sendPrompt();
@@ -144,14 +147,6 @@ function initMain() {
             e.preventDefault();
             sendPrompt();
         }
-    });
-
-    // 移动端输入时暂停后台轮询，避免与键入争抢渲染
-    document.getElementById('ocPrompt').addEventListener('focus', () => {
-        if (isMobileTreeMode()) { clearInterval(store.refreshTimer); store.refreshTimer = null; }
-    });
-    document.getElementById('ocPrompt').addEventListener('blur', () => {
-        if (isMobileTreeMode() && !store.refreshTimer) { scheduleRefresh(); }
     });
 
     // 输入框 placeholder 按平台切换

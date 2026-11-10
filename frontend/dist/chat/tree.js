@@ -19,6 +19,8 @@ import { showConfirm, showPrompt } from '../core/dialog.js';
 import { isMobileTreeMode, closeMobileTree } from './mobile.js';
 import { switchSession } from './events.js';
 import { closeSessionTab, renderTabsBar } from './tabs.js';
+import { updateSendButton } from './render.js';
+import { refreshSubtaskPanel } from './sidepanel.js';
 import { resetUserNav } from './search.js';
 import { openProjectConfig } from '../views/project-config.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
@@ -543,10 +545,10 @@ export async function createNewSession(dir) {
         }
         store.currentSessionId = '';
         store.activeTabId = '';   // 不再指向旧 tab
-        store.sessionStatuses = {};
-        store.sessionErrors = {};
-        store.subtaskSummaries = [];
-        store.detailMessageCache = {};
+        // 仅退出当前会话，保留其他会话的运行状态、保护信息和错误；无当前会话时按钮显示「发送」。
+        updateSendButton();
+        // 无当前会话时只清空子任务摘要并渲染侧栏空态，不发请求、不清其他子会话的缓存。
+        refreshSubtaskPanel();
         // 隐藏所有已打开 tab 容器（保留其内容，切回时还在），显示新建会话占位提示；
         // 不再直接写 getActiveMessagesEl().innerHTML，否则会清空当前活动 tab 的会话内容
         var poolEl = document.getElementById('ocMessagesPool');

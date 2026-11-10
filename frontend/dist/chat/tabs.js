@@ -13,7 +13,7 @@ import { store } from '../core/state.js';
 import { escapeHtml, getTabMessagesEl, ensureTabMessagesEl, getCachedMessages, updateModelInfo, restoreSessionSelection, refreshServiceStatus } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { updateScrollBottomButton, updateSendButton } from './render.js';
-import { loadSessionStatuses } from './events.js';
+import { refreshSessionStatusFromActive } from './events.js';
 import { refreshSubtaskPanel } from './sidepanel.js';
 import { resetUserNav, updateUserNav } from './search.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
@@ -158,6 +158,10 @@ export function switchTab(sessionID) {
     if (!sessionID) return;
     store.activeTabId = sessionID;
     store.currentSessionId = sessionID;
+    // 同步重算发送按钮：按钮文案是上一次 updateSendButton() 的快照，
+    // 而点击时读的是实时状态。若等异步快照回来再刷新，这段窗口内会拿旧会话的
+    // 文案执行新会话的动作（显示「停止」却实际发送，或反之）。
+    updateSendButton();
     // 侧问悬浮按钮/面板跟随会话：容器已有内容时不会走 loadMessages，必须在此同步（幂等）
     syncBtwToSession(sessionID);
     // 切到该会话目录：刷新服务状态面板的 MCP/插件（按 location[directory] 作用域）
@@ -205,16 +209,10 @@ export function switchTab(sessionID) {
         // 子任务面板数据源为服务端 child sessions：切换 tab 后立即重拉一次
         refreshSubtaskPanel();
     }
-    loadSessionStatuses().then(function(statuses) {
-        if (sessionID === store.currentSessionId) {
-            // 只更新目标会话的状态（快照权威），其它会话的 key 保留本地值
-            // （SSE 增量更新），避免整体替换抹掉其它 tab 刚写入的 busy 状态
-            if (statuses && typeof statuses === 'object' && statuses[sessionID] !== undefined) {
-                store.sessionStatuses[sessionID] = statuses[sessionID];
-            }
-            updateSendButton();
-        }
-    });
+    // 从列表/其它 Tab 切过来时用 active 快照纠偏该会话：
+    // 缺 key 说明当前不活跃 ⇒ idle。切 Tab 只读一次，不重试（首次打开由 selectSession 负责）。
+    // setSessionStatus 会遵守本地发送/停止的保护窗口。
+    refreshSessionStatusFromActive(sessionID);
     updateScrollBottomButton();
 
     // 通知会话模块：切回后若标题仍是占位值需重启标题轮询。

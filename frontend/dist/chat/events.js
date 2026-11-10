@@ -13,7 +13,7 @@
 import { store, currentDir } from '../core/state.js';
 import { api } from '../core/apicall.js';
 import { showToast, escapeHtml, getCachedMessages, safeText, isDesktopRuntime, loadWailsRuntime, refreshServiceStatus, loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity, buildTree, wasSessionDeletedLocally } from '../core/utils.js';
-import { updateSendButton } from './render.js';
+import { setSessionStatus, isBusyStatus } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
 import { showPermissionRequest, closePermissionModal } from './permission.js';
@@ -25,6 +25,8 @@ import { adaptEvent, normalizeStatuses } from '../core/v2compat.js';
 
 /** EventSource 断线重连计数（浏览器模式；Wails 模式经 runtime 事件自动重连） */
 let reconnectAttempts = 0;
+/** 当前页面是否成功连接过事件流；连接对象重建时保留，确保恢复后补拉消息与状态。 */
+let browserSseEverConnected = false;
 
 // ============================
 // 事件流自愈
@@ -63,13 +65,31 @@ function scheduleEventStreamRecovery() {
  * 一条 v2 事件可能对应多条 v1 事件（如 user 入队同时产生消息与正文 part）。
  */
 function dispatchV2Event(v2event) {
+    const v2type = v2event && v2event.type;
+    const v2sid = v2event && v2event.data && v2event.data.sessionID;
+    // 活动事件推断 busy：服务端不一定在“开始执行”时发 session.status（旁观客户端
+    // 打开会话后其它客户端才发起执行时尤其明显）。收到属于该会话的任意执行活动，
+    // 即视为运行中——让 Web 端/多客户端不依赖轮询也能同步按钮。
+    // 终止事件（execution.succeeded/failed/interrupted）不在 isBusyActivityEvent 内，
+    // 由 adaptEvent 转成 idle/error 后再清除状态。
+    if (v2sid && isBusyActivityEvent(v2type)) {
+        setSessionStatus(v2sid, 'busy', 'activity');
+    }
     const v1events = adaptEvent(v2event);
     for (const e of v1events) handleOcEvent(e);
     // 任何模型/agent 活动都说明本次发送没有石沉大海：刷新无响应看门狗的基线
     // （基线由 session.js 的发送流程维护，只认本次发送会话的事件，超时后才会提示）。
-    if (isPromptActivityEvent(v2event && v2event.type)) {
-        notePromptActivity(v2event && v2event.data && v2event.data.sessionID);
+    if (isPromptActivityEvent(v2type)) {
+        notePromptActivity(v2sid);
     }
+}
+
+/** 是否表示会话正在执行的活动事件（用于旁观客户端推断 busy）。
+ *  不含 execution.succeeded/failed/interrupted（终止事件，由 adaptEvent 转 idle/error）；
+ *  不含 session.status（显式状态，由 handleOcEvent 按 event 来源写入）。 */
+function isBusyActivityEvent(type) {
+    if (type === 'session.inbox.enqueued' || type === 'session.execution.started') return true;
+    return /^session\.(text|reasoning|tool|step)\./.test(type || '');
 }
 
 /** v2 事件是否代表「模型/agent 有活动」——用于取消发送后的无响应看门狗。
@@ -157,6 +177,8 @@ export function startEventStream() {
             rt.Events.On('sse-lagged', () => {
                 showThrottledToast('es-lagged', '事件流已重连，正在补齐消息...', 'warning');
                 loadMessages();
+                // 断线期间可能丢了 idle 事件：同时用 active 快照纠偏当前会话状态
+                refreshSessionStatusFromActive(store.currentSessionId);
             });
         }).catch((err) => {
             // 加载失败时复位标记，使下次调用有机会重试
@@ -181,6 +203,8 @@ export function startEventStream() {
         es.addEventListener('sse-lagged', () => {
             showThrottledToast('es-lagged', '事件流出现延迟，正在补齐消息...', 'warning');
             loadMessages();
+            // 事件丢失后同时用 active 快照纠偏运行状态，避免按钮卡在错误状态
+            refreshSessionStatusFromActive(store.currentSessionId);
         });
         es.onerror = () => {
             if (es.readyState === EventSource.CLOSED) {
@@ -199,15 +223,18 @@ export function startEventStream() {
             }
         };
         // 连接成功（含浏览器自动重连成功）时重置计数，避免计数只增不减导致误报
-        let sseEverConnected = false;
         es.onopen = () => {
             reconnectAttempts = 0;
             resetEventRecovery();
             // 重连成功：断线期间的事件已永久丢失，主动全量补齐一次，
             // 否则残缺缓存（缺 text part）会一直停留在界面上，而刷新又可能被在途锁跳过。
-            // 首次连接不补齐（初始加载由会话选择/状态轮询负责），避免无意义的重复请求。
-            if (sseEverConnected) loadMessages();
-            sseEverConnected = true;
+            // 首次连接不补齐（初始加载由会话选择/状态纠偏负责），避免无意义的重复请求。
+            if (browserSseEverConnected) {
+                loadMessages();
+                // 重连后用 active 快照纠偏当前会话状态（丢 idle 时按钮会卡在「停止」）
+                refreshSessionStatusFromActive(store.currentSessionId);
+            }
+            browserSseEverConnected = true;
         };
     }
     // 后端 SSE 只需建立一次：startEventStream() 会被 checkWebStatus() 反复调用
@@ -225,7 +252,10 @@ export function startEventStream() {
 export function handleOcEvent(event) {
     const type = event.type || event.name || '';
     const props = event.properties || event.data || event;
-    const sid = props.sessionID || props.sessionId || props.info?.sessionID || props.part?.sessionID || store.currentSessionId;
+    // 显式会话 ID：状态类事件必须使用它，不允许用 currentSessionId 兜底，
+    // 否则多 Tab / 多客户端场景下会把 A 的状态写到 B 头上。
+    const eventSid = props.sessionID || props.sessionId || props.info?.sessionID || props.part?.sessionID || '';
+    const sid = eventSid || store.currentSessionId;
 
     if (type === 'server.connected' || type === 'server.heartbeat') return;
 
@@ -269,40 +299,47 @@ export function handleOcEvent(event) {
         }
     }
 
-    if (type === 'session.error' && sid && props.error) {
+    if (type === 'session.error' && eventSid && props.error) {
         const message = typeof props.error === 'string' ? props.error : (props.error.message || safeText(props.error));
-        store.sessionErrors[sid] = message;
+        store.sessionErrors[eventSid] = message;
         // 让失败立刻可见：消息区的错误卡片可能因「服务端尚未落 assistant 卡片」而没有宿主
         // （例如 execution.failed 早于任何 step），且自动重试会连续触发失败事件。
         // 用节流 toast 保证第一时刻有提示、又不刷屏；持久错误行由 render.js 兜底渲染。
-        showThrottledToast('session-error-' + sid, '执行失败: ' + String(message).replace(/\s+/g, ' ').slice(0, 200), 'error');
-        if (sid === store.currentSessionId) loadMessages();
+        showThrottledToast('session-error-' + eventSid, '执行失败: ' + String(message).replace(/\s+/g, ' ').slice(0, 200), 'error');
+        if (eventSid === store.currentSessionId) loadMessages();
         return;
     }
-    if (type === 'session.status' && sid) {
+    if (type === 'session.status' && eventSid) {
         // v1 的 status 是字符串（'busy'/'idle'）；v2 可能是 {type:'running'}，
         // 统一交给 normalizeStatuses 归一，避免 isSessionBusy 认不出 running。
-        store.sessionStatuses[sid] = normalizeStatuses({ [sid]: props.status || props })[sid];
-        if (sid === store.currentSessionId) {
-            updateSendButton();
+        // idle 属于终止信号（terminal）：立即采纳并清本地保护；
+        // busy/retry 属于非终止事件（event）：遵守本地发送/停止的保护窗口。
+        const normalized = normalizeStatuses({ [eventSid]: props.status || props })[eventSid];
+        if (normalized != null) {
+            if (isBusyStatus(normalized)) {
+                setSessionStatus(eventSid, normalized, 'event');
+            } else {
+                setSessionStatus(eventSid, normalized, 'terminal');
+            }
+        }
+        if (eventSid === store.currentSessionId) {
             const status = props.status || props;
             if (status?.type === 'idle') {
                 loadMessages();
                 refreshSessionTitle();
-            } else if (getCachedMessages(sid).length) {
-                scheduleRenderCachedMessages(sid);
-                scheduleSubtaskExtraction(sid);
+            } else if (getCachedMessages(eventSid).length) {
+                scheduleRenderCachedMessages(eventSid);
+                scheduleSubtaskExtraction(eventSid);
             } else {
                 loadMessages();
             }
         }
         return;
     }
-    if (type === 'session.idle' && sid) {
-        delete store.sessionErrors[sid];
-        store.sessionStatuses[sid] = 'idle';
-        if (sid === store.currentSessionId) {
-            updateSendButton();
+    if (type === 'session.idle' && eventSid) {
+        delete store.sessionErrors[eventSid];
+        setSessionStatus(eventSid, 'idle', 'terminal');
+        if (eventSid === store.currentSessionId) {
             loadMessages();
             refreshSessionTitle();
         }
@@ -385,13 +422,48 @@ export function handleOcEvent(event) {
 
 /** 加载所有会话的运行状态（busy/idle/error）
  *  v1 为 GET /session/status，v2 改为 GET /api/session/active。
- *  v2 的值是 {type:'running'} 且只列出活跃会话，由 normalizeStatuses 转成 v1 契约。 */
+ *  v2 的值是 {type:'running'} 且只列出活跃会话，由 normalizeStatuses 转成 v1 契约。
+ *
+ *  返回值语义必须区分两种情况：
+ *   - 合法空快照 `{}`：服务端确认当前没有任何活跃会话 —— 目标会话缺 key 即空闲；
+ *   - 请求失败 `null`：网络/服务异常，不能据此判定空闲。
+ *  active 有登记/清除延迟，因此它只用于“打开会话/重连”时的纠偏，不参与发送/停止瞬间的判定。 */
 export async function loadSessionStatuses() {
     try {
         return normalizeStatuses(await api.OpenCodeCall('GET', '/api/session/active'));
     } catch {
-        return {};
+        return null;
     }
+}
+
+/** 打开会话时 active 登记延迟的重试间隔（毫秒）。
+ *  只在“从列表首次打开会话”时使用，不是周期轮询；空闲会话最多多 3 次轻量 GET。 */
+const STATUS_RETRY_DELAYS = [1500, 4000, 8000];
+
+/** 用 active 快照纠偏单个会话（打开会话、SSE 重连时调用）。
+ *  快照缺 key 说明该会话当前不活跃 ⇒ idle；请求失败（null）时保持现状，不误判。
+ *  是否覆盖本地状态由 setSessionStatus 的 hold 规则决定：
+ *  发送/停止后的保护窗口内，反向快照会被忽略，避免 active 延迟把按钮打回。
+ *
+ *  retryIfMissing：从列表首次打开会话时，active 的登记可能有延迟，第一次快照
+ *  缺该会话不代表真的空闲。为 true 时按 STATUS_RETRY_DELAYS 再确认几次
+ *  （仍只发生在“打开会话”这一时机，不引入周期轮询）。 */
+export async function refreshSessionStatusFromActive(sessionID, retryIfMissing) {
+    if (!sessionID) return;
+    const statuses = await loadSessionStatuses();
+    if (!statuses) return;
+    const missing = statuses[sessionID] === undefined;
+    setSessionStatus(sessionID, statuses[sessionID] ?? 'idle', 'snapshot');
+    if (!missing || !retryIfMissing) return;
+    STATUS_RETRY_DELAYS.forEach(function(delay) {
+        setTimeout(function() {
+            if (sessionID !== store.currentSessionId) return;
+            loadSessionStatuses().then(function(next) {
+                if (!next || sessionID !== store.currentSessionId) return;
+                setSessionStatus(sessionID, next[sessionID] ?? 'idle', 'snapshot');
+            });
+        }, delay);
+    });
 }
 
 /** 会话缓存版本自增：SSE 更新消息缓存时调用，供 Tab 切回判断是否需要重建 DOM */

@@ -19,8 +19,8 @@ import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMess
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { refreshSubtaskPanel, scheduleSubtaskExtraction } from './sidepanel.js';
-import { loadSessionStatuses } from './events.js';
-import { isSessionBusy, smartScroll, updateSendButton, renderMessages, ensureSelectOption, updateScrollBottomButton } from './render.js';
+import { loadSessionStatuses, refreshSessionStatusFromActive } from './events.js';
+import { smartScroll, updateSendButton, setSessionStatus, renderMessages, ensureSelectOption, updateScrollBottomButton } from './render.js';
 // 解环后与 cmd-palette 的依赖为单向：它经 core/utils.js 注册中心调用本模块的
 // loadMessages 等动作（见 setSessionActionHandlers），本模块只在发送流程运行时
 // 调用它的 isKnownCommand/isKnownSkill。
@@ -28,7 +28,7 @@ import { isKnownCommand, isKnownSkill, isFixedCommand, executeFixedCmd } from '.
 import { parseBtwCommand } from '../core/btw.js';
 import { syncBtwToSession } from './btw.js';
 import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
-import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, prependMessages } from './cache.js';
+import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, removePendingAssistant, prependMessages } from './cache.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 // 知识库 @ 引用：collectKnowledgeRefs 取引用全文注入发送 parts，clearKnowledgeRefs 在发送成功后清空引用区。
 // 该模块不识 session.js，无循环依赖。
@@ -328,19 +328,15 @@ export async function refreshCurrentSession() {
             // 会话状态请求同样无超时，这里加超时，避免它挂起整个刷新流程导致刷新锁无法释放
             const statuses = await withTimeout(loadSessionStatuses(), SESSION_STATUS_TIMEOUT_MS, '会话状态');
             if (refreshSessionId === store.currentSessionId && statuses) {
-                // 只更新目标会话的状态（快照权威），其它会话 key 保留本地值
-                if (statuses[refreshSessionId] !== undefined) {
-                    store.sessionStatuses[refreshSessionId] = statuses[refreshSessionId];
-                }
+                // 手动刷新视为一次纠偏：快照缺 key ⇒ idle；请求失败（null）时不动。
+                // setSessionStatus 会遵守本地发送/停止的保护窗口，不会被延迟快照打回。
+                setSessionStatus(refreshSessionId, statuses[refreshSessionId] ?? 'idle', 'snapshot');
             }
         } catch (_) {}
 
         if (refreshSessionId !== store.currentSessionId) return;
 
         updateSendButton();
-        if (isSessionBusy(store.currentSessionId)) {
-            scheduleRefresh();
-        }
         smartScroll(getActiveMessagesEl(), true);
         showToast('已刷新当前会话', 'success');
     } catch (e) {
@@ -389,6 +385,11 @@ export async function selectSession(id) {
     openSessionTab(id, info?.title);
     store.currentSessionId = id;
     store.activeTabId = id;
+    // 首次打开新会话：先用本地状态同步重算按钮（避免文案停留在上一个会话），
+    // 再用 active 快照纠偏一次。active 有延迟，但此刻没有本地发送/停止意图，
+    // 只影响“打开时是否已在运行”的判断；不引入轮询。
+    updateSendButton();
+    refreshSessionStatusFromActive(id, true);
     // 首次打开不经过 switchTab，这里补一次「会话已激活」通知，
     // 否则占位标题的轮询不会启动（新建会话标题停在占位值）。
     try {
@@ -1102,44 +1103,12 @@ export function makeLocalMessageId() {
 // 会话轮询与发送按钮
 // ============================
 
-/** 调度会话状态轮询（每 4 秒检查，非忙碌时自动停止） */
-/**
- * 调度会话状态轮询
- * 每 4 秒检查一次会话状态，会话繁忙时持续轮询，完成后自动停止并刷新消息
- */
-export function scheduleRefresh() {
-    clearInterval(store.refreshTimer);
-    const refreshSessionId = store.currentSessionId;
-    store.refreshTimer = setInterval(() => {
-        if (!store.webRunning || !refreshSessionId) return;//opencode服务未启动或者当前没有会话
-        // 如果用户已经切换会话，旧定时器直接停止，避免处理新会话
-        if (refreshSessionId !== store.currentSessionId) {
-            clearInterval(store.refreshTimer);
-            store.refreshTimer = null;
-            return;
-        }
-        
-        loadSessionStatuses().then(statuses => {
-            const nextStatuses = statuses || {};
-            // 只更新目标会话的状态（快照权威，纠正 SSE 可能丢失的事件）；
-            // 其它会话的 key 保留本地值（SSE 增量权威），避免整体替换抹掉其它 tab 的 busy
-            if (nextStatuses[refreshSessionId] !== undefined) {
-                store.sessionStatuses[refreshSessionId] = nextStatuses[refreshSessionId];
-            }
-            updateSendButton();
-            const busy = isSessionBusy(refreshSessionId);
-            if (!busy) {
-                clearInterval(store.refreshTimer);
-                store.refreshTimer = null;
-                loadMessages();
-                refreshSessionTitle();
-            }
-        }).catch(() => {
-            // 状态刷新失败时不要影响 SSE 流式输出
-        });
-        
-    }, 4000);
-}
+// ============================
+// 会话状态与发送按钮
+// ============================
+// 状态写入统一走 render.js 的 setSessionStatus()。
+// active 快照只在“打开会话 / SSE 重连 / 手动刷新会话”时纠偏，不做周期轮询：
+// 它有登记/清除延迟，不能决定发送/停止瞬间的按钮状态。
 
 /** 中止当前会话（调用 API，刷新状态和消息） */
 /**
@@ -1151,29 +1120,18 @@ export async function abortSession() {
     const btn = document.getElementById('btnSendPrompt');
     btn.disabled = true;
     const sessionID = store.currentSessionId;
-    // 停止 4 秒状态轮询：否则 abort 后轮询会把服务端延迟返回的 busy 快照
-    // 写回 sessionStatuses，导致按钮变回「停止」，用户点击实际执行 abort 而非发送。
-    clearInterval(store.refreshTimer);
-    store.refreshTimer = null;
     try {
         // v1 为 POST /session/{id}/abort，v2 改名为 /api/session/{id}/interrupt。
         // v2 的 interrupt 不接收 directory 查询参数（工作目录由会话自身携带），故不再拼接。
         await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sessionID)}/interrupt`);
         showToast('已停止', 'info');
         delete store.sessionErrors[sessionID];
-        store.sessionStatuses[sessionID] = 'idle';
-        updateSendButton();
+        // 本地意图：立即写 idle 并进入保护窗口。active 的清除有延迟，若此刻
+        // 仍返回 running，快照会在窗口内被忽略，按钮不会闪回「停止」。
+        setSessionStatus(sessionID, 'idle', 'local');
         await loadMessages();
-        loadSessionStatuses().then(statuses => {
-            // v2 的 /api/session/active **只列出活跃会话**：键不存在即为空闲。
-            // 服务端 abort 可能有延迟，若仍报 busy 说明是未同步的旧状态，
-            // 此时保持本地已写入的 idle，避免按钮闪回「停止」。
-            const st = statuses ? statuses[sessionID] : undefined;
-            if (st === undefined || st === 'idle' || st?.type === 'idle') {
-                store.sessionStatuses[sessionID] = 'idle';
-            }
-            updateSendButton();
-        });
+        // 再用快照确认一次：服务端已 idle 时同向采纳；仍 running 则被 hold 挡住
+        refreshSessionStatusFromActive(sessionID);
     } catch (e) {
         showApiError('停止失败: ', e);
     }
@@ -1280,6 +1238,13 @@ export async function sendPrompt() {
         }
     const btn = document.getElementById('btnSendPrompt');
     btn.disabled = true;
+    // 发送中标记：updateWebUI 会无条件恢复 btnSend.disabled，靠该标记保住禁用态。
+    btn.dataset.sending = '1';
+    // 本次发送对应的会话 id：发送期间用户可能切换 Tab，失败回滚必须针对发起会话。
+    let sendSessionID = '';
+    // prompt/command 是否已被服务端接受：决定失败时能否回滚乐观 busy。
+    // 已接受后的错误（如随后的 loadMessages 失败）不能回滚，否则会把运行中的会话误标空闲。
+    let promptAccepted = false;
     const isNew = !store.currentSessionId;
     let sessionDir = '';
     // 本地生成消息 id 并随请求发给 opencode（body.messageID）：
@@ -1327,8 +1292,13 @@ export async function sendPrompt() {
             }
         }
         if (store.currentSessionId) {
-            delete store.sessionErrors[store.currentSessionId];
-            store.sessionStatuses[store.currentSessionId] = 'busy';
+            // 先记录发起会话：写 busy 之后、sid 赋值之前也可能抛错
+            // （如 collectKnowledgeRefs 失败），catch 必须能回滚这个会话。
+            sendSessionID = store.currentSessionId;
+            delete store.sessionErrors[sendSessionID];
+            // 本地意图：立即标 busy 并进入保护窗口。active 的登记有延迟，
+            // 若此刻快照仍为空，窗口内的快照不会把按钮打回「发送」。
+            setSessionStatus(sendSessionID, 'busy', 'local');
             ensurePendingAssistant(store.currentSessionId);
             // 乐观添加用户消息到缓存，立即显示用户输入（不等 API/事件推送）
             // 传入 localMessageId 与完整 parts（正文 + 附件）：该 id 会随请求发给 opencode，
@@ -1361,6 +1331,8 @@ export async function sendPrompt() {
         // （把 agent 塞进 body、或让会话残留失效名，都会在执行时抛 Agent not found）
         const dirEl = document.getElementById('ocSideDirPath');
         const sid = store.currentSessionId;
+        // 记录发起会话：发送期间切 Tab 后，catch 仍能精确回滚该会话的状态与乐观消息
+        sendSessionID = sid;
         // ===== 发送前严格校验（agent）=====
         // 取值必须存在于当前 /api/agent 列表（store.agentList）：列表为空或值不在其中
         // 一律不发（回退默认），并把选择器同步复位 + 界面提示——防止历史同步回填的失效
@@ -1450,6 +1422,9 @@ export async function sendPrompt() {
             if (skillId) body.skills = [{ id: skillId }];
             await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(sid)}/prompt`, toPromptBody(body));
         }
+        // 请求已被服务端接受：后续步骤（刷新消息等）失败不能回滚 busy，
+        // 否则会把真正运行中的会话误标为空闲。
+        promptAccepted = true;
         // 发送成功：启动无响应看门狗——20s 内既无流式输出也无失败事件时提示（见 armPromptWatch）
         armPromptWatch(sid);
         if (isNew) {
@@ -1463,14 +1438,29 @@ export async function sendPrompt() {
             await loadMessages();
         }
         smartScroll(getActiveMessagesEl(), true);
-        scheduleRefresh();
+        // 状态由本地意图 + SSE 事件/活动事件驱动；active 不参与发送后的周期判定。
         updateSendButton();
     } catch (e) {
         // 发送失败：取消无响应看门狗，按 id 精确移除乐观用户消息，避免残留"已发送"假象。
         // 错误信息经 formatApiError 展开：带 HTTP 状态码 + 响应体解析后的人话（v2 错误体
         // 形如 {"kind":"Payload","message":"..."}，直接显示原始正文用户难以理解）。
         clearPromptWatch();
-        if (store.currentSessionId) removeLocalUserMessage(store.currentSessionId, localMessageId);
+        if (sendSessionID) {
+            removeLocalUserMessage(sendSessionID, localMessageId);
+            // 同时移除 ensurePendingAssistant 生成的占位，否则失败后消息区会一直
+            // 显示「正在等待模型回复...」，让用户误以为消息已发出。
+            removePendingAssistant(sendSessionID);
+            if (sendSessionID === store.currentSessionId) {
+                // 缓存已回滚：重渲染当前会话，清掉刚渲染出的乐观消息与等待占位
+                renderCachedMessages(sendSessionID);
+            }
+            // 请求未被服务端接受（agent/model 切换失败、prompt/command 报错）：
+            // 立即回滚乐观 busy（holdMs:0，不进入保护窗口），否则按钮会停在「停止」，
+            // 点击走 abort 而非发送。已接受后的错误不回滚（见 promptAccepted）。
+            if (!promptAccepted) {
+                setSessionStatus(sendSessionID, 'idle', 'local', { holdMs: 0 });
+            }
+        }
         // 发送失败：恢复发送前清空的附件，避免用户重新选择
         if (attachedBackup.length) {
             store.attachedFiles = attachedBackup;
@@ -1478,7 +1468,8 @@ export async function sendPrompt() {
         }
         showToast('发送失败: ' + formatApiError(e), 'error');
     }
-        btn.disabled = false;
+        btn.dataset.sending = '';
+        btn.disabled = !store.webRunning;
     } finally {
         promptSending = false;
     }

@@ -643,10 +643,76 @@ export function scrollMessagesToBottom() {
     requestAnimationFrame(tick);
 }
 
+/** 判断一个状态值是否代表繁忙（busy/retry）。 */
+export function isBusyStatus(status) {
+    return status === 'busy' || status === 'running' || status === 'retry' ||
+        status?.type === 'busy' || status?.type === 'retry' || status?.status === 'busy';
+}
+
 /** 判断会话是否繁忙（busy/retry 状态） */
 export function isSessionBusy(id) {
-    const status = store.sessionStatuses[id];
-    return status === 'busy' || status?.type === 'busy' || status?.type === 'retry' || status?.status === 'busy';
+    return isBusyStatus(store.sessionStatuses[id]);
+}
+
+/** 本地操作意图的保护窗口（毫秒）。
+ *  /api/session/active 的登记/清除有延迟：发送后它可能仍返回空，停止后可能仍返回 running。
+ *  在这段时间内，快照与本地状态相反时以本地为准；超过窗口后才允许快照纠偏。 */
+const SESSION_STATUS_HOLD_MS = 10000;
+/** 活动事件推断 busy 后的保护窗口。工具执行可能长时间无新事件，
+ *  窗口需覆盖 active 的登记延迟，避免打开/重连时的快照把 busy 打回。 */
+const ACTIVITY_HOLD_MS = 10000;
+
+/**
+ * 统一的状态写入入口。所有会话状态（本地发送/停止、SSE 事件、active 快照、
+ * 活动事件推断）都必须经由此函数，避免多套写入路径互相覆盖。
+ *
+ * @param {string} id 会话 ID（必须显式传入，禁止用 currentSessionId 兜底）
+ * @param {string|object} status 'busy' | 'idle' | retry 对象
+ * @param {'local'|'event'|'activity'|'snapshot'} source 状态来源
+ * @param {{holdMs?: number}} [options] local 来源的保护窗口覆盖
+ */
+export function setSessionStatus(id, status, source, options) {
+    if (!id) return;
+    let meta = store.sessionStatusMeta[id];
+    if (!meta) {
+        meta = { holdUntil: 0, source: '' };
+        store.sessionStatusMeta[id] = meta;
+    }
+    const prev = store.sessionStatuses[id];
+
+    if (source === 'activity') {
+        // 活动事件推断 busy：只用于“从空闲变繁忙”，不能覆盖刚停止的本地意图。
+        if (meta.holdUntil > Date.now() && !isBusyStatus(prev)) return;
+        if (isBusyStatus(prev)) {
+            // 执行仍在继续：续期保护窗口。工具执行可能长时间静默，
+            // 期间若 active 的延迟空快照到达，没有保护就会把「停止」打回「发送」。
+            meta.holdUntil = Date.now() + ACTIVITY_HOLD_MS;
+            return; // 保留原状态对象（retry 信息不丢）
+        }
+        store.sessionStatuses[id] = 'busy';
+        meta.source = 'activity';
+        meta.holdUntil = Date.now() + ACTIVITY_HOLD_MS;
+        if (id === store.currentSessionId) updateSendButton();
+        return;
+    }
+
+    if (source === 'snapshot' || source === 'event') {
+        // 本地意图保护：窗口内快照/非终止事件与本地状态方向相反时忽略；
+        // 同向则采纳并清除保护（服务端已确认，本地意图可以退位）。
+        // 典型场景：刚点停止，服务端延迟发来的 busy/retry 不能把按钮打回「停止」。
+        if (meta.holdUntil > Date.now() && isBusyStatus(prev) !== isBusyStatus(status)) return;
+        meta.holdUntil = 0;
+    } else if (source === 'local') {
+        meta.holdUntil = Date.now() + (options && options.holdMs != null ? options.holdMs : SESSION_STATUS_HOLD_MS);
+    } else {
+        // terminal（session.idle / execution.* 终止事件）：服务端已确认执行结束，
+        // 必须立即采纳并清除本地保护——这是停止/失败后最重要的一次纠偏。
+        meta.holdUntil = 0;
+    }
+
+    store.sessionStatuses[id] = status;
+    meta.source = source;
+    if (id === store.currentSessionId) updateSendButton();
 }
 
 /** 判断会话是否有错误 */
@@ -678,15 +744,18 @@ export function updateSendButton() {
     if (!store.webRunning || !store.currentSessionId) {
         btn.textContent = '发送';
         btn.className = 'btn btn-primary';
+        btn.dataset.mode = 'send';
         return;
     }
     const busy = isSessionBusy(store.currentSessionId);
     if (busy) {
         btn.textContent = '⏹ 停止';
         btn.className = 'btn btn-danger-outline';
+        btn.dataset.mode = 'stop';
     } else {
         btn.textContent = '发送';
         btn.className = 'btn btn-primary';
+        btn.dataset.mode = 'send';
     }
 }
 
