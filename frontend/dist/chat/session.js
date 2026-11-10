@@ -1072,13 +1072,18 @@ export function clearAttachments() {
     renderAttachedFiles();
 }
 
-/** 构建发送消息的 parts 数组（文本 + 附件） */
-export function buildParts(text) {
+/** 构建发送消息的 parts 数组（文本 + 附件）
+ *  @param {string} text 正文
+ *  @param {Array} [files] 附件快照；不传时读取 store.attachedFiles。
+ *  发送流程会先快照并清空附件区，用快照构建 parts，避免提交后重复触发时
+ *  再次带上同一批附件（没有请求级锁时这是防重复的关键）。 */
+export function buildParts(text, files) {
     const parts = [];
     if (text.trim()) {
         parts.push({ type: 'text', text });
     }
-    store.attachedFiles.forEach(f => {
+    const source = Array.isArray(files) ? files : store.attachedFiles;
+    source.forEach(f => {
         parts.push({ type: 'file', mime: f.mime, filename: f.filename, url: f.data });
     });
     return parts;
@@ -1143,9 +1148,9 @@ export async function abortSession() {
 // ============================
 
 /** 发送消息主函数：新会话创建 → 构建 body → 同步发送 → 刷新消息 */
-/** 发送中标志：防止同一次操作重复触发 sendPrompt（按钮双击 / Enter 连按 / 事件重复绑定）。
- *  提交 prompt_async 请求返回后即释放，模型回复期间仍可继续发送下一条。 */
-let promptSending = false;
+/** 不做请求级发送锁：OpenCode 自身有消息队列，模型回复期间也允许继续提交。
+ *  重复触发（双击 / Enter 连按）由「提交前清空输入框 + 空文本检查」拦截，
+ *  同一条内容不会被重复发送；失败回滚按各自的局部消息 id 处理。 */
 
 // ============================
 // 发送后无响应看门狗
@@ -1198,9 +1203,6 @@ export function clearPromptWatch() {
 
 export async function sendPrompt() {
     if (!store.webRunning) return;
-    if (promptSending) return;
-    promptSending = true;
-    try {
         const input = document.getElementById('ocPrompt');
         const text = input.value.trim();
         // 仅有知识库引用（无正文、无附件）时同样允许发送
@@ -1300,10 +1302,14 @@ export async function sendPrompt() {
             // 若此刻快照仍为空，窗口内的快照不会把按钮打回「发送」。
             setSessionStatus(sendSessionID, 'busy', 'local');
             ensurePendingAssistant(store.currentSessionId);
+            // 先快照并清空附件区：没有请求级发送锁，第二次触发必须看不到这批附件，
+            // 否则会在等待知识库引用的间隙把同一附件再发一遍。
+            attachedBackup = store.attachedFiles.slice();
+            clearAttachments();
             // 乐观添加用户消息到缓存，立即显示用户输入（不等 API/事件推送）
-            // 传入 localMessageId 与完整 parts（正文 + 附件）：该 id 会随请求发给 opencode，
+            // 传入 localMessageId 与完整 parts（正文 + 附件快照）：该 id 会随请求发给 opencode，
             // 服务端确认后的消息 id 与本地一致，回执按 id 精确命中；附件也立即可见。
-            cacheLocalUserMessage(store.currentSessionId, localMessageId, buildParts(text));
+            cacheLocalUserMessage(store.currentSessionId, localMessageId, buildParts(text, attachedBackup));
             if (isMobileTreeMode()) {
                 renderPendingAssistantPlaceholder(store.currentSessionId);
             } else {
@@ -1314,8 +1320,7 @@ export async function sendPrompt() {
         }
         // 知识库引用：正文与引用全文拆成独立 part，模型可区分「用户的话」与「参考资料」
         const refs = await collectKnowledgeRefs();
-        const parts = buildParts(text);
-        attachedBackup = store.attachedFiles.slice();
+        const parts = buildParts(text, attachedBackup);
         refs.forEach(r => {
             parts.push({ type: 'text', text: `【知识库引用：${r.title}】\n${r.content}` });
         });
@@ -1404,10 +1409,7 @@ export async function sendPrompt() {
         //  - 命中**服务端命令** → 走 POST /api/session/{id}/command（body {command,text,delivery}），
         //    否则会被当普通文本喂给模型、命令不会执行；
         //  - 都不命中 → 照常走 prompt。
-        // 请求发出前立即清空附件区：prompt 请求可能等到模型开始输出才返回，
-        // 若等 await 之后才清空，附件会一直留在输入框下方直到会话刷新。
-        // 发送失败时在 catch 中恢复附件。
-        clearAttachments();
+        // 附件区已在进入发送流程时快照并清空（见上方），这里不再重复清空。
         const cmdMatch = /^\/([^\s/]+)(?:\s+([\s\S]*))?$/.exec(text);
         const skillId = cmdMatch && isKnownSkill(cmdMatch[1]) ? cmdMatch[1] : '';
         if (cmdMatch && !skillId && isKnownCommand(cmdMatch[1])) {
@@ -1446,18 +1448,21 @@ export async function sendPrompt() {
         // 形如 {"kind":"Payload","message":"..."}，直接显示原始正文用户难以理解）。
         clearPromptWatch();
         if (sendSessionID) {
-            removeLocalUserMessage(sendSessionID, localMessageId);
-            // 同时移除 ensurePendingAssistant 生成的占位，否则失败后消息区会一直
-            // 显示「正在等待模型回复...」，让用户误以为消息已发出。
-            removePendingAssistant(sendSessionID);
-            if (sendSessionID === store.currentSessionId) {
-                // 缓存已回滚：重渲染当前会话，清掉刚渲染出的乐观消息与等待占位
-                renderCachedMessages(sendSessionID);
-            }
-            // 请求未被服务端接受（agent/model 切换失败、prompt/command 报错）：
-            // 立即回滚乐观 busy（holdMs:0，不进入保护窗口），否则按钮会停在「停止」，
-            // 点击走 abort 而非发送。已接受后的错误不回滚（见 promptAccepted）。
+            // 服务端已接受本次 prompt 时，消息与占位都已是服务端状态的一部分：
+            // 后续步骤异常（例如刷新消息、切目录回调）不得回滚它们，否则会把用户
+            // 已经发出的提问和正在生成的回复从界面删掉。
             if (!promptAccepted) {
+                removeLocalUserMessage(sendSessionID, localMessageId);
+                // 同时移除 ensurePendingAssistant 生成的占位，否则失败后消息区会一直
+                // 显示「正在等待模型回复...」，让用户误以为消息已发出。
+                removePendingAssistant(sendSessionID);
+                if (sendSessionID === store.currentSessionId) {
+                    // 缓存已回滚：重渲染当前会话，清掉刚渲染出的乐观消息与等待占位
+                    renderCachedMessages(sendSessionID);
+                }
+                // 请求未被服务端接受（agent/model 切换失败、prompt/command 报错）：
+                // 立即回滚乐观 busy（holdMs:0，不进入保护窗口），否则按钮会停在「停止」，
+                // 点击走 abort 而非发送。已接受后的错误不回滚（见 promptAccepted）。
                 setSessionStatus(sendSessionID, 'idle', 'local', { holdMs: 0 });
             }
         }
@@ -1468,11 +1473,8 @@ export async function sendPrompt() {
         }
         showToast('发送失败: ' + formatApiError(e), 'error');
     }
-        btn.dataset.sending = '';
-        btn.disabled = !store.webRunning;
-    } finally {
-        promptSending = false;
-    }
+    btn.dataset.sending = '';
+    btn.disabled = !store.webRunning;
 }
 
 // ============================================================

@@ -573,6 +573,9 @@ export function adaptEvent(event) {
             const text = payload.text || '';
             const out = [
                 { type: 'message.updated', info: { id: msgID, sessionID, role: 'user', time: { created: event.created } } },
+                // 正文先于附件落 part：历史投影（adaptMessage）也是正文在前、附件在后，
+                // 实时顺序必须一致，否则同一条带图消息刷新前后附件位置会翻转。
+                { type: 'message.part.updated', part: { id: msgID + '_text', messageID: msgID, sessionID, type: 'text', text } },
             ];
             // 附件：服务端入队事件自带完整 files（含 inline data），必须一并落成 file part，
             // 否则 upsertPart 在首个文本 part 到达时清掉本地乐观附件，图片会消失。
@@ -583,7 +586,6 @@ export function adaptEvent(event) {
                     part: filePartFromAttachment(f, sessionID, msgID, msgID + '_file_' + i),
                 });
             });
-            out.push({ type: 'message.part.updated', part: { id: msgID + '_text', messageID: msgID, sessionID, type: 'text', text } });
             return out;
         }
 

@@ -340,12 +340,19 @@ export function renderMessages(items, targetBox) {
     store.lastMessageCount = list.length;
     store.lastSourceMessageCount = sourceList.length;
 
-    if (sameCount && list.length > 0 && store.webRunning && isSessionBusy(store.currentSessionId)) {
+    // 忙碌状态必须按被渲染的会话判断：后台 tab 渲染时用当前前台会话的 busy
+    // 会把空闲会话误当成流式增量，导致增量分支被错误触发。
+    const busySid = renderSid || store.currentSessionId || '';
+    if (sameCount && list.length > 0 && store.webRunning && isSessionBusy(busySid)) {
         const last = list[list.length - 1];
+        const lastId = last.info?.id || last.id || '';
         const lastRole = (last.info || last).role;
-        if (lastRole === 'assistant') {
+        if (lastRole === 'assistant' && lastId) {
             const lastMsg = box.lastElementChild;
-            if (lastMsg && lastMsg.classList.contains('assistant')) {
+            // 总数相等不代表尾卡就是这条消息：占位卡被真实消息「一换一」替换时，
+            // 缓存里已没有 pending_，DOM 尾部却仍是带 pending_ 标识的占位节点。
+            // 必须核对消息标识，否则真实流式内容会被写进占位卡（卡片身份与内容错位）。
+            if (lastMsg && lastMsg.classList.contains('assistant') && lastMsg.dataset.messageId === lastId) {
                 const body = lastMsg.querySelector('.oc-message-parts');
                 if (body) {
                     // 流式增量分支同样按 part 自身顺序修正后再比对/追加

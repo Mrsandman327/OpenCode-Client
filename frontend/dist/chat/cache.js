@@ -21,6 +21,29 @@ import { renderMessages, isSessionBusy } from './render.js';
  *  （改用 messageID 方案后，不再依赖 `user_local_` id 前缀来识别乐观消息。） */
 const pendingUserMessageIds = new Set();
 
+/** 判断内容块是否为本地乐观产物（尚未被服务端确认）。
+ *  发送瞬间 cacheLocalUserMessage 会给正文/附件补上 local:true；
+ *  早期版本的本地块以 prt_ 开头，这里保留兼容。
+ *  注意：不能用「id 不以 prt_ 开头」判断服务端块——v2 真实块 id 形如
+ *  msg_x_text / msg_x_file_0 / tool_<id>（见 core/v2compat.js 的 id 生成规则），
+ *  那样会把真实内容块当成本地临时数据删除。 */
+function isLocalPart(part) {
+    if (!part) return false;
+    return part.local === true || (typeof part.id === 'string' && part.id.startsWith('prt_'));
+}
+
+/** 删除会话中最后一个待确认助手占位（只删一个，避免误清其它消息）。 */
+function dropLastPendingAssistant(sessionID) {
+    const list = getCachedMessages(sessionID);
+    for (let i = list.length - 1; i >= 0; i--) {
+        const id = String(list[i]?.info?.id || list[i]?.id || '');
+        if (id.startsWith('pending_')) {
+            list.splice(i, 1);
+            return;
+        }
+    }
+}
+
 /**
  * 缓存会话消息（增量合并模式）
  * 会话非忙碌或缓存为空时直接覆盖，否则按 id 逐个合并新消息
@@ -88,14 +111,14 @@ export function mergeInfo(existingInfo, incomingInfo) {
 }
 
 /** 合并两条消息（info 通过 mergeInfo 合并，parts 逐个按 id 合并）。
- *  服务端返回了真实 parts 时，先丢弃本地乐观 part（id 非 `prt_` 前缀，由 cacheLocalUserMessage
- *  在发送瞬间造出），否则同一条消息里会同时存在本地造的和服务端推的两份 part，显示为重复。 */
+ *  服务端返回了真实 parts 时，先丢弃本地乐观 part（见 isLocalPart），
+ *  否则同一条消息里会同时存在本地造的和服务端推的两份 part，显示为重复。 */
 export function mergeMessage(existing, incoming) {
     if (!existing) return incoming;
     const existingParts = Array.isArray(existing.parts) ? existing.parts : [];
     const incomingParts = Array.isArray(incoming.parts) ? incoming.parts : [];
     const baseParts = incomingParts.length
-        ? existingParts.filter(part => typeof part?.id === 'string' && part.id.startsWith('prt_'))
+        ? existingParts.filter(part => !isLocalPart(part))
         : existingParts;
     const mergedParts = [...baseParts];
     for (const part of incomingParts) {
@@ -190,10 +213,14 @@ export function removePendingAssistant(sessionID) {
 }
 
 /** 移除本地乐观用户消息（发送失败时回滚，避免残留"已发送"假象）。
- *  乐观消息与服务端消息共用同一个 id，因此按 id 精确删除即可。 */
+ *  乐观消息与服务端消息共用同一个 id，因此按 id 精确删除即可。
+ *  但只有仍处于「待确认」的消息才允许删除：服务端回执（upsertMessage）或
+ *  全量覆盖（cacheMessages）会解除标记，标记已消失说明这条消息已是服务端权威数据，
+ *  此时发送流程后续步骤异常不得把用户已经发出去的提问删掉。 */
 export function removeLocalUserMessage(sessionID, messageId) {
     if (!sessionID) return;
     if (messageId) {
+        if (!pendingUserMessageIds.has(messageId)) return;
         store.messageCache[sessionID] = getCachedMessages(sessionID).filter(item => (item.info?.id || item.id) !== messageId);
         pendingUserMessageIds.delete(messageId);
         return;
@@ -220,7 +247,7 @@ export function cacheLocalUserMessage(sessionID, messageId, parts) {
     const msg = {
         info: { id: messageId, sessionID, role: 'user', time: { created: Date.now() } },
         parts: source.map(function (part, i) {
-            return { ...part, id: messageId + '_p' + i, sessionID, messageID: messageId };
+            return { ...part, id: messageId + '_p' + i, sessionID, messageID: messageId, local: true };
         }),
     };
     // 插到 pending assistant 占位之前；无占位则追加末尾
@@ -236,9 +263,12 @@ export function cacheLocalUserMessage(sessionID, messageId, parts) {
 /** 按 info 插入或更新消息 */
 export function upsertMessage(info) {
     if (!info?.sessionID || !info.id) return;
-    const list = getCachedMessages(info.sessionID);
     if (info.role === 'assistant') {
-        store.messageCache[info.sessionID] = list.filter(item => !(item.info?.id || item.id || '').startsWith('pending_'));
+        // 占位消息自身的更新（重试/继续）不能先把它删掉：否则下面的按 id 查找落空，
+        // 会重建一个空壳并丢掉已经收到的内容块。真实助手消息到达时只收起最后一个占位。
+        if (!String(info.id).startsWith('pending_')) {
+            dropLastPendingAssistant(info.sessionID);
+        }
     } else if (info.role === 'user') {
         // 乐观消息用的就是同一个 id（发送时通过 body.messageID 指定），因此这里只需解除
         // 待确认标记，随后按 id 走下面的正常合并即可 —— 不再需要「找最近一条乐观占位再升级」。
@@ -259,14 +289,16 @@ export function upsertPart(part) {
     const list = getCachedMessages(part.sessionID);
     let message = list.find(item => (item.info?.id || item.id) === part.messageID);
     if (!message) {
+        // 真实内容块先于消息壳到达：先收起等待占位，再建真实壳，避免两张助手卡并存。
+        dropLastPendingAssistant(part.sessionID);
         message = { info: { id: part.messageID, sessionID: part.sessionID, role: 'assistant' }, parts: [] };
         list.push(message);
     }
     const parts = Array.isArray(message.parts) ? message.parts : [];
-    // 用户消息的真实 part 到达时，丢弃本地乐观 part（id 非 `prt_` 前缀，由 cacheLocalUserMessage 造出），
+    // 用户消息的真实 part 到达时，丢弃本地乐观 part（见 isLocalPart），
     // 由服务端 part 取代，避免同一条消息里出现本地和服务端两份内容。
     const isUserMsg = (message.info?.role || message.role) === 'user';
-    const filtered = isUserMsg ? parts.filter(p => typeof p?.id === 'string' && p.id.startsWith('prt_')) : parts;
+    const filtered = isUserMsg ? parts.filter(p => !isLocalPart(p)) : parts;
     const index = filtered.findIndex(item => item.id === part.id);
     if (index >= 0) {
         filtered[index] = mergePart(filtered[index], part);
@@ -284,6 +316,8 @@ export function applyPartDelta(props) {
     const list = getCachedMessages(sessionID);
     let message = list.find(item => (item.info?.id || item.id) === props.messageID);
     if (!message) {
+        // 与 upsertPart 同一口径：流式增量先到时先收起占位，再建真实壳。
+        dropLastPendingAssistant(sessionID);
         message = { info: { id: props.messageID, sessionID, role: 'assistant' }, parts: [] };
         list.push(message);
     }
