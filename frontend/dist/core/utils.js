@@ -207,8 +207,11 @@ export function restoreSessionSelection(sessionID) {
     const variantSel = document.getElementById('ocVariantSelect');
     if (agentSel) agentSel.value = store.selectedAgent;
     if (modelSel) modelSel.value = store.selectedModel;
-    // variant 选项依赖当前模型：先按模型重建，再选中该会话的手选/历史值
-    if (variantSel) syncVariantSelect(variantSel, store.selectedModel, store.selectedVariant);
+    // variant 选项依赖当前模型：先按模型重建，再选中该会话的手选/历史值。
+    // 严格模式下非法档位会回落「默认」，必须写回 store，保证显示 == 即将发送的值。
+    if (variantSel) {
+        store.selectedVariant = syncVariantSelect(variantSel, store.selectedModel, store.selectedVariant);
+    }
 }
 
 // ========== 思考强度（variant） ==========
@@ -264,26 +267,46 @@ export function variantValuesForModel(modelValue) {
 /**
  * 按当前模型重建 variant 下拉选项。
  * - 始终保留空值「默认」；
- * - current 不在新列表时补一个选项，避免 select.value 被静默置空（历史回填/手选场景）；
+ * - 默认「严格模式」：current 不在新模型的 variants 列表里时回落到空值「默认」。
+ *   这是修复「A 模型选 xHigh → 切到不支持 xHigh 的 B 模型」的关键：
+ *   旧值绝不能补进选项，否则界面看起来仍然选中 xHigh，发送时被服务端拒绝。
+ * - options.keepUnknown = true 时保留未知档位，仅用于**历史回填**
+ *   （消息历史里的 variant 与 model 出自同一条记录；模型列表尚未加载完成时
+ *   variantValuesForModel 返回空数组，若也严格回落会把历史值误判成「默认」）。
  * @param {HTMLSelectElement} select
  * @param {string} modelValue providerID/modelID
  * @param {string} [current] 期望选中的值；不传则沿用 select 当前值
+ * @param {{keepUnknown?: boolean}} [options] 保留未知档位的开关，默认关闭
  * @returns {string} 最终选中的值
  */
-export function syncVariantSelect(select, modelValue, current) {
+export function syncVariantSelect(select, modelValue, current, options) {
     if (!select) return '';
+    const opts = options || {};
+    const keepUnknown = opts.keepUnknown === true;
     const keep = (current === undefined || current === null)
         ? String(select.value || '')
         : String(current);
     const values = variantValuesForModel(modelValue);
-    if (keep && values.indexOf(keep) < 0) values.push(keep);
+    // 模型列表尚未加载时无法判定档位是否合法：保留原值，等列表就绪后由
+    // loadAgentModelSelectors / restoreSessionSelection 再次校正，避免误清用户手选。
+    const listLoaded = !!((store.modelList && store.modelList.length)
+        || (store.availableModels && store.availableModels.length));
+    // 当前值不属于该模型：历史回填或列表未就绪时保留，其余场景一律回落到「默认」
+    let selected = keep;
+    if (keep && values.indexOf(keep) < 0) {
+        if (keepUnknown || !listLoaded) {
+            values.push(keep);
+        } else {
+            selected = '';
+        }
+    }
 
     let html = '<option value="">默认</option>';
     values.forEach(function (v) {
         html += '<option value="' + escapeAttr(v) + '">' + escapeHtml(variantLabel(v)) + '</option>';
     });
     select.innerHTML = html;
-    select.value = keep;
+    select.value = selected;
     return select.value;
 }
 

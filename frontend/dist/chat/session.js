@@ -15,7 +15,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, resolveKnownValue, markManualSelection, restoreSessionSelection, hasManualSessionSelection, setSessionActionHandlers, syncVariantSelect } from '../core/utils.js';
+import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, resolveKnownValue, markManualSelection, restoreSessionSelection, hasManualSessionSelection, setSessionActionHandlers, syncVariantSelect, variantValuesForModel, variantLabel } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { refreshSubtaskPanel, scheduleSubtaskExtraction } from './sidepanel.js';
@@ -34,7 +34,7 @@ import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 // 该模块不识 session.js，无循环依赖。
 import { collectKnowledgeRefs, clearKnowledgeRefs, hasKnowledgeRefs } from './knowledge-ref.js';
 // OpenCode v2 适配层：拆 {data:...} 信封、把 v2 扁平消息还原为 v1 的 {info,parts}、转换 prompt 请求体。
-import { unwrap, unwrapList, toModelOptions, adaptMessages, nextCursor, toPromptBody, toModelRef, formatApiError } from '../core/v2compat.js';
+import { unwrap, unwrapList, toModelOptions, adaptMessages, adaptInboxMessages, nextCursor, toPromptBody, toModelRef, formatApiError } from '../core/v2compat.js';
 
 // ============================
 // 全局 Agent/Model 选择器
@@ -163,17 +163,28 @@ export async function loadAgentModelSelectors(dir, force) {
             store.selectedModel = modelSel.value;
             markManualSelection('model', modelSel.value);
             store.agentModelSyncedSession = store.currentSessionId || '';
-            // 换模型后思考强度档位随模型变化：优先模型自带 variants，其次供应商兜底。
-            // 当前选中值若不在新列表会被补入，避免 select.value 静默置空。
-            syncVariantSelect(document.getElementById('ocVariantSelect'), modelSel.value, store.selectedVariant);
+            // 换模型后思考强度档位随模型变化（模型自带 variants 为唯一事实源）。
+            // syncVariantSelect 默认严格模式：旧档位若新模型不支持（如 A 模型选 xHigh
+            // 切到无 xHigh 的 B 模型）会回落到「默认」，绝不再补入非法选项。
+            // 必须把返回值写回 store，否则发送端仍会拿到上一个模型的残留档位。
+            const nextVariant = syncVariantSelect(
+                document.getElementById('ocVariantSelect'),
+                modelSel.value,
+                store.selectedVariant
+            );
+            store.selectedVariant = nextVariant;
+            // 同步刷新会话级手动标记：切走再切回时 restoreSessionSelection 恢复的是
+            // 校正后的值，而不是旧模型留下的非法档位。
+            markManualSelection('variant', nextVariant);
         });
     }
 
     // Variant 选择器
     const variantSel = document.getElementById('ocVariantSelect');
     if (variantSel) {
-        // 按当前模型重建档位（模型自带 variants → provider 兜底 → 全局默认）
-        syncVariantSelect(variantSel, store.selectedModel, store.selectedVariant);
+        // 按当前模型重建档位（唯一事实源：/api/model 返回的 variants）。
+        // 严格模式下不在名单里的旧值会回落「默认」，因此必须写回 store。
+        store.selectedVariant = syncVariantSelect(variantSel, store.selectedModel, store.selectedVariant);
         if (!variantSel.dataset.modelBound) {
             variantSel.dataset.modelBound = '1';
             variantSel.addEventListener('change', () => {
@@ -633,15 +644,34 @@ export async function loadMessages(sessionID) {
     // 校正前的缓存快照：用于判断校正后数据是否变化，避免无谓的整列表重渲染
     const beforeJson = hasCache ? JSON.stringify(existing) : '';
     try {
-        // 首次加载与缓存校正共用：拉取最新 20 条（带超时，避免请求挂起卡死刷新）
-        const res = await withTimeout(
-            api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=20`),
+        // 首次加载与缓存校正共用：并行拉取最新 20 条 + 排队中的 inbox 消息。
+        // inbox（delivery: steer）是模型运行中「已发送但尚未执行」的提示词：
+        // 它们不在 /message 列表里。若不合并，点「停止」时 abortSession 会先置 idle，
+        // 随后的 loadMessages 走全量覆盖，把这些本地乐观卡片一并抹掉，直到下一轮
+        // 输出把 inbox 消费掉才重新出现（用户反馈的「停止后输入消失」）。
+        // inbox 端点不存在或请求失败时按空列表处理，绝不影响正常消息加载。
+        const [res, inboxRes] = await withTimeout(
+            Promise.all([
+                api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=20`),
+                api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/inbox`)
+                    .catch(function () { return null; }),
+            ]),
             LOAD_MESSAGES_TIMEOUT_MS,
             '加载会话消息'
         );
         if (seq !== store.sessionLoadSeq[targetId]) return;
         // v2 返回 {data:[扁平消息], cursor}，需还原为 v1 的 [{info,parts}] 且按旧→新排列
         const incoming = adaptMessages(targetId, res);
+        // 把队列中的用户提示词并入同一页数据：与正式消息共用同一个 id，
+        // 消费后按 id 天然去重，不会重复渲染。
+        const queued = inboxRes ? adaptInboxMessages(targetId, inboxRes) : [];
+        if (queued.length) {
+            const seen = new Set(incoming.map(function (it) { return it.info?.id || it.id; }));
+            queued.forEach(function (item) {
+                const qid = item.info?.id || item.id;
+                if (qid && !seen.has(qid)) incoming.push(item);
+            });
+        }
         // 记下「更早一页」的服务端游标，供向上滚动分页使用。
         // desc 顺序下 cursor.next 指向更早（cursor.previous 指向更新，不能用于加载历史）
         if (!sessionPaging[targetId]) sessionPaging[targetId] = {};
@@ -1377,6 +1407,21 @@ export async function sendPrompt() {
                 resolvedModel = rawModel;
             }
             if (resolvedModel) {
+                // ===== 发送前严格校验（variant）=====
+                // 思考强度必须属于当前模型的 variants 名单：切换模型后若仍残留上一个模型的
+                // 档位（如 xhigh），会话级模型切换端点会直接拒绝，导致整条提示词发送失败。
+                // 名单为空（模型无 variants 元数据，或列表尚未就绪）时保持用户选择照发，
+                // 交由服务端做最终裁决——与 agent/model 的「手选优先」口径一致。
+                const supportedVariants = variantValuesForModel(resolvedModel);
+                const rawVariant = store.selectedVariant || '';
+                // 只在模型列表已加载时做严格校验：列表不可用（走手选照发分支）时
+                // 无法判定，保持原值交给服务端裁决。
+                if (rawVariant && store.modelList.length && supportedVariants.indexOf(rawVariant) < 0) {
+                    store.selectedVariant = '';
+                    const variantSelEl = document.getElementById('ocVariantSelect');
+                    if (variantSelEl) syncVariantSelect(variantSelEl, resolvedModel, '');
+                    showToast('原思考强度 `' + variantLabel(rawVariant) + '` 当前模型不支持，已改用默认', 'warning');
+                }
                 modelRef = toModelRef(resolvedModel, store.selectedVariant);
             }
             if (!modelRef) {

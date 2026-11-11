@@ -485,6 +485,54 @@ export function adaptMessages(sessionID, res) {
     return out;
 }
 
+/**
+ * v2 会话 inbox（排队消息）→ v1 的 [{info, parts}]。
+ *
+ * 模型运行中发送的提示词不会立即进入 /message 列表，而是以
+ * {id, type:'user', payload:{text}, delivery:'steer'} 的形式排在 /inbox 里，
+ * 等当前 turn 结束后才被消费成正式消息。
+ *
+ * 只读 /message 会导致这类卡片在「停止」或刷新时凭空消失（停止会先置 idle，
+ * cacheMessages 随后全量覆盖缓存，把本地乐观卡片一并抹掉），必须等下一轮输出、
+ * inbox 被消费后才重新出现。把它们还原成与正式用户消息同构的条目即可：
+ * 消息 id 与后续正式消息相同，消费后按 id 天然去重，不会重复渲染。
+ *
+ * @param {string} sessionID 会话 id
+ * @param {object} res GET /api/session/{id}/inbox 的响应（{data:[...]}）
+ * @returns {Array<{info: object, parts: Array}>} 旧→新排列的排队消息
+ */
+export function adaptInboxMessages(sessionID, res) {
+    const list = unwrapList(res);
+    const out = [];
+    (Array.isArray(list) ? list : []).forEach(function (item) {
+        if (!item || !item.id) return;
+        // inbox 里也可能有其他类型的排队项（命令等），这里只认用户提示词
+        if (item.type && item.type !== 'user') return;
+        const text = (item.payload && item.payload.text) || item.text || '';
+        if (!text) return;
+        out.push({
+            info: {
+                id: item.id,
+                sessionID: sessionID,
+                role: 'user',
+                time: item.time || { created: Date.now() },
+                // inbox:true 供渲染层识别「尚未执行」，不影响现有字段读取
+                inbox: true,
+                delivery: item.delivery || '',
+            },
+            parts: [{
+                id: item.id + '_text',
+                messageID: item.id,
+                sessionID: sessionID,
+                type: 'text',
+                text: text,
+            }],
+        });
+    });
+    // 队列按提交顺序返回（旧→新），与缓存/渲染的排序假定一致，不需要反转
+    return out;
+}
+
 /** 从 v2 消息列表响应中取出「沿时间线继续翻」的游标。
  *  语义（对照 v2 服务端 SessionStore.messages 确证）：游标是服务端生成的
  *  base64url（内含 id / order / direction），客户端无法自行构造，必须沿用

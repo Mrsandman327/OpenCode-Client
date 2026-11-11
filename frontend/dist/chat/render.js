@@ -493,10 +493,11 @@ function doUpdateModelInfo(items) {
     }
     const variantSel = document.getElementById('ocVariantSelect');
     if (variantSel && !isManual('variant')) {
-        // 先按当前模型重建档位，再回填历史值：
-        // 历史 variant 可能来自旧模型（不在当前模型 variants 里），syncVariantSelect 会补入该选项，
-        // 避免浏览器把 select.value 置为空串，导致「显示 ≠ 发送」。
-        syncVariantSelect(variantSel, store.selectedModel || '', variant || '');
+        // 先按当前模型重建档位，再回填历史值。
+        // 这里必须用 keepUnknown：历史 variant 与 model 出自同一条 assistant 记录，
+        // 且模型列表可能尚未加载完成（此时 variants 为空数组），严格回落会把历史值
+        // 误判成「默认」；真正的非法档位由发送前的校验兜底。
+        syncVariantSelect(variantSel, store.selectedModel || '', variant || '', { keepUnknown: true });
         store.selectedVariant = variantSel.value;
     }
 
