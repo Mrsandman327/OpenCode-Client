@@ -163,7 +163,11 @@ export function mergePart(existing, incoming) {
     for (const field of ['text', 'content']) {
         const oldText = typeof existing[field] === 'string' ? existing[field] : '';
         const newText = typeof incoming[field] === 'string' ? incoming[field] : '';
-        if (oldText && newText && newText.length < oldText.length && !incoming.time?.end) {
+        // 流式保护：新文本比旧文本短（包含空串）且该 part 尚未结束时，保留旧文本。
+        // 原实现要求 newText 非空，导致模型流式输出期间 /message 快照返回空 text
+        // （服务端尚未写入该块）时，mergePart 把已累积的长文本整个清空，后续
+        // message.part.delta 从零开始拼接 —— 表现为「输出中发提示词，卡片开头整段丢失」。
+        if (oldText && newText.length < oldText.length && !incoming.time?.end) {
             merged[field] = oldText;
         }
     }
