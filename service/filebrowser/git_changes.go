@@ -2,11 +2,15 @@ package filebrowser
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"oc-manager/internal/executil"
 	"oc-manager/internal/sysproxy"
@@ -153,6 +157,84 @@ func loadTagMap(dir string) map[string]string {
 		return map[string]string{}
 	}
 	return parseTagOutput(out)
+}
+
+var (
+	tagSyncMu   sync.Mutex
+	tagSyncedIn = map[string]bool{} // 本进程内已同步过远程标签的仓库目录
+)
+
+// tagSyncTimeout 单次 fetch 的超时。慢网、私有仓库无凭据时靠它兜底，
+// 避免后台 goroutine 长时间占用。
+const tagSyncTimeout = 8 * time.Second
+
+// tagSyncRemote 取当前分支的上游远程名；没有上游则回退 origin；都没有返回空串。
+// 不能写死 origin：fork 出来的仓库常用 upstream 作为远程名。
+func tagSyncRemote(dir string) string {
+	if out, err := runGitCommand(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"); err == nil {
+		if i := strings.Index(strings.TrimSpace(out), "/"); i > 0 {
+			return strings.TrimSpace(out)[:i]
+		}
+	}
+	if _, err := runGitCommand(dir, "remote", "get-url", "origin"); err == nil {
+		return "origin"
+	}
+	return ""
+}
+
+// fetchRemoteTags 只更新 refs/tags，不碰 refs/remotes/*。
+//   - --refmap= 清空配置里的 refspec，确保只按命令行 refspec 抓取；
+//   - refspec 不带 + 号：远程 tag 被 force-move 时让它失败，不静默覆盖本地同名标签；
+//   - 代理与应用内推送/拉取保持同一优先级：应用配置 > 环境变量 > 系统代理 > 直连；
+//   - 禁用交互式凭据提示，避免没有终端的桌面进程卡在等待输入。
+func fetchRemoteTags(dir, remote string, proxy model.ProxyConfig) error {
+	ctx, cancel := context.WithTimeout(context.Background(), tagSyncTimeout)
+	defer cancel()
+	args := make([]string, 0, 8)
+	// 与 runGitRemoteOp 一致：存在代理时用 -c 注入，环境变量存在时不动（交给 git 自己读）。
+	if proxyURL := resolveGitProxyURL(proxy); proxyURL != "" {
+		args = append(args, "-c", "http.proxy="+proxyURL, "-c", "https.proxy="+proxyURL)
+	}
+	args = append(args, "fetch", "--no-tags", "--refmap=", remote, "refs/tags/*:refs/tags/*")
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = dir
+	executil.SetHideWindow(cmd, true)
+	cmd.Env = append(os.Environ(),
+		"GIT_TERMINAL_PROMPT=0",
+		"GCM_INTERACTIVE=Never",
+		"GIT_ASKPASS=",
+	)
+	return cmd.Run()
+}
+
+// SyncGitTagsOnce 每个仓库目录在进程内只同步一次远程标签，供「首次打开 Git 面板」调用。
+// proxy 与推送/拉取使用同一份配置，保证需要代理的网络环境下行为一致。
+// 返回 true 表示本次确实拉取成功、调用方可以重载列表；
+// 返回 false 表示跳过（已同步过 / 无远程）或失败（失败会清除标记，下次打开可重试）。
+// 注意：本函数会阻塞到 fetch 结束（最多 tagSyncTimeout），调用方应在独立 goroutine 中执行。
+func SyncGitTagsOnce(dir string, proxy model.ProxyConfig) bool {
+	key := filepath.Clean(dir)
+	tagSyncMu.Lock()
+	if tagSyncedIn[key] {
+		tagSyncMu.Unlock()
+		return false
+	}
+	tagSyncedIn[key] = true // 先占位，避免并发请求重复 fetch
+	tagSyncMu.Unlock()
+
+	remote := tagSyncRemote(key)
+	if remote == "" {
+		// 没有远程可同步：保留标记，避免每次打开面板都重复探测 git 配置。
+		return false
+	}
+	if err := fetchRemoteTags(key, remote, proxy); err != nil {
+		tagSyncMu.Lock()
+		delete(tagSyncedIn, key) // 失败不占用「已同步」名额，下次打开会重试
+		tagSyncMu.Unlock()
+		return false
+	}
+	return true
 }
 
 // ListGitHistory 返回指定目录的 Git 提交历史，支持分页。

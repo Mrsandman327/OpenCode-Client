@@ -235,6 +235,14 @@ func (a *App) GetGitHistory(rootDir string, offset, limit int) (model.GitHistory
 	return filebrowser.ListGitHistory(rootDir, offset, limit)
 }
 
+// SyncGitTags 首次打开仓库的 Git 面板时同步一次远程标签。
+// proxy 与推送/拉取使用同一份代理配置，保证联网行为一致。
+// 每个仓库目录在进程内只同步一次；失败会允许下次重试。
+// 只更新 refs/tags，不触碰远程分支和本地分支。
+func (a *App) SyncGitTags(rootDir string, proxy model.ProxyConfig) bool {
+	return filebrowser.SyncGitTagsOnce(rootDir, proxy)
+}
+
 // GetGitHistoryFiles 返回指定提交的文件列表。
 func (a *App) GetGitHistoryFiles(rootDir, commitHash string) (model.GitCommitFilesResult, error) {
 	return filebrowser.ListGitCommitFiles(rootDir, commitHash)

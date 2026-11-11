@@ -101,6 +101,12 @@ export async function fileBrowserApiGitHistory(rootDir, offset, limit) {
     return await api.GetGitHistory(rootDir, offset, limit);
 }
 
+/** 同步远程标签：后端每个仓库目录在进程内只执行一次，失败可重试。
+ *  代理配置与推送/拉取共用同一份（应用内配置 > 环境变量 > 系统代理）。 */
+export async function fileBrowserApiSyncGitTags(rootDir) {
+    return await api.SyncGitTags(rootDir, fileBrowserGetProxy());
+}
+
 export async function fileBrowserApiGitHistoryFiles(rootDir, commitHash) {
     return await api.GetGitHistoryFiles(rootDir, commitHash);
 }
@@ -1126,6 +1132,21 @@ export async function loadFileBrowserGitHistory(loadMore) {
     } finally {
         state.git.historyLoading = false;
         renderFileBrowserGitSection();
+    }
+
+    // 首次拉取历史后，异步同步一次远程标签（每个仓库进程内只同步一次）。
+    // 故意不 await：列表已经渲染完成，同步失败或超时都不影响当前界面。
+    // 只在「列表停在顶部且没有加载更多页」时自动重载，避免打断已滚动/已翻页的用户；
+    // 其他情况下本次不刷新，下次打开面板会直接读到已经落到本地的 tag。
+    if (!loadMore) {
+        var dirAtCall = state.rootDir;
+        fileBrowserApiSyncGitTags(dirAtCall).then(function(done) {
+            if (!done || state.rootDir !== dirAtCall) return;
+            var body = document.getElementById('fileBrowserGitHistoryBody');
+            var atTop = !body || body.scrollTop === 0;
+            var firstPageOnly = (state.git.historyItems || []).length <= 30;
+            if (atTop && firstPageOnly) loadFileBrowserGitHistory(false);
+        }).catch(function() { /* 同步失败静默处理，不影响历史列表 */ });
     }
 }
 

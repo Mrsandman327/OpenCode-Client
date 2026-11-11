@@ -176,6 +176,13 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.GetGitHistory(rootDir, offset, limit)
+	case "SyncGitTags":
+		var rootDir string
+		var proxy model.ProxyConfig
+		if err := decodeArgs(args, &rootDir, &proxy); err != nil {
+			return nil, err
+		}
+		return a.SyncGitTags(rootDir, proxy), nil
 	case "GetGitHistoryFiles":
 		var rootDir, commitHash string
 		if err := decodeArgs(args, &rootDir, &commitHash); err != nil {
