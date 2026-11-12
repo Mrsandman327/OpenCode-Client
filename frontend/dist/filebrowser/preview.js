@@ -717,6 +717,20 @@ export async function saveCurrentFilePreview() {
         if (state.previewEditorInstance && window.ProjectConfigCodeEditor) {
             window.ProjectConfigCodeEditor.markClean(state.previewEditorInstance);
         }
+        // 保存会改变磁盘文件的 mtime/size：立即同步内存中的元信息。
+        // 否则文件浏览器的自动刷新（checkActiveFileExternalChange）会把自己这次写入
+        // 当成「外部修改」——此时已 markClean（无未保存修改），于是触发
+        // fileBrowserReloadActiveFromDisk()：重载文件、重建编辑器，滚动位置回到顶部。
+        // 这段执行时 savingPreview 仍为 true，自动刷新会因 fileBrowserBusy() 跳过，无竞态。
+        try {
+            var stat = await fileBrowserApiStat(state.rootDir, item.path);
+            // 用对象引用判断：保存是异步的，期间若切换了 tab，state.previewMeta 会指向
+            // 另一个文件，此时不能把本次 stat 结果写到别的文件上。
+            if (stat && state.previewMeta === meta) {
+                meta.modifiedAt = stat.modifiedAt || meta.modifiedAt;
+                if (typeof stat.size === 'number') meta.size = stat.size;
+            }
+        } catch (_) {}
         showToast('保存成功', 'success');
         renderFilePreviewToolbar();
     } catch (err) {
@@ -1127,9 +1141,12 @@ export function buildGitPairRows(blocks) {
  * presetRightContent 为 tab 缓存里恢复的右侧编辑值（未保存的编辑不因切 tab 丢失）；
  * 传 undefined 表示无缓存，用后端返回的 rightContent。
  */
-export async function renderGitFilePreview(path, presetRightContent) {
+export async function renderGitFilePreview(path, presetRightContent, opts) {
     var state = store.fileBrowserState;
     if (!state || !path) return;
+    // 静默刷新：保存成功的重建场景。不清空现有视图，等后端数据回来再一次性替换，
+    // 否则「清空 body → await 请求 → 重建」期间整块编辑区是白屏（请求耗时全部可见）。
+    var silent = !!(opts && opts.silent);
     fileBrowserClearObjectURL();
     state.previewMode = 'git';
     state.selectedItem = null;
@@ -1140,7 +1157,7 @@ export async function renderGitFilePreview(path, presetRightContent) {
     var bodyEl = document.getElementById('filePreviewBody');
     if (titleEl) titleEl.textContent = path.replace(/^\//, '');
     if (metaEl) metaEl.textContent = 'Git 变更预览';
-    if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">正在读取 Git 变更...</div>';
+    if (!silent && bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">正在读取 Git 变更...</div>';
     renderFilePreviewToolbar();
     try {
         var data = await fileBrowserApiGitPreview(state.rootDir, path);
@@ -1172,7 +1189,13 @@ export async function renderGitFilePreview(path, presetRightContent) {
             rightReadOnly: false
         });
     } catch (err) {
-        bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
+        if (silent) {
+            // 静默刷新失败：保留旧视图（用户仍能看到之前的 diff），只提示错误，
+            // 避免把已有内容整块替换成错误页。
+            showToast('刷新 Git 差异失败: ' + formatApiError(err), 'error');
+        } else if (bodyEl) {
+            bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
+        }
     }
 }
 
@@ -1411,6 +1434,17 @@ export async function saveCurrentGitDiffPreview() {
     if (!state || !diff || state.previewMode !== 'git' || state.savingPreview) return;
     var path = state.gitPreviewPath;
     if (!path) return;
+
+    // 保存前记录右栏的视图位置：重建后要回到原处。
+    // 重建后的右栏内容与保存前逐行一致（写进磁盘的就是编辑器里的内容），
+    // 所以行号和 scrollTop 可以直接复用，不需要做行号映射。
+    var rightView = diff.right && diff.right.view;
+    var savedScrollTop = rightView ? rightView.scrollDOM.scrollTop : 0;
+    var savedLine = 1;
+    if (rightView && rightView.state) {
+        savedLine = rightView.state.doc.lineAt(rightView.state.selection.main.head).number;
+    }
+
     state.savingPreview = true;
     renderFilePreviewToolbar();
     try {
@@ -1423,8 +1457,22 @@ export async function saveCurrentGitDiffPreview() {
         }
         diff.markClean();
         showToast('保存成功', 'success');
-        // 保存后重新拉取 diff（工作区已变化，右栏与左栏应趋于一致）
-        await renderGitFilePreview(path);
+        // 保存后重新拉取 diff：pairRows / blocks 需要按新的磁盘内容重算，
+        // 否则 minimap 与左右差异高亮会停留在打开文件时的旧快照上（增删行、改字都会失真）。
+        // silent: 不清空现有编辑器，等数据回来再一次性替换，避免请求期间整块白屏。
+        await renderGitFilePreview(path, undefined, { silent: true });
+        // 重建完成后恢复光标行与滚动位置。
+        // 行对模式下左右栏 1:1 同步滚动（mirrorScroll），设置右栏 scrollTop 会带动左栏。
+        var newDiff = state.previewDiffInstance;
+        var newView = newDiff && newDiff.right && newDiff.right.view;
+        if (newView && newView.state) {
+            var ln = Math.min(Math.max(savedLine, 1), newView.state.doc.lines);
+            newView.dispatch({ selection: { anchor: newView.state.doc.line(ln).from } });
+            requestAnimationFrame(function () {
+                newView.scrollDOM.scrollTop = savedScrollTop;
+                newView.focus();
+            });
+        }
     } catch (err) {
         showApiError('保存失败: ', err);
     } finally {
