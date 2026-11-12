@@ -381,10 +381,13 @@ export function renderMessages(items, targetBox) {
         }
     }
 
-    box.innerHTML = '';
+    // 全量重建：先构建到 DocumentFragment，再一次性替换。
+    // 消息结构、顺序、Markdown 渲染结果均不变。
+    const frag = document.createDocumentFragment();
     list.forEach(item => {
-        box.appendChild(buildMessageNode(item));
+        frag.appendChild(buildMessageNode(item));
     });
+    box.replaceChildren(frag);
     // 执行失败的兜底错误行（详见 appendSessionErrorRowIfNeeded 注释）
     appendSessionErrorRowIfNeeded(box, list);
 
