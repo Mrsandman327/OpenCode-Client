@@ -1484,3 +1484,37 @@ export async function saveCurrentGitDiffPreview() {
 // ===== Git 改动跳转 =====
 // 上一处/下一处按钮已移除（滚动条 minimap 承担跳转职责，点击即达）；
 // 编辑器 diff 的跳转能力保留在 createDiff 实例的 scrollToRow（minimap 使用）。
+
+// ============================================================
+// Ctrl+S / Cmd+S 保存快捷键
+// 只在文件浏览器编辑器区域内生效：
+//  - 焦点在 CodeMirror 编辑器（普通编辑或 git diff 左右两栏）才拦截
+//  - 终端是独立的兄弟容器（#fileBrowserTerminal），祖先链不含编辑器类，
+//    焦点在终端时不会被拦截，Ctrl+S 照常交给 shell（暂停输出）
+//  - 其他区域、无修改时放行，保留浏览器默认行为
+// ============================================================
+document.addEventListener('keydown', function (e) {
+    // Ctrl/Cmd + S；排除 Alt、Shift（Ctrl+Shift+S 是「另存为」）
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    if (String(e.key).toLowerCase() !== 's' && e.code !== 'KeyS') return;
+    // 输入法组合中不处理
+    if (e.isComposing) return;
+
+    var el = document.activeElement;
+    if (!el || !el.closest) return;
+    // 只认文件浏览器的编辑器容器，避免命中项目配置页等其他 CodeMirror
+    if (!el.closest('.file-browser-code-editor, .file-browser-diff-wrap')) return;
+
+    var state = store.fileBrowserState;
+    if (!state || state.savingPreview) return;
+
+    // 焦点在编辑器里：先阻止浏览器「保存网页」，再看是否真的有修改
+    e.preventDefault();
+
+    if (state.previewMode === 'git') {
+        var diff = state.previewDiffInstance;
+        if (diff && diff.isDirty()) saveCurrentGitDiffPreview();
+    } else if (state.previewMode === 'file') {
+        if (state.previewEditorInstance && fileBrowserIsDirty()) saveCurrentFilePreview();
+    }
+}, true);
