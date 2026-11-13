@@ -28,6 +28,13 @@ skmgr-tray.log
 # 临时文件
 tmp_*
 my/
-assets/
 # Git worktree（worktree 一律建在本仓 .worktrees/ 下，不污染 git status）
 .worktrees/
+.omo/
+bindings/
+bin-win/
+bin-linux/
+bin-darwin/
+/doc/oc-manager
+/doc/prototype
+release/

@@ -41,6 +41,9 @@ func main() {
 
 	app := application.New(application.Options{
 		Name: "OC Manager",
+		// 调试版（devtools tag）会在 Windows 下追加 --remote-debugging-port=9222；
+		// 正式版为空配置，不暴露调试端口。
+		Windows: debugWindowsOptions,
 		Services: []application.Service{
 			application.NewService(myApp),
 		},
@@ -83,6 +86,16 @@ func main() {
 		URL:              "/",
 		ZoomControlEnabled: true,
 		InitialPosition:  application.WindowCentered,
+		// 调试版 DevTools 快捷键：Wails 默认不会自动绑定 F12。
+		// 生产构建中 OpenDevTools 是空实现，不会打开 DevTools，只会拦截这两个组合键。
+		KeyBindings: map[string]func(window application.Window){
+			"F12": func(w application.Window) {
+				w.OpenDevTools()
+			},
+			"ctrl+shift+i": func(w application.Window) {
+				w.OpenDevTools()
+			},
+		},
 	})
 
 	// 系统托盘：单击切换窗口显示，右键菜单（显示主窗口/退出）。
