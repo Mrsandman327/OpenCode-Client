@@ -21,7 +21,7 @@ import { formatToolDuration, formatCompactNumber, formatDateTime } from '../core
 // Code Mode 目录），只在渲染层跳过（数据仍保留在缓存），判定依据见 v2compat.js 的函数注释。
 import { isInternalInstructionMessage } from '../core/v2compat.js';
 import { api } from '../core/apicall.js';
-import { updateUserNav, syncSearchAfterRender } from './search.js';
+import { updateUserNav, syncSearchAfterRender, notifyToolBodyToggled, isSearchScrollLocked } from './search.js';
 
 // ============================
 // sidepanel 回调注册（打破 render↔sidepanel 循环依赖）
@@ -401,8 +401,8 @@ function tryAppendNewMessages(box, list, scrollAnchor, followBottom) {
     // 而触发 loadOlderMessages。只有原本贴底时才跟随到底。
     if (followBottom) restoreScrollAnchor(box, scrollAnchor, true);
     updateScrollBottomButton();
-    // 增量追加保留旧消息 DOM 与旧高亮，只给新增节点补高亮
-    syncSearchAfterRender({ kind: 'appendMessages', box, nodes: appendedNodes });
+    // 增量追加保留旧消息 DOM 与旧高亮，只给新增节点补高亮；items 供工具卡数据索引使用
+    syncSearchAfterRender({ kind: 'appendMessages', box, nodes: appendedNodes, items: list.slice(count) });
     if (renderTodosHandler) renderTodosHandler();
     updateUserNav();
     return true;
@@ -485,10 +485,11 @@ export function renderMessages(items, targetBox) {
                         if (focusSelector) restoreFocusState(body, focusSelector);
                     }
                     doUpdateModelInfo(list);
-                    restoreScrollAnchor(box, scrollAnchor, followBottom);
+                    // 搜索导航后的保护期内不重写 scrollTop，避免打断搜索平滑滚动
+                    if (!isSearchScrollLocked(busySid)) restoreScrollAnchor(box, scrollAnchor, followBottom);
                     updateScrollBottomButton();
                     // 末条消息被重建/追加片段：只重扫该消息，其他消息高亮不受影响
-                    syncSearchAfterRender({ kind: 'message', box, messageEl: lastMsg, messageId: lastId });
+                    syncSearchAfterRender({ kind: 'message', box, messageEl: lastMsg, messageId: lastId, items: [last] });
                     return;
                 }
             }
@@ -509,10 +510,11 @@ export function renderMessages(items, targetBox) {
     appendSessionErrorRowIfNeeded(box, list);
 
     doUpdateModelInfo(items);
-    restoreScrollAnchor(box, scrollAnchor, followBottom);
+    // 搜索导航后的保护期内不重写 scrollTop，避免打断搜索平滑滚动
+    if (!isSearchScrollLocked(renderSid)) restoreScrollAnchor(box, scrollAnchor, followBottom);
     updateScrollBottomButton();
     // 全量重建后旧高亮节点已全部销毁：按纯数据描述重扫整个容器，恢复高亮与 active
-    syncSearchAfterRender({ kind: 'full', box });
+    syncSearchAfterRender({ kind: 'full', box, items: list });
     if (renderTodosHandler) renderTodosHandler();
     updateUserNav();
 
@@ -1333,6 +1335,28 @@ function toolInputObject(input) {
 }
 
 /** 渲染通用工具调用（Shell/文件操作，带输入/输出/错误展示） */
+/**
+ * 工具卡折叠摘要：固定长度，只用于识别内容，不包含完整输入/输出。
+ * 折叠时不构建完整正文 DOM，搜索通过 part 数据索引命中完整内容。
+ */
+function buildToolSummaryText(state) {
+    const chunks = [];
+    if (state && state.input) {
+        const raw = (typeof state.input === 'object' && state.input.command)
+            ? String(state.input.command)
+            : safeText(state.input);
+        const first = String(raw || '').split('\n')[0].slice(0, 60);
+        if (first) chunks.push('输入：' + first);
+    }
+    if (state && state.output) {
+        chunks.push('输出 ' + formatCompactNumber(String(safeText(state.output)).length) + ' 字符');
+    }
+    if (state && state.error) {
+        chunks.push('错误 ' + formatCompactNumber(String(safeText(state.error)).length) + ' 字符');
+    }
+    return chunks.join(' · ') || '展开查看';
+}
+
 export function renderTool(part) {
     const tool = part.tool || part.name || '';
 
@@ -1405,42 +1429,73 @@ export function renderTool(part) {
         }
     }
 
-    if (state.input) {
-        const inputDiv = document.createElement('div');
-        inputDiv.className = 'oc-tool-io oc-tool-input';
-        if (isShell && state.input.command) {
-            inputDiv.innerHTML = `<div class="oc-tool-io-label">命令</div><pre><code>${escapeHtml(state.input.command)}</code></pre>`;
-        } else {
-            inputDiv.innerHTML = `<div class="oc-tool-io-label">输入</div><pre><code>${escapeHtml(safeText(state.input))}</code></pre>`;
+    /** 构建完整输入/输出正文（只在展开时调用，折叠时不建） */
+    const buildFullBody = () => {
+        body.replaceChildren();
+        if (state.input) {
+            const inputDiv = document.createElement('div');
+            inputDiv.className = 'oc-tool-io oc-tool-input';
+            if (isShell && state.input.command) {
+                inputDiv.innerHTML = `<div class="oc-tool-io-label">命令</div><pre><code>${escapeHtml(state.input.command)}</code></pre>`;
+            } else {
+                inputDiv.innerHTML = `<div class="oc-tool-io-label">输入</div><pre><code>${escapeHtml(safeText(state.input))}</code></pre>`;
+            }
+            body.appendChild(inputDiv);
         }
-        body.appendChild(inputDiv);
-    }
+        if (state.output) {
+            const outDiv = document.createElement('div');
+            outDiv.className = 'oc-tool-io oc-tool-output';
+            outDiv.innerHTML = `<div class="oc-tool-io-label">输出</div><pre><code>${escapeHtml(safeText(state.output))}</code></pre>`;
+            body.appendChild(outDiv);
+        }
+        if (state.error) {
+            const errDiv = document.createElement('div');
+            errDiv.className = 'oc-tool-io oc-tool-error';
+            errDiv.innerHTML = `<div class="oc-tool-io-label">错误</div><pre><code>${escapeHtml(safeText(state.error))}</code></pre>`;
+            body.appendChild(errDiv);
+        }
+        if (!state.input && !state.output && !state.error) {
+            body.innerHTML = `<div class="oc-tool-io"><pre><code>${escapeHtml(safeText(part))}</code></pre></div>`;
+        }
+        body.dataset.toolBodyBuilt = 'true';
+    };
 
-    if (state.output) {
-        const outDiv = document.createElement('div');
-        outDiv.className = 'oc-tool-io oc-tool-output';
-        outDiv.innerHTML = `<div class="oc-tool-io-label">输出</div><pre><code>${escapeHtml(safeText(state.output))}</code></pre>`;
-        body.appendChild(outDiv);
-    }
+    /** 折叠态：只建固定长度摘要，不建完整 pre/code */
+    const buildCollapsedBody = () => {
+        body.replaceChildren();
+        const summary = document.createElement('div');
+        summary.className = 'oc-tool-io oc-tool-summary';
+        summary.textContent = buildToolSummaryText(state);
+        summary.title = '点击标题展开完整内容';
+        body.appendChild(summary);
+        body.dataset.toolBodyBuilt = 'false';
+    };
 
-    if (state.error) {
-        const errDiv = document.createElement('div');
-        errDiv.className = 'oc-tool-io oc-tool-error';
-        errDiv.innerHTML = `<div class="oc-tool-io-label">错误</div><pre><code>${escapeHtml(safeText(state.error))}</code></pre>`;
-        body.appendChild(errDiv);
-    }
+    // 统一展开/收起入口：点击标题与搜索结果导航都走这里。
+    // 搜索导航必须强制展开，不能依赖 toggle：store 里残留的展开状态会让点击反而收起。
+    const applyExpanded = (next) => {
+        store.expandedParts[key] = next;
+        if (next) {
+            buildFullBody();
+            body.classList.remove('hidden');
+        } else {
+            body.classList.add('hidden');
+            // 收起时销毁完整正文 DOM，只保留摘要：长会话长期不关闭时控制 DOM 总量
+            buildCollapsedBody();
+        }
+        // 正文 DOM 发生变化：让搜索按新结构重新索引该工具卡
+        notifyToolBodyToggled(part.id || '');
+    };
 
-    if (!state.input && !state.output && !state.error) {
-        body.innerHTML = `<div class="oc-tool-io"><pre><code>${escapeHtml(safeText(part))}</code></pre></div>`;
-    }
-
-    const expanded = store.expandedParts[key] ?? isRunning;
+    const expanded = !!(store.expandedParts[key] ?? isRunning);
+    if (expanded) buildFullBody(); else buildCollapsedBody();
     if (!expanded) body.classList.add('hidden');
 
     head.addEventListener('click', () => {
-        store.expandedParts[key] = !(store.expandedParts[key] ?? isRunning);
-        body.classList.toggle('hidden', !store.expandedParts[key]);
+        applyExpanded(!(store.expandedParts[key] ?? isRunning));
     });
+    // 供搜索结果导航调用：强制展开，不受当前 toggle 状态影响
+    el.__ocSetExpanded = applyExpanded;
 
     el.appendChild(head);
     el.appendChild(body);
@@ -1541,16 +1596,10 @@ export function renderEditDiff(part, tool) {
         : '';
     head.innerHTML = `<span class="oc-tool-icon">✏️</span> 编辑文件: <strong title="${escapeHtml(pathText)}">${escapeHtml(pathText)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>${statsHtml}` + buildDurationHtml(part, true);
 
-    // 正文：左右两栏
+    // 正文：左右两栏（折叠时不建逐行 DOM，展开时才构建）
     const body = document.createElement('div');
     body.className = 'oc-tool-body oc-edit-diff';
     body.dataset.expandKey = key;
-    if (!expanded) body.classList.add('hidden');
-
-    const oldPane = document.createElement('div');
-    oldPane.className = 'oc-edit-pane oc-edit-pane-old';
-    const newPane = document.createElement('div');
-    newPane.className = 'oc-edit-pane oc-edit-pane-new';
 
     const renderPane = (lines, pane) => {
         const frag = document.createDocumentFragment();
@@ -1568,16 +1617,44 @@ export function renderEditDiff(part, tool) {
         });
         pane.appendChild(frag);
     };
-    renderPane(diff.old, oldPane);
-    renderPane(diff.new, newPane);
 
-    body.appendChild(oldPane);
-    body.appendChild(newPane);
+    /** 构建完整左右对比（只在展开时调用） */
+    const buildFullBody = () => {
+        body.replaceChildren();
+        const oldPane = document.createElement('div');
+        oldPane.className = 'oc-edit-pane oc-edit-pane-old';
+        const newPane = document.createElement('div');
+        newPane.className = 'oc-edit-pane oc-edit-pane-new';
+        renderPane(diff.old, oldPane);
+        renderPane(diff.new, newPane);
+        body.appendChild(oldPane);
+        body.appendChild(newPane);
+        body.dataset.toolBodyBuilt = 'true';
+    };
+
+    // 统一展开/收起入口：点击标题与搜索结果导航都走这里
+    const applyExpanded = (next) => {
+        store.expandedParts[key] = next;
+        if (next) {
+            buildFullBody();
+            body.classList.remove('hidden');
+        } else {
+            body.classList.add('hidden');
+            // 收起时销毁逐行 diff DOM：大文件编辑的行节点是长会话 DOM 的主要来源之一
+            body.replaceChildren();
+            body.dataset.toolBodyBuilt = 'false';
+        }
+        notifyToolBodyToggled(part.id || '');
+    };
+
+    if (expanded) buildFullBody();
+    if (!expanded) body.classList.add('hidden');
 
     head.addEventListener('click', () => {
-        store.expandedParts[key] = !(store.expandedParts[key] ?? isRunning);
-        body.classList.toggle('hidden', !store.expandedParts[key]);
+        applyExpanded(!(store.expandedParts[key] ?? isRunning));
     });
+    // 供搜索结果导航调用：强制展开，不受当前 toggle 状态影响
+    el.__ocSetExpanded = applyExpanded;
 
     el.appendChild(head);
     el.appendChild(body);

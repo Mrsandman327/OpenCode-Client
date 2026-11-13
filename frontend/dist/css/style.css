@@ -2872,6 +2872,19 @@ input::placeholder, textarea::placeholder {
     display: block;
 }
 .oc-tool-error .oc-tool-io-label { color: var(--danger); }
+/* 折叠工具卡摘要：折叠时只显示固定长度提示，不构建完整正文 */
+.oc-tool-summary {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* 数据索引命中的折叠工具卡：正文不在 DOM，用整卡描边提示 */
+.oc-tool.oc-search-data-active {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
 
 /* ── edit 工具左右对比（diff 视图） ── */
 .oc-edit-diff {
