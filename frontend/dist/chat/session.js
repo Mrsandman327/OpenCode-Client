@@ -520,6 +520,8 @@ export async function loadOlderMessages(sessionID) {
     paging.loading = true;
     try {
         const res = await api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=200&cursor=${encodeURIComponent(cursor)}`);
+        // 关闭标签会删除分页对象；旧回包不得写进重新打开的会话。
+        if (sessionPaging[targetId] !== paging) return;
         const messages = adaptMessages(targetId, res);
         // 一次性诊断：成功取到更早消息时也给个反馈（便于确认"上滑确实命中了"）
         if (messages.length) {
@@ -599,6 +601,19 @@ function withTimeout(promise, ms, label) {
  *  在同一会话上密集触发 loadMessages 时重复发起请求（请求风暴）。 */
 const loadMessagesInflight = {};
 
+/**
+ * 释放会话运行态：关闭标签时调用。
+ * - 递增加载序号：在途 loadMessages 回包会被现有 seq 校验丢弃；
+ * - 清理在途锁：关闭后立即重开同一会话时，不会被旧请求挡住；
+ * - 清理分页状态：旧分页回包不会写进新打开的会话。
+ */
+export function releaseSessionRuntime(sessionID) {
+    if (!sessionID) return;
+    store.sessionLoadSeq[sessionID] = (store.sessionLoadSeq[sessionID] || 0) + 1;
+    delete loadMessagesInflight[sessionID];
+    delete sessionPaging[sessionID];
+}
+
 export async function loadMessages(sessionID) {
     const targetId = sessionID || store.currentSessionId;
     // 侧问悬浮按钮跟随会话（无会话时传空串，按空会话刷新显隐）
@@ -612,6 +627,10 @@ export async function loadMessages(sessionID) {
         }
         return;
     }
+    // 只服务已打开标签：未打开/已关闭会话不创建容器、不发起消息请求。
+    // 捕获的是标签对象本身：关闭后重开同一会话会得到新对象，旧回包可据此识别。
+    const tabRef = (store.openTabs || []).find(function (tab) { return tab.sessionID === targetId; });
+    if (!tabRef) return;
     const box = ensureTabMessagesEl(targetId);
     if (!box) return;
     // 兜底：确保滚动分页的监听已绑定（模块求值时 #ocMessagesPool 可能尚未就绪）
@@ -635,11 +654,14 @@ export async function loadMessages(sessionID) {
     // 挤成“过期”，导致在途请求拉回数据后被竞态保护丢弃、双方都不渲染。
     if (loadMessagesInflight[targetId]) return;
     const seq = (store.sessionLoadSeq[targetId] = (store.sessionLoadSeq[targetId] || 0) + 1);
-    loadMessagesInflight[targetId] = true;
+    // 令牌锁：只有持有本次令牌的请求才能释放锁。
+    // 关闭后立即重开时，旧请求结束时不能把新请求的锁释放掉。
+    const token = {};
+    loadMessagesInflight[targetId] = token;
     // 兜底看门狗：即使 withTimeout 因意外未生效，也在稍后强制释放在途锁，
-    // 确保「刷新被永久跳过」不可能发生（幂等，重复置 false 无副作用）。
+    // 确保「刷新被永久跳过」不可能发生（只释放自己的令牌，不误伤新请求）。
     const inflightWatchdog = setTimeout(function () {
-        loadMessagesInflight[targetId] = false;
+        if (loadMessagesInflight[targetId] === token) loadMessagesInflight[targetId] = false;
     }, LOAD_MESSAGES_TIMEOUT_MS + 2000);
     // 校正前的缓存快照：用于判断校正后数据是否变化，避免无谓的整列表重渲染
     const beforeJson = hasCache ? JSON.stringify(existing) : '';
@@ -659,7 +681,10 @@ export async function loadMessages(sessionID) {
             LOAD_MESSAGES_TIMEOUT_MS,
             '加载会话消息'
         );
-        if (seq !== store.sessionLoadSeq[targetId]) return;
+        // 请求序号变化或标签已关闭（关闭后重开会得到新标签对象）→ 丢弃本次回包，
+        // 不写缓存、不渲染，避免已关闭标签的缓存复活。
+        if (seq !== store.sessionLoadSeq[targetId] ||
+            (store.openTabs || []).indexOf(tabRef) < 0) return;
         // v2 返回 {data:[扁平消息], cursor}，需还原为 v1 的 [{info,parts}] 且按旧→新排列
         const incoming = adaptMessages(targetId, res);
         // 把队列中的用户提示词并入同一页数据：与正式消息共用同一个 id，
@@ -722,14 +747,17 @@ export async function loadMessages(sessionID) {
             renderMessages(after, box);
         }
     } catch (e) {
-        if (seq !== store.sessionLoadSeq[targetId]) return;
+        // 过期请求/已关闭标签不得向已销毁容器写错误文案。
+        if (seq !== store.sessionLoadSeq[targetId] ||
+            (store.openTabs || []).indexOf(tabRef) < 0) return;
         // 有缓存时校正失败不覆盖已显示内容（保留旧数据优于显示报错）
         if (!hasCache) {
             box.innerHTML = `<div class="oc-empty error">${escapeHtml(formatApiError(e))}</div>`;
         }
     } finally {
         clearTimeout(inflightWatchdog);
-        loadMessagesInflight[targetId] = false;
+        // 只有仍持有本次令牌时才释放；旧请求不得释放重新打开后新请求的锁。
+        if (loadMessagesInflight[targetId] === token) loadMessagesInflight[targetId] = false;
         // 消息加载/校正完成后刷新子任务面板：数据源为服务端 child sessions，
         // 经节流调度合并高频调用（4 秒轮询 / SSE 补齐 / 用户刷新都会经过这里），
         // 不再依赖消息缓存——打开或刷新会话后子任务面板必然反映服务端最新列表。
@@ -1540,6 +1568,13 @@ document.addEventListener('oc-session-activated', function(e) {
     if (isPlaceholderSessionTitle(store.sessionMap?.[sid]?.title, sid)) {
         scheduleSessionTitleRefresh(sid);
     }
+});
+
+// 关闭标签：由 tabs.js 同步派发，释放该会话的在途请求锁与分页状态。
+// 递增加载序号后，已发出的 loadMessages 回包会被 seq 校验丢弃，不会把缓存写回来。
+document.addEventListener('oc-tab-closed', function(e) {
+    const sid = e && e.detail && e.detail.sessionID;
+    if (sid) releaseSessionRuntime(sid);
 });
 
 // ============================================================

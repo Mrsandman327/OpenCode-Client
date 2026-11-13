@@ -12,11 +12,11 @@
 
 import { store, currentDir } from '../core/state.js';
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml, getCachedMessages, safeText, isDesktopRuntime, loadWailsRuntime, refreshServiceStatus, loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity, buildTree, wasSessionDeletedLocally } from '../core/utils.js';
+import { showToast, escapeHtml, safeText, isDesktopRuntime, loadWailsRuntime, refreshServiceStatus, loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity, buildTree, wasSessionDeletedLocally } from '../core/utils.js';
 import { setSessionStatus, isBusyStatus } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
-import { showPermissionRequest, closePermissionModal } from './permission.js';
+import { showPermissionRequest, closePermissionModal, isOpenOrSubtask } from './permission.js';
 import { adaptEvent, normalizeStatuses } from '../core/v2compat.js';
 
 // ============================
@@ -249,6 +249,37 @@ export function startEventStream() {
 }
 
 /** 主事件处理中枢：按 type 分发到缓存、渲染、会话、树、面板等模块 */
+/** 会写入完整消息缓存的事件类型：只有这些类型需要检查标签是否打开。 */
+const MESSAGE_CACHE_EVENT_TYPES = new Set([
+    'message.updated',
+    'message.part.updated',
+    'message.part.delta',
+    'message.part.removed',
+    'message.removed',
+]);
+
+/** 会话是否由本客户端打开（含后台标签）。未打开会话不缓存完整消息。 */
+function isMessageCacheWanted(sessionID) {
+    if (!sessionID) return false;
+    return (store.openTabs || []).some(function (tab) { return tab.sessionID === sessionID; });
+}
+
+/**
+ * 处理会话错误：只接受本客户端打开标签及其子任务的错误。
+ * 别人打开的会话错误不写入本客户端状态，也不弹 toast。
+ * 子任务需要回溯 parentID，因此单独异步处理，不阻塞事件主流程。
+ */
+async function handleSessionErrorEvent(eventSid, props) {
+    if (!isMessageCacheWanted(eventSid) && !(await isOpenOrSubtask(eventSid))) return;
+    const message = typeof props.error === 'string' ? props.error : (props.error.message || safeText(props.error));
+    store.sessionErrors[eventSid] = message;
+    // 让失败立刻可见：消息区的错误卡片可能因「服务端尚未落 assistant 卡片」而没有宿主
+    // （例如 execution.failed 早于任何 step），且自动重试会连续触发失败事件。
+    // 用节流 toast 保证第一时刻有提示、又不刷屏；持久错误行由 render.js 兜底渲染。
+    showThrottledToast('session-error-' + eventSid, '执行失败: ' + String(message).replace(/\s+/g, ' ').slice(0, 200), 'error');
+    if (eventSid === store.currentSessionId) loadMessages();
+}
+
 export function handleOcEvent(event) {
     const type = event.type || event.name || '';
     const props = event.properties || event.data || event;
@@ -294,19 +325,15 @@ export function handleOcEvent(event) {
         } else if (type.includes('replied')) {
             // 权限已响应（本机或网页端等其他客户端）：关闭对应弹窗
             closePermissionModal(props.requestID || props.id);
-        } else {
+        } else if (isMessageCacheWanted(eventSid)) {
+            // 只提示本客户端打开标签的权限事件；其他客户端的会话不打扰当前用户。
             showToast('权限请求: ' + (props.action || props.permission || 'tool'), 'warning');
         }
     }
 
     if (type === 'session.error' && eventSid && props.error) {
-        const message = typeof props.error === 'string' ? props.error : (props.error.message || safeText(props.error));
-        store.sessionErrors[eventSid] = message;
-        // 让失败立刻可见：消息区的错误卡片可能因「服务端尚未落 assistant 卡片」而没有宿主
-        // （例如 execution.failed 早于任何 step），且自动重试会连续触发失败事件。
-        // 用节流 toast 保证第一时刻有提示、又不刷屏；持久错误行由 render.js 兜底渲染。
-        showThrottledToast('session-error-' + eventSid, '执行失败: ' + String(message).replace(/\s+/g, ' ').slice(0, 200), 'error');
-        if (eventSid === store.currentSessionId) loadMessages();
+        // 异步回溯父子关系，避免阻塞事件流；别人的会话错误直接丢弃。
+        void handleSessionErrorEvent(eventSid, props);
         return;
     }
     if (type === 'session.status' && eventSid) {
@@ -327,7 +354,8 @@ export function handleOcEvent(event) {
             if (status?.type === 'idle') {
                 loadMessages();
                 refreshSessionTitle();
-            } else if (getCachedMessages(eventSid).length) {
+            } else if (store.messageCache[eventSid] && store.messageCache[eventSid].length) {
+                // 直接读缓存，不用 getCachedMessages：后者会为未打开会话建空数组键。
                 scheduleRenderCachedMessages(eventSid);
                 scheduleSubtaskExtraction(eventSid);
             } else {
@@ -345,6 +373,11 @@ export function handleOcEvent(event) {
         }
         return;
     }
+
+    // 完整消息只缓存到「本客户端打开标签」（含后台标签）：
+    // 未打开/已关闭会话不因 SSE 事件建立全文缓存，避免把其他客户端或子代理
+    // 的消息体长期留在本客户端内存里。
+    if (MESSAGE_CACHE_EVENT_TYPES.has(type) && !isMessageCacheWanted(sid)) return;
 
     if (type === 'message.updated' && props.info) {
         upsertMessage(props.info);

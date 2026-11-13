@@ -19,51 +19,83 @@ let pendingQueue = [];
 /** 当前正在弹层显示的权限请求 */
 let currentPermission = null;
 
-/**
- * 会话 parentID 链回溯结果缓存：sessionID → { ok, refSession }
- * ok=是否属于判定时的激活会话（refSession）。会话切换后缓存失效，避免跨会话误判。
- * 避免每个权限请求都重复查询 /session/{sid}
- */
-const descendantCache = new Map();
+/** 当前已打开标签的会话 ID 集合（含后台标签） */
+function openTabIdSet() {
+    return new Set((store.openTabs || []).map(function (tab) { return tab.sessionID; }));
+}
+
+/** 会话是否由本客户端打开（含后台标签） */
+function isOpenSession(sessionID) {
+    if (!sessionID) return false;
+    return (store.openTabs || []).some(function (tab) { return tab.sessionID === sessionID; });
+}
+
+/** openTabs 的稳定签名：标签增删后缓存失效，避免跨周期误判 */
+function openTabsKey() {
+    return (store.openTabs || []).map(function (tab) { return tab.sessionID; }).sort().join(',');
+}
 
 /**
- * 判断 sessionID 是否属于当前激活会话（自身或其子任务子会话）。
- * 通过 GET /session/{sid} 获取 parentID 逐级上溯，直到命中当前会话或链头。
- * @param {string} sessionID 待判断的会话 ID
- * @returns {Promise<boolean>}
+ * 会话所属关系缓存：key = sessionID + '|' + openTabsKey。
+ * 避免每个权限/错误事件都重复查询 /session/{sid}。
  */
-async function isDescendantOfCurrent(sessionID) {
-    const refSession = store.currentSessionId;
-    const cached = descendantCache.get(sessionID);
-    // 缓存仅在同一激活会话下有效：切换会话后重新判定
-    if (cached && cached.refSession === refSession) return cached.ok;
+const descendantCache = new Map();
+let descendantCacheKey = openTabsKey();
+
+/**
+ * 找到 sessionID 所属的本客户端打开会话。
+ * - 自身在 openTabs 中 → owner 就是自己；
+ * - 否则通过 GET /session/{sid} 回溯 parentID，命中 openTabs 中任一会话 → 该会话为 owner；
+ * - 别人的会话（不在 openTabs、也不属于其子任务）→ ok=false。
+ * 返回 ownerSessionID，供权限弹窗显示父会话名称。
+ * @param {string} sessionID 待判断的会话 ID
+ * @returns {Promise<{ok: boolean, ownerSessionID: string}>}
+ */
+export async function resolveOpenOwner(sessionID) {
+    if (!sessionID) return { ok: false, ownerSessionID: '' };
+    if (isOpenSession(sessionID)) return { ok: true, ownerSessionID: sessionID };
+
+    const refKey = openTabsKey();
+    if (refKey !== descendantCacheKey) {
+        descendantCache.clear();
+        descendantCacheKey = refKey;
+    }
+    const cacheKey = sessionID + '|' + refKey;
+    if (descendantCache.has(cacheKey)) return descendantCache.get(cacheKey);
+
+    const openIds = openTabIdSet();
     let sid = sessionID;
     let depth = 0;
     // 防御：链深上限，防止异常数据导致死循环
     while (sid && depth < 10) {
-        if (sid === refSession) {
-            descendantCache.set(sessionID, { ok: true, refSession });
-            return true;
-        }
-        // 中间节点命中缓存则直接复用结论（同样校验 refSession）
-        const mid = descendantCache.get(sid);
-        if (mid && mid.refSession === refSession) {
-            descendantCache.set(sessionID, { ok: mid.ok, refSession });
-            return mid.ok;
+        if (openIds.has(sid)) {
+            const result = { ok: true, ownerSessionID: sid };
+            descendantCache.set(cacheKey, result);
+            return result;
         }
         try {
             const res = await api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(sid)}`);
             const info = unwrap(res);
             const parent = info && info.parentID;
-            if (!parent) break; // 无父级 → 已到链头，非当前会话后代
+            if (!parent) break; // 无父级 → 已到链头
             sid = parent;
         } catch {
-            break; // 查询失败（会话已删等）→ 视为非当前会话后代
+            break; // 查询失败（会话已删等）→ 视为不属于本客户端
         }
         depth++;
     }
-    descendantCache.set(sessionID, { ok: false, refSession });
-    return false;
+    const result = { ok: false, ownerSessionID: '' };
+    descendantCache.set(cacheKey, result);
+    return result;
+}
+
+/**
+ * 判断 sessionID 是否属于本客户端打开的会话或其子任务子会话。
+ * @param {string} sessionID 待判断的会话 ID
+ * @returns {Promise<boolean>}
+ */
+export async function isOpenOrSubtask(sessionID) {
+    return (await resolveOpenOwner(sessionID)).ok;
 }
 
 // 权限类型 → 中文描述（参考图「访问项目目录之外的文件」风格）
@@ -102,18 +134,27 @@ export async function showPermissionRequest(props) {
     const id = props.id || props.requestID || props.permissionID;
     const sessionID = props.sessionID || props.sessionId || store.currentSessionId;
     if (!id) return;
-    // 非当前会话的请求：回溯 parentID 链，仅当属于当前会话的子任务时继续
+    // 只处理本客户端打开标签（含后台标签）及其子任务的请求；
+    // 其他客户端/用户打开的会话权限请求不弹窗。
     let isSubtask = false;
-    if (sessionID && sessionID !== store.currentSessionId) {
-        const isDescendant = await isDescendantOfCurrent(sessionID);
-        if (!isDescendant) return;
+    let ownerSessionID = sessionID;
+    if (!isOpenSession(sessionID)) {
+        // 子任务：回溯 parentID，找到本客户端打开的父会话
+        const owner = await resolveOpenOwner(sessionID);
+        if (!owner.ok) return;
+        ownerSessionID = owner.ownerSessionID;
         isSubtask = true;
     }
     const action = props.action || props.permission || props.type || 'tool';
     const resources = props.resources || props.patterns || [];
+    // 标题显示真正所属的会话名称：普通会话是自己，子任务是父会话。
+    const sessionTitle =
+        (store.sessionMap && store.sessionMap[ownerSessionID] && store.sessionMap[ownerSessionID].title) ||
+        (store.openTabs || []).find(function (tab) { return tab.sessionID === ownerSessionID; })?.title ||
+        '';
     // 已在队列中（重复事件）则忽略
     if (pendingQueue.some(r => r.id === id)) return;
-    pendingQueue.push({ id, sessionID, isSubtask, action, resources });
+    pendingQueue.push({ id, sessionID, isSubtask, action, resources, sessionTitle });
 
     const modal = document.getElementById('permissionModal');
     if (!modal) {
@@ -136,6 +177,15 @@ function showNextPermission() {
     const modal = document.getElementById('permissionModal');
     if (!modal) return;
     const actionLabel = ACTION_LABEL[req.action] || req.action;
+    // 标题：普通会话显示「需要权限（会话名）」；子任务保持原样，
+    // 具体归属由下方「子任务权限: 动作」表达。
+    const titleText = document.getElementById('permissionTitleText');
+    if (titleText) {
+        // 子任务也显示父会话名称，避免多个会话同时运行时不知道是谁在请求权限。
+        titleText.textContent = req.sessionTitle
+            ? '需要权限（' + req.sessionTitle + '）'
+            : '需要权限';
+    }
     document.getElementById('permissionInfo').textContent = req.isSubtask
         ? '子任务权限: ' + actionLabel
         : actionLabel;

@@ -240,6 +240,12 @@ export function closeSessionTab(sessionID) {
     delete store.tabStickBottom[sessionID];
     delete store.tabExpandedParts[sessionID];
 
+    // 通知 session.js 释放运行态：递增加载序号、清理在途锁与分页状态。
+    // 用事件而不是静态 import，避免 tabs↔session 循环依赖。
+    try {
+        document.dispatchEvent(new CustomEvent('oc-tab-closed', { detail: { sessionID: sessionID } }));
+    } catch (_) {}
+
     if (store.activeTabId === sessionID) {
         var next = store.openTabs[store.openTabs.length - 1];
         store.activeTabId = '';
