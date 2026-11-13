@@ -4,6 +4,7 @@ import (
 	"embed"
 	"net/http"
 	"strings"
+	"time"
 
 	"oc-manager/internal/logger"
 	"oc-manager/internal/portable"
@@ -108,6 +109,29 @@ func main() {
 	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(event *application.WindowEvent) {
 		adaptWindowToScreen(window, 0.80, 0.85, 960, 560, 1600, 1000)
 		myApp.emitAppReady()
+	})
+
+	// IME 候选窗锚定修复（Wails #6595 的临时规避）。
+	// 现象：从其他程序切回窗口后，下一次中文输入法组合的候选窗出现在屏幕左上角
+	// 而不是光标处，必须点一下界面再点输入框才恢复。
+	// 根因：Wails 在 WM_ACTIVATE / WM_SETFOCUS 处理里同步调用 MoveFocus(PROGRAMMATIC)，
+	// 而 Windows 此时仍在窗口激活过程中，导致 WebView2 的 TSF/IME 输入状态损坏。
+	// 这里在窗口重新获得焦点、激活序列结束后再聚焦一次 WebView，给输入法一次
+	// 重建上输入下文的机会。延迟期间用 IsFocused 再确认，避免用户已切走时把窗口抢回前台。
+	windowFocusLost := false
+	window.OnWindowEvent(events.Common.WindowLostFocus, func(event *application.WindowEvent) {
+		windowFocusLost = true
+	})
+	window.OnWindowEvent(events.Common.WindowFocus, func(event *application.WindowEvent) {
+		if !windowFocusLost {
+			return // 首次获得焦点（启动/首次显示）不需要额外处理
+		}
+		windowFocusLost = false
+		time.AfterFunc(120*time.Millisecond, func() {
+			if window != nil && window.IsFocused() {
+				window.Focus()
+			}
+		})
 	})
 
 	if err := app.Run(); err != nil {
