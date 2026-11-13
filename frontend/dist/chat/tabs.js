@@ -3,7 +3,7 @@
 // 依赖：core/state.js（openTabs, activeTabId, tabCacheVersion 等）、core/utils.js（escapeHtml, getTabMessagesEl, ensureTabMessagesEl）、
 //       chat/mobile.js（isMobileTreeMode）、chat/render.js（updateScrollBottomButton, updateSendButton）、
 //       chat/events.js（loadSessionStatuses）、chat/sidepanel.js（refreshSubtaskPanel）、
-//       chat/search.js（resetUserNav, updateUserNav）、chat/btw.js（syncBtwToSession）
+//       chat/search.js（syncUserNavToScroll）、chat/btw.js（syncBtwToSession）
 //       filebrowser/browser.js（openFileBrowserStandaloneFor）——保留全局守卫调用
 // 解环说明：本文件不得 import chat/session.js。原 activateTabContainer 中 loadMessages() 调用
 //           改为回调注入 tabActivationHandler，由 session.js 在模块加载时通过 setTabActivationHandler 注入。
@@ -15,7 +15,7 @@ import { isMobileTreeMode } from './mobile.js';
 import { updateScrollBottomButton, updateSendButton } from './render.js';
 import { refreshSessionStatusFromActive } from './events.js';
 import { refreshSubtaskPanel } from './sidepanel.js';
-import { resetUserNav, updateUserNav } from './search.js';
+import { syncUserNavToScroll } from './search.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { updateTreeActiveSession } from '../core/utils.js';
 import { syncBtwToSession } from './btw.js';
@@ -203,8 +203,9 @@ export function switchTab(sessionID) {
     // 恢复该 tab 的展开状态，刷新侧栏与状态
     store.expandedParts = store.tabExpandedParts[sessionID] || {};
     // 重置用户导航状态：userNavIndex 是全局单例，切 tab 后必须重新定位到新会话
-    resetUserNav();
-    updateUserNav();
+    // 用户导航索引是全局单例：切 tab 后按当前实际滚动位置重新计算，
+    // 不能 reset 成 -1（updateUserNav 会把 -1 自动当成最后一条，显示 5/5）。
+    syncUserNavToScroll();
     if (!isMobileTreeMode()) {
         // 子任务面板数据源为服务端 child sessions：切换 tab 后立即重拉一次
         refreshSubtaskPanel();

@@ -270,57 +270,67 @@ export function initUserNav() {
 }
 
 /**
+ * 立即按当前视口位置同步用户导航索引。
+ * 切换会话后调用：不能 reset 成 -1（updateUserNav 会把 -1 自动当成最后一条，
+ * 显示 5/5），必须按实际滚动位置计算当前是第几条用户消息。
+ */
+export function syncUserNavToScroll() {
+    var container = getActiveMessagesEl();
+    if (!container) {
+        updateUserNav();
+        return;
+    }
+
+    var msgs = collectUserMessages();
+    if (!msgs.length) {
+        updateUserNav();
+        return;
+    }
+
+    // 可视区域顶部与底部（相对于容器的 scrollTop）
+    var viewTop = container.scrollTop;
+    var viewBottom = viewTop + container.clientHeight;
+
+    var closestIndex = -1;
+    var closestDistance = Infinity;
+
+    for (var i = 0; i < msgs.length; i++) {
+        var msgTop = msgs[i].offsetTop;
+        var msgBottom = msgTop + msgs[i].offsetHeight;
+
+        // 优先选择在可视区域内且最接近顶部的消息
+        if (msgBottom > viewTop && msgTop < viewBottom) {
+            var dist = Math.abs(msgTop - viewTop);
+            if (dist < closestDistance) {
+                closestDistance = dist;
+                closestIndex = i;
+            }
+        }
+    }
+
+    // 如果可视区域内没有用户消息，找距离可视区域最近的那条
+    if (closestIndex < 0) {
+        for (var j = 0; j < msgs.length; j++) {
+            var msgTop2 = msgs[j].offsetTop;
+            var dist2 = Math.abs(msgTop2 - viewTop);
+            if (dist2 < closestDistance) {
+                closestDistance = dist2;
+                closestIndex = j;
+            }
+        }
+    }
+
+    if (closestIndex >= 0) userNavIndex = closestIndex;
+    updateUserNav();
+}
+
+/**
  * 用户滚动时自动更新导航位置
- * 100ms 防抖，检测当前可视区域内最接近顶部的用户消息
+ * 100ms 防抖后按当前视口同步索引
  */
 export function onUserNavScroll() {
     if (userNavScrollTimer) clearTimeout(userNavScrollTimer);
-    userNavScrollTimer = setTimeout(function() {
-        var container = getActiveMessagesEl();
-        if (!container) return;
-
-        var msgs = collectUserMessages();
-        if (msgs.length <= 1) return;
-
-        // 可视区域顶部（相对于容器的 scrollTop）
-        var viewTop = container.scrollTop;
-        // 可视区域底部
-        var viewBottom = viewTop + container.clientHeight;
-
-        var closestIndex = -1;
-        var closestDistance = Infinity;
-
-        for (var i = 0; i < msgs.length; i++) {
-            var msgTop = msgs[i].offsetTop;
-            var msgBottom = msgTop + msgs[i].offsetHeight;
-
-            // 优先选择在可视区域内且最接近顶部的消息
-            if (msgBottom > viewTop && msgTop < viewBottom) {
-                var dist = Math.abs(msgTop - viewTop);
-                if (dist < closestDistance) {
-                    closestDistance = dist;
-                    closestIndex = i;
-                }
-            }
-        }
-
-        // 如果可视区域内没有用户消息，找距离可视区域最近的那条
-        if (closestIndex < 0) {
-            for (var j = 0; j < msgs.length; j++) {
-                var msgTop2 = msgs[j].offsetTop;
-                var dist2 = Math.abs(msgTop2 - viewTop);
-                if (dist2 < closestDistance) {
-                    closestDistance = dist2;
-                    closestIndex = j;
-                }
-            }
-        }
-
-        if (closestIndex >= 0 && closestIndex !== userNavIndex) {
-            userNavIndex = closestIndex;
-            updateUserNav();
-        }
-    }, 100);
+    userNavScrollTimer = setTimeout(syncUserNavToScroll, 100);
 }
 
 /**
