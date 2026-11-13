@@ -93,8 +93,14 @@ func main() {
 	// 可改为 "Ctrl+Shift+X"（此处按需求保留 Shift+X）。
 	if err := app.GlobalShortcut.Register("Shift+X", func() {
 		if window.IsVisible() {
+			// 先隐藏文件浏览器的独立窗口，再隐藏主窗口。
+			// 它们是独立原生窗口，不在主窗口的父子关系里，不处理会留在屏幕上。
+			myApp.HideFileBrowserWindows()
 			window.Hide()
 		} else {
+			// 先恢复文件浏览器窗口，最后再显示并激活主窗口：
+			// 子窗口 Show 会临时成为前台窗口，必须让主窗口成为最终激活的那个。
+			myApp.ShowFileBrowserWindows()
 			window.Show()
 			window.Focus()
 		}
