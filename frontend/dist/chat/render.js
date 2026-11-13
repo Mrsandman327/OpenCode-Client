@@ -21,7 +21,7 @@ import { formatToolDuration, formatCompactNumber, formatDateTime } from '../core
 // Code Mode 目录），只在渲染层跳过（数据仍保留在缓存），判定依据见 v2compat.js 的函数注释。
 import { isInternalInstructionMessage } from '../core/v2compat.js';
 import { api } from '../core/apicall.js';
-import { updateUserNav, syncSearchAfterRender, notifyToolBodyToggled, isSearchScrollLocked } from './search.js';
+import { updateUserNav, syncSearchAfterRender, notifyToolBodyToggled, isSearchScrollLocked, isSearchActive } from './search.js';
 
 // ============================
 // sidepanel 回调注册（打破 render↔sidepanel 循环依赖）
@@ -398,8 +398,10 @@ function tryAppendNewMessages(box, list, scrollAnchor, followBottom) {
     if (errorRow) appendedNodes.push(errorRow);
     // 旧 DOM 没有变化，新消息只追加在末尾，不需要重写 scrollTop：
     // 重写会打断搜索/用户平滑滚动，并可能让滚动监听把瞬时位置误判为“到顶”
-    // 而触发 loadOlderMessages。只有原本贴底时才跟随到底。
-    if (followBottom) restoreScrollAnchor(box, scrollAnchor, true);
+    // 而触发 loadOlderMessages。只有原本贴底且不在搜索导航保护期时才跟随到底。
+    if (followBottom && !isSearchScrollLocked((box.dataset && box.dataset.tab) || '')) {
+        restoreScrollAnchor(box, scrollAnchor, true);
+    }
     updateScrollBottomButton();
     // 增量追加保留旧消息 DOM 与旧高亮，只给新增节点补高亮；items 供工具卡数据索引使用
     syncSearchAfterRender({ kind: 'appendMessages', box, nodes: appendedNodes, items: list.slice(count) });
@@ -744,7 +746,10 @@ export function updateScrollBottomButton() {
     // 按钮只有一个，但「是否跟随底部」必须按会话独立记录：
     // 否则当前会话上翻会让其他会话也停止跟随。
     const sid = (box.dataset && box.dataset.tab) || store.currentSessionId || '';
-    if (sid) store.tabStickBottom[sid] = nearBottom;
+    // 搜索期间保持搜索结果导航设置的贴底状态：
+    // 结果在会话底部附近时，这里会把 tabStickBottom 误判回 true，
+    // 后续流式追加按贴底滚到底，命中文字被移出视口。
+    if (sid && !isSearchActive()) store.tabStickBottom[sid] = nearBottom;
     btn.classList.toggle('visible', canScroll && !nearBottom);
 }
 

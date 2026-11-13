@@ -567,6 +567,13 @@ export function notifyToolBodyToggled(partId) {
     });
 }
 
+/** 判断当前是否有活动搜索（搜索栏有关键词）。
+ *  搜索期间渲染层不应把会话重新判定为「贴底」：
+ *  搜索结果可能在会话底部附近，一旦被判定贴底，流式追加会把视口拉到底，命中文字移出视口。 */
+export function isSearchActive() {
+    return !!searchState.query;
+}
+
 /** 判断是否应禁止滚动分页（供分页监听避免误判「用户上滑到顶」） */
 export function isSearchNavActive(sessionID) {
     // 搜索期间一律禁用滚动分页：
