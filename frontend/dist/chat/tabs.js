@@ -15,7 +15,7 @@ import { isMobileTreeMode } from './mobile.js';
 import { updateScrollBottomButton, updateSendButton } from './render.js';
 import { refreshSessionStatusFromActive } from './events.js';
 import { refreshSubtaskPanel } from './sidepanel.js';
-import { syncUserNavToScroll } from './search.js';
+import { syncUserNavToScroll, restartSearchForActiveSession } from './search.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { updateTreeActiveSession } from '../core/utils.js';
 import { syncBtwToSession } from './btw.js';
@@ -215,6 +215,10 @@ export function switchTab(sessionID) {
     // setSessionStatus 会遵守本地发送/停止的保护窗口。
     refreshSessionStatusFromActive(sessionID);
     updateScrollBottomButton();
+
+    // 搜索栏打开时，把搜索重新绑定到当前会话：
+    // 旧 searchResults 属于上一个会话容器，继续导航会按旧坐标滚动新容器。
+    restartSearchForActiveSession();
 
     // 通知会话模块：切回后若标题仍是占位值需重启标题轮询。
     // 用事件而不是直接 import，避免 tabs↔session 循环依赖。

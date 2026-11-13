@@ -21,7 +21,7 @@ import { formatToolDuration, formatCompactNumber, formatDateTime } from '../core
 // Code Mode 目录），只在渲染层跳过（数据仍保留在缓存），判定依据见 v2compat.js 的函数注释。
 import { isInternalInstructionMessage } from '../core/v2compat.js';
 import { api } from '../core/apicall.js';
-import { updateUserNav } from './search.js';
+import { updateUserNav, syncSearchAfterRender } from './search.js';
 
 // ============================
 // sidepanel 回调注册（打破 render↔sidepanel 循环依赖）
@@ -165,6 +165,38 @@ function buildSyntheticNoticeCard(info, partList) {
     return wrapper;
 }
 
+/** 文本哈希：用于消息渲染签名，只需稳定区分内容变化，不做安全用途。 */
+function hashRenderText(text) {
+    const value = String(text || '');
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+        hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+    }
+    return (hash >>> 0).toString(36);
+}
+
+/** 消息渲染签名：id、角色、parts 的 id/type/文本长度与哈希、工具状态。
+ *  不包含运行时长/展开状态等会频繁变化的字段，避免正常追加被误判为内容变化。
+ *  增量追加前用它校验旧 DOM 是否与缓存中的消息一致。 */
+function messageRenderSignature(item) {
+    const info = item?.info || item || {};
+    const parts = Array.isArray(item?.parts) ? item.parts : [];
+    let sig = String(info.id || '') + '|' + String(info.role || info.author || '') + '|' + parts.length;
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i] || {};
+        const text = String(part.text ?? part.content ?? '');
+        sig += '|' + String(part.id || '') + ':' + String(part.type || '') + ':' + text.length + ':' + hashRenderText(text);
+        if (part.state) {
+            sig += ':' + String(part.state.status || '') + ':' + (typeof part.state.output === 'string' ? part.state.output.length : 0);
+        }
+    }
+    if (info.error) {
+        sig += '|err:' + String(typeof info.error === 'string' ? info.error : (info.error.message || ''));
+    }
+    if (info.syntheticNotice) sig += '|synthetic';
+    return sig;
+}
+
 /** 构建单条消息节点（user/assistant 卡片），供 renderMessages 与分帧渲染复用 */
 export function buildMessageNode(item, sessionID) {
     const info = item.info || item;
@@ -178,6 +210,8 @@ export function buildMessageNode(item, sessionID) {
     const node = document.createElement('div');
     node.className = `oc-message ${role}`;
     if (info.id) node.dataset.messageId = info.id;
+    // 供增量追加校验：旧 DOM 与新缓存条目的签名不一致时回退全量重建。
+    node.dataset.renderSignature = messageRenderSignature(item);
     node.innerHTML = `<div class="oc-message-role">${escapeHtml(displayRole)}</div>`;
     const body = document.createElement('div');
     body.className = 'oc-message-parts';
@@ -298,6 +332,82 @@ export function buildMessageNode(item, sessionID) {
     return node;
 }
 
+/**
+ * 尝试只追加末尾新增消息。
+ *
+ * 保证不丢消息的规则：
+ *   - 旧 DOM 必须全部是带 messageId 的消息节点（末尾最多允许一个错误行）；
+ *   - 旧 DOM 的 id 序列必须等于新列表前 N 条；
+ *   - 旧 DOM 的渲染签名必须与对应条目一致（防止同 id 内容被替换）；
+ *   - 只有新列表比旧 DOM 多出末尾条目时才追加。
+ * 任一条件不满足就返回 false，交给原全量重建。
+ *
+ * @returns {boolean} 是否已成功增量追加
+ */
+function tryAppendNewMessages(box, list, scrollAnchor, followBottom) {
+    if (!box || !list || !list.length) return false;
+
+    const rendered = [];
+    const children = Array.from(box.children);
+    for (let i = 0; i < children.length; i++) {
+        const el = children[i];
+        if (el.classList.contains('oc-message') && el.dataset.messageId) {
+            rendered.push(el);
+            continue;
+        }
+        // 只允许末尾存在无 id 的执行失败错误行；空态/其他节点一律回退全量。
+        if (i === children.length - 1 && el.classList.contains('oc-message') &&
+            !el.dataset.messageId && el.querySelector('.error-msg')) {
+            continue;
+        }
+        return false;
+    }
+
+    const count = rendered.length;
+    if (!count || list.length <= count) return false;
+
+    for (let i = 0; i < count; i++) {
+        const item = list[i];
+        const id = String(item?.info?.id || item?.id || '');
+        const el = rendered[i];
+        if (!id || el.dataset.messageId !== id) return false;
+        if (el.dataset.renderSignature !== messageRenderSignature(item)) return false;
+    }
+
+    // 先移除末尾错误行，避免新消息追加到错误行后面。
+    let last = box.lastElementChild;
+    while (last && last.classList.contains('oc-message') && !last.dataset.messageId &&
+           last.querySelector('.error-msg')) {
+        last.remove();
+        last = box.lastElementChild;
+    }
+
+    // 只构建新增的末尾消息，旧消息 DOM 原样保留。
+    const frag = document.createDocumentFragment();
+    const appendedNodes = [];
+    for (let i = count; i < list.length; i++) {
+        const node = buildMessageNode(list[i]);
+        appendedNodes.push(node);
+        frag.appendChild(node);
+    }
+    box.appendChild(frag);
+
+    // 与全量重建保持同一组收尾副作用。
+    doUpdateModelInfo(list);
+    const errorRow = appendSessionErrorRowIfNeeded(box, list);
+    if (errorRow) appendedNodes.push(errorRow);
+    // 旧 DOM 没有变化，新消息只追加在末尾，不需要重写 scrollTop：
+    // 重写会打断搜索/用户平滑滚动，并可能让滚动监听把瞬时位置误判为“到顶”
+    // 而触发 loadOlderMessages。只有原本贴底时才跟随到底。
+    if (followBottom) restoreScrollAnchor(box, scrollAnchor, true);
+    updateScrollBottomButton();
+    // 增量追加保留旧消息 DOM 与旧高亮，只给新增节点补高亮
+    syncSearchAfterRender({ kind: 'appendMessages', box, nodes: appendedNodes });
+    if (renderTodosHandler) renderTodosHandler();
+    updateUserNav();
+    return true;
+}
+
 /** 渲染完整消息列表（支持增量更新、滚动保持、移动端截断）
  *  @param {Array} items 消息数组
  *  @param {HTMLElement} [targetBox] 目标容器；不传则用当前活动 tab 容器
@@ -333,6 +443,8 @@ export function renderMessages(items, targetBox) {
         store.lastSourceMessageCount = 0;
         doUpdateModelInfo(null);
         updateScrollBottomButton();
+        // 空列表同样同步搜索：清空容器后旧高亮已不存在，计数要归零/显示无匹配
+        syncSearchAfterRender({ kind: 'full', box });
         return;
     }
 
@@ -375,11 +487,16 @@ export function renderMessages(items, targetBox) {
                     doUpdateModelInfo(list);
                     restoreScrollAnchor(box, scrollAnchor, followBottom);
                     updateScrollBottomButton();
+                    // 末条消息被重建/追加片段：只重扫该消息，其他消息高亮不受影响
+                    syncSearchAfterRender({ kind: 'message', box, messageEl: lastMsg, messageId: lastId });
                     return;
                 }
             }
         }
     }
+
+    // 末尾纯追加：旧消息完全未变时只构建新消息；任何不确定都回退全量重建。
+    if (tryAppendNewMessages(box, list, scrollAnchor, followBottom)) return;
 
     // 全量重建：先构建到 DocumentFragment，再一次性替换。
     // 消息结构、顺序、Markdown 渲染结果均不变。
@@ -394,6 +511,8 @@ export function renderMessages(items, targetBox) {
     doUpdateModelInfo(items);
     restoreScrollAnchor(box, scrollAnchor, followBottom);
     updateScrollBottomButton();
+    // 全量重建后旧高亮节点已全部销毁：按纯数据描述重扫整个容器，恢复高亮与 active
+    syncSearchAfterRender({ kind: 'full', box });
     if (renderTodosHandler) renderTodosHandler();
     updateUserNav();
 
@@ -410,10 +529,10 @@ export function renderMessages(items, targetBox) {
  */
 function appendSessionErrorRowIfNeeded(box, list) {
     const sid = (box && box.dataset && box.dataset.tab) || store.currentSessionId;
-    if (!sid || !hasSessionError(sid)) return;
+    if (!sid || !hasSessionError(sid)) return null;
     const last = list && list.length ? list[list.length - 1] : null;
     const lastRole = last ? ((last.info || last).role || '') : '';
-    if (lastRole === 'assistant') return;
+    if (lastRole === 'assistant') return null;
     const node = document.createElement('div');
     node.className = 'oc-message assistant';
     const body = document.createElement('div');
@@ -424,6 +543,7 @@ function appendSessionErrorRowIfNeeded(box, list) {
     body.appendChild(errEl);
     node.appendChild(body);
     box.appendChild(node);
+    return node;
 }
 
 

@@ -27,7 +27,7 @@ import { smartScroll, updateSendButton, setSessionStatus, renderMessages, ensure
 import { isKnownCommand, isKnownSkill, isFixedCommand, executeFixedCmd } from './cmd-palette.js';
 import { parseBtwCommand } from '../core/btw.js';
 import { syncBtwToSession } from './btw.js';
-import { resetUserNav, updateUserNav, shiftUserNavIndex } from './search.js';
+import { resetUserNav, updateUserNav, shiftUserNavIndex, isSearchNavActive } from './search.js';
 import { cacheMessages, ensurePendingAssistant, renderPendingAssistantPlaceholder, renderCachedMessages, cacheLocalUserMessage, removeLocalUserMessage, removePendingAssistant, prependMessages } from './cache.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 // 知识库 @ 引用：collectKnowledgeRefs 取引用全文注入发送 parts，clearKnowledgeRefs 在发送成功后清空引用区。
@@ -1604,7 +1604,9 @@ export function bindMessagePagingEvents() {
                 // 内容不满一屏时 scrollTop 恒为 0，这是布局结果而非「用户上滑」，
                 // 不能据此触发分页（新建会话只发一两条消息时最典型）。
                 if (box.scrollHeight - box.clientHeight <= 8) return;
-                if (box.scrollTop <= 5) {
+                // 搜索导航的平滑滚动会经过接近顶部的位置，这不是用户上滑：
+                // 保护期内不触发分页，避免误加载 200 条历史并清掉搜索高亮。
+                if (box.scrollTop <= 5 && !isSearchNavActive(sid)) {
                     loadOlderMessages(sid);
                 }
             }, 250);
