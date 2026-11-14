@@ -15,7 +15,7 @@
 
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
-import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, resolveKnownValue, markManualSelection, restoreSessionSelection, hasManualSessionSelection, setSessionActionHandlers, syncVariantSelect, variantValuesForModel, variantLabel } from '../core/utils.js';
+import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMessagesEl, getCachedMessages, updateTreeActiveSession, isKnownAgentName, isKnownModelId, resolveKnownValue, markManualSelection, restoreSessionSelection, hasManualSessionSelection, setSessionActionHandlers, syncVariantSelect, variantValuesForModel, variantLabel, refreshTodoPanel } from '../core/utils.js';
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { refreshSubtaskPanel, scheduleSubtaskExtraction } from './sidepanel.js';
@@ -1585,6 +1585,38 @@ document.addEventListener('oc-tab-closed', function(e) {
     const sid = e && e.detail && e.detail.sessionID;
     if (sid) releaseSessionRuntime(sid);
 });
+
+/** 所有标签关闭后清空右侧状态区，避免残留最后一个会话的数据。
+ *
+ *  由 tabs.js 在 currentSessionId 置空之后派发 oc-tabs-empty 触发。
+ *  各面板在「无当前会话」时都会自行渲染空状态，这里只负责触发。 */
+export function resetSessionViewState() {
+    // 目录栏
+    const dirEl = document.getElementById('ocSideDirPath');
+    const dirBar = document.getElementById('ocDirBar');
+    if (dirEl) {
+        dirEl.textContent = '--';
+        dirEl.title = '';
+    }
+    if (dirBar) dirBar.onclick = null;
+
+    // 发送按钮回到「发送」
+    updateSendButton();
+
+    // 定时任务 / 子任务 / 待办
+    refreshSchedulePanel();
+    refreshSubtaskPanel();
+    refreshTodoPanel();
+
+    // 用户消息导航与树高亮
+    resetUserNav();
+    updateTreeActiveSession();
+
+    // 侧问面板跟随清空
+    syncBtwToSession('');
+}
+
+document.addEventListener('oc-tabs-empty', resetSessionViewState);
 
 // ============================================================
 // 分页事件绑定：消息容器滚动到顶加载更早；用户定位到边界触发
