@@ -2880,8 +2880,9 @@ input::placeholder, textarea::placeholder {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* 数据索引命中的折叠工具卡：正文不在 DOM，用整卡描边提示 */
-.oc-tool.oc-search-data-active {
+/* 数据索引命中的折叠卡片：正文不在 DOM，用整卡描边提示 */
+.oc-tool.oc-search-data-active,
+.oc-reasoning.oc-search-data-active {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
 }

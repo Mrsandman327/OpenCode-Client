@@ -174,18 +174,18 @@ function scanScope(root, query) {
     return out;
 }
 
-/** 在 root 内按 part id 查找工具卡节点 */
-function findToolElement(root, partId) {
+/** 在 root 内按 part id 查找可折叠卡片节点（工具卡或思考过程） */
+function findCollapsiblePartElement(root, partId) {
     if (!root || !root.querySelector || !partId) return null;
-    return root.querySelector('.oc-tool[data-part-id="' + CSS.escape(partId) + '"]');
+    return root.querySelector('.oc-part[data-part-id="' + CSS.escape(partId) + '"]');
 }
 
 /**
- * 折叠工具卡的数据索引。
+ * 折叠卡片的数据索引：工具卡读 state.input/output/error，思考过程读 part.text。
  *
- * 折叠状态为了控制 DOM 总量不构建完整输入/输出正文，因此搜索结果不能只依赖 DOM。
- * 这里直接读 part.state 的 input/output/error：每个命中字段产生一个结果，
- * 定位到该工具卡节点；卡片展开后正文进入 DOM，由 scanScope 负责精确高亮。
+ * 折叠状态为了控制 DOM 总量不构建正文，因此搜索结果不能只依赖 DOM。
+ * 每个命中字段产生一个结果，定位到该卡片节点；卡片展开后正文进入 DOM，
+ * 由 scanScope 负责精确高亮。
  *
  * @param {HTMLElement} root 搜索作用域（整个消息容器或单条消息）
  * @param {Array} items 与作用域对应的消息数据
@@ -195,11 +195,11 @@ function scanCollapsedToolData(root, items, query) {
     var out = [];
     if (!root || !items || !items.length || !query) return out;
     var lower = query.toLowerCase();
-    // 先一次性收集工具卡节点，避免每个 part 都全量 querySelector
-    var toolMap = Object.create(null);
-    var toolEls = root.querySelectorAll('.oc-tool[data-part-id]');
-    for (var t = 0; t < toolEls.length; t++) {
-        toolMap[toolEls[t].dataset.partId] = toolEls[t];
+    // 先一次性收集可折叠卡片节点，避免每个 part 都全量 querySelector
+    var partMap = Object.create(null);
+    var partEls = root.querySelectorAll('.oc-tool[data-part-id], .oc-reasoning[data-part-id]');
+    for (var t = 0; t < partEls.length; t++) {
+        partMap[partEls[t].dataset.partId] = partEls[t];
     }
     for (var i = 0; i < items.length; i++) {
         var item = items[i] || {};
@@ -208,14 +208,30 @@ function scanCollapsedToolData(root, items, query) {
         var parts = Array.isArray(item.parts) ? item.parts : [];
         for (var p = 0; p < parts.length; p++) {
             var part = parts[p];
-            if (!part || part.type !== 'tool') continue;
+            if (!part) continue;
+            var partType = part.type;
+            if (partType !== 'tool' && partType !== 'reasoning') continue;
             var partId = String(part.id || '');
             if (!partId) continue;
-            var toolEl = toolMap[partId] || null;
-            if (!toolEl) continue;
+            var partEl = partMap[partId] || null;
+            if (!partEl) continue;
             // 已展开且构建了正文的卡片由 DOM 扫描负责，避免重复计数
-            var body = toolEl.querySelector('.oc-tool-body');
+            var body = partEl.querySelector('.oc-tool-body, .oc-reasoning-body');
             if (body && body.dataset.toolBodyBuilt === 'true' && !body.classList.contains('hidden')) continue;
+            if (partType === 'reasoning') {
+                var rtext = safeText(part.text);
+                if (rtext && rtext.toLowerCase().indexOf(lower) >= 0) {
+                    out.push({
+                        key: 'p:' + partId + ':data:text',
+                        mark: null,
+                        anchor: partEl,
+                        source: 'data',
+                        messageId: messageId,
+                        field: 'text',
+                    });
+                }
+                continue;
+            }
             var state = part.state || {};
             var fields = [['input', state.input], ['output', state.output], ['error', state.error]];
             for (var f = 0; f < fields.length; f++) {
@@ -225,7 +241,7 @@ function scanCollapsedToolData(root, items, query) {
                 out.push({
                     key: 'p:' + partId + ':data:' + fields[f][0],
                     mark: null,
-                    anchor: toolEl,
+                    anchor: partEl,
                     source: 'data',
                     messageId: messageId,
                     // 记录命中的字段：展开后据此定位到输入/输出/错误对应的正文区域
@@ -281,7 +297,7 @@ function collapseTempExpandedTools(keepPartId) {
         var partId = ids[i];
         if (keepPartId && partId === keepPartId) continue;
         delete searchState.tempExpandedTools[partId];
-        var el = box ? findToolElement(box, partId) : null;
+        var el = box ? findCollapsiblePartElement(box, partId) : null;
         if (el && typeof el.__ocSetExpanded === 'function') {
             el.__ocSetExpanded(false);
         }
@@ -317,12 +333,13 @@ function activateResult(index, container, scroll) {
     if (index >= total) index = total - 1;
 
     var item = searchResults[index];
-    // 数据结果（折叠工具卡）没有 mark：搜索命中在尚未构建的正文里，
+    // 数据结果（折叠卡片）没有 mark：搜索命中在尚未构建的正文里，
     // 只高亮整卡用户看不到具体位置。先展开该卡让正文进入 DOM，
     // notifyToolBodyToggled 会重算结果；再把 active 定位到正文里的第一个匹配。
     if (!item.mark && item.anchor) {
-        var body = item.anchor.querySelector('.oc-tool-body');
-        var head = item.anchor.querySelector('.oc-tool-head');
+        // 工具卡与思考过程的正文/标题类名不同，这里统一匹配两种
+        var body = item.anchor.querySelector('.oc-tool-body, .oc-reasoning-body');
+        var head = item.anchor.querySelector('.oc-tool-head, .oc-reasoning-head');
         if (body && head && body.dataset.toolBodyBuilt !== 'true') {
             var partId = item.anchor.dataset.partId || '';
             // 记录为搜索临时展开：导航离开或关闭搜索时折叠回原状
@@ -336,7 +353,8 @@ function activateResult(index, container, scroll) {
             // 按命中字段定位到对应正文区域，避免总是跳到卡片里的第一个匹配
             var fieldSelector = item.field === 'input' ? '.oc-tool-input'
                 : (item.field === 'output' ? '.oc-tool-output'
-                    : (item.field === 'error' ? '.oc-tool-error' : ''));
+                    : (item.field === 'error' ? '.oc-tool-error'
+                        : (item.field === 'text' ? '.oc-reasoning-body' : '')));
             var fieldEl = fieldSelector ? item.anchor.querySelector(fieldSelector) : null;
             var firstMark = (fieldEl && fieldEl.querySelector('.oc-search-highlight'))
                 || item.anchor.querySelector('.oc-search-highlight');
@@ -544,7 +562,7 @@ export function notifyToolBodyToggled(partId) {
     if (!searchState.query || !partId) return;
     var box = getActiveMessagesEl();
     if (!box) return;
-    var toolEl = findToolElement(box, partId);
+    var toolEl = findCollapsiblePartElement(box, partId);
     if (!toolEl) return;
     var msgEl = toolEl.closest('.oc-message');
     if (!msgEl) return;
@@ -597,6 +615,14 @@ export function isSearchScrollLocked(sessionID) {
     return sessionID === searchState.sessionID;
 }
 
+/** 关闭标签：清理属于该会话的搜索结果，避免 searchResults 继续持有已移除容器的 DOM。 */
+document.addEventListener('oc-tab-closed', function (e) {
+    var sid = e && e.detail && e.detail.sessionID;
+    if (!sid || !searchState.sessionID || searchState.sessionID !== sid) return;
+    // 容器已被 tabs.js 移除，closeSearch 会清空 mark 引用与临时展开状态
+    closeSearch();
+});
+
 /**
  * 切换会话后把搜索重新绑定到活动会话。
  * 搜索状态里的 activeKey / searchResults 属于旧会话容器，切走后不能继续导航：
@@ -622,10 +648,11 @@ export function navigateSearch(dir) {
     var count = searchResults.length;
     var next = (searchIndex + dir + count) % count;
     activateResult(next, getActiveMessagesEl(), true);
-    // 与思考过程一致：导航离开后折叠上一个搜索临时展开的工具卡。
+    // 与思考过程一致：导航离开后折叠上一个搜索临时展开的卡片。
     // 只保留当前结果所在的那一张，同一卡片的不同字段之间切换不会闪烁。
+    // 用通用的 .oc-part：工具卡和思考过程的类名不同，不能只查 .oc-tool。
     var current = searchResults[searchIndex];
-    var keepEl = current && (current.mark ? current.mark.closest('.oc-tool') : current.anchor);
+    var keepEl = current && (current.mark ? current.mark.closest('.oc-part') : current.anchor);
     collapseTempExpandedTools(keepEl ? (keepEl.dataset.partId || '') : '');
 }
 

@@ -994,7 +994,9 @@ export function renderStepDivider(part, phase) {
     return el;
 }
 
-/** 渲染思考过程（可折叠，支持 Markdown） */
+/** 渲染思考过程（可折叠，支持 Markdown）。
+ *  折叠时不解析 Markdown、不构建正文 DOM，只保留字符数摘要；
+ *  展开时才构建完整 Markdown，收起时销毁。 */
 export function renderReasoning(part) {
     const el = document.createElement('div');
     el.className = 'oc-part oc-reasoning';
@@ -1013,18 +1015,55 @@ export function renderReasoning(part) {
     }
     head.innerHTML = '<span class="oc-reasoning-icon">🧠</span> 思考过程 ' + durHtml;
     const body = document.createElement('div');
-    const expanded = !!store.expandedParts[key];
-    body.className = 'oc-reasoning-body' + (expanded ? '' : ' hidden');
+    body.className = 'oc-reasoning-body';
     body.dataset.expandKey = key;
-    body.innerHTML = typeof marked !== 'undefined'
-        ? sanitizeMarkedHtml(marked.parse(part.text || '', { breaks: true }))
-        : `<pre>${escapeHtml(part.text || '')}</pre>`;
-    // 本地图片（C:\... / file:// / 相对路径）异步替换为 data URL，避免破图
-    hydrateLocalImages(body, currentDir());
+
+    /** 构建完整 Markdown 正文（只在展开时调用） */
+    const buildFullBody = () => {
+        body.innerHTML = typeof marked !== 'undefined'
+            ? sanitizeMarkedHtml(marked.parse(part.text || '', { breaks: true }))
+            : `<pre>${escapeHtml(part.text || '')}</pre>`;
+        // 本地图片（C:\... / file:// / 相对路径）异步替换为 data URL，避免破图
+        hydrateLocalImages(body, currentDir());
+        body.dataset.toolBodyBuilt = 'true';
+    };
+
+    /** 折叠态：只显示字符数摘要，不解析 Markdown、不建正文 DOM */
+    const buildCollapsedBody = () => {
+        body.replaceChildren();
+        const summary = document.createElement('div');
+        summary.className = 'oc-tool-io oc-tool-summary oc-reasoning-summary';
+        summary.textContent = formatCompactNumber(String(part.text || '').length) + ' 字符';
+        summary.title = '点击标题展开思考过程';
+        body.appendChild(summary);
+        body.dataset.toolBodyBuilt = 'false';
+    };
+
+    // 统一展开/收起入口：点击标题与搜索结果导航都走这里
+    const applyExpanded = (next) => {
+        store.expandedParts[key] = next;
+        if (next) {
+            buildFullBody();
+            body.classList.remove('hidden');
+        } else {
+            body.classList.add('hidden');
+            // 收起时销毁 Markdown DOM：历史会话里折叠的思考过程是 DOM 的主要来源
+            buildCollapsedBody();
+        }
+        // 正文 DOM 变化：让搜索重新索引该思考过程
+        notifyToolBodyToggled(part.id || '');
+    };
+
+    const expanded = !!store.expandedParts[key];
+    if (expanded) buildFullBody(); else buildCollapsedBody();
+    if (!expanded) body.classList.add('hidden');
+
     head.addEventListener('click', () => {
-        store.expandedParts[key] = !store.expandedParts[key];
-        body.classList.toggle('hidden', !store.expandedParts[key]);
+        applyExpanded(!store.expandedParts[key]);
     });
+    // 供搜索结果导航调用：强制展开，不受当前 toggle 状态影响
+    el.__ocSetExpanded = applyExpanded;
+
     el.appendChild(head);
     el.appendChild(body);
     return el;
