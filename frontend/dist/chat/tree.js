@@ -750,6 +750,73 @@ export async function exportSession(sid) {
     }
 }
 
+/** 目录路径规范化：统一分隔符、去掉末尾斜杠；Windows 盘符路径另外折叠大小写。
+ *
+ *  只用于「移动后是否已落到目标目录」的比对，不用于展示。
+ *
+ *  - 统一 \ 为 /、去掉末尾斜杠：同一个目录的两种写法很常见，必须容忍。
+ *  - 大小写**只在 Windows 盘符路径上折叠**（C:\...）：NTFS 大小写不敏感，
+ *    E:\Code 与 e:\code 必然指向同一个目录，折叠是精确的、不会误判。
+ *  - POSIX 路径（/home/a）保留大小写：/home/a 与 /home/A 是两个不同目录，
+ *    折叠会把「还没移动」误判成「已移动」并提前停止刷新。
+ *  - UNC 路径（\\server\share）不折叠：SMB 服务端可能大小写敏感，
+ *    折叠有误判风险，而代价只是判不出时多轮询几次。
+ *
+ *  取舍原则：能证明折叠精确的地方就折叠（Windows 盘符），
+ *  不能证明的地方宁可判不出（多轮询几次），也不误判为已完成。 */
+function normalizeDirPath(p) {
+    var s = String(p || '').replace(/\\/g, '/').replace(/\/+$/, '');
+    // 盘符根（E:\ → E:）也要命中，所以 \/ 与结尾二者取其一
+    return /^[A-Za-z]:(\/|$)/.test(s) ? s.toLowerCase() : s;
+}
+
+/** 判断最近一次构建的树里，会话 sid 是否已落在 targetDir 目录下。
+ *
+ *  数据源是 buildTreeOnce 写入的 window._lastProjectTree：目录节点的 id/title
+ *  都是 location.directory 原值，会话节点 id 即会话 id（见 buildTreeJSON 注释）。
+ *  调用方必须先确认 buildTree() 成功，否则该变量仍是上一次的旧快照。 */
+function treeSessionInDirectory(tree, sid, targetDir) {
+    var want = normalizeDirPath(targetDir);
+    if (!want || !sid) return false;
+    for (var i = 0; i < (tree || []).length; i++) {
+        var dir = tree[i] || {};
+        // 目录节点的 id 与 title 目前相同，两个都比一次，兼容字段调整
+        if (normalizeDirPath(dir.id) !== want && normalizeDirPath(dir.title) !== want) continue;
+        var children = dir.children || [];
+        for (var j = 0; j < children.length; j++) {
+            if (children[j] && children[j].id === sid) return true;
+        }
+    }
+    return false;
+}
+
+/** 移动会话后反复重建会话树，直到该会话真的出现在目标目录。
+ *
+ *  不用固定秒数猜服务端落库时间：不同机器、不同会话规模的延迟都不一样，
+ *  任何固定延时都只是"多数情况够用"的赌注。这里以「树里是否已包含该会话」
+ *  为唯一终止条件，按退避间隔反复重建，命中即停。
+ *
+ *  全部间隔用尽仍未命中才放弃（静默），避免服务端异常时无休止打请求。
+ *  总覆盖约 20 秒（0.8+1.2+2+3+5+8），慢机器也能覆盖，正常机器第一两次就停。 */
+function watchSessionMoved(sid, targetDir) {
+    var delays = [800, 1200, 2000, 3000, 5000, 8000];
+    var i = 0;
+
+    function tick() {
+        if (i >= delays.length) return; // 全部间隔用尽：静默放弃（移动本身已成功，不误报失败）
+        var wait = delays[i];
+        i++;
+        setTimeout(async function () {
+            var ok = await buildTree();
+            // 只有本轮建树成功，window._lastProjectTree 才是新的有效快照
+            if (ok && treeSessionInDirectory(window._lastProjectTree, sid, targetDir)) return;
+            tick();
+        }, wait);
+    }
+
+    tick();
+}
+
 /** 移动会话到另一个项目目录。
  *
  *  v2 的 move 目标是**项目目录**，不是目录树里的子路径。
@@ -775,9 +842,12 @@ export async function moveSessionDialog(sid) {
         }
         showToast('会话已移动', 'success');
         // 移动是服务端异步落库：紧跟其后的一次建树常早于数据更新，表现为"树没变化"。
-        // 因此先刷一次，再在稍后补刷一次（与其它异步变更的处理方式一致）。
-        await buildTree();
-        setTimeout(function() { buildTree(); }, 1200);
+        // 先立刻刷一次（多数情况已生效）；未落到目标目录则进入"以结果为准"的轮询，
+        // 命中即停——不靠固定秒数猜落库时间。
+        var ok = await buildTree();
+        if (!ok || !treeSessionInDirectory(window._lastProjectTree, sid, target)) {
+            watchSessionMoved(sid, target);
+        }
     } catch (e) {
         showApiError('移动失败: ', e);
     }
