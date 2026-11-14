@@ -1715,7 +1715,6 @@ input::placeholder, textarea::placeholder {
 .oc-subtask-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--text-muted);
     border-radius: var(--radius-sm);
     padding: 8px 12px;
     margin-bottom: 6px;
@@ -1725,11 +1724,10 @@ input::placeholder, textarea::placeholder {
 .oc-subtask-card:hover {
     background: var(--bg-card-hover);
 }
-.oc-subtask-card.status-completed { border-left-color: var(--success); }
-.oc-subtask-card.status-running   { border-left-color: var(--accent); }
-.oc-subtask-card.status-error     { border-left-color: var(--danger); }
-.oc-subtask-card.status-interrupt { border-left-color: var(--warning); }
-.oc-subtask-card.status-ended     { border-left-color: var(--text-muted); }
+/* 正常完成/运行不再用左侧色条持续强调，状态只保留右下角小圆点；
+   失败/中断属于异常，仍保留色条提醒。 */
+.oc-subtask-card.status-error     { border-left: 3px solid var(--danger); }
+.oc-subtask-card.status-interrupt { border-left: 3px solid var(--warning); }
 /* 卡片内部两行：标题行 + 信息行 */
 .oc-subtask-card-row {
     display: flex;
@@ -1744,7 +1742,7 @@ input::placeholder, textarea::placeholder {
     flex: 0 1 auto;
     min-width: 0;
     max-width: 100%;
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
@@ -1758,7 +1756,10 @@ input::placeholder, textarea::placeholder {
     border: none;
     border-radius: 3px;
     background: none;
-    color: var(--accent);
+    /* 默认按普通文字链接处理：下划线提示可点击，不持续占用强调色 */
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
     font-family: inherit;
     font-size: 11px;
     font-weight: 500;
@@ -1766,10 +1767,12 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
 }
 .oc-subtask-detail-btn:hover:not(:disabled) {
-    text-decoration: underline;
+    /* 悬浮时才变为强调蓝 */
+    color: var(--accent);
 }
 .oc-subtask-detail-btn:disabled {
     color: var(--text-muted);
+    text-decoration: none;
     opacity: 0.55;
     cursor: default;
 }
@@ -1792,21 +1795,36 @@ input::placeholder, textarea::placeholder {
     text-overflow: ellipsis;
 }
 .oc-subtask-status-badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 10px;
-    padding: 1px 6px;
-    border-radius: var(--radius-pill);
-    font-weight: 600;
+    padding: 0;
+    border-radius: 0;
+    font-weight: 500;
     line-height: 1.4;
     flex-shrink: 0;
+    color: var(--text-secondary);
     vertical-align: middle;
 }
-.oc-subtask-status-badge.status-completed { background: var(--success-bg); color: var(--success); }
-.oc-subtask-status-badge.status-running   { background: var(--accent-ghost); color: var(--accent); }
-.oc-subtask-status-badge.status-error     { background: var(--danger-bg); color: var(--danger); }
-.oc-subtask-status-badge.status-interrupt { background: var(--warning-bg); color: var(--warning); }
-.oc-subtask-status-badge.status-pending   { background: var(--bg-input); color: var(--text-muted); }
-.oc-subtask-status-badge.status-ended     { background: var(--bg-input); color: var(--text-muted); }
+/* 小圆点：状态区分只在点上体现，文字保持次要色，避免整卡持续高亮 */
+.oc-subtask-status-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+}
+.oc-subtask-status-badge.status-completed::before { background: var(--success); }
+.oc-subtask-status-badge.status-running::before   { background: var(--accent); }
+.oc-subtask-status-badge.status-error::before     { background: var(--danger); }
+.oc-subtask-status-badge.status-interrupt::before { background: var(--warning); }
+.oc-subtask-status-badge.status-pending::before,
+.oc-subtask-status-badge.status-ended::before     { background: var(--text-muted); }
+/* 只有异常状态才用文字颜色强调 */
+.oc-subtask-status-badge.status-error     { color: var(--danger); }
+.oc-subtask-status-badge.status-interrupt { color: var(--warning); }
 
 /* ==================== synthetic 系统通知（主消息流内，通用折叠块） ==================== */
 /* 由 render.js buildSyntheticNoticeCard 渲染：适用于全部 synthetic 消息
@@ -3286,8 +3304,8 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card-hover);
 }
 .oc-service-dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
 }
