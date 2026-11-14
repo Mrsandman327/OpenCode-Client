@@ -30,6 +30,8 @@
 
 - 用户与 AI 消息分列排版
 - 推理过程、工具调用、文件操作默认折叠，想看再展开
+- 折叠卡片不构建完整正文 DOM，展开才渲染；长会话加载大量历史时内存更省
+- `Ctrl+F` 会话搜索可命中折叠的工具输出与思考过程，定位时自动展开、离开自动折叠
 - Markdown 完整渲染，代码块语法高亮
 - 子任务与代办事项自动从会话中提取并集中呈现
 - 命令面板支持 `/` 键唤起
@@ -48,7 +50,7 @@
 - 网络与 Web 服务共用同一弹窗，服务运行中只读，停止后可编辑
 - OMO 模型映射按 agent / category 粒度配置
 - 方案导出、导入、入库、应用一步到位
-- 供应商模型列表一键拉取
+- 模型服务：供应商与模型配置、模型列表一键拉取，内置 MCP 连接器管理（全局 `mcp.servers`）
 - 项目级配置：直接管理 `.opencode/` 下的核心配置、技能、命令、规则与 `AGENTS.md`
 - 技能管理：全局聚合扫描、冲突检测、一键启停、软链接导入
 
@@ -126,7 +128,7 @@ OC Manager 与 opencode **v1、v2** 均可配合使用：
 2. 旧配置 → `<程序目录>/agentdatas/config/opencode/`（`opencode.jsonc`、OMO 方案、`skills/`、`commands/`、`rules/`）
 3. 旧数据 / 凭据（通常 `~/.local/share/opencode`）→ `<程序目录>/agentdatas/data/opencode/`
 4. `vault/` 放到程序目录（与 `configs/` 同级）
-5. 启动 OC Manager 验证：工作区能连接、供应商 / OMO / 技能正常加载、历史会话可见
+5. 启动 OC Manager 验证：工作区能连接、模型服务 / OMO / 技能正常加载、历史会话可见
 
 ---
 
@@ -153,7 +155,8 @@ OC Manager 与 opencode **v1、v2** 均可配合使用：
 <details>
 <summary><b>配置管理</b></summary>
 <p align="center">
-  <img src="./doc/image/供应商配置.png" width="48%" />
+  <img src="./doc/image/供应商配置.png" width="48%" alt="模型服务" />
+  <img src="./doc/image/MCP连接器.png" width="48%" alt="MCP 连接器" />
   <img src="./doc/image/OMO配置.png" width="48%" />
   <img src="./doc/image/技能管理.png" width="48%" />
   <img src="./doc/image/项目配置.png" width="48%" />
@@ -195,7 +198,6 @@ OC Manager 与 opencode **v1、v2** 均可配合使用：
 ## 构建
 
 ```bash
-wails3 dev          # 开发模式（热重载）
 wails3 build        # 当前平台构建 → bin/oc-manager(.exe)
 go build .          # 仅编译 Go 后端（构建走 wails3；build/ 下为 wails 模板，故勿用 ./...）
 go vet ./internal/... ./model/... ./service/... ./config/...   # 静态检查（同上，避开 build/ 模板）
@@ -214,6 +216,14 @@ build.cmd mac arm64
 ```
 
 PowerShell 中把 `build.cmd` 换成 `.\build.ps1`。
+
+### 调试构建
+
+`build-debug.ps1` 与 `build.ps1` 行为一致，仅额外带 `devtools` 构建标签：
+
+- Windows 下给 WebView2 追加 `--remote-debugging-port=9222`，可用浏览器 DevTools 或 CDP 工具连接
+- 可通过 `F12` / `Ctrl+Shift+I` 打开 DevTools
+- `build.ps1` 构建的版本不包含调试端口
 
 产物固定命名，按平台 / 架构分目录：
 
@@ -240,7 +250,7 @@ Linux / macOS 使用 Wails v3.1.0 的纯 Go（purego）后端：
 
 - [第 1 章 启动应用](doc/使用说明.md#1-启动应用)
 - [第 2 章 工作区](doc/使用说明.md#2-工作区)（服务、网络、Web 服务、项目树、文件浏览器、会话区、输入、模型、状态面板）
-- [第 3 章 供应商配置](doc/使用说明.md#3-供应商配置)
+- [第 3 章 模型服务](doc/使用说明.md#3-模型服务)
 - [第 4 章 OMO 配置](doc/使用说明.md#4-omo-配置)
 - [第 5 章 技能管理](doc/使用说明.md#5-技能管理)
 - [第 6 章 项目配置管理](doc/使用说明.md#6-项目配置管理)
