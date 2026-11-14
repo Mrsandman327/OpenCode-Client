@@ -486,9 +486,14 @@ export function isSessionLoadedAll(sessionID) {
     return !!(sessionPaging[sessionID] && sessionPaging[sessionID].loadedAll);
 }
 
+/** 首屏消息条数：过少会导致频繁上滑，过多会增加首屏 DOM 与加载时间。 */
+const INITIAL_MESSAGE_LIMIT = 50;
+/** 每次向上分页加载的历史条数：控制单次 DOM 增量和内存峰值。 */
+const OLDER_MESSAGE_LIMIT = 100;
+
 /**
  * 加载更早的消息（分页历史，向上滚动 / 用户定位到边界时调用）。
- * 每次拉取 200 条，前置合并后保持滚动位置。
+ * 每次拉取 OLDER_MESSAGE_LIMIT 条，前置合并后保持滚动位置。
  *
  * v1 用 before=<本地构造的 {id,time} 游标> 翻页；v2 改为 cursor=<服务端游标>，
  * 游标由服务端签发（base64url 内含 id/order/direction），客户端无法自造。
@@ -519,7 +524,7 @@ export async function loadOlderMessages(sessionID) {
     }
     paging.loading = true;
     try {
-        const res = await api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=200&cursor=${encodeURIComponent(cursor)}`);
+        const res = await api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=${OLDER_MESSAGE_LIMIT}&cursor=${encodeURIComponent(cursor)}`);
         // 关闭标签会删除分页对象；旧回包不得写进重新打开的会话。
         if (sessionPaging[targetId] !== paging) return;
         const messages = adaptMessages(targetId, res);
@@ -541,9 +546,9 @@ export async function loadOlderMessages(sessionID) {
             // 到顶判定必须看**原始页条数**：解析层会丢弃 idle/agent-switched 等边界消息，
             // 用解析后的条数会把"满页但被过滤了几条"误判成"不足一页 → 已到顶"。
             const rawCount = Array.isArray(res && res.data) ? res.data.length : messages.length;
-            if (rawCount < 200 || !moreCursor) {
+            if (rawCount < OLDER_MESSAGE_LIMIT || !moreCursor) {
                 paging.loadedAll = true;
-                paging.loadedAllReason = '本页原始 ' + rawCount + ' 条(limit=200)，续翻游标=' + (moreCursor ? '有' : '无');
+                paging.loadedAllReason = '本页原始 ' + rawCount + ' 条(limit=' + OLDER_MESSAGE_LIMIT + ')，续翻游标=' + (moreCursor ? '有' : '无');
             }
             // 新加载的用户消息插入缓存头部，用户定位索引整体偏移（保持"看到的那条"位置）
             const addedUserCount = messages.filter(m => (m.info?.role || m.role) === 'user').length;
@@ -646,7 +651,7 @@ export async function loadMessages(sessionID) {
     } else {
         // 无缓存 = 全新加载（会话被关闭后重开、或刚 fork 出的新会话）：
         // 重置分页状态，防止 closeSessionTab 未清理的 loadedAll 残留（来自关闭前的滚动加载）
-        // 把向上滚动加载永久拦截，导致只能看到最近 20 条。
+        // 把向上滚动加载永久拦截，导致只能看到最近 INITIAL_MESSAGE_LIMIT 条。
         // 注意：有缓存时绝不能重置，否则会破坏已加载的分页历史。
         sessionPaging[targetId] = { loadedAll: false, loading: false };
     }
@@ -666,7 +671,7 @@ export async function loadMessages(sessionID) {
     // 校正前的缓存快照：用于判断校正后数据是否变化，避免无谓的整列表重渲染
     const beforeJson = hasCache ? JSON.stringify(existing) : '';
     try {
-        // 首次加载与缓存校正共用：并行拉取最新 20 条 + 排队中的 inbox 消息。
+        // 首次加载与缓存校正共用：并行拉取最新 INITIAL_MESSAGE_LIMIT 条 + 排队中的 inbox 消息。
         // inbox（delivery: steer）是模型运行中「已发送但尚未执行」的提示词：
         // 它们不在 /message 列表里。若不合并，点「停止」时 abortSession 会先置 idle，
         // 随后的 loadMessages 走全量覆盖，把这些本地乐观卡片一并抹掉，直到下一轮
@@ -674,7 +679,7 @@ export async function loadMessages(sessionID) {
         // inbox 端点不存在或请求失败时按空列表处理，绝不影响正常消息加载。
         const [res, inboxRes] = await withTimeout(
             Promise.all([
-                api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=20`),
+                api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/message?limit=${INITIAL_MESSAGE_LIMIT}`),
                 api.OpenCodeCall('GET', `/api/session/${encodeURIComponent(targetId)}/inbox`)
                     .catch(function () { return null; }),
             ]),
@@ -705,7 +710,7 @@ export async function loadMessages(sessionID) {
         // （并使“加载更多”因 loadedAll 残留而永久失效）。以 API 首条消息为锚点：
         //  - 找得到（anchorIdx>0）→ 保留锚点之前的更早历史 + 新页；
         //  - 锚点就是缓存首条（=0）→ 无更早历史，直接整体覆盖；
-        //  - 找不到（窗口已被新消息错开，例如期间新增 ≥20 条）→ **按时间合并**：
+        //  - 找不到（窗口已被新消息错开，例如期间新增 ≥ INITIAL_MESSAGE_LIMIT 条）→ **按时间合并**：
         //    保留缓存中早于新页首条的全部条目，再拼新页，按 id 去重并保持旧→新，
         //    避免"刷新把已滚动加载出来的历史吞掉"。
         const idOf = (it) => String(it?.info?.id || it?.id || '');
