@@ -418,8 +418,7 @@ input::placeholder, textarea::placeholder {
 
 /* 右侧面板标题（服务状态/子任务/代办事项）图标：assets 下对应 SVG 作遮罩，固定 #8a8a8a 灰色（不随标题文字色） */
 .oc-panel-icon {
-    width: 24px;
-    height: 24px;
+    display: inline-block;
     flex-shrink: 0;
     background: currentColor;
     -webkit-mask-repeat: no-repeat;
@@ -428,6 +427,13 @@ input::placeholder, textarea::placeholder {
     mask-repeat: no-repeat;
     mask-position: center;
     mask-size: contain;
+}
+
+.oc-panel-icon-service,
+.oc-panel-icon-subtask,
+.oc-panel-icon-todo {
+    width: 24px;
+    height: 24px;
 }
 
 .oc-panel-icon-service {
@@ -443,6 +449,14 @@ input::placeholder, textarea::placeholder {
 .oc-panel-icon-todo {
     -webkit-mask-image: url("../assets/代办事项.svg");
     mask-image: url("../assets/代办事项.svg");
+}
+
+.oc-panel-icon-schedule {
+    width: 16px;
+    height: 16px;
+    margin: 0 4px;
+    -webkit-mask-image: url("../assets/定时任务.svg");
+    mask-image: url("../assets/定时任务.svg");
 }
 
 /* ========== 主布局 ========== */
@@ -11775,4 +11789,311 @@ input.toolbar-input {
         border-right: 0;
         border-bottom: 1px solid var(--border);
     }
+}
+
+/* ============================================================
+   定时任务（右侧面板 + 新建/详情弹窗）
+   ============================================================ */
+#schedulePanelSection { flex: 0 0 auto; }
+#schedulePanelSection.collapsed { flex: 0 0 auto; }
+#schedulePanelSection:not(.collapsed) .oc-panel-body {
+    max-height: 240px;
+    overflow-y: auto;
+}
+.oc-schedules { padding: 8px; }
+.oc-schedules .oc-empty {
+    padding: 14px 8px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    line-height: 1.8;
+}
+.oc-schedules .oc-empty code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 10.5px;
+}
+.oc-schedule-item {
+    padding: 8px 9px;
+    margin-bottom: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+}
+.oc-schedule-item:hover { background: var(--bg-card-hover); }
+.oc-schedule-item:last-child { margin-bottom: 0; }
+.oc-schedule-main { min-width: 0; }
+.oc-schedule-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.35;
+}
+.oc-schedule-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--text-muted);
+}
+.oc-schedule-dot.running { background: var(--accent); }
+.oc-schedule-dot.paused { background: var(--warning); }
+.oc-schedule-dot.done { background: var(--success); }
+.oc-schedule-dot.error { background: var(--danger); }
+.oc-schedule-dot.pending { background: var(--text-muted); }
+.oc-schedule-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.oc-schedule-meta {
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.oc-schedule-prompt {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.oc-schedule-actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+.oc-schedule-icon-btn {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.oc-schedule-icon-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+}
+.oc-schedule-icon-btn.danger:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+.oc-schedule-icon-btn svg { width: 14px; height: 14px; }
+
+.oc-schedule-modal { width: 640px; max-width: calc(100vw - 32px); }
+.oc-schedule-modal .btn-primary {
+    background: var(--accent);
+    color: var(--text-on-accent);
+    border-color: var(--accent);
+}
+.oc-schedule-modal .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: var(--text-on-accent);
+    border-color: var(--accent-hover);
+}
+.oc-schedule-detail-modal { width: 560px; max-width: calc(100vw - 32px); }
+.oc-schedule-form { display: flex; flex-direction: column; gap: 12px; }
+.oc-schedule-section { display: flex; flex-direction: column; gap: 8px; }
+/* 分区标题/容器严格对齐原型：12.5px 标题、12px 内间距、8px 圆角 */
+.oc-schedule-section-title {
+    margin: 0;
+    padding: 0 2px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+.oc-schedule-section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+}
+/* 时间设置内的“不重复/重复”面板：面板本身用列布局；只有重复面板需要 14px 间距（频率→时间），
+   不重复面板不需要额外间距，否则单选行与下方时间输入会离得过远 */
+.oc-schedule-section-body > div[id^="schedulePanel"] {
+    display: flex;
+    flex-direction: column;
+}
+#schedulePanelRepeat { gap: 14px; }
+/* 全局没有 [hidden] 规则，面板改成 flex 后必须显式回收 */
+.oc-schedule-modal [hidden] { display: none !important; }
+/* 定时任务弹窗按原型保留 13/36 的表单尺寸，不跟随全局 cfg-field 的紧凑尺寸 */
+.oc-schedule-modal .cfg-field label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+.oc-schedule-modal .cfg-field input,
+.oc-schedule-modal .cfg-field select,
+.oc-schedule-modal .cfg-field textarea {
+    width: 100%;
+    height: 36px;
+    padding: 8px 12px;
+    /* time / datetime-local 默认会落到等宽字体，和同排下拉框不一致，显式继承 */
+    font-family: inherit;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.oc-schedule-modal .cfg-field textarea {
+    height: auto;
+    min-height: 64px;
+    resize: vertical;
+}
+/* 所有单选框统一：尺寸与原型一致（13px）、颜色一致，不因所在分区不同而变样 */
+.oc-schedule-modal input[type="radio"] {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+}
+.oc-schedule-tabs {
+    display: flex;
+    width: 100%;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    box-sizing: border-box;
+}
+.oc-schedule-tab {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    padding: 6px 0;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 13px;
+    text-align: center;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.oc-schedule-tab.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-weight: 600;
+    box-shadow: var(--shadow);
+}
+.oc-schedule-radios {
+    display: flex;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+.oc-schedule-radios label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.oc-schedule-inline { display: flex; align-items: center; gap: 8px; }
+.oc-schedule-inline .oc-schedule-num { flex: 1; width: auto; min-width: 0; }
+.oc-schedule-inline select {
+    width: 112px;
+    flex: 0 0 112px;
+    height: 36px;
+    padding: 8px 12px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.oc-schedule-inline .oc-schedule-time {
+    width: 180px;
+    flex: 0 0 180px;
+    height: 36px;
+    box-sizing: border-box;
+}
+.oc-schedule-inline select#scheduleTz { flex: 1; width: auto; }
+.oc-schedule-hint { margin-top: 5px; font-size: 11.5px; line-height: 1.55; color: var(--text-muted); }
+.oc-schedule-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.oc-schedule-chip {
+    min-width: 40px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.oc-schedule-chip:hover { border-color: var(--border-light); }
+.oc-schedule-chip.active {
+    border-color: var(--accent);
+    background: var(--accent-ghost);
+    color: var(--accent);
+    font-weight: 600;
+}
+.oc-schedule-ends {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 24px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.oc-schedule-ends label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.oc-schedule-ends-control { display: inline-flex; align-items: center; gap: 6px; }
+.oc-schedule-ends-control .oc-schedule-num {
+    width: 72px;
+    flex: 0 0 72px;
+    text-align: center;
+}
+.oc-schedule-ends-control input[type="datetime-local"] {
+    width: 180px;
+    flex: 0 0 180px;
+}
+.oc-schedule-ends-control > span { flex-shrink: 0; }
+.oc-schedule-detail { display: flex; flex-direction: column; gap: 10px; }
+.oc-schedule-detail-row { display: flex; gap: 12px; font-size: 12px; align-items: baseline; }
+.oc-schedule-detail-row > span { width: 72px; color: var(--text-muted); flex-shrink: 0; }
+.oc-schedule-detail-row > strong { font-weight: 500; color: var(--text-primary); }
+.oc-schedule-detail-prompt {
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-secondary);
+    font-family: inherit;
 }

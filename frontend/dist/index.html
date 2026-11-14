@@ -215,6 +215,19 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="oc-panel-section collapsed" id="schedulePanelSection">
+                            <div class="oc-panel-head" role="button" tabindex="0" id="schedulePanelHead">
+                                <span class="oc-panel-arrow">▼</span><span class="oc-panel-icon oc-panel-icon-schedule"></span><span>定时任务</span>
+                                <button type="button" class="oc-head-icon-btn" id="btnNewSchedule" title="新建定时任务" aria-label="新建定时任务" style="margin-left:auto">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                                </button>
+                            </div>
+                            <div class="oc-panel-body">
+                                <div class="oc-schedules" id="ocSchedules">
+                                    <div class="oc-empty">当前会话暂无定时任务</div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="oc-panel-section" id="subtaskPanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
                                 <span class="oc-panel-arrow">▼</span><span class="oc-panel-icon oc-panel-icon-subtask"></span><span>子任务</span>
@@ -1559,5 +1572,178 @@
             import('/main.js');
         }
     </script>
+    <!-- ===== 定时任务新建弹窗 ===== -->
+    <div class="modal-overlay" id="scheduleModal" style="display:none">
+        <div class="modal-card oc-schedule-modal" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
+            <div class="modal-header">
+                <h3 id="scheduleModalTitle">新建定时任务</h3>
+                <button type="button" class="modal-close-btn" id="btnScheduleClose" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
+            </div>
+            <div class="modal-body">
+                <div class="oc-schedule-form">
+                    <section class="oc-schedule-section">
+                        <h4 class="oc-schedule-section-title">基本设置</h4>
+                        <div class="oc-schedule-section-body">
+                            <div class="cfg-field">
+                                <label for="scheduleName">名称</label>
+                                <input id="scheduleName" type="text" placeholder="留空则按规则自动生成" autocomplete="off">
+                            </div>
+                            <div class="cfg-field">
+                                <label>触发方式</label>
+                                <div class="oc-schedule-tabs" id="scheduleTabs">
+                                    <button type="button" class="oc-schedule-tab" data-tab="once">不重复</button>
+                                    <button type="button" class="oc-schedule-tab active" data-tab="repeat">重复</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="oc-schedule-section">
+                        <h4 class="oc-schedule-section-title">时间设置</h4>
+                        <div class="oc-schedule-section-body">
+                            <div id="schedulePanelOnce" hidden>
+                                <div class="cfg-field">
+                                    <label>什么时候</label>
+                                    <div class="oc-schedule-radios">
+                                        <label><input type="radio" name="scheduleOnceMode" value="delay" checked> 延迟</label>
+                                        <label><input type="radio" name="scheduleOnceMode" value="at"> 指定时间</label>
+                                    </div>
+                                </div>
+                                <div class="cfg-field" id="scheduleDelayRow">
+                                    <div class="oc-schedule-inline">
+                                        <input class="oc-schedule-num" id="scheduleDelayValue" type="number" min="1" value="20">
+                                        <select id="scheduleDelayUnit">
+                                            <option value="minutes">分钟后</option>
+                                            <option value="hours">小时后</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="cfg-field" id="scheduleOnceAtRow" hidden>
+                                    <input id="scheduleOnceAt" type="datetime-local">
+                                </div>
+                            </div>
+
+                            <div id="schedulePanelRepeat">
+                                <div class="cfg-field">
+                                    <label for="scheduleFreq">频率</label>
+                                    <select id="scheduleFreq">
+                                        <option value="hourly">间隔</option>
+                                        <option value="daily" selected>每天</option>
+                                        <option value="weekly">每周</option>
+                                        <option value="monthly">每月</option>
+                                        <option value="custom">自定义 cron</option>
+                                    </select>
+                                </div>
+                                <div class="cfg-field" id="scheduleIntervalRow" hidden>
+                                    <label for="scheduleIntervalValue">时间</label>
+                                    <div class="oc-schedule-inline">
+                                        <input class="oc-schedule-num" id="scheduleIntervalValue" type="number" min="1" value="2">
+                                        <select id="scheduleIntervalUnit">
+                                            <option value="minutes">分钟</option>
+                                            <option value="hours" selected>小时</option>
+                                        </select>
+                                    </div>
+                                    <div class="oc-schedule-hint">最短 1 分钟；常用 5 / 15 / 30 分钟或 1 / 2 / 6 小时。</div>
+                                </div>
+                                <div class="cfg-field" id="scheduleTimeRow">
+                                    <label for="scheduleTime">时间</label>
+                                    <div class="oc-schedule-inline">
+                                        <input class="oc-schedule-time" id="scheduleTime" type="time" value="09:00">
+                                        <select id="scheduleTz">
+                                            <option value="Asia/Shanghai">Asia/Shanghai</option>
+                                            <option value="Asia/Tokyo">Asia/Tokyo</option>
+                                            <option value="UTC">UTC</option>
+                                            <option value="America/Los_Angeles">America/Los_Angeles</option>
+                                            <option value="Europe/London">Europe/London</option>
+                                        </select>
+                                    </div>
+                                    <div class="oc-schedule-hint">时区决定「每天 9 点」具体是几点。</div>
+                                </div>
+                                <div class="cfg-field" id="scheduleWeekdayRow" hidden>
+                                    <label>星期</label>
+                                    <div class="oc-schedule-chips" id="scheduleWeekdays">
+                                        <button type="button" class="oc-schedule-chip" data-day="1">一</button>
+                                        <button type="button" class="oc-schedule-chip" data-day="2">二</button>
+                                        <button type="button" class="oc-schedule-chip" data-day="3">三</button>
+                                        <button type="button" class="oc-schedule-chip" data-day="4">四</button>
+                                        <button type="button" class="oc-schedule-chip" data-day="5">五</button>
+                                        <button type="button" class="oc-schedule-chip" data-day="6">六</button>
+                                        <button type="button" class="oc-schedule-chip" data-day="0">日</button>
+                                    </div>
+                                </div>
+                                <div class="cfg-field" id="scheduleMonthDayRow" hidden>
+                                    <label for="scheduleMonthDay">每月几号</label>
+                                    <input class="oc-schedule-num" id="scheduleMonthDay" type="number" min="1" max="31" value="1">
+                                </div>
+                                <div class="cfg-field" id="scheduleCronRow" hidden>
+                                    <label for="scheduleCron">cron 表达式</label>
+                                    <input id="scheduleCron" type="text" value="0 9 * * *" spellcheck="false">
+                                    <div class="oc-schedule-hint" id="scheduleCronExplain"></div>
+                                </div>
+                            </div>
+
+                            <div class="cfg-field" id="scheduleEndsRow">
+                                <label>结束条件</label>
+                                <div class="oc-schedule-ends">
+                                    <label><input type="radio" name="scheduleEndsMode" value="never" checked> 永不</label>
+                                    <label><input type="radio" name="scheduleEndsMode" value="times"> 最多
+                                        <span class="oc-schedule-ends-control">
+                                            <input class="oc-schedule-num" id="scheduleEndsTimes" type="number" min="1" value="20" disabled>
+                                            <span>次</span>
+                                        </span>
+                                    </label>
+                                    <label><input type="radio" name="scheduleEndsMode" value="at"> 到
+                                        <span class="oc-schedule-ends-control">
+                                            <input id="scheduleEndsAt" type="datetime-local" disabled>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="oc-schedule-section">
+                        <h4 class="oc-schedule-section-title">任务设置</h4>
+                        <div class="oc-schedule-section-body">
+                            <div class="cfg-field">
+                                <label for="schedulePrompt">到点后发送</label>
+                                <textarea id="schedulePrompt" placeholder="例如：检查今天的构建状态并汇总"></textarea>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm" id="btnScheduleCancel">取消</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnScheduleCreate">创建任务</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 定时任务只读详情 ===== -->
+    <div class="modal-overlay" id="scheduleDetailModal" style="display:none">
+        <div class="modal-card oc-schedule-detail-modal" role="dialog" aria-modal="true">
+            <div class="modal-header">
+                <h3>定时任务详情</h3>
+                <button type="button" class="modal-close-btn" id="btnScheduleDetailClose" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
+            </div>
+            <div class="modal-body">
+                <div class="oc-schedule-detail">
+                    <div class="oc-schedule-detail-row"><span>名称</span><strong id="scheduleDetailName">—</strong></div>
+                    <div class="oc-schedule-detail-row"><span>状态</span><strong id="scheduleDetailStatus">—</strong></div>
+                    <div class="oc-schedule-detail-row"><span>触发规则</span><strong id="scheduleDetailRule">—</strong></div>
+                    <div class="oc-schedule-detail-row"><span>下次触发</span><strong id="scheduleDetailNext">—</strong></div>
+                    <div class="cfg-field">
+                        <label>到点后发送</label>
+                        <pre class="oc-schedule-detail-prompt" id="scheduleDetailPrompt">—</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm" id="btnScheduleDetailOk">关闭</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

@@ -15,6 +15,7 @@ import { isMobileTreeMode } from './mobile.js';
 import { updateScrollBottomButton, updateSendButton } from './render.js';
 import { refreshSessionStatusFromActive } from './events.js';
 import { refreshSubtaskPanel } from './sidepanel.js';
+import { refreshSchedulePanel } from './schedules.js';
 import { syncUserNavToScroll, restartSearchForActiveSession } from './search.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { updateTreeActiveSession } from '../core/utils.js';
@@ -206,6 +207,7 @@ export function switchTab(sessionID) {
     // 用户导航索引是全局单例：切 tab 后按当前实际滚动位置重新计算，
     // 不能 reset 成 -1（updateUserNav 会把 -1 自动当成最后一条，显示 5/5）。
     syncUserNavToScroll();
+    refreshSchedulePanel();
     if (!isMobileTreeMode()) {
         // 子任务面板数据源为服务端 child sessions：切换 tab 后立即重拉一次
         refreshSubtaskPanel();

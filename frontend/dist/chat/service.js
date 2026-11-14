@@ -16,6 +16,7 @@ import { startEventStream } from './events.js';
 import { buildTree } from './tree.js';
 import { loadAgentModelSelectors } from './session.js';
 import { initSearch, initUserNav } from './search.js';
+import { initSchedules } from './schedules.js';
 import { unwrap } from '../core/v2compat.js';
 
 // 注册服务状态刷新实现：session.js 打开会话（拿到目录）后会调用它重新拉取 MCP/插件状态
@@ -66,7 +67,7 @@ export async function checkWebStatus() {
         store.serverStatus = normalizeServerStatus(null);
         renderServiceStatus();
     }
-    setTimeout(function() { initSearch(); initUserNav(); }, 500);
+    setTimeout(function() { initSearch(); initUserNav(); initSchedules(); }, 500);
 }
 
 // ============================
