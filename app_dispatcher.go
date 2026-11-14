@@ -282,6 +282,26 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 			return nil, err
 		}
 		return a.DeleteProvider(key), nil
+	case "GetMcpConfig":
+		return a.GetMcpConfig(), nil
+	case "SaveMcpServer":
+		var payload model.McpServerSave
+		if err := decodeArgs(args, &payload); err != nil {
+			return nil, err
+		}
+		return a.SaveMcpServer(payload), nil
+	case "DeleteMcpServer":
+		var name string
+		if err := decodeArgs(args, &name); err != nil {
+			return nil, err
+		}
+		return a.DeleteMcpServer(name), nil
+	case "SaveMcpTimeouts":
+		var timeout model.McpTimeout
+		if err := decodeArgs(args, &timeout); err != nil {
+			return nil, err
+		}
+		return a.SaveMcpTimeouts(timeout), nil
 	case "Refresh":
 		return map[string]bool{"success": a.Refresh() == nil}, nil
 	case "AddSkillSourceDir":
@@ -305,6 +325,12 @@ func (a *App) callFrontendMethod(method string, args []json.RawMessage) (interfa
 		return a.AnswerQuestion(sessionID, answers), nil
 	case "OpenDirectoryDialog":
 		return a.OpenDirectoryDialog(), nil
+	case "OpenDirectoryDialogAt":
+		var initialDir string
+		if err := decodeArgs(args, &initialDir); err != nil {
+			return nil, err
+		}
+		return a.OpenDirectoryDialogAt(initialDir), nil
 	case "OpenFileBrowserWindow":
 		var rootDir string
 		var withGit bool

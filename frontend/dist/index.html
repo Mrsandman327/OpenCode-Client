@@ -460,6 +460,8 @@
                             卡片
                         </button>
                     </div>
+                    <!-- MCP 连接器：打开全局 mcp.servers 配置弹窗 -->
+                    <button type="button" class="btn btn-sm" id="btnOpenMcp" title="管理 MCP 连接器（全局配置）">MCP 连接器</button>
                     <button type="button" class="btn btn-sm btn-open" id="btnOpenProviderConfigDir" title="在文件浏览器中打开配置文件所在目录"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开配置文件</button>
                     <button type="button" class="btn btn-primary btn-sm" id="btnAddProvider">＋ 添加供应商</button>
                 </div>
@@ -1271,6 +1273,270 @@
                     <button type="button" class="kb-btn-ghost" id="kbConvertCancelBtn">取消</button>
                     <button type="button" class="btn btn-primary" id="kbConvertConfirmBtn">确认写入</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MCP 连接器配置弹窗（入口：模型服务工具栏「MCP 连接器」） =====
+         全局配置：读写 opencode.jsonc 的 mcp.servers / mcp.timeout。
+         结构参照 doc/mcp-config-prototype.html；弹窗、按钮、输入框、开关、
+         提示条全部复用既有公共类，仅布局由 css/style.css 的 .mcp-* 分区补充。 -->
+    <div class="modal-overlay" id="mcpModal" style="display:none">
+        <div class="modal modal-card mcp-modal" role="dialog" aria-modal="true" aria-labelledby="mcpTitle">
+            <div class="modal-header">
+                <h3 id="mcpTitle">MCP 连接器<span class="mcp-scope">全局配置 · 写入 mcp.servers</span></h3>
+                <button type="button" class="modal-close-btn" id="btnMcpClose" title="关闭（Esc）" aria-label="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
+            </div>
+
+            <div class="modal-body">
+                <!-- 左：连接器列表 + 全局操作 -->
+                <aside class="mcp-nav">
+                    <div class="mcp-nav-list" id="mcpList"></div>
+                    <div class="mcp-nav-foot">
+                        <button type="button" class="btn btn-sm" id="btnMcpAdd">+ 新增连接器</button>
+                        <button type="button" class="btn btn-sm" id="btnMcpGlobalTimeout">全局超时</button>
+                    </div>
+                </aside>
+
+                <!-- 右：单个连接器表单 -->
+                <section class="mcp-main" id="mcpFormPanel">
+                    <div class="mcp-scroll" id="mcpFormScroll">
+                        <div class="cfg-section-head">
+                            <h2 id="mcpFormTitle">连接器</h2>
+                        </div>
+
+                        <!-- 基础信息 -->
+                        <div class="cfg-settings-card">
+                            <div class="mcp-fields">
+                                <div class="cfg-field">
+                                    <label for="mcpName">名称</label>
+                                    <input id="mcpName" placeholder="context7" autocomplete="off" />
+                                    <div class="cfg-web-sub" style="margin-top:5px">
+                                        工具前缀：<code id="mcpNamePreview">context7_</code> · 建议只用字母、数字、下划线、短横线
+                                    </div>
+                                </div>
+
+                                <div class="cfg-field" id="mcpType">
+                                    <label>类型</label>
+                                    <div style="display:flex;gap:8px">
+                                        <button type="button" class="btn btn-sm" data-mcp-type="remote">remote</button>
+                                        <button type="button" class="btn btn-sm" data-mcp-type="local">local</button>
+                                    </div>
+                                </div>
+
+                                <div class="cfg-web-enable" style="margin-bottom:0">
+                                    <div>
+                                        <h3>启用</h3>
+                                        <p>关闭时写入 <code>disabled: true</code>，保留配置但不连接</p>
+                                    </div>
+                                    <label class="cfg-switch" title="启用该连接器">
+                                        <input type="checkbox" id="mcpEnabled" checked />
+                                        <span></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- remote 字段组：URL / Headers -->
+                        <div class="cfg-settings-card" data-mcp-group="remote">
+                            <div class="mcp-fields">
+                                <div class="cfg-field">
+                                    <label for="mcpUrl">URL</label>
+                                    <input id="mcpUrl" placeholder="https://mcp.example.com/mcp" autocomplete="off" />
+                                    <div class="cfg-web-sub" style="margin-top:5px">绝对地址，Streamable HTTP</div>
+                                </div>
+
+                                <div class="cfg-field">
+                                    <label>Headers</label>
+                                    <div class="mcp-kv-list" id="mcpHeaders"></div>
+                                    <button type="button" class="mcp-kv-add" data-mcp-add-kv="header">+ 添加请求头</button>
+                                    <div class="cfg-web-sub" style="margin-top:5px">
+                                        支持 <code>{env:NAME}</code> 引用环境变量，避免把密钥写进文件
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- local 字段组：命令 / cwd / 环境变量 -->
+                        <div class="cfg-settings-card" data-mcp-group="local" hidden>
+                            <div class="mcp-fields">
+                                <div class="cfg-field">
+                                    <label for="mcpCommand">命令</label>
+                                    <textarea id="mcpCommand" placeholder="npx&#10;-y&#10;@modelcontextprotocol/server-everything"></textarea>
+                                    <div class="cfg-web-sub" style="margin-top:5px">一行一个参数，第一行是可执行文件</div>
+                                </div>
+
+                                <div class="cfg-field">
+                                    <label for="mcpCwd">工作目录（cwd）</label>
+                                    <div class="mcp-input-row">
+                                        <input id="mcpCwd" placeholder="留空表示使用项目目录" autocomplete="off" />
+                                        <button type="button" class="btn btn-sm" id="btnMcpPickCwd" title="选择目录">选择</button>
+                                    </div>
+                                </div>
+
+                                <div class="cfg-field">
+                                    <label>环境变量（environment）</label>
+                                    <div class="mcp-kv-list" id="mcpEnv"></div>
+                                    <button type="button" class="mcp-kv-add" data-mcp-add-kv="env">+ 添加环境变量</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 高级设置（默认折叠） -->
+                        <button type="button" class="mcp-adv-toggle" id="mcpAdvanced">
+                            <span class="chev">▸</span>高级设置
+                            <span style="font-weight:400;color:var(--text-muted)">（低频项，默认不改）</span>
+                        </button>
+
+                        <div class="mcp-adv-body" id="mcpAdvancedBody" hidden>
+                            <div class="cfg-settings-card" style="margin-top:0">
+                                <div class="mcp-fields">
+                                    <div class="cfg-web-enable" style="margin-bottom:0">
+                                        <div>
+                                            <h3>Code Mode</h3>
+                                            <p>开启时工具经代码执行通道调用，节省上下文；关闭后工具直接进入模型工具列表（占用更多上下文）</p>
+                                        </div>
+                                        <label class="cfg-switch" title="Code Mode">
+                                            <input type="checkbox" id="mcpCodemode" checked />
+                                            <span></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="cfg-web-enable" style="margin-bottom:0">
+                                        <div>
+                                            <h3>共享连接（pool）</h3>
+                                            <p>多个目录共用同一连接与工具列表，仅 2026-07-28 协议生效</p>
+                                        </div>
+                                        <label class="cfg-switch" title="共享连接">
+                                            <input type="checkbox" id="mcpPool" />
+                                            <span></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="cfg-field">
+                                        <label for="mcpProtocol">协议版本（protocol）</label>
+                                        <select id="mcpProtocol">
+                                            <option value="legacy">legacy</option>
+                                            <option value="auto">auto</option>
+                                            <option value="2026-07-28">2026-07-28</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="cfg-field">
+                                        <label>单个连接器超时（毫秒）</label>
+                                        <div class="mcp-grid-3">
+                                            <div class="cfg-field">
+                                                <label for="mcpTimeoutStartup">startup</label>
+                                                <input id="mcpTimeoutStartup" type="number" min="1" placeholder="30000" />
+                                            </div>
+                                            <div class="cfg-field">
+                                                <label for="mcpTimeoutCatalog">catalog</label>
+                                                <input id="mcpTimeoutCatalog" type="number" min="1" placeholder="30000" />
+                                            </div>
+                                            <div class="cfg-field">
+                                                <label for="mcpTimeoutExecution">execution</label>
+                                                <input id="mcpTimeoutExecution" type="number" min="1" placeholder="600000" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- OAuth 只对 remote 有意义：三态由单选控制 -->
+                                    <div class="cfg-field" data-mcp-group="remote">
+                                        <label>OAuth</label>
+                                        <div id="mcpOauthModes" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px">
+                                            <label style="display:inline-flex;align-items:center;gap:5px">
+                                                <input type="radio" name="mcpOauthMode" value="auto" style="width:auto;height:auto" /> 自动探测
+                                            </label>
+                                            <label style="display:inline-flex;align-items:center;gap:5px">
+                                                <input type="radio" name="mcpOauthMode" value="off" style="width:auto;height:auto" /> 关闭（oauth: false）
+                                            </label>
+                                            <label style="display:inline-flex;align-items:center;gap:5px">
+                                                <input type="radio" name="mcpOauthMode" value="custom" style="width:auto;height:auto" /> 自定义客户端
+                                            </label>
+                                        </div>
+
+                                        <div id="mcpOauthCustom" hidden style="margin-top:12px">
+                                            <div class="mcp-fields">
+                                                <div class="cfg-field"><label for="mcpOauthClientId">client_id</label><input id="mcpOauthClientId" autocomplete="off" /></div>
+                                                <div class="cfg-field"><label for="mcpOauthClientSecret">client_secret</label><input id="mcpOauthClientSecret" type="password" autocomplete="off" /></div>
+                                                <div class="cfg-field"><label for="mcpOauthScope">scope</label><input id="mcpOauthScope" placeholder="tools:read tools:execute" autocomplete="off" /></div>
+                                                <div class="cfg-field"><label for="mcpOauthCallbackPort">callback_port</label><input id="mcpOauthCallbackPort" type="number" min="1" max="65535" placeholder="19876" /></div>
+                                                <div class="cfg-field"><label for="mcpOauthRedirectUri">redirect_uri</label><input id="mcpOauthRedirectUri" placeholder="http://127.0.0.1:19876/callback" autocomplete="off" /></div>
+                                                <div class="cfg-field"><label for="mcpOauthMetadataUrl">auth_server_metadata_url</label><input id="mcpOauthMetadataUrl" autocomplete="off" /></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 未识别字段提示：仅展示，保存时不回传 -->
+                        <div id="mcpUnknownWrap" style="margin-top:14px" hidden>
+                            <div class="cfg-note-bar" style="margin-top:0">
+                                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>
+                                <span>
+                                    该条目还有 <b id="mcpUnknownCount">0</b> 个字段未在界面展示，保存时不会提交这些字段。
+                                    <button type="button" class="mcp-link-btn" id="btnMcpToggleUnknown">查看</button>
+                                </span>
+                            </div>
+                            <div class="mcp-unknown-json" id="mcpUnknownJson" hidden></div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer mcp-footer">
+                        <button type="button" class="btn btn-sm btn-del" id="btnMcpDelete">删除</button>
+                        <div style="display:flex;gap:8px">
+                            <button type="button" class="btn btn-sm" id="btnMcpCancel">取消</button>
+                            <button type="button" class="btn btn-sm btn-primary" id="btnMcpSave">保存</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 右：全局默认超时 -->
+                <section class="mcp-main" id="mcpGlobalPanel" style="display:none">
+                    <div class="mcp-scroll">
+                        <div class="cfg-section-head">
+                            <h2>全局默认超时</h2>
+                            <p>写入 <code>mcp.timeout</code>，只影响未单独设置超时的连接器。</p>
+                        </div>
+
+                        <div class="cfg-settings-card">
+                            <div class="mcp-grid-3">
+                                <div class="cfg-field">
+                                    <label for="mcpGlobalStartup">startup</label>
+                                    <input id="mcpGlobalStartup" type="number" min="1" placeholder="30000" />
+                                </div>
+                                <div class="cfg-field">
+                                    <label for="mcpGlobalCatalog">catalog</label>
+                                    <input id="mcpGlobalCatalog" type="number" min="1" placeholder="30000" />
+                                </div>
+                                <div class="cfg-field">
+                                    <label for="mcpGlobalExecution">execution</label>
+                                    <input id="mcpGlobalExecution" type="number" min="1" placeholder="600000" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="cfg-note-bar" style="margin-top:14px">
+                            <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+                            <span>留空表示使用 OpenCode 默认值（30s / 30s / 12h）。只写 <code>mcp.timeout</code>，其它键不动。</span>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <span></span>
+                        <div style="display:flex;gap:8px">
+                            <button type="button" class="btn btn-sm" id="btnMcpGlobalBack">返回</button>
+                            <button type="button" class="btn btn-sm btn-primary" id="btnMcpGlobalSave">保存</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 右：空状态 / 加载失败 -->
+                <section class="mcp-empty" id="mcpEmpty" style="display:none">
+                    <div id="mcpEmptyText">从左侧选择一个连接器，或点「新增连接器」</div>
+                    <button type="button" class="btn btn-sm" id="btnMcpReload" style="display:none">重新加载</button>
+                </section>
             </div>
         </div>
     </div>

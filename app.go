@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"oc-manager/config/commands"
+	"oc-manager/config/mcp"
 	"oc-manager/config/omo"
 	"oc-manager/config/provider"
 	"oc-manager/config/skill"
@@ -476,6 +477,28 @@ func (a *App) DeleteProvider(key string) model.SaveResult {
 	return model.SaveResult{Success: true}
 }
 
+// ========== MCP 连接器配置 ==========
+
+// GetMcpConfig 获取 MCP 连接器列表、全局超时和配置文件路径。
+func (a *App) GetMcpConfig() model.McpConfigInfo {
+	return mcp.GetMcpConfig()
+}
+
+// SaveMcpServer 新增或更新单条 MCP 连接器。
+func (a *App) SaveMcpServer(p model.McpServerSave) model.SaveResult {
+	return mcp.SaveMcpServer(p)
+}
+
+// DeleteMcpServer 删除单条 MCP 连接器。
+func (a *App) DeleteMcpServer(name string) model.SaveResult {
+	return mcp.DeleteMcpServer(name)
+}
+
+// SaveMcpTimeouts 保存 MCP 全局默认超时。
+func (a *App) SaveMcpTimeouts(t model.McpTimeout) model.SaveResult {
+	return mcp.SaveMcpTimeouts(t)
+}
+
 // ========== Web 服务（委托到 service 包）==========
 
 // StartOpenCodeWeb 启动（或连接）OpenCode v2 共享后台服务。
@@ -533,17 +556,28 @@ func (a *App) LaunchWindowsTerminal(mode, webURL, dir string) model.WebResult {
 
 // OpenDirectoryDialog 打开目录选择对话框，返回所选目录路径（取消时返回空字符串）。
 func (a *App) OpenDirectoryDialog() string {
+	return a.OpenDirectoryDialogAt("")
+}
+
+// OpenDirectoryDialogAt 打开目录选择对话框，并以 initialDir 作为起始位置。
+// initialDir 为空或无效时回退到可执行文件目录（与 OpenDirectoryDialog 原来的行为一致）。
+// 单独开一个方法而不是改 OpenDirectoryDialog 的签名：后者还有多处调用，
+// 改签名会让那些入口在 Wails 绑定时需要额外传参。
+func (a *App) OpenDirectoryDialogAt(initialDir string) string {
 	if a.app == nil {
 		return ""
 	}
-	// 默认定位到可执行文件目录；获取失败时退回当前目录
-	exeDir := portable.ExeDir()
-	if exeDir == "" {
-		exeDir = "."
+	// 起始目录：优先用调用方给的路径；为空时退回可执行文件目录，再退回当前目录
+	start := strings.TrimSpace(initialDir)
+	if start == "" {
+		start = portable.ExeDir()
+	}
+	if start == "" {
+		start = "."
 	}
 	dir, err := a.app.Dialog.OpenFile().
 		SetTitle("选择工作目录").
-		SetDirectory(exeDir).
+		SetDirectory(start).
 		CanChooseDirectories(true).
 		CanChooseFiles(false).
 		PromptForSingleSelection()

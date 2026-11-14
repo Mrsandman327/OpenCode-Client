@@ -42,6 +42,8 @@ import {
 } from './views/skill-manager.js';
 import { bindKnowledgeEvents } from './views/knowledge.js';
 import { loadProviders } from './views/provider.js';
+// MCP 连接器配置弹窗（全局 mcp.servers，入口在模型服务工具栏）
+import { initMcpConfig } from './views/mcp-config.js';
 // 知识库 @ 引用：输入框输入 @ 弹出知识库搜索面板（需 DOM 就绪后显式初始化）
 import { initKnowledgeRef } from './chat/knowledge-ref.js';
 // 配置弹窗：模块加载时绑定入口、主题、Web 服务与命令数据
@@ -200,6 +202,9 @@ function initMain() {
 
     // 知识库 @ 引用：绑定输入框的 @ 检测与搜索面板（幂等）
     initKnowledgeRef();
+
+    // MCP 连接器弹窗：绑定模型服务工具栏入口与表单交互（幂等）
+    initMcpConfig();
 
     // 附件
     document.getElementById('btnAttachFile').addEventListener('click', () => {

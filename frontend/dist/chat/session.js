@@ -1510,7 +1510,7 @@ export async function sendPrompt() {
         if (isNew) {
             dirEl.onclick = function() {
                 // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）
-                openFileBrowserStandaloneFor(requestDir, { features: ['git'] });
+                openFileBrowserStandaloneFor(sessionDir, { features: ['git'] });
             };
         }
         clearKnowledgeRefs();

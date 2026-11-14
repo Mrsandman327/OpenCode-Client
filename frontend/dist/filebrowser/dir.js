@@ -15,35 +15,46 @@ var dirBrowserRoots = [];
 var dirBrowserCurrentPath = '';
 var dirBrowserSelectedPath = '';
 
-/** 打开目录浏览器；确认时 resolve 选中的目录，取消时 reject */
-export async function openDirBrowserModal() {
+/** 打开目录浏览器；确认时 resolve 选中的目录，取消时 reject。
+ *
+ *  initialDir 可选：传入绝对路径时以该目录作为起始位置（比如连接器的 cwd），
+ *  不传或路径无效时回退到第一个根目录，与旧行为一致。 */
+export async function openDirBrowserModal(initialDir) {
     dirBrowserCurrentPath = '';
     dirBrowserSelectedPath = '';
     store.dirBrowserCurrentPath = '';
     document.getElementById('dirBrowserModal').style.display = 'flex';
 
     await loadDirBrowserRoots();
-    // 打开时直接进入第一个根目录（Windows 为第一个盘符，Linux 为 /），
-    // 左侧高亮对应根目录，右侧显示其子目录。
-    if (dirBrowserRoots.length) {
-        await loadDirBrowserList(dirBrowserRoots[0].path);
-    } else {
-        await loadDirBrowserList('');
+    // 起始目录：调用方给的路径优先，否则进入第一个根目录（Windows 为第一个盘符，Linux 为 /）
+    const fallback = dirBrowserRoots.length ? dirBrowserRoots[0].path : '';
+    const start = initialDir || fallback;
+    const ok = await loadDirBrowserList(start);
+    // 调用方给的路径不存在/无权限时，回退到根目录，避免用户看到空列表以为坏了。
+    // 只在「确实传了不同的初始路径」时回退，避免默认路径失败时重复请求。
+    if (!ok && start && fallback && start !== fallback) {
+        await loadDirBrowserList(fallback);
     }
 
-    return new Promise((resolve, reject) => {
+    // 只保留 resolve：取消时由 closeDirBrowserModal 以空串 resolve
+    return new Promise((resolve) => {
         store.dirBrowserResolver = resolve;
-        store.dirBrowserRejecter = reject;
+        store.dirBrowserRejecter = null;
     });
 }
 
 /** 关闭目录浏览器 */
+/** 关闭目录浏览器（取消选择）。
+ *
+ *  取消是正常操作，用空串 resolve，让调用方走「未选择」分支。
+ *  不要 reject：多数调用点在 try 之外直接 await，reject 会变成未处理异常，
+ *  用户会看到「移动失败」「添加失败」这类误报。 */
 export function closeDirBrowserModal() {
-    if (store.dirBrowserRejecter) {
-        store.dirBrowserRejecter(new Error('取消目录选择'));
-        store.dirBrowserRejecter = null;
+    if (store.dirBrowserResolver) {
+        store.dirBrowserResolver('');
         store.dirBrowserResolver = null;
     }
+    store.dirBrowserRejecter = null;
     document.getElementById('dirBrowserModal').style.display = 'none';
 }
 
@@ -78,7 +89,8 @@ function renderDirBrowserPlaces() {
     });
 }
 
-/** 加载指定目录的子目录列表 */
+/** 加载指定目录的子目录列表。
+ *  @returns {Promise<boolean>} 是否加载成功（调用方可不关心，现有调用点都忽略返回值） */
 export async function loadDirBrowserList(path) {
     dirBrowserCurrentPath = path || '';
     dirBrowserSelectedPath = dirBrowserCurrentPath;
@@ -91,9 +103,11 @@ export async function loadDirBrowserList(path) {
     try {
         var dirs = await api.ListBrowsableDirs(dirBrowserCurrentPath);
         renderDirBrowserList(dirs || []);
+        return true;
     } catch (e) {
         list.innerHTML = '<div class="oc-empty">读取目录失败</div>';
         showApiError('读取目录失败: ', e);
+        return false;
     }
 }
 

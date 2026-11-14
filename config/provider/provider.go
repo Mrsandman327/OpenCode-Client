@@ -5,19 +5,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 
-	"oc-manager/internal/fileutil"
+	"oc-manager/config/opencodecfg"
 	"oc-manager/internal/jsonutil"
-	"oc-manager/internal/portable"
 	"oc-manager/model"
 )
-
-var providerWriteMu sync.Mutex
 
 // defaultProviderPackage 是 OpenCode v2 中 OpenAI 兼容运行时的默认包名。
 // v2 的原生 runtime 包统一为 @opencode/ai/providers/* 命名空间；
@@ -28,37 +22,13 @@ const defaultProviderPackage = "@opencode/ai/providers/openai-compatible"
 
 // OpenCodeConfigPath 返回 opencode.jsonc 的完整路径（不存在时回退同名 .json）。
 func OpenCodeConfigPath() string {
-	return fileutil.ResolveJSONC(filepath.Join(portable.OpenCodeConfigDir(), "opencode.jsonc"))
-}
-
-func loadOpenCodeConfig() (*model.OpenCodeConfig, error) {
-	path := OpenCodeConfigPath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("读取配置失败: %w", err)
-	}
-
-	var cfg model.OpenCodeConfig
-	// opencode.jsonc 包含注释，需要先去除注释再解析
-	if err := json.Unmarshal([]byte(fileutil.StripComments(string(data))), &cfg); err != nil {
-		return nil, fmt.Errorf("解析配置失败: %w", err)
-	}
-	return &cfg, nil
-}
-
-func saveOpenCodeConfig(cfg *model.OpenCodeConfig) error {
-	path := OpenCodeConfigPath()
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("序列化失败: %w", err)
-	}
-	return fileutil.AtomicWrite(path, data, 0644)
+	return opencodecfg.Path()
 }
 
 // GetProviders 获取所有供应商信息。
 // 读取时兼容 v2 的 providers 与 v1 的 provider 单数键；启用状态综合三源计算（见 isProviderEnabled）。
 func GetProviders() []model.ProviderInfo {
-	cfg, err := loadOpenCodeConfig()
+	cfg, err := opencodecfg.Load()
 	if err != nil || cfg.Providers == nil {
 		return nil
 	}
@@ -83,13 +53,14 @@ func GetProviders() []model.ProviderInfo {
 
 // SaveProvider 保存单个供应商（新增或更新），并按 v2 规则重写启用策略。
 func SaveProvider(ps model.ProviderSave) error {
-	providerWriteMu.Lock()
-	defer providerWriteMu.Unlock()
+	// 读-改-写全程持锁，避免与 MCP 等其它配置界面并发保存时互相覆盖。
+	return opencodecfg.Update(func(cfg *model.OpenCodeConfig) error {
+		return saveProviderLocked(cfg, ps)
+	})
+}
 
-	cfg, err := loadOpenCodeConfig()
-	if err != nil {
-		return err
-	}
+// saveProviderLocked 在已持写锁的配置上应用一次供应商保存。
+func saveProviderLocked(cfg *model.OpenCodeConfig, ps model.ProviderSave) error {
 	if cfg.Providers == nil {
 		cfg.Providers = make(map[string]*model.ProviderEntry)
 	}
@@ -172,26 +143,16 @@ func SaveProvider(ps model.ProviderSave) error {
 
 	// 按 v2 规则重写启用策略（experimental.policies 的 provider.use）；
 	// 本次保存的供应商以其提交的启用状态为准。
-	if err := rewriteProviderPolicies(cfg, map[string]bool{ps.Key: ps.Enabled}); err != nil {
-		return err
-	}
-	return saveOpenCodeConfig(cfg)
+	return rewriteProviderPolicies(cfg, map[string]bool{ps.Key: ps.Enabled})
 }
 
 // DeleteProvider 删除供应商，并同步重写启用策略。
 func DeleteProvider(key string) error {
-	providerWriteMu.Lock()
-	defer providerWriteMu.Unlock()
-
-	cfg, err := loadOpenCodeConfig()
-	if err != nil {
-		return err
-	}
-	delete(cfg.Providers, key)
-	if err := rewriteProviderPolicies(cfg, nil); err != nil {
-		return err
-	}
-	return saveOpenCodeConfig(cfg)
+	// 读-改-写全程持锁，避免与 MCP 等其它配置界面并发保存时互相覆盖。
+	return opencodecfg.Update(func(cfg *model.OpenCodeConfig) error {
+		delete(cfg.Providers, key)
+		return rewriteProviderPolicies(cfg, nil)
+	})
 }
 
 // ========== 读取辅助 ==========

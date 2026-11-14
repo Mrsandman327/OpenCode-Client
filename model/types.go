@@ -61,6 +61,9 @@ type OpenCodeConfig struct {
 	Schema    string                    `json:"$schema,omitempty"`
 	Plugin    []string                  `json:"plugin,omitempty"`
 	Providers map[string]*ProviderEntry `json:"providers,omitempty"`
+	// Mcp 是 v2 的顶层 mcp 段（mcp.servers / mcp.timeout）。
+	// 未建模的 mcp 子键（如 v1 的 mcp.<name> 条目）保留在 McpConfig.Extra 中。
+	Mcp *McpConfig `json:"mcp,omitempty"`
 	// EnabledProviders / DisabledProviders 仅用于读取兼容旧的 provider 过滤写法：
 	// 写入时一律不再输出，启用状态改由顶层 policies 的 provider.use 表达。
 	EnabledProviders  []string `json:"enabled_providers,omitempty"`
@@ -118,6 +121,13 @@ func (c *OpenCodeConfig) UnmarshalJSON(data []byte) error {
 		}
 		delete(raw, "disabled_providers")
 	}
+	// mcp 段：servers/timeout 建模，mcp 下的其它键（如 v1 旧格式条目）进 McpConfig.Extra。
+	if v, ok := raw["mcp"]; ok {
+		if err := json.Unmarshal(v, &c.Mcp); err != nil {
+			return err
+		}
+		delete(raw, "mcp")
+	}
 	// 未列出的顶层键（含 v2 已不支持的 server）原样保留到 Extra。
 	c.Extra = raw
 	return nil
@@ -151,6 +161,16 @@ func (c OpenCodeConfig) MarshalJSON() ([]byte, error) {
 			return nil, err
 		}
 		out["providers"] = b
+	}
+	if c.Mcp != nil {
+		b, err := json.Marshal(c.Mcp)
+		if err != nil {
+			return nil, err
+		}
+		// 空的 mcp 对象没有语义，省略以免写回 "mcp": {}。
+		if string(b) != "{}" {
+			out["mcp"] = b
+		}
 	}
 	return json.Marshal(out)
 }
@@ -376,6 +396,300 @@ type ProviderSave struct {
 	Package string      `json:"package"`
 	Enabled bool        `json:"enabled"`
 	Models  []ModelInfo `json:"models"`
+}
+
+// ========== MCP 连接器配置相关 ==========
+
+// McpConfig 是 opencode.json(c) 顶层 mcp 段（v2）。
+// Extra 保留 mcp 下未建模的键（如 v1 旧格式 mcp.<name> 条目），写回时原样输出。
+type McpConfig struct {
+	Servers map[string]*McpServer      `json:"servers,omitempty"`
+	Timeout *McpTimeout                `json:"timeout,omitempty"`
+	Extra   map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON 自定义反序列化：分离 servers / timeout，其余键原样保留到 Extra。
+func (c *McpConfig) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if v, ok := raw["servers"]; ok {
+		if err := json.Unmarshal(v, &c.Servers); err != nil {
+			return err
+		}
+		delete(raw, "servers")
+	}
+	if v, ok := raw["timeout"]; ok {
+		if err := json.Unmarshal(v, &c.Timeout); err != nil {
+			return err
+		}
+		delete(raw, "timeout")
+	}
+	c.Extra = raw
+	return nil
+}
+
+// MarshalJSON 自定义序列化：先铺未建模键（Extra），再用已知字段覆盖同名键。
+func (c McpConfig) MarshalJSON() ([]byte, error) {
+	out := make(map[string]json.RawMessage, len(c.Extra)+2)
+	for k, v := range c.Extra {
+		out[k] = v
+	}
+	// 空 servers 对象没有语义，省略以免写回 "servers": {}。
+	if len(c.Servers) > 0 {
+		b, err := json.Marshal(c.Servers)
+		if err != nil {
+			return nil, err
+		}
+		out["servers"] = b
+	}
+	// 三项都为空的 timeout 对象没有语义（schema 要求每项为正整数），不输出空对象。
+	if c.Timeout != nil && c.Timeout.Enabled() {
+		b, err := json.Marshal(c.Timeout)
+		if err != nil {
+			return nil, err
+		}
+		out["timeout"] = b
+	}
+	return json.Marshal(out)
+}
+
+// McpServer 是 mcp.servers.<name> 的条目（v2）。
+// Extra 保留未建模字段（未来版本新增字段、用户自定义字段），写回时原样输出。
+type McpServer struct {
+	Type        string                     `json:"type"`
+	Command     []string                   `json:"command,omitempty"`
+	Cwd         string                     `json:"cwd,omitempty"`
+	Environment map[string]string          `json:"environment,omitempty"`
+	URL         string                     `json:"url,omitempty"`
+	Headers     map[string]string          `json:"headers,omitempty"`
+	Disabled    bool                       `json:"disabled,omitempty"`
+	Codemode    *bool                      `json:"codemode,omitempty"` // 必须指针：false 是有意义的值
+	Pool        *bool                      `json:"pool,omitempty"`
+	Protocol    string                     `json:"protocol,omitempty"`
+	Timeout     *McpTimeout                `json:"timeout,omitempty"`
+	OAuth       json.RawMessage            `json:"oauth,omitempty"` // false 或对象，原样承载
+	Extra       map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON 自定义反序列化：分离已知字段，未知键原样保留到 Extra。
+func (s *McpServer) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if v, ok := raw["type"]; ok {
+		if err := json.Unmarshal(v, &s.Type); err != nil {
+			return err
+		}
+		delete(raw, "type")
+	}
+	if v, ok := raw["command"]; ok {
+		if err := json.Unmarshal(v, &s.Command); err != nil {
+			return err
+		}
+		delete(raw, "command")
+	}
+	if v, ok := raw["cwd"]; ok {
+		if err := json.Unmarshal(v, &s.Cwd); err != nil {
+			return err
+		}
+		delete(raw, "cwd")
+	}
+	if v, ok := raw["environment"]; ok {
+		if err := json.Unmarshal(v, &s.Environment); err != nil {
+			return err
+		}
+		delete(raw, "environment")
+	}
+	if v, ok := raw["url"]; ok {
+		if err := json.Unmarshal(v, &s.URL); err != nil {
+			return err
+		}
+		delete(raw, "url")
+	}
+	if v, ok := raw["headers"]; ok {
+		if err := json.Unmarshal(v, &s.Headers); err != nil {
+			return err
+		}
+		delete(raw, "headers")
+	}
+	if v, ok := raw["disabled"]; ok {
+		if err := json.Unmarshal(v, &s.Disabled); err != nil {
+			return err
+		}
+		delete(raw, "disabled")
+	}
+	if v, ok := raw["codemode"]; ok {
+		if err := json.Unmarshal(v, &s.Codemode); err != nil {
+			return err
+		}
+		delete(raw, "codemode")
+	}
+	if v, ok := raw["pool"]; ok {
+		if err := json.Unmarshal(v, &s.Pool); err != nil {
+			return err
+		}
+		delete(raw, "pool")
+	}
+	if v, ok := raw["protocol"]; ok {
+		if err := json.Unmarshal(v, &s.Protocol); err != nil {
+			return err
+		}
+		delete(raw, "protocol")
+	}
+	if v, ok := raw["timeout"]; ok {
+		if err := json.Unmarshal(v, &s.Timeout); err != nil {
+			return err
+		}
+		delete(raw, "timeout")
+	}
+	if v, ok := raw["oauth"]; ok {
+		// oauth 既可能是 false，也可能是对象；原样承载，不建模。
+		s.OAuth = v
+		delete(raw, "oauth")
+	}
+	s.Extra = raw
+	return nil
+}
+
+// MarshalJSON 自定义序列化：先铺未建模键（Extra），再用已知字段覆盖同名键。
+func (s McpServer) MarshalJSON() ([]byte, error) {
+	out := make(map[string]json.RawMessage, len(s.Extra)+12)
+	for k, v := range s.Extra {
+		out[k] = v
+	}
+	put := func(key string, value any) error {
+		b, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		out[key] = b
+		return nil
+	}
+	if s.Type != "" {
+		if err := put("type", s.Type); err != nil {
+			return nil, err
+		}
+	}
+	if len(s.Command) > 0 {
+		if err := put("command", s.Command); err != nil {
+			return nil, err
+		}
+	}
+	if s.Cwd != "" {
+		if err := put("cwd", s.Cwd); err != nil {
+			return nil, err
+		}
+	}
+	if len(s.Environment) > 0 {
+		if err := put("environment", s.Environment); err != nil {
+			return nil, err
+		}
+	}
+	if s.URL != "" {
+		if err := put("url", s.URL); err != nil {
+			return nil, err
+		}
+	}
+	if len(s.Headers) > 0 {
+		if err := put("headers", s.Headers); err != nil {
+			return nil, err
+		}
+	}
+	if s.Disabled {
+		if err := put("disabled", true); err != nil {
+			return nil, err
+		}
+	}
+	// codemode / pool 是指针：false 与「未设置」语义不同，必须原样写出。
+	if s.Codemode != nil {
+		if err := put("codemode", *s.Codemode); err != nil {
+			return nil, err
+		}
+	}
+	if s.Pool != nil {
+		if err := put("pool", *s.Pool); err != nil {
+			return nil, err
+		}
+	}
+	if s.Protocol != "" {
+		if err := put("protocol", s.Protocol); err != nil {
+			return nil, err
+		}
+	}
+	if s.Timeout != nil && s.Timeout.Enabled() {
+		if err := put("timeout", s.Timeout); err != nil {
+			return nil, err
+		}
+	}
+	// oauth 原样输出（false 或对象），避免丢失用户手写的 OAuth 配置。
+	if len(s.OAuth) > 0 {
+		out["oauth"] = s.OAuth
+	}
+	return json.Marshal(out)
+}
+
+// McpTimeout 是超时对象。三项都用指针区分「未设置」和「0」，
+// schema 约束是 exclusiveMinimum: 0，0 不是合法值。
+type McpTimeout struct {
+	Startup   *int `json:"startup,omitempty"`
+	Catalog   *int `json:"catalog,omitempty"`
+	Execution *int `json:"execution,omitempty"`
+}
+
+// Enabled 判断这个超时对象是否至少设置了一项。
+func (t *McpTimeout) Enabled() bool {
+	if t == nil {
+		return false
+	}
+	return t.Startup != nil || t.Catalog != nil || t.Execution != nil
+}
+
+// McpServerInfo 是返回给前端展示的单条连接器信息。
+type McpServerInfo struct {
+	Name        string            `json:"name"`
+	Type        string            `json:"type"`
+	Command     []string          `json:"command,omitempty"`
+	Cwd         string            `json:"cwd,omitempty"`
+	Environment map[string]string `json:"environment,omitempty"`
+	URL         string            `json:"url,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	Disabled    bool              `json:"disabled"`
+	Codemode    *bool             `json:"codemode,omitempty"`
+	Pool        *bool             `json:"pool,omitempty"`
+	Protocol    string            `json:"protocol,omitempty"`
+	Timeout     *McpTimeout       `json:"timeout,omitempty"`
+	OAuth       json.RawMessage   `json:"oauth,omitempty"`
+	// Extra 只用于前端提示「还有 N 个字段未展示」，保存时不回传。
+	Extra map[string]json.RawMessage `json:"extra,omitempty"`
+}
+
+// McpConfigInfo 是 GetMcpConfig 的返回。
+type McpConfigInfo struct {
+	Path    string          `json:"path"`
+	Servers []McpServerInfo `json:"servers"`
+	Timeout *McpTimeout     `json:"timeout,omitempty"`
+}
+
+// McpServerSave 是前端保存单条连接器时的提交结构。
+// 不包含 Extra：后端从原条目里保留未建模字段。
+type McpServerSave struct {
+	OldName     string            `json:"oldName"`
+	Name        string            `json:"name"`
+	Type        string            `json:"type"`
+	Command     []string          `json:"command"`
+	Cwd         string            `json:"cwd"`
+	Environment map[string]string `json:"environment"`
+	URL         string            `json:"url"`
+	Headers     map[string]string `json:"headers"`
+	Disabled    bool              `json:"disabled"`
+	Codemode    *bool             `json:"codemode"`
+	Pool        *bool             `json:"pool"`
+	Protocol    string            `json:"protocol"`
+	Timeout     *McpTimeout       `json:"timeout"`
+	OAuth       json.RawMessage   `json:"oauth"`
 }
 
 // ========== Web 服务相关 ==========
