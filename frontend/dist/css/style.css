@@ -1756,12 +1756,11 @@ input::placeholder, textarea::placeholder {
     border: none;
     border-radius: 3px;
     background: none;
-    color: var(--text-secondary);
-    font-family: inherit;
+    color: var(--accent);
     font-size: 11px;
-    font-weight: 500;
     line-height: 1.2;
     cursor: pointer;
+    font-family: 'Cascadia Code';
 }
 .oc-subtask-detail-btn:hover:not(:disabled) {
     color: var(--accent);
@@ -3458,9 +3457,10 @@ input::placeholder, textarea::placeholder {
     text-align: right;
 }
 .oc-version-check-btn {
-    color: var(--text-secondary);
+    color: var(--accent);
     text-decoration: none;
     cursor: pointer;
+    font-family: 'Cascadia Code';
 }
 .oc-version-check-btn:hover {
     text-underline-offset: 2px;
