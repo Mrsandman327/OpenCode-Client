@@ -7,6 +7,7 @@
 import { api } from '../core/apicall.js';
 import { store } from '../core/state.js';
 import { escapeHtml, showToast, showApiError, bindOverlayClose } from '../core/utils.js';
+import { showConfirm } from '../core/dialog.js';
 import { formatDateTime } from '../core/format.js';
 
 const API_BASE = '/api/experimental/schedule';
@@ -26,7 +27,8 @@ const scheduleState = {
 
 const PAUSE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z" fill="currentColor"/></svg>';
-const TRASH_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// 垃圾桶图标：与 MCP 连接器列表、知识库卡片保持同一套路径与线宽
+const TRASH_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function $(id) { return document.getElementById(id); }
 
@@ -230,7 +232,12 @@ async function resumeSchedule(id) {
 
 async function deleteSchedule(id) {
     if (!id) return;
-    if (!window.confirm('删除这个定时任务？')) return;
+    const confirmed = await showConfirm({
+        title: '删除定时任务',
+        message: '确定要删除这个定时任务吗？删除后无法恢复。',
+        okText: '删除'
+    });
+    if (!confirmed) return;
     try {
         await api.OpenCodeCall('DELETE', API_BASE + '/' + encodeURIComponent(id));
         showToast('已删除', 'success');

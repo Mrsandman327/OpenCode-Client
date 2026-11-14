@@ -11570,6 +11570,67 @@ input.toolbar-input {
     color: var(--text-muted);
 }
 
+/* 列表项删除按钮：绝对定位在最右侧，默认隐藏；
+   悬停时出现，同时把类型徽章向左挤一点，不改变列表宽度。 */
+.mcp-item {
+    position: relative;
+}
+
+.mcp-item-del {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+
+/* 垃圾桶图标：描边风格，颜色跟随按钮 currentColor */
+.mcp-item-del-ic {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.mcp-item:hover .mcp-item-del {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 悬停时类型徽章左移，给删除按钮让位 */
+.mcp-tag {
+    transition: margin-right 0.12s ease;
+}
+
+.mcp-item:hover .mcp-tag {
+    margin-right: 22px;
+}
+
+.mcp-item-del:hover:not(:disabled) {
+    color: var(--danger);
+    background: var(--danger-bg);
+}
+
+.mcp-item-del:disabled { opacity: 0.4; cursor: default; }
+
 /* ---- 右表单 ---- */
 .mcp-main {
     flex: 1;
@@ -11742,9 +11803,9 @@ input.toolbar-input {
     border-left: 1px solid var(--border);
 }
 
-/* 表单底部按钮栏：复用 .modal-footer，仅把按钮组改为两端对齐（删除靠左） */
+/* 表单底部按钮栏：复用 .modal-footer；删除已移到列表项，这里只保留右侧按钮组 */
 .mcp-modal .modal-footer {
-    justify-content: space-between;
+    justify-content: flex-end;
 }
 
 /* 空状态 / 加载失败 */

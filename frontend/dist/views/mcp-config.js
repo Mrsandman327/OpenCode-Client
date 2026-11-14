@@ -220,7 +220,7 @@ function updateNamePreview() {
 // 渲染：列表 / 表单 / 全局超时 / 空状态
 // ============================================================
 
-/** 左侧服务器列表：状态点（disabled 为灰）+ 名称 + 类型徽章 */
+/** 左侧服务器列表：状态点（disabled 为灰）+ 名称 + 类型徽章 + 悬停删除 */
 function renderList() {
     if (!el.list) return;
     el.list.innerHTML = '';
@@ -233,7 +233,14 @@ function renderList() {
         item.innerHTML =
             '<span class="mcp-dot' + (server.disabled ? '' : ' on') + '"></span>' +
             '<span class="mcp-name">' + escapeHtml(server.name || '(未命名)') + '</span>' +
-            '<span class="mcp-tag">' + escapeHtml(server.type || 'local') + '</span>';
+            '<span class="mcp-tag">' + escapeHtml(server.type || 'local') + '</span>' +
+            '<button type="button" class="mcp-item-del" title="删除该连接器" aria-label="删除该连接器">' +
+                // 复用知识库卡片里的垃圾桶图标路径（描边风格，颜色跟随 currentColor）
+                '<svg class="mcp-item-del-ic" viewBox="0 0 24 24" aria-hidden="true">' +
+                    '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>' +
+                    '<path d="M10 11v5M14 11v5"/>' +
+                '</svg>' +
+            '</button>';
         item.title = (server.name || '') + '（' + (server.type || '') + '）' +
             (server.disabled ? ' · 已停用' : '');
         item.addEventListener('click', function () {
@@ -243,6 +250,20 @@ function renderList() {
             if (el.formScroll) el.formScroll.scrollTop = 0;
             render();
         });
+        // 删除按钮：阻止冒泡，避免顺带切换选中项
+        const delBtn = item.querySelector('.mcp-item-del');
+        if (delBtn) {
+            delBtn.addEventListener('click', async function (e) {
+                e.stopPropagation();
+                if (delBtn.disabled) return;
+                delBtn.disabled = true;
+                try {
+                    await deleteServer(server.name || '');
+                } finally {
+                    delBtn.disabled = false;
+                }
+            });
+        }
         el.list.appendChild(item);
     });
 }
@@ -342,7 +363,6 @@ function renderForm() {
 
     // 标题 / 删除按钮 / 名称预览
     if (el.formTitle) el.formTitle.textContent = state.isNew ? '新增连接器' : (server.name || '连接器');
-    if (el.btnDelete) el.btnDelete.style.visibility = state.isNew ? 'hidden' : 'visible';
     updateNamePreview();
 }
 
@@ -562,12 +582,12 @@ async function saveServer() {
 }
 
 /** 删除当前连接器（需二次确认） */
-async function deleteServer() {
-    if (state.isNew || state.current < 0) return;
-    const server = state.servers[state.current];
+/** 删除指定连接器（由列表项上的删除按钮触发） */
+async function deleteServer(name) {
+    if (!name) return;
+    const server = state.servers.find(function (item) { return item.name === name; });
     if (!server) return;
 
-    const name = server.name || '';
     const confirmed = await showConfirm({
         title: '删除连接器',
         message: '确定要删除连接器「' + name + '」吗？该操作会立即写入配置文件。',
@@ -575,7 +595,6 @@ async function deleteServer() {
     });
     if (!confirmed) return;
 
-    setBusy(el.btnDelete, true, '删除中…', '删除');
     try {
         const res = await api.DeleteMcpServer(name);
         assertOk(res, '删除失败');
@@ -584,8 +603,6 @@ async function deleteServer() {
         await loadMcpConfig();
     } catch (e) {
         showApiError('删除失败: ', e);
-    } finally {
-        setBusy(el.btnDelete, false, '删除中…', '删除');
     }
 }
 
@@ -759,7 +776,6 @@ function collectEl() {
         gCatalog: document.getElementById('mcpGlobalCatalog'),
         gExecution: document.getElementById('mcpGlobalExecution'),
 
-        btnDelete: document.getElementById('btnMcpDelete'),
         btnSave: document.getElementById('btnMcpSave'),
         btnGlobalSave: document.getElementById('btnMcpGlobalSave')
     };
@@ -810,7 +826,6 @@ export function initMcpConfig() {
 
     // 表单底部操作
     bindClick('btnMcpSave', saveServer);
-    bindClick('btnMcpDelete', deleteServer);
     bindClick('btnMcpCancel', cancelEdit);
 
     // 全局超时面板

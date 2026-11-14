@@ -19,6 +19,7 @@ import { showToast, showApiError, escapeHtml, getActiveMessagesEl, ensureTabMess
 import { isMobileTreeMode } from './mobile.js';
 import { openSessionTab, renderTabsBar, setTabActivationHandler } from './tabs.js';
 import { refreshSubtaskPanel, scheduleSubtaskExtraction } from './sidepanel.js';
+import { refreshSchedulePanel } from './schedules.js';
 import { loadSessionStatuses, refreshSessionStatusFromActive } from './events.js';
 import { smartScroll, updateSendButton, setSessionStatus, renderMessages, ensureSelectOption, updateScrollBottomButton } from './render.js';
 // 解环后与 cmd-palette 的依赖为单向：它经 core/utils.js 注册中心调用本模块的
@@ -401,6 +402,9 @@ export async function selectSession(id) {
     // 只影响“打开时是否已在运行”的判断；不引入轮询。
     updateSendButton();
     refreshSessionStatusFromActive(id, true);
+    // 首次打开不经过 switchTab，这里补拉一次定时任务：
+    // 否则只有切换 tab 才刷新，首次打开会停留在空状态或上一次会话的数据。
+    refreshSchedulePanel({ sessionID: id });
     // 首次打开不经过 switchTab，这里补一次「会话已激活」通知，
     // 否则占位标题的轮询不会启动（新建会话标题停在占位值）。
     try {
