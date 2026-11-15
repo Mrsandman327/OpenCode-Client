@@ -46,6 +46,24 @@ func TestParseGitStatusV2(t *testing.T) {
 	check(4, "/conflict.txt", "UU", true, true, true)
 }
 
+// TestParseGitHead 从 porcelain v2 的分支头记录里取当前提交。
+func TestParseGitHead(t *testing.T) {
+	out := strings.Join([]string{
+		"# branch.oid abc123def",
+		"# branch.head main",
+		"1 .M N... 100644 100644 100644 a b file.txt",
+	}, "\x00")
+	if got := parseGitHead(out); got != "abc123def" {
+		t.Fatalf("parseGitHead = %q, 期望 abc123def", got)
+	}
+	if got := parseGitHead("# branch.oid (initial)\x00"); got != "" {
+		t.Fatalf("未提交仓库应返回空串，实际 %q", got)
+	}
+	if got := parseGitHead(""); got != "" {
+		t.Fatalf("空输出应返回空串，实际 %q", got)
+	}
+}
+
 // TestParseGitStatusEmpty 空输出应返回空切片而不是 nil，避免前端拿到 null。
 func TestParseGitStatusEmpty(t *testing.T) {
 	files := parseGitStatus("")

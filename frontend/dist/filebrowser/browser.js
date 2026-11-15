@@ -71,6 +71,10 @@ store.fileBrowserState = {
         isGitRepo: false,
         files: [],
         message: '',
+        // head 是当前检出的提交；historyHead 是历史列表对应的提交。
+        // 两者不一致说明外部发生了提交/切换分支/amend，需要重载历史。
+        head: '',
+        historyHead: '',
         historyItems: [],
         historyOffset: 0,
         historyHasMore: false,
@@ -1080,6 +1084,7 @@ export async function loadFileBrowserGitStatus(options) {
         state.git.isGitRepo = !!data.isGitRepo;
         state.git.files = data.files || [];
         state.git.message = data.message || '';
+        state.git.head = data.head || '';
     } catch (err) {
         state.git.isGitRepo = false;
         state.git.files = [];
@@ -1127,6 +1132,8 @@ export async function loadFileBrowserGitHistory(loadMore) {
         state.git.historyItems = loadMore ? state.git.historyItems.concat(items) : items;
         state.git.historyOffset = (data.offset || 0) + items.length;
         state.git.historyHasMore = !!data.hasMore;
+        // 记录历史列表对应的提交，供轮询判断是否需要重载（外部提交/切换分支）
+        if (!loadMore) state.git.historyHead = state.git.head || '';
     } catch (err) {
         state.git.message = formatApiError(err);
     } finally {
@@ -2031,7 +2038,14 @@ async function runFileBrowserAutoRefresh() {
     if (treeChanged) rerenderTreeKeepingView();
     await checkActiveFileExternalChange();
     // git 模式：只刷新「当前变更」列表；提交栏是静态 DOM，刷新不会打断输入
-    if (state.mode === 'git') loadFileBrowserGitStatus({ onlyIfChanged: true });
+    if (state.mode === 'git') {
+        await loadFileBrowserGitStatus({ onlyIfChanged: true });
+        // HEAD 变化说明发生了外部提交、切换分支或 amend：重载提交历史。
+        // 应用内提交会自己刷新历史，这里主要覆盖「在终端里提交」的情况。
+        if (state.git.isGitRepo && state.git.head && state.git.head !== state.git.historyHead) {
+            loadFileBrowserGitHistory(false);
+        }
+    }
 }
 
 /** 安排下一轮（setTimeout 递归，便于按目录规模动态调整间隔） */

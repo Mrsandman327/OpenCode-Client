@@ -144,6 +144,7 @@ func gitMetaTime(gitDir, commonDir string) time.Time {
 type gitStatusCacheEntry struct {
 	meta  time.Time
 	stamp time.Time
+	head  string
 	files []model.GitChangedFile
 }
 
@@ -172,24 +173,45 @@ func ListGitChanges(dir string) model.GitStatusResult {
 	if entry, ok := gitStatusCache[key]; ok && entry.meta.Equal(meta) && time.Since(entry.stamp) < gitStatusCacheTTL {
 		files := append([]model.GitChangedFile(nil), entry.files...)
 		gitStatusCacheMu.Unlock()
-		return model.GitStatusResult{IsGitRepo: true, Files: files, Message: ""}
+		return model.GitStatusResult{IsGitRepo: true, Files: files, Message: "", Head: entry.head}
 	}
 	gitStatusCacheMu.Unlock()
 
-	out, err := runGitCommand(dir, "-c", "core.quotepath=false", "status", "--porcelain=v2", "-z", "--untracked-files=all")
+	out, err := runGitCommand(dir, "-c", "core.quotepath=false", "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all")
 	if err != nil {
 		return model.GitStatusResult{IsGitRepo: true, Files: []model.GitChangedFile{}, Message: err.Error()}
 	}
+	head := parseGitHead(out)
 	files := parseGitStatus(out)
 
 	gitStatusCacheMu.Lock()
 	if len(gitStatusCache) >= gitStatusCacheMax {
 		gitStatusCache = make(map[string]gitStatusCacheEntry)
 	}
-	gitStatusCache[key] = gitStatusCacheEntry{meta: meta, stamp: time.Now(), files: append([]model.GitChangedFile(nil), files...)}
+	gitStatusCache[key] = gitStatusCacheEntry{
+		meta: meta, stamp: time.Now(), head: head,
+		files: append([]model.GitChangedFile(nil), files...),
+	}
 	gitStatusCacheMu.Unlock()
 
-	return model.GitStatusResult{IsGitRepo: true, Files: files, Message: ""}
+	return model.GitStatusResult{IsGitRepo: true, Files: files, Message: "", Head: head}
+}
+
+// parseGitHead 从 porcelain v2 的 `# branch.oid <hash>` 记录里取当前提交。
+// 仓库还没有第一个提交时该值为 "(initial)"，返回空串。
+func parseGitHead(out string) string {
+	const prefix = "# branch.oid "
+	for _, rec := range strings.Split(out, "\x00") {
+		if !strings.HasPrefix(rec, prefix) {
+			continue
+		}
+		h := strings.TrimSpace(strings.TrimPrefix(rec, prefix))
+		if h == "" || h == "(initial)" {
+			return ""
+		}
+		return h
+	}
+	return ""
 }
 
 // parseGitStatus 解析 `git status --porcelain=v2 -z` 的输出。

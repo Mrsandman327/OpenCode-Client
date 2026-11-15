@@ -932,6 +932,9 @@ type GitStatusResult struct {
 	IsGitRepo bool             `json:"isGitRepo"`
 	Files     []GitChangedFile `json:"files"`
 	Message   string           `json:"message"`
+	// Head 是当前检出的提交；前端用它判断是否需要重新加载提交历史
+	// （外部 git commit / 切换分支 / amend 都会改变它）。
+	Head string `json:"head"`
 }
 
 // GitDiffLine 表示对比视图中的一行。
