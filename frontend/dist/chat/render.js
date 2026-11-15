@@ -24,6 +24,25 @@ import { api } from '../core/apicall.js';
 import { updateUserNav, syncSearchAfterRender, notifyToolBodyToggled, isSearchScrollLocked, isSearchActive } from './search.js';
 
 // ============================
+// 内联 SVG 图标（替代原 emoji，symbol 定义见 index.html 的 sprite）
+// ============================
+
+/**
+ * 生成内联 SVG 图标片段。
+ * 统一使用 class="i"（尺寸/颜色由 CSS 的 svg.i 规则控制，颜色继承 currentColor）。
+ * @param {string} id symbol id（如 i-book-open），只接受本文件内的常量，无需转义
+ * @param {string} [inlineStyle] 可选的额外内联样式（行内文本场景用，避免 svg 的 display:block 独占一行）
+ * @returns {string} SVG 片段
+ */
+function iconSvg(id, inlineStyle) {
+    const styleAttr = inlineStyle ? ` style="${inlineStyle}"` : '';
+    return `<svg class="i" aria-hidden="true"${styleAttr}><use href="#${id}"></use></svg>`;
+}
+
+/** 行内文本场景的图标样式：与文字同基线、不独占一行，尺寸略小于默认 16px */
+const INLINE_ICON_STYLE = 'display:inline-block;vertical-align:-2px;margin-right:4px;width:14px;height:14px';
+
+// ============================
 // sidepanel 回调注册（打破 render↔sidepanel 循环依赖）
 // ============================
 let renderTodosHandler = null;
@@ -1013,7 +1032,7 @@ export function renderReasoning(part) {
         durHtml = '<span class="oc-tool-duration" data-live-start="' + t.start + '" data-live-label="思考中">思考中 '
             + formatToolDuration(Date.now() - t.start) + '</span>';
     }
-    head.innerHTML = '<span class="oc-reasoning-icon">🧠</span> 思考过程 ' + durHtml;
+    head.innerHTML = iconSvg('i-lightbulb') + ' 思考过程 ' + durHtml;
     const body = document.createElement('div');
     body.className = 'oc-reasoning-body';
     body.dataset.expandKey = key;
@@ -1102,7 +1121,7 @@ export function renderQuestionTool(part) {
             : '等待回答';
         statusClass = 'running';
     }
-    head.innerHTML = `<span class="oc-tool-icon">❓</span> 提问 <span class="oc-tool-status ${statusClass}">${statusText}</span>` + (isCompleted ? buildDurationHtml(part, false) : '');
+    head.innerHTML = iconSvg('i-help') + ` 提问 <span class="oc-tool-status ${statusClass}">${statusText}</span>` + (isCompleted ? buildDurationHtml(part, false) : '');
 
     // 组装所有答案并提交（含自定义输入；跳过的题传空数组）
     const submitAllAnswers = function() {
@@ -1141,7 +1160,7 @@ export function renderQuestionTool(part) {
         if (isRunning && qSkipped) {
             const skippedDiv = document.createElement('div');
             skippedDiv.className = 'oc-question-answer oc-question-dismissed';
-            skippedDiv.textContent = '↩ 已跳过此问题';
+            skippedDiv.innerHTML = iconSvg('i-undo', INLINE_ICON_STYLE) + ' 已跳过此问题';
             qBlock.appendChild(skippedDiv);
             body.appendChild(qBlock);
             return;
@@ -1154,7 +1173,9 @@ export function renderQuestionTool(part) {
         if (isRunning && hasAnswer) {
             const answeredHint = document.createElement('div');
             answeredHint.className = 'oc-question-answered-hint';
-            answeredHint.textContent = '✅ 已答：' + (qAnswered ? part.__pendingAnswers[qi].join(', ') : qCustom);
+            // 已答提示：答案来自用户输入，必须转义后再拼进 innerHTML
+            answeredHint.innerHTML = iconSvg('i-check', INLINE_ICON_STYLE) + ' 已答：'
+                + escapeHtml(qAnswered ? part.__pendingAnswers[qi].join(', ') : qCustom);
             qBlock.appendChild(answeredHint);
         }
 
@@ -1165,13 +1186,13 @@ export function renderQuestionTool(part) {
             if (thisAnswer && thisAnswer.length) {
                 const answerDiv = document.createElement('div');
                 answerDiv.className = 'oc-question-answer';
-                answerDiv.innerHTML = `<span class="oc-question-answer-label">✅ 已选：</span>${escapeHtml(thisAnswer.join(', '))}`;
+                answerDiv.innerHTML = `<span class="oc-question-answer-label">${iconSvg('i-check', INLINE_ICON_STYLE)} 已选：</span>${escapeHtml(thisAnswer.join(', '))}`;
                 qBlock.appendChild(answerDiv);
             } else if (output) {
                 // 无 metadata 时降级：从汇总输出中尝试提取对应答案
                 const answerDiv = document.createElement('div');
                 answerDiv.className = 'oc-question-answer';
-                answerDiv.innerHTML = `<span class="oc-question-answer-label">✅ 已选：</span>${escapeHtml(safeText(output))}`;
+                answerDiv.innerHTML = `<span class="oc-question-answer-label">${iconSvg('i-check', INLINE_ICON_STYLE)} 已选：</span>${escapeHtml(safeText(output))}`;
                 qBlock.appendChild(answerDiv);
             }
         }
@@ -1179,7 +1200,7 @@ export function renderQuestionTool(part) {
         if (isDismissed) {
             const dismissDiv = document.createElement('div');
             dismissDiv.className = 'oc-question-answer oc-question-dismissed';
-            dismissDiv.textContent = '↩ 已跳过此问题';
+            dismissDiv.innerHTML = iconSvg('i-undo', INLINE_ICON_STYLE) + ' 已跳过此问题';
             qBlock.appendChild(dismissDiv);
         }
 
@@ -1232,10 +1253,10 @@ export function renderQuestionTool(part) {
                         if (!answeredHint) {
                             const hint = document.createElement('div');
                             hint.className = 'oc-question-answered-hint';
-                            hint.textContent = '✅ 已答：' + cur.join(', ');
+                            hint.innerHTML = iconSvg('i-check', INLINE_ICON_STYLE) + ' 已答：' + escapeHtml(cur.join(', '));
                             qBlock.appendChild(hint);
                         } else {
-                            answeredHint.textContent = '✅ 已答：' + cur.join(', ');
+                            answeredHint.innerHTML = iconSvg('i-check', INLINE_ICON_STYLE) + ' 已答：' + escapeHtml(cur.join(', '));
                         }
                     } else if (answeredHint) {
                         answeredHint.remove();
@@ -1245,8 +1266,8 @@ export function renderQuestionTool(part) {
                     if (headStatus) {
                         const answeredCount = part.__pendingAnswers.filter(function(a) { return a && a.length; }).length;
                         headStatus.textContent = questions.length > 1 && answeredCount > 0
-                            ? '⏳ 已答 ' + answeredCount + '/' + questions.length
-                            : '⏳ 等待回答';
+                            ? '已答 ' + answeredCount + '/' + questions.length
+                            : '等待回答';
                     }
                 });
                 optsDiv.appendChild(btn);
@@ -1258,7 +1279,7 @@ export function renderQuestionTool(part) {
             customRow.className = 'oc-question-custom';
             const customInput = document.createElement('input');
             customInput.className = 'oc-question-custom-input';
-            customInput.placeholder = '✏️ 输入自定义回答...';
+            customInput.placeholder = '输入自定义回答...';
             customInput.value = part.__pendingCustom[qi] || '';
             customInput.addEventListener('input', () => {
                 part.__pendingCustom[qi] = customInput.value;
@@ -1277,10 +1298,10 @@ export function renderQuestionTool(part) {
                     if (!answeredHint) {
                         const hint = document.createElement('div');
                         hint.className = 'oc-question-answered-hint';
-                        hint.textContent = '✅ 已答：' + val;
+                        hint.innerHTML = iconSvg('i-check', INLINE_ICON_STYLE) + ' 已答：' + escapeHtml(val);
                         qBlock.appendChild(hint);
                     } else {
-                        answeredHint.textContent = '✅ 已答：' + val;
+                        answeredHint.innerHTML = iconSvg('i-check', INLINE_ICON_STYLE) + ' 已答：' + escapeHtml(val);
                     }
                 } else if (answeredHint) {
                     answeredHint.remove();
@@ -1294,7 +1315,7 @@ export function renderQuestionTool(part) {
             skipRow.className = 'oc-question-skip-row';
             const skipBtn = document.createElement('button');
             skipBtn.className = 'oc-question-skip-btn';
-            skipBtn.textContent = '↩ 跳过此问题';
+            skipBtn.innerHTML = iconSvg('i-undo', INLINE_ICON_STYLE) + ' 跳过此问题';
             // 单题跳过：标记该题跳过，不调 reject（reject 会跳过整个问题集）
             skipBtn.addEventListener('click', () => {
                 part.__pendingSkipped[qi] = true;
@@ -1312,15 +1333,15 @@ export function renderQuestionTool(part) {
                 if (answeredHint) answeredHint.remove();
                 const skippedDiv = document.createElement('div');
                 skippedDiv.className = 'oc-question-answer oc-question-dismissed';
-                skippedDiv.textContent = '↩ 已跳过此问题';
+                skippedDiv.innerHTML = iconSvg('i-undo', INLINE_ICON_STYLE) + ' 已跳过此问题';
                 qBlock.appendChild(skippedDiv);
                 // 更新头部计数
                 const headStatus = el.querySelector('.oc-tool-status');
                 if (headStatus) {
                     const answeredCount = part.__pendingAnswers.filter(function(a) { return a && a.length; }).length;
                     headStatus.textContent = questions.length > 1 && answeredCount > 0
-                        ? '⏳ 已答 ' + answeredCount + '/' + questions.length
-                        : '⏳ 等待回答';
+                        ? '已答 ' + answeredCount + '/' + questions.length
+                        : '等待回答';
                 }
                 showToast('已跳过该问题', 'info');
             });
@@ -1343,7 +1364,7 @@ export function renderQuestionTool(part) {
         submitRow.className = 'oc-question-submit-row';
         const submitBtn = document.createElement('button');
         submitBtn.className = 'oc-question-finish-btn';
-        submitBtn.textContent = '✓ 提交回答';
+        submitBtn.innerHTML = iconSvg('i-check') + ' 提交回答';
         submitBtn.addEventListener('click', function() {
             submitAllAnswers();
         });
@@ -1419,16 +1440,16 @@ export function renderTool(part) {
 
     const isShell = tool === 'bash' || tool === 'shell';
 
-    // 细粒度文件操作分类
+    // 细粒度文件操作分类（icon 为 sprite 中的 symbol id，渲染时统一拼成内联 SVG）
     const fileCategoryMap = {
-        read:              { cat: 'file-read',     icon: '📖', label: '读取文件' },
-        look_at:           { cat: 'file-read',     icon: '📖', label: '读取文件' },
-        glob:              { cat: 'file-search',   icon: '🔍', label: '搜索文件' },
-        grep:              { cat: 'file-search',   icon: '🔍', label: '搜索文件' },
-        ast_grep_search:   { cat: 'file-search',   icon: '🔍', label: '搜索文件' },
-        ast_grep_replace:  { cat: 'file-edit',     icon: '✏️', label: '编辑文件' },
-        edit:              { cat: 'file-edit',     icon: '✏️', label: '编辑文件' },
-        write:             { cat: 'file-create',   icon: '📝', label: '创建文件' },
+        read:              { cat: 'file-read',     icon: 'i-book-open', label: '读取文件' },
+        look_at:           { cat: 'file-read',     icon: 'i-book-open', label: '读取文件' },
+        glob:              { cat: 'file-search',   icon: 'i-search',    label: '搜索文件' },
+        grep:              { cat: 'file-search',   icon: 'i-search',    label: '搜索文件' },
+        ast_grep_search:   { cat: 'file-search',   icon: 'i-search',    label: '搜索文件' },
+        ast_grep_replace:  { cat: 'file-edit',     icon: 'i-pencil',    label: '编辑文件' },
+        edit:              { cat: 'file-edit',     icon: 'i-pencil',    label: '编辑文件' },
+        write:             { cat: 'file-create',   icon: 'i-file-plus', label: '创建文件' },
     };
 
     const fc = fileCategoryMap[tool];
@@ -1440,9 +1461,9 @@ export function renderTool(part) {
     const head = document.createElement('div');
     head.className = 'oc-tool-head';
 
-    const iconMap = { shell: '💻', tool: '🔧' };
+    const iconMap = { shell: 'i-terminal', tool: 'i-wrench' };
     const labelMap = { shell: '指令执行', tool: '工具调用' };
-    const icon = fc ? fc.icon : (iconMap[category] || '🔧');
+    const iconId = fc ? fc.icon : (iconMap[category] || 'i-wrench');
     const label = fc ? fc.label : (labelMap[category] || '工具调用');
 
     let statusText = '';
@@ -1460,7 +1481,7 @@ export function renderTool(part) {
         ? (fileInput.filePath || fileInput.file_path || fileInput.path || fileInput.filename || '')
         : '';
     const title = filePath || state.title || tool;
-    head.innerHTML = `<span class="oc-tool-icon">${icon}</span> ${label}: <strong title="${escapeHtml(title)}">${escapeHtml(title)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>` + buildDurationHtml(part, true);
+    head.innerHTML = `${iconSvg(iconId)} ${label}: <strong title="${escapeHtml(title)}">${escapeHtml(title)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>` + buildDurationHtml(part, true);
 
     const body = document.createElement('div');
     body.className = 'oc-tool-body';
@@ -1643,7 +1664,7 @@ export function renderEditDiff(part, tool) {
     const statsHtml = addedCount || removedCount
         ? ` <span class="oc-edit-stats"><span class="oc-edit-stats-add">+${addedCount}</span> <span class="oc-edit-stats-del">-${removedCount}</span></span>`
         : '';
-    head.innerHTML = `<span class="oc-tool-icon">✏️</span> 编辑文件: <strong title="${escapeHtml(pathText)}">${escapeHtml(pathText)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>${statsHtml}` + buildDurationHtml(part, true);
+    head.innerHTML = `${iconSvg('i-pencil')} 编辑文件: <strong title="${escapeHtml(pathText)}">${escapeHtml(pathText)}</strong> <span class="oc-tool-status ${statusClass}">${statusText}</span>${statsHtml}` + buildDurationHtml(part, true);
 
     // 正文：左右两栏（折叠时不建逐行 DOM，展开时才构建）
     const body = document.createElement('div');
@@ -1768,7 +1789,7 @@ export function renderFilePart(part) {
     const expanded = !!store.expandedParts[key];
     const head = document.createElement('div');
     head.className = 'oc-file-path';
-    head.innerHTML = `<span>📎 ${escapeHtml(filename)}</span><span class="oc-file-meta">${meta} · ${expanded ? '收起' : '展开'}</span>`;
+    head.innerHTML = `<span>${iconSvg('i-paperclip', INLINE_ICON_STYLE)} ${escapeHtml(filename)}</span><span class="oc-file-meta">${meta} · ${expanded ? '收起' : '展开'}</span>`;
     // body：图像用 <img> 固定尺寸，其余用 <pre> 文本
     let body;
     if (isImage) {
@@ -1806,7 +1827,8 @@ export function renderPatchPart(part) {
     } else {
         fileInfo = escapeHtml(part.path || part.file || '');
     }
-    const pathHtml = fileInfo ? `<div class="oc-patch-path">📝 ${fileInfo}</div>` : '';
+    // 补丁路径：图标走行内样式，避免 svg 的 display:block 把路径挤到下一行
+    const pathHtml = fileInfo ? `<div class="oc-patch-path">${iconSvg('i-file-plus', INLINE_ICON_STYLE)} ${fileInfo}</div>` : '';
 
     let codeHtml = '';
     if (part.patch) {
@@ -1825,8 +1847,8 @@ export function renderCompaction(part) {
     el.className = 'oc-part oc-compaction';
     const auto = part.auto;
     el.innerHTML = auto
-        ? '🗜️ 自动压缩上下文'
-        : '🗜️ 上下文已压缩';
+        ? iconSvg('i-minimize', INLINE_ICON_STYLE) + ' 自动压缩上下文'
+        : iconSvg('i-minimize', INLINE_ICON_STYLE) + ' 上下文已压缩';
     return el;
 }
 
@@ -1836,8 +1858,8 @@ export function renderSnapshot(part) {
     el.className = 'oc-part oc-snapshot';
     const hash = (part.snapshot || '').slice(0, 7);
     el.innerHTML = hash
-        ? `<span class="oc-snapshot-icon">📸</span> 文件快照 <span class="oc-snapshot-hash">${escapeHtml(hash)}</span>`
-        : '<span class="oc-snapshot-icon">📸</span> 文件快照';
+        ? `${iconSvg('i-camera')} 文件快照 <span class="oc-snapshot-hash">${escapeHtml(hash)}</span>`
+        : `${iconSvg('i-camera')} 文件快照`;
     return el;
 }
 
@@ -1848,8 +1870,8 @@ export function renderRetry(part) {
     const attempt = part.attempt || 0;
     const msg = part.error?.data?.message || part.error?.message || '';
     el.innerHTML = msg
-        ? `🔄 第 ${attempt} 次重试 — <span class="oc-retry-msg">${escapeHtml(msg)}</span>`
-        : `🔄 第 ${attempt} 次重试`;
+        ? `${iconSvg('i-refresh')} 第 ${attempt} 次重试 — <span class="oc-retry-msg">${escapeHtml(msg)}</span>`
+        : `${iconSvg('i-refresh')} 第 ${attempt} 次重试`;
     return el;
 }
 

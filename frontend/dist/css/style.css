@@ -2925,7 +2925,16 @@ input::placeholder, textarea::placeholder {
     flex-shrink: 1;
 }
 .oc-tool-head:hover { background: var(--bg-card-hover); }
-.oc-tool-icon { font-size: 15px; flex-shrink: 0; }
+.oc-tool-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+    /* 卡片内图标用主文字色，避免继承卡头的次要色显得发灰 */
+    color: var(--text-primary);
+}
+.oc-reasoning-icon,
+.oc-snapshot-icon {
+    color: var(--text-primary);
+}
 .oc-tool-status {
     margin-left: auto;
     font-size: 11px;
