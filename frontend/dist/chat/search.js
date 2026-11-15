@@ -53,7 +53,13 @@ function isSessionSearchContext() {
  * - 绑定输入框的输入事件（200ms 防抖执行搜索）
  * - 绑定关闭、上一条、下一条按钮
  */
+/** 搜索栏事件是否已完成绑定（checkWebStatus 每次状态刷新都会排一次初始化，防重复绑定） */
+var searchInited = false;
+
 export function initSearch() {
+    // 重复绑定会让「下一个」按钮一次前进两格、输入框重复触发搜索
+    if (searchInited) return;
+    searchInited = true;
     document.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.key === 'f') {
             // 非会话上下文（其他视图激活或模态打开）不响应，保持默认行为
@@ -133,6 +139,10 @@ function scanScope(root, query) {
         if (parent.closest('.oc-empty')) continue;
         // 折叠工具卡摘要不参与 DOM 扫描：完整内容由 scanCollapsedToolData 负责，避免重复计数
         if (parent.closest('.oc-tool-summary')) continue;
+        // 卡片正文（工具卡 / 思考过程）只负责高亮，不计入导航结果：
+        // 结果集合统一由 scanCollapsedToolData 按字段产出，与卡片是否展开无关，
+        // 否则临时展开会从「每字段 1 个」变成「每处出现 1 个」，总数跟着跳。
+        var inCardBody = !!parent.closest('.oc-tool-body, .oc-reasoning-body');
 
         var text = node.textContent || '';
         var lower = text.toLowerCase();
@@ -161,7 +171,10 @@ function scanScope(root, query) {
                 var keyStr = scopeKey + '#' + (base + m);
                 mark.dataset.searchKey = keyStr;
                 range.surroundContents(mark);
-                made[m] = { key: keyStr, mark: mark, anchor: null, source: 'dom', messageId: messageId };
+                // 正文里的 mark 照样建（展开后能看到高亮），但不产生导航结果
+                made[m] = inCardBody
+                    ? null
+                    : { key: keyStr, mark: mark, anchor: null, source: 'dom', messageId: messageId };
             } catch (_) {
                 made[m] = null;
             }
@@ -181,11 +194,54 @@ function findCollapsiblePartElement(root, partId) {
 }
 
 /**
- * 折叠卡片的数据索引：工具卡读 state.input/output/error，思考过程读 part.text。
+ * 解析 edit 工具的输入为 { oldString, newString }（兼容对象与 JSON 字符串两种形态）。
+ * edit 工具的正文渲染成左右对比 diff（`.oc-edit-pane-old/new`），没有 `.oc-tool-input` 容器，
+ * 数据索引需要按栏位分别计数，导航时才能定位到具体那一栏。
+ * 返回 null 表示不是 edit 形态（正文会降级成 JSON 展示）。
+ */
+function parseEditPair(input) {
+    if (input == null) return null;
+    var obj = input;
+    if (typeof input === 'string') {
+        var t = input.trim();
+        if (t.charAt(0) !== '{') return null;
+        try { obj = JSON.parse(t); } catch (_) { return null; }
+    }
+    if (typeof obj !== 'object' || obj === null) return null;
+    var oldStr = typeof obj.oldString === 'string' ? obj.oldString : '';
+    var newStr = typeof obj.newString === 'string' ? obj.newString : '';
+    // 与 render.js 的渲染条件保持一致：两段都空时正文会降级成 JSON
+    if (oldStr === '' && newStr === '') return null;
+    return { oldString: oldStr, newString: newStr };
+}
+
+/** 每张卡每个字段最多产出多少条结果，防止极短查询词产生海量结果 */
+var MAX_OCCURRENCES_PER_FIELD = 200;
+
+/**
+ * 统计文本里 query 的出现次数（不重叠）。
+ * 搜索结果按「每处出现 1 条」产出，导航才能一点一点往下走；
+ * 折叠态与展开态都以这个计数为准，所以总数不会随展开变化。
+ */
+function countOccurrences(text, lower) {
+    if (!text || !lower) return 0;
+    var src = String(text).toLowerCase();
+    var n = 0;
+    var idx = src.indexOf(lower);
+    while (idx >= 0 && n < MAX_OCCURRENCES_PER_FIELD) {
+        n++;
+        idx = src.indexOf(lower, idx + lower.length);
+    }
+    return n;
+}
+
+/**
+ * 可折叠卡片的数据索引：工具卡读 state.input/output/error，思考过程读 part.text。
  *
- * 折叠状态为了控制 DOM 总量不构建正文，因此搜索结果不能只依赖 DOM。
- * 每个命中字段产生一个结果，定位到该卡片节点；卡片展开后正文进入 DOM，
- * 由 scanScope 负责精确高亮。
+ * 卡片为了控制 DOM 总量默认不构建正文，所以搜索结果不能只依赖 DOM。
+ * 这里按「每处出现 1 条结果」产出，且**与卡片是否展开无关**；
+ * 展开后的正文只由 scanScope 打高亮、不再产生结果，两边口径一致 → 总数稳定。
+ * 导航命中时先强制展开卡片（activateResult），再定位到该字段第 occurrence 处高亮。
  *
  * @param {HTMLElement} root 搜索作用域（整个消息容器或单条消息）
  * @param {Array} items 与作用域对应的消息数据
@@ -215,38 +271,35 @@ function scanCollapsedToolData(root, items, query) {
             if (!partId) continue;
             var partEl = partMap[partId] || null;
             if (!partEl) continue;
-            // 已展开且构建了正文的卡片由 DOM 扫描负责，避免重复计数
-            var body = partEl.querySelector('.oc-tool-body, .oc-reasoning-body');
-            if (body && body.dataset.toolBodyBuilt === 'true' && !body.classList.contains('hidden')) continue;
+            // 展开与折叠都按「每处出现」产出结果：结果集合不依赖卡片是否展开，
+            // 导航时临时展开/折叠就不会改变总数（正文高亮由 scanScope 单独负责）。
+            var fields;
             if (partType === 'reasoning') {
-                var rtext = safeText(part.text);
-                if (rtext && rtext.toLowerCase().indexOf(lower) >= 0) {
+                fields = [['text', safeText(part.text)]];
+            } else {
+                var state = part.state || {};
+                var pair = parseEditPair(state.input);
+                // edit 卡按渲染出来的左右两栏分别计数，导航才能落到具体那一栏的那一处
+                fields = pair
+                    ? [['diff-old', pair.oldString], ['diff-new', pair.newString],
+                        ['output', state.output], ['error', state.error]]
+                    : [['input', state.input], ['output', state.output], ['error', state.error]];
+            }
+            for (var f = 0; f < fields.length; f++) {
+                var text = fields[f][1] == null ? '' : String(fields[f][1]);
+                var total = countOccurrences(text, lower);
+                for (var k = 0; k < total; k++) {
                     out.push({
-                        key: 'p:' + partId + ':data:text',
+                        key: 'p:' + partId + ':data:' + fields[f][0] + '#' + k,
                         mark: null,
                         anchor: partEl,
                         source: 'data',
                         messageId: messageId,
-                        field: 'text',
+                        // 字段 + 第几处：展开后据此定位到对应正文区域的具体高亮
+                        field: fields[f][0],
+                        occurrence: k,
                     });
                 }
-                continue;
-            }
-            var state = part.state || {};
-            var fields = [['input', state.input], ['output', state.output], ['error', state.error]];
-            for (var f = 0; f < fields.length; f++) {
-                var text = safeText(fields[f][1]);
-                if (!text) continue;
-                if (text.toLowerCase().indexOf(lower) < 0) continue;
-                out.push({
-                    key: 'p:' + partId + ':data:' + fields[f][0],
-                    mark: null,
-                    anchor: partEl,
-                    source: 'data',
-                    messageId: messageId,
-                    // 记录命中的字段：展开后据此定位到输入/输出/错误对应的正文区域
-                    field: fields[f][0],
-                });
             }
         }
     }
@@ -314,6 +367,35 @@ function setResultActive(item, active) {
 /** 移除当前结果列表里的全部 active 样式 */
 function clearAllResultActive() {
     for (var i = 0; i < searchResults.length; i++) setResultActive(searchResults[i], false);
+    // 数据结果（折叠卡片）激活时，active 类会临时加到正文的具体 mark 上，
+    // 这个 mark 不在 searchResults 里，必须单独清理，否则多次导航后
+    // 页面上会残留多个「当前命中」，看起来就是乱跳。
+    var box = getActiveMessagesEl();
+    if (!box) return;
+    var stale = box.querySelectorAll('.oc-search-highlight.oc-search-active');
+    for (var k = 0; k < stale.length; k++) stale[k].classList.remove('oc-search-active');
+}
+
+/**
+ * 在卡片正文里找出某个数据结果对应的那一个高亮。
+ * 数据结果按「字段 + 第 occurrence 处」产出，展开后正文里的 mark 顺序与之一致，
+ * 所以直接取该字段内第 occurrence 个 mark；数量不一致时退到最后一个，保持前进方向。
+ */
+function findOccurrenceMark(item) {
+    if (!item || !item.anchor || !item.field) return null;
+    var sel = item.field === 'input' ? '.oc-tool-input'
+        : (item.field === 'output' ? '.oc-tool-output'
+            : (item.field === 'error' ? '.oc-tool-error'
+                : (item.field === 'diff-old' ? '.oc-edit-pane-old'
+                    : (item.field === 'diff-new' ? '.oc-edit-pane-new'
+                        : (item.field === 'text' ? '.oc-reasoning-body' : '')))));
+    if (!sel) return null;
+    var fieldEl = item.anchor.querySelector(sel);
+    if (!fieldEl) return null;
+    var marks = fieldEl.querySelectorAll('.oc-search-highlight');
+    if (!marks.length) return null;
+    var k = item.occurrence || 0;
+    return marks[k] || marks[marks.length - 1];
 }
 
 /**
@@ -333,14 +415,21 @@ function activateResult(index, container, scroll) {
     if (index >= total) index = total - 1;
 
     var item = searchResults[index];
-    // 数据结果（折叠卡片）没有 mark：搜索命中在尚未构建的正文里，
-    // 只高亮整卡用户看不到具体位置。先展开该卡让正文进入 DOM，
-    // notifyToolBodyToggled 会重算结果；再把 active 定位到正文里的第一个匹配。
+    // 数据结果（折叠卡片）没有 mark：命中在尚未构建的正文里，
+    // 只高亮整卡用户看不到具体位置。先强制展开该卡让正文进入 DOM；
+    // 展开会触发 notifyToolBodyToggled → 重算（结果集合按出现次数枚举、与展开无关，
+    // 总数不变），之后按「字段 + 第几处」定位到正文里那一个高亮并滚动过去。
+    var expandedNow = false;
     if (!item.mark && item.anchor) {
-        // 工具卡与思考过程的正文/标题类名不同，这里统一匹配两种
         var body = item.anchor.querySelector('.oc-tool-body, .oc-reasoning-body');
         var head = item.anchor.querySelector('.oc-tool-head, .oc-reasoning-head');
-        if (body && head && body.dataset.toolBodyBuilt !== 'true') {
+        var wasBuilt = !!(body && body.dataset.toolBodyBuilt === 'true');
+        // 先把当前位置写进搜索状态：展开触发的重算要能按 key 找回这一项
+        searchIndex = index;
+        searchState.activeKey = item.key || '';
+        searchState.activeGlobalIndex = index;
+        temporarilyRevealSearchResult(item.anchor);
+        if (body && head && !wasBuilt) {
             var partId = item.anchor.dataset.partId || '';
             // 记录为搜索临时展开：导航离开或关闭搜索时折叠回原状
             if (partId) searchState.tempExpandedTools[partId] = true;
@@ -350,24 +439,7 @@ function activateResult(index, container, scroll) {
             } else {
                 head.click();
             }
-            // 按命中字段定位到对应正文区域，避免总是跳到卡片里的第一个匹配
-            var fieldSelector = item.field === 'input' ? '.oc-tool-input'
-                : (item.field === 'output' ? '.oc-tool-output'
-                    : (item.field === 'error' ? '.oc-tool-error'
-                        : (item.field === 'text' ? '.oc-reasoning-body' : '')));
-            var fieldEl = fieldSelector ? item.anchor.querySelector(fieldSelector) : null;
-            var firstMark = (fieldEl && fieldEl.querySelector('.oc-search-highlight'))
-                || item.anchor.querySelector('.oc-search-highlight');
-            if (firstMark) {
-                for (var f = 0; f < searchResults.length; f++) {
-                    if (searchResults[f].mark === firstMark) {
-                        activateResult(f, container, scroll);
-                        return;
-                    }
-                }
-            }
-            // 展开后正文里没有对应 mark（字段内容与渲染文本不一致）：
-            // 退回整卡高亮 + 滚动到卡片，保证结果仍可定位
+            expandedNow = true;
         }
     }
 
@@ -376,15 +448,29 @@ function activateResult(index, container, scroll) {
     searchIndex = index;
     searchState.activeKey = item.key || '';
     searchState.activeGlobalIndex = index;
-    // 数据结果没有 mark，导航锚点用工具卡本身
-    var target = item.mark || item.anchor;
+    // 命中节点：普通文本结果自带 mark；数据结果按「字段 + 第几处」从展开后的正文里取
+    var focusMark = item.mark || findOccurrenceMark(item);
+    if (focusMark && focusMark !== item.mark) focusMark.classList.add('oc-search-active');
+    // 数据结果没有 mark 时退回整卡，保证结果仍可定位
+    var target = focusMark || item.anchor;
     if (target) temporarilyRevealSearchResult(target);
     if (scroll && container && target) {
-        // 展开工具卡/临时展开折叠区后布局可能刚变化：
-        // 等一帧再按命中节点自身位置滚动，避免用旧布局算出的偏移。
-        requestAnimationFrame(function () {
+        // 展开卡片/临时展开折叠区后布局刚变化。
+        // 展开场景：正文刚插入（Markdown/diff 渲染 + 图片替换），一帧内高度往往还没稳定，
+        // 所以延迟一次再滚，并补一次校正，避免首次落点滚过头或不到位。
+        var runScroll = function () {
+            // 目标可能已随折叠/重渲染被移除，避免对着旧节点算出 0 偏移把视口拉到顶部
+            if (!target || !document.contains(target)) return;
             scrollSearchResultIntoView(target, container);
-        });
+        };
+        if (expandedNow) {
+            requestAnimationFrame(function () {
+                setTimeout(runScroll, 60);
+                setTimeout(runScroll, 260);
+            });
+        } else {
+            requestAnimationFrame(runScroll);
+        }
     }
     updateSearchUI(index + 1, total);
 }
@@ -647,13 +733,17 @@ export function navigateSearch(dir) {
     restoreSearchTemporaryExpansion();
     var count = searchResults.length;
     var next = (searchIndex + dir + count) % count;
+    // 先折叠上一张「搜索临时展开」的卡片，再激活下一条：
+    // 折叠会触发重算（restoreActive 会清掉 active 样式），若放在激活之后，
+    // 刚定位好的正文高亮会被清掉。同一张卡片内的不同命中不折叠，避免闪烁。
+    var cur = searchResults[searchIndex];
+    var nextItem = searchResults[next];
+    var curPart = cur ? (cur.mark ? cur.mark.closest('.oc-part') : cur.anchor) : null;
+    var nextPart = nextItem ? (nextItem.mark ? nextItem.mark.closest('.oc-part') : nextItem.anchor) : null;
+    var curPartId = curPart && curPart.dataset ? (curPart.dataset.partId || '') : '';
+    var nextPartId = nextPart && nextPart.dataset ? (nextPart.dataset.partId || '') : '';
+    if (!nextPartId || nextPartId !== curPartId) collapseTempExpandedTools('');
     activateResult(next, getActiveMessagesEl(), true);
-    // 与思考过程一致：导航离开后折叠上一个搜索临时展开的卡片。
-    // 只保留当前结果所在的那一张，同一卡片的不同字段之间切换不会闪烁。
-    // 用通用的 .oc-part：工具卡和思考过程的类名不同，不能只查 .oc-tool。
-    var current = searchResults[searchIndex];
-    var keepEl = current && (current.mark ? current.mark.closest('.oc-part') : current.anchor);
-    collapseTempExpandedTools(keepEl ? (keepEl.dataset.partId || '') : '');
 }
 
 /** 将搜索结果滚动到可视区域的上三分之一处 */
@@ -670,9 +760,14 @@ export function scrollSearchResultIntoView(node, container) {
     var targetTop = getSearchAnchorTop(node, container);
     var targetScroll = targetTop - container.clientHeight / 3;
     var maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+    var top = Math.max(0, Math.min(maxScroll, targetScroll));
+    // 跨卡片、首次搜索这类远距离跳转用平滑滚动要好几秒，
+    // 用户会看到视口在长会话里缓慢滑行（像"乱跳"）。距离超过两屏就直接跳，
+    // 近距离（同一张卡片里的不同命中）保留平滑滚动，便于看清上下文。
+    var distance = Math.abs(top - container.scrollTop);
     container.scrollTo({
-        top: Math.max(0, Math.min(maxScroll, targetScroll)),
-        behavior: 'smooth'
+        top: top,
+        behavior: distance > container.clientHeight * 2 ? 'auto' : 'smooth'
     });
 }
 
