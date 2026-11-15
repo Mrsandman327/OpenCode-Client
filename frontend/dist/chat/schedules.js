@@ -500,7 +500,6 @@ export function initSchedules() {
     $('btnScheduleCancel')?.addEventListener('click', closeScheduleModal);
     $('btnScheduleCreate')?.addEventListener('click', createSchedule);
     $('btnScheduleDetailClose')?.addEventListener('click', closeScheduleDetail);
-    $('btnScheduleDetailOk')?.addEventListener('click', closeScheduleDetail);
 
     // 遮罩关闭统一走项目公共实现：只有按下与松开都在遮罩本身才关闭，
     // 避免在弹窗内按下、拖到遮罩上松开时被 click 的最近共同祖先规则误关。
