@@ -213,8 +213,10 @@ export async function loadProviders() {
             var anyCollapsed = Array.prototype.some.call(cards, function(c) {
                 return !c.classList.contains('expanded');
             });
+            // 有折叠的 → 全部展开；全部展开的 → 全部折叠。
+            // 逐卡写入状态表，下次打开模型服务保持这个结果。
             Array.prototype.forEach.call(cards, function(c) {
-                c.classList.toggle('expanded', anyCollapsed);
+                setProviderExpanded(c, anyCollapsed);
             });
         });
     }
@@ -252,6 +254,56 @@ function getProviderViewMode() {
         }
     }
     return providerViewMode;
+}
+
+// 卡片展开状态：{ 供应商 key: true|false }，没有记录时视为展开（默认展开）。
+// 与视图模式一样持久化到 localStorage，下次打开模型服务保持上次的展开/折叠样子。
+const PROVIDER_EXPANDED_KEY = 'oc-manager-provider-expanded';
+var providerExpandedMap = null; // null = 尚未从 localStorage 读取（首次使用时惰性加载）
+
+/** 读取展开状态表；首次调用时从 localStorage 解析，失败则按「全部展开」 */
+function getProviderExpandedMap() {
+    if (providerExpandedMap) return providerExpandedMap;
+    providerExpandedMap = Object.create(null);
+    try {
+        var raw = localStorage.getItem(PROVIDER_EXPANDED_KEY);
+        var parsed = raw ? JSON.parse(raw) : null;
+        if (parsed && typeof parsed === 'object') {
+            Object.keys(parsed).forEach(function(k) {
+                // 只有明确记录为 false 才算折叠，其余一律按展开
+                providerExpandedMap[k] = parsed[k] !== false;
+            });
+        }
+    } catch (_) {
+        // localStorage 不可用或内容损坏：保持空表 → 全部默认展开
+    }
+    return providerExpandedMap;
+}
+
+/** 某张卡片是否展开；没有记录时默认展开 */
+function isProviderExpanded(key) {
+    if (!key) return true;
+    return getProviderExpandedMap()[key] !== false;
+}
+
+/** 把展开状态表写回 localStorage */
+function persistProviderExpanded() {
+    try {
+        localStorage.setItem(PROVIDER_EXPANDED_KEY, JSON.stringify(getProviderExpandedMap()));
+    } catch (_) {
+        // 隐私模式等场景写不进去：只影响下次打开，不影响当前交互
+    }
+}
+
+/** 设置某张卡片的展开状态：同步 DOM 类、状态表与 localStorage */
+function setProviderExpanded(card, next) {
+    if (!card) return;
+    card.classList.toggle('expanded', !!next);
+    var key = card.dataset ? (card.dataset.key || '') : '';
+    // 新增未保存的卡片没有稳定 key：只改 DOM，不落盘（保存后按新 key 记录）
+    if (!key) return;
+    getProviderExpandedMap()[key] = !!next;
+    persistProviderExpanded();
 }
 
 /** 应用搜索过滤与视图模式（交互时调用；卡片重建后也需重新应用） */
@@ -296,6 +348,8 @@ export function providerCardHtml(p) {
         !matchedOption && packageValue ? `<option value="${PROVIDER_NPM_UNMATCHED}" selected>未匹配保留</option>` : ''
     ].join('');
     const enabled = p.enabled !== false;
+    // 默认展开：没有历史记录（或记录为展开）时带 expanded 类；新增卡片始终展开
+    const expandedByDefault = isNew || isProviderExpanded(String(p.key || ''));
     const allModels = p.models || [];
     // 收起态：列出模型名单（超过 4 个截断，title 保留完整名单）
     const modelsLineNames = allModels.slice(0, 3).map(m => String(m.id || '').split('/').pop()).join(' · ');
@@ -310,7 +364,7 @@ export function providerCardHtml(p) {
     // 说明：接口格式下拉的类名 .prov-edit-npm 与 data-raw-npm 保留 v1 命名（CSS/事件绑定依赖），
     // 其承载的对外字段已是 v2 的 package
     return `
-        <div class="provider-card${enabled ? '' : ' disabled'}${isNew ? ' expanded new-provider' : ''}" data-key="${escapeHtml(p.key)}">
+        <div class="provider-card${enabled ? '' : ' disabled'}${expandedByDefault ? ' expanded' : ''}${isNew ? ' new-provider' : ''}" data-key="${escapeHtml(p.key)}">
             <div class="provider-card-header">
                 <div class="provider-title">
                     <span class="prov-expand-ic" aria-hidden="true"></span>
@@ -482,7 +536,8 @@ export function bindProviderEvents(providers) {
             el.dataset.expandBound = '1';
             el.addEventListener('click', (e) => {
                 if (e.target.closest('.prov-toggle, .btn-del-card, .btn-save-card, .btn-add-model-card, .btn-fetch-models, .btn-toggle-abilities, .btn-del-model, input, select')) return;
-                card.classList.toggle('expanded');
+                // 记住展开/折叠状态：下次打开模型服务仍是这个样子
+                setProviderExpanded(card, !card.classList.contains('expanded'));
             });
         });
     });
