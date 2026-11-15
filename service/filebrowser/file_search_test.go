@@ -122,6 +122,41 @@ func TestSearchBrowserFilesWholeWord(t *testing.T) {
 	}
 }
 
+// 跨行正则：`foo\s+bar` 在逐行匹配下永远命中不了，整文本匹配才成立。
+func TestSearchBrowserFilesCrossLineRegex(t *testing.T) {
+	dir := t.TempDir()
+	writeSearchTestFile(t, dir, "a.txt", "foo\nbar\nbaz\n")
+
+	res, err := SearchBrowserFiles(dir, "/", `foo\s+bar`, false, true, false)
+	if err != nil {
+		t.Fatalf("搜索失败: %v", err)
+	}
+	if res.FileCount != 1 || len(res.Files[0].Matches) != 1 {
+		t.Fatalf("跨行正则应命中 1 处，实际 %v", collectMatches(res.Files))
+	}
+	m := res.Files[0].Matches[0]
+	if m.Line != 1 {
+		t.Fatalf("应命中第 1 行，实际第 %d 行", m.Line)
+	}
+	if !strings.HasSuffix(m.Text, "…") {
+		t.Fatalf("跨行匹配的文本应带省略号，实际 %q", m.Text)
+	}
+}
+
+// 默认上限：配置文件缺失时应使用代码内默认值（2000 文件 / 300 行）。
+func TestLoadFileSearchConfigDefaults(t *testing.T) {
+	cfg := loadFileSearchConfig()
+	if cfg.MaxFiles != defaultMaxFiles {
+		t.Fatalf("MaxFiles 默认值应为 %d，实际 %d", defaultMaxFiles, cfg.MaxFiles)
+	}
+	if cfg.MaxFileMatches != defaultMaxFileMatches {
+		t.Fatalf("MaxFileMatches 默认值应为 %d，实际 %d", defaultMaxFileMatches, cfg.MaxFileMatches)
+	}
+	if cfg.MaxFileSizeKB != defaultMaxFileSizeKB {
+		t.Fatalf("MaxFileSizeKB 默认值应为 %d，实际 %d", defaultMaxFileSizeKB, cfg.MaxFileSizeKB)
+	}
+}
+
 func TestSearchBrowserFilesSameLineOnce(t *testing.T) {
 	dir := t.TempDir()
 	writeSearchTestFile(t, dir, "a.txt", "foo foo foo\nbar\nfoo\n")

@@ -1711,7 +1711,74 @@ async function runFileBrowserSearch() {
     }
 }
 
-/** 渲染搜索结果（按文件分组 + 高亮 + 折叠 + 行选中） */
+/** 初始展开的文件数：其余分组折叠且不生成行 DOM，展开时才构建。
+ *  上限提高后（默认 2000 个文件），一次性渲染所有命中行会卡住页面。 */
+var SEARCH_INITIAL_EXPANDED = 10;
+
+/** 构建单个文件的命中行 HTML（高亮 + 上下文裁剪） */
+function buildFileBrowserSearchRows(f, re) {
+    var CTX_BEFORE = 30;
+    var CTX_AFTER = 60;
+    return (f.matches || []).map(function (m) {
+        // 去行首空白；超长行围绕首处命中裁剪
+        var raw = String(m.text || '').replace(/^\s+/, '');
+        var text = raw;
+        var leadCut = false, tailCut = false;
+        if (re) {
+            re.lastIndex = 0;
+            var firstHit = re.exec(raw);
+            if (firstHit !== null) {
+                // 前/后各自独立判断：命中前超 30 字裁前、后超 60 字裁后
+                var s = Math.max(0, firstHit.index - CTX_BEFORE);
+                var e2 = Math.min(raw.length, firstHit.index + firstHit[0].length + CTX_AFTER);
+                leadCut = s > 0;
+                tailCut = e2 < raw.length;
+                if (leadCut || tailCut) text = raw.slice(s, e2);
+            }
+        }
+        var display = escapeHtml(text);
+        if (re) {
+            re.lastIndex = 0;
+            // 仅对纯文本段做高亮：先按匹配位置切分再逐段 escape，避免破坏 HTML 实体
+            var out = '', last = 0, hit;
+            while ((hit = re.exec(text)) !== null) {
+                if (!hit[0].length) { re.lastIndex++; continue; }
+                out += escapeHtml(text.slice(last, hit.index)) + '<mark>' + escapeHtml(hit[0]) + '</mark>';
+                last = hit.index + hit[0].length;
+            }
+            out += escapeHtml(text.slice(last));
+            display = out;
+        }
+        if (leadCut) display = '<span class="ellipsis">…</span>' + display;
+        if (tailCut) display = display + '<span class="ellipsis">…</span>';
+        return '<div class="file-browser-search-row" data-path="' + escapeHtml(f.path || '') + '" data-rel-path="' + escapeHtml(f.relPath || '') + '" data-line="' + (m.line || 0) + '">'
+            + '<span class="ln">' + (m.line || '') + '</span>'
+            + '<span class="txt">' + display + '</span></div>';
+    }).join('');
+}
+
+/** 绑定命中行的点击（懒加载填充后需要重新绑定） */
+function bindFileBrowserSearchRows(container) {
+    container.querySelectorAll('.file-browser-search-row').forEach(function (row) {
+        if (row.dataset.bound === '1') return;
+        row.dataset.bound = '1';
+        row.addEventListener('click', function () {
+            var root = row.closest('#fileBrowserSearchResults');
+            if (root) {
+                root.querySelectorAll('.file-browser-search-row.selected').forEach(function (r) { r.classList.remove('selected'); });
+            }
+            row.classList.add('selected');
+            // 直接在搜索模式内打开到右侧预览面板（不切换左侧模式，保留搜索结果）
+            var rel = row.dataset.relPath || '';
+            var line = parseInt(row.dataset.line || '0', 10);
+            if (rel) fileBrowserOpenFileAtLine(rel, line);
+        });
+    });
+}
+
+/** 渲染搜索结果（按文件分组 + 高亮 + 折叠 + 行选中）
+ *  前 SEARCH_INITIAL_EXPANDED 个文件直接展开；其余分组初始不生成行 DOM，
+ *  点击展开时才构建，避免高上限下一次性渲染数万行。 */
 function renderFileBrowserSearchResults(res, query) {
     var results = document.getElementById('fileBrowserSearchResults');
     var stats = document.getElementById('fileBrowserSearchStats');
@@ -1726,49 +1793,12 @@ function renderFileBrowserSearchResults(res, query) {
     var re = null;
     try { re = new RegExp(qEsc, 'gi'); } catch (e) { re = null; }
     var html = '';
-    files.forEach(function (f) {
-        // 命中行上下文窗口：超长行只截命中前后一段，两端加省略号
-        var CTX_BEFORE = 30;
-        var CTX_AFTER = 60;
-        var rows = (f.matches || []).map(function (m) {
-            // 去行首空白；超长行围绕首处命中裁剪
-            var raw = String(m.text || '').replace(/^\s+/, '');
-            var text = raw;
-            var leadCut = false, tailCut = false;
-            if (re) {
-                re.lastIndex = 0;
-                var firstHit = re.exec(raw);
-                if (firstHit !== null) {
-                    // 前/后各自独立判断：命中前超 30 字裁前、后超 60 字裁后
-                    var s = Math.max(0, firstHit.index - CTX_BEFORE);
-                    var e2 = Math.min(raw.length, firstHit.index + firstHit[0].length + CTX_AFTER);
-                    leadCut = s > 0;
-                    tailCut = e2 < raw.length;
-                    if (leadCut || tailCut) text = raw.slice(s, e2);
-                }
-            }
-            var display = escapeHtml(text);
-            if (re) {
-                re.lastIndex = 0;
-                // 仅对纯文本段做高亮：先按匹配位置切分再逐段 escape，避免破坏 HTML 实体
-                var out = '', last = 0, hit;
-                while ((hit = re.exec(text)) !== null) {
-                    if (!hit[0].length) { re.lastIndex++; continue; }
-                    out += escapeHtml(text.slice(last, hit.index)) + '<mark>' + escapeHtml(hit[0]) + '</mark>';
-                    last = hit.index + hit[0].length;
-                }
-                out += escapeHtml(text.slice(last));
-                display = out;
-            }
-            if (leadCut) display = '<span class="ellipsis">…</span>' + display;
-            if (tailCut) display = display + '<span class="ellipsis">…</span>';
-            return '<div class="file-browser-search-row" data-path="' + escapeHtml(f.path || '') + '" data-rel-path="' + escapeHtml(f.relPath || '') + '" data-line="' + (m.line || 0) + '">'
-                + '<span class="ln">' + (m.line || '') + '</span>'
-                + '<span class="txt">' + display + '</span></div>';
-        }).join('');
+    files.forEach(function (f, index) {
+        var expanded = index < SEARCH_INITIAL_EXPANDED;
+        var rows = expanded ? buildFileBrowserSearchRows(f, re) : '';
         var rel = String(f.relPath || f.path || '');
         var name = rel.split('/').pop();
-        html += '<div class="file-browser-search-group">'
+        html += '<div class="file-browser-search-group' + (expanded ? '' : ' collapsed lazy') + '" data-index="' + index + '">'
             + '<div class="file-browser-search-group-head">'
             + '<span class="arrow">▼</span>'
             + '<span class="fname" title="' + escapeHtml(rel) + '">' + escapeHtml(name) + '</span>'
@@ -1776,25 +1806,26 @@ function renderFileBrowserSearchResults(res, query) {
             + '<div class="file-browser-search-group-rows">' + rows + '</div></div>';
     });
     results.innerHTML = html;
+    bindFileBrowserSearchRows(results);
+    results.querySelectorAll('.file-browser-search-group-head').forEach(function (head) {
+        head.addEventListener('click', function () {
+            var group = head.parentElement;
+            // 懒加载：首次展开时构建该文件的命中行
+            if (group.classList.contains('lazy')) {
+                group.classList.remove('lazy');
+                var idx = parseInt(group.dataset.index, 10);
+                var rowsEl = group.querySelector('.file-browser-search-group-rows');
+                if (rowsEl && files[idx]) {
+                    rowsEl.innerHTML = buildFileBrowserSearchRows(files[idx], re);
+                    bindFileBrowserSearchRows(rowsEl);
+                }
+            }
+            group.classList.toggle('collapsed');
+        });
+    });
     var elapsed = res.elapsedMs != null ? ' · ' + res.elapsedMs + 'ms' : '';
     stats.innerHTML = '共 ' + (res.fileCount || 0) + ' 个文件 · ' + (res.matchCount || 0) + ' 处匹配' + elapsed
         + (res.truncated ? '<span class="warn">（结果已达上限，已截断）</span>' : '');
-
-    results.querySelectorAll('.file-browser-search-group-head').forEach(function (head) {
-        head.addEventListener('click', function () {
-            head.parentElement.classList.toggle('collapsed');
-        });
-    });
-    results.querySelectorAll('.file-browser-search-row').forEach(function (row) {
-        row.addEventListener('click', function () {
-            results.querySelectorAll('.file-browser-search-row.selected').forEach(function (r) { r.classList.remove('selected'); });
-            row.classList.add('selected');
-            // 直接在搜索模式内打开到右侧预览面板（不切换左侧模式，保留搜索结果）
-            var rel = row.dataset.relPath || '';
-            var line = parseInt(row.dataset.line || '0', 10);
-            if (rel) fileBrowserOpenFileAtLine(rel, line);
-        });
-    });
 }
 
 export function renderFileBrowserMode() {

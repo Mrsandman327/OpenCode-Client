@@ -45,10 +45,23 @@ type FileSearchConfig struct {
 	MaxFiles         int      `json:"maxFiles"`
 }
 
+// 默认上限：配置文件缺失、或文件里没写这些字段时生效。
+// 配置文件显式写 0 表示不限制（保留给高级用户，需自行承担渲染压力）。
+const (
+	defaultMaxFileSizeKB  = 2048
+	defaultMaxFileMatches = 300
+	defaultMaxFiles       = 2000
+)
+
 // loadFileSearchConfig 从配置文件读取搜索排除规则（每次搜索读取，改完立即生效）。
-// 不提供内置默认值：一切以配置文件为准；文件缺失/解析失败时返回零值配置。
+// 先铺默认上限，再由配置文件覆盖：文件缺失时保留默认值，
+// 文件里显式写 0 时按 0（不限制）执行。
 func loadFileSearchConfig() FileSearchConfig {
-	var cfg FileSearchConfig
+	cfg := FileSearchConfig{
+		MaxFileSizeKB:  defaultMaxFileSizeKB,
+		MaxFileMatches: defaultMaxFileMatches,
+		MaxFiles:       defaultMaxFiles,
+	}
 	exeDir := portable.ExeDir()
 	if exeDir == "" {
 		return cfg
@@ -182,7 +195,7 @@ func (m *searchMatcher) scan(data []byte, maxMatches int) ([]model.FileSearchLin
 	if !m.re.Match(data) {
 		return nil, false
 	}
-	return scanRegexLines(data, m.re, maxMatches)
+	return scanRegexText(data, m.re, maxMatches)
 }
 
 // scanLiteral 用 bytes.Index 定位匹配，再回溯到行边界取整行文本。
@@ -235,36 +248,59 @@ func scanLiteral(original, haystack, needle []byte, maxMatches int) ([]model.Fil
 	return out, false
 }
 
-// scanRegexLines 逐行跑正则。仅用于正则/全词模式，
-// 这类查询无法用字面量定位（\b、分组、跨字符语义）。
-func scanRegexLines(data []byte, re *regexp.Regexp, maxMatches int) ([]model.FileSearchLineMatch, bool) {
+// scanRegexText 在整个文本上跑正则，支持跨行匹配（如 `foo\s+bar`、`(?s)`）。
+// 输出仍是「命中起始行」：取该行文本；匹配跨到下一行时在行尾加省略号。
+// 同一行多个匹配只输出一次。
+func scanRegexText(data []byte, re *regexp.Regexp, maxMatches int) ([]model.FileSearchLineMatch, bool) {
 	var out []model.FileSearchLineMatch
-	lineNo := 0
-	rest := data
-	for len(rest) > 0 {
-		lineNo++
-		idx := bytes.IndexByte(rest, '\n')
-		var line []byte
-		if idx < 0 {
-			line = rest
-			rest = nil
-		} else {
-			line = rest[:idx]
-			rest = rest[idx+1:]
+	lineNo, lineStart, lastLine, at := 1, 0, -1, 0
+	for maxMatches <= 0 || len(out) < maxMatches {
+		loc := re.FindIndex(data[at:])
+		if loc == nil {
+			break
 		}
-		if len(line) > 0 && line[len(line)-1] == '\r' {
-			line = line[:len(line)-1]
+		pos, end := at+loc[0], at+loc[1]
+		if pos == end {
+			// 空匹配（^、a*）没有展示意义，前进一个字节避免死循环
+			if pos >= len(data) {
+				break
+			}
+			at = pos + 1
+			continue
 		}
-		if re.Match(line) {
+		// 把行号与行首推进到匹配起点所在行
+		for {
+			nl := bytes.IndexByte(data[lineStart:pos], '\n')
+			if nl < 0 {
+				break
+			}
+			lineNo++
+			lineStart += nl + 1
+		}
+		if lineNo != lastLine {
+			lineEnd := len(data)
+			if e := bytes.IndexByte(data[pos:], '\n'); e >= 0 {
+				lineEnd = pos + e
+			}
+			line := data[lineStart:lineEnd]
+			if len(line) > 0 && line[len(line)-1] == '\r' {
+				line = line[:len(line)-1]
+			}
 			text := string(line)
 			if len(text) > 500 {
 				text = text[:500] + "…"
 			}
+			// 匹配跨越了行尾：补一个省略号，提示该命中不止这一行
+			if end > lineEnd {
+				text += "…"
+			}
 			out = append(out, model.FileSearchLineMatch{Line: lineNo, Text: text})
+			lastLine = lineNo
 			if maxMatches > 0 && len(out) >= maxMatches {
 				return out, true
 			}
 		}
+		at = end
 	}
 	return out, false
 }
