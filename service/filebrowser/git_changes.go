@@ -137,13 +137,21 @@ func gitMetaTime(gitDir, commonDir string) time.Time {
 	return latest
 }
 
-// gitStatusCacheEntry 缓存一次 status 的结果，meta 未变时直接复用。
+// gitStatusCacheEntry 缓存一次 status 的结果。
+// meta 覆盖 HEAD 与 refs 的变化；stamp + TTL 限制缓存最长寿命——
+// 工作区文件内容修改不会改变 .git 下任何文件的 mtime，
+// 只靠 meta 会永久命中旧结果，导致「文件改了但变更列表不刷新」。
 type gitStatusCacheEntry struct {
 	meta  time.Time
+	stamp time.Time
 	files []model.GitChangedFile
 }
 
-const gitStatusCacheMax = 128
+const (
+	gitStatusCacheMax = 128
+	// gitStatusCacheTTL 小于前端轮询间隔（2 秒），保证每轮轮询都能重新读取工作区状态。
+	gitStatusCacheTTL = 1500 * time.Millisecond
+)
 
 var (
 	gitStatusCacheMu sync.Mutex
@@ -161,7 +169,7 @@ func ListGitChanges(dir string) model.GitStatusResult {
 	meta := gitMetaTime(gitDir, commonDir)
 
 	gitStatusCacheMu.Lock()
-	if entry, ok := gitStatusCache[key]; ok && entry.meta.Equal(meta) {
+	if entry, ok := gitStatusCache[key]; ok && entry.meta.Equal(meta) && time.Since(entry.stamp) < gitStatusCacheTTL {
 		files := append([]model.GitChangedFile(nil), entry.files...)
 		gitStatusCacheMu.Unlock()
 		return model.GitStatusResult{IsGitRepo: true, Files: files, Message: ""}
@@ -178,7 +186,7 @@ func ListGitChanges(dir string) model.GitStatusResult {
 	if len(gitStatusCache) >= gitStatusCacheMax {
 		gitStatusCache = make(map[string]gitStatusCacheEntry)
 	}
-	gitStatusCache[key] = gitStatusCacheEntry{meta: meta, files: append([]model.GitChangedFile(nil), files...)}
+	gitStatusCache[key] = gitStatusCacheEntry{meta: meta, stamp: time.Now(), files: append([]model.GitChangedFile(nil), files...)}
 	gitStatusCacheMu.Unlock()
 
 	return model.GitStatusResult{IsGitRepo: true, Files: files, Message: ""}
