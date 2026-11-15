@@ -96,6 +96,14 @@
                         <div class="oc-tree" id="ocTree">
                             <div class="oc-empty">启动服务后加载会话列表</div>
                         </div>
+                        <!-- 列表底部固定统计条：项目数 / 会话数，尺寸与右侧属性面板底部目录栏一致 -->
+                        <div class="oc-tree-summary" id="ocTreeSummary" aria-live="polite">
+                            <svg class="oc-tree-summary-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="6.5" cy="6" r="2.2"/><circle cx="6.5" cy="18" r="2.2"/><circle cx="17.5" cy="9" r="2.2"/>
+                                <path d="M6.5 8.2v7.6"/><path d="M17.5 11.2c0 3.2-2.6 4.6-5.2 5.3"/>
+                            </svg>
+                            <span><strong id="ocTreeProjectCount">0</strong> 个项目 · <strong id="ocTreeSessionCount">0</strong> 个会话</span>
+                        </div>
                         <div class="oc-tree-context-menu" id="ocTreeContextMenu" style="display:none">
                             <div class="oc-tree-context-menu-item" data-action="new-session"><span class="oc-menu-icon oc-menu-icon-new"></span><span>新建会话</span></div>
                             <div class="oc-tree-context-menu-item" data-action="project-config"><span class="oc-menu-icon oc-menu-icon-project-config"></span><span>项目配置</span></div>

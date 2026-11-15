@@ -107,11 +107,13 @@ async function buildTreeOnce() {
         } else {
             window._lastProjectTree = [];
             document.getElementById('ocTree').innerHTML = '<div class="oc-empty">暂无会话，新建会话后将自动出现</div>';
+            updateTreeSummary([]);
             return false;
         }
     } catch (_) {
         window._lastProjectTree = [];
         document.getElementById('ocTree').innerHTML = '<div class="oc-empty">加载树失败</div>';
+        updateTreeSummary([]);
         return false;
     }
 }
@@ -122,12 +124,25 @@ export async function refreshTree() {
     showToast(ok ? '刷新成功' : '刷新失败', ok ? 'success' : 'error');
 }
 
+/** 更新会话列表底部统计条：项目数（顶层分组）+ 会话数（所有分组下会话之和） */
+function updateTreeSummary(tree) {
+    const projectEl = document.getElementById('ocTreeProjectCount');
+    const sessionEl = document.getElementById('ocTreeSessionCount');
+    if (!projectEl || !sessionEl) return;
+    const dirs = Array.isArray(tree) ? tree : [];
+    let sessions = 0;
+    dirs.forEach(function (dir) { sessions += (dir.children || []).length; });
+    projectEl.textContent = String(dirs.length);
+    sessionEl.textContent = String(sessions);
+}
+
 /** 渲染会话树 DOM（「目录 → 会话」两层：顶层即目录节点） */
 export function renderTree(tree) {
     const container = document.getElementById('ocTree');
 
     if (!tree || tree.length === 0) {
         container.innerHTML = '<div class="oc-empty">暂无会话</div>';
+        updateTreeSummary([]);
         updateTreeSearchStatus(0, 0);
         return;
     }
@@ -180,6 +195,9 @@ export function renderTree(tree) {
         html += `</div></div>`;
     }
     container.innerHTML = html;
+
+    // 底部统计条与树同源更新，切换/刷新后同步
+    updateTreeSummary(tree);
 
     // 恢复展开状态
     if (Object.keys(expandedMap).length) {

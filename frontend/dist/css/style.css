@@ -1541,6 +1541,7 @@ input::placeholder, textarea::placeholder {
     height: 44px;
     padding: 0 12px;
     border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1552,6 +1553,12 @@ input::placeholder, textarea::placeholder {
     user-select: none;
     -webkit-user-select: none;
     min-width: 0;
+}
+/* 紧贴应用头部（.header）的两个首个面板头：上边框与 header 的 border-bottom 重复，去掉上边框；
+   其余面板头（定时任务 / 子任务 / 代办事项）保留上边框作为分区之间的分隔线 */
+.oc-panel-head.oc-sessions-head,
+.oc-sidepanel-content > .oc-panel-section:first-child > .oc-panel-head {
+    border-top: none;
 }
 /* ── 多会话 Tab 栏 ── */
 /* Tab 标签行：常驻，高度与左右面板头一致（44px），空时保留占位 */
@@ -2095,6 +2102,34 @@ input::placeholder, textarea::placeholder {
     padding: 6px 4px;
     font-size: 13px;
     user-select: none;
+}
+/* 会话列表底部统计条：与右侧属性面板 .oc-dir-bar 同一套盒模型（11px 字 + 1px 上边框），
+   两栏底部固定栏高度因此完全对齐 */
+.oc-dir-bar,
+.oc-tree-summary {
+    height: 29px;
+    box-sizing: border-box;
+}
+.oc-tree-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.oc-tree-summary-icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+.oc-tree-summary strong {
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 .oc-tree-node {
     margin: 1px 0;
@@ -3204,7 +3239,6 @@ input::placeholder, textarea::placeholder {
     min-height: 160px;
     display: flex;
     flex-direction: column;
-    border-bottom: 1px solid var(--border);
 }
 /* ========== 右侧面板分区高度拖动条 ==========
    仅「子任务 ↔ 代办事项」分界处一条（服务状态区不参与固定高度分配）；
