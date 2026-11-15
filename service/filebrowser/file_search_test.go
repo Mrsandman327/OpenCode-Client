@@ -1,9 +1,11 @@
 package filebrowser
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"oc-manager/model"
@@ -185,5 +187,25 @@ func TestSearchBrowserFilesEmptyQuery(t *testing.T) {
 	}
 	if res.FileCount != 0 {
 		t.Fatalf("空查询应返回空结果，实际 %d", res.FileCount)
+	}
+}
+
+// BenchmarkSearchBrowserFilesNoMatch 测「所有文件都不含查询」时的开销——
+// 这是实际使用中最常见的情况，整文件预筛的收益主要在这里。
+func BenchmarkSearchBrowserFilesNoMatch(b *testing.B) {
+	dir := b.TempDir()
+	line := "some ordinary line of text without the needle\n"
+	content := strings.Repeat(line, 40) // 每文件约 2KB
+	for i := 0; i < 300; i++ {
+		p := filepath.Join(dir, fmt.Sprintf("f%03d.txt", i))
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := SearchBrowserFiles(dir, "/", "nonexistent-needle", false, false, false); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
