@@ -1690,16 +1690,20 @@ input::placeholder, textarea::placeholder {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+/* 面板展开/折叠图标：assets/菜单展开.svg（展开）、菜单折叠.svg（折叠）作遮罩，随 .collapsed 切换 */
 .oc-panel-arrow {
     display: inline-block;
-    width: 14px;
-    font-size: 10px;
-    color: var(--text-muted);
-    transition: transform 200ms ease;
+    width: 12px;
+    height: 12px;
     flex-shrink: 0;
+    color: var(--text-muted);
+    background: currentColor;
+    -webkit-mask: url("../assets/菜单展开.svg") no-repeat center / contain;
+    mask: url("../assets/菜单展开.svg") no-repeat center / contain;
 }
 .collapsed .oc-panel-arrow {
-    transform: rotate(-90deg);
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
 }
 .oc-panel-body {
     display: flex;
