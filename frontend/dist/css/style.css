@@ -6792,8 +6792,8 @@ svg.i.is-spinning {
     mask-size: contain;
 }
 .file-browser-mode-btn .oc-fb-icon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
 }
 .oc-fb-icon-refresh {
     -webkit-mask-image: url("../assets/刷新.svg");
@@ -6849,13 +6849,13 @@ svg.i.is-spinning {
 }
 
 .file-browser-mode-btn {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 1px solid transparent;
-    border-radius: 12px;
+    border-radius: 10px;
     background: transparent;
     color: var(--text-secondary);
     font-size: 18px;
@@ -6904,8 +6904,8 @@ svg.i.is-spinning {
     letter-spacing: -0.01em;
 }
 .file-browser-create-dir-btn {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border: none;
     cursor: pointer;
     background-color: transparent;
@@ -6949,8 +6949,8 @@ svg.i.is-spinning {
 .file-browser-search-stats .warn { color: #d4a017; margin-left: auto; font-size: 10px; }
 
 .file-browser-create-dir-icon {
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
     display: block;
     flex-shrink: 0;
 }
