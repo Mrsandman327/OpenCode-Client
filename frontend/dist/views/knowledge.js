@@ -1206,7 +1206,7 @@ function kbRenderConvertPreview(pv) {
         }
         html += '<div class="kb-code-line insert-mark">' +
                     '<span class="kb-ln"></span><span class="kb-sign"></span>' +
-                    '<span class="kb-txt">第 ' + atLine + ' 行插入 ↓</span>' +
+                    '<span class="kb-txt">第 ' + atLine + ' 行插入 <svg class="i" aria-hidden="true"><use href="#i-download"></use></svg></span>' +
                 '</div>';
         added.forEach(function (line, k) {
             html += kbCodeLineHtml('add', atLine + k, '+', line);

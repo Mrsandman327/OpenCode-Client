@@ -137,7 +137,7 @@ function appendKvRow(container, key, value) {
     delBtn.className = 'mcp-kv-del';
     delBtn.title = '删除这一项';
     delBtn.setAttribute('aria-label', '删除这一项');
-    delBtn.textContent = '✕';
+    delBtn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-x"></use></svg>';
     delBtn.addEventListener('click', function () { row.remove(); });
 
     row.appendChild(keyInput);

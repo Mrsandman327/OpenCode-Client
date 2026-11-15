@@ -123,7 +123,7 @@ export async function loadModelConfig() {
 
         renderModelConfig();
     } catch (err) {
-        container.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeAttr(formatApiError(err))}</p><button class="btn btn-primary" id="btnRetryOmoLoad">重试</button></div>`;
+        container.innerHTML = `<div class="error"><p><svg class="i" aria-hidden="true"><use href="#i-alert"></use></svg>加载失败</p><p class="error-detail">${escapeAttr(formatApiError(err))}</p><button class="btn btn-primary" id="btnRetryOmoLoad">重试</button></div>`;
         const retryBtn = container.querySelector('#btnRetryOmoLoad');
         if (retryBtn) retryBtn.addEventListener('click', loadModelConfig);
     }
@@ -347,8 +347,6 @@ function applyGlobalOverrideOpenState(animate) {
     } else {
         body.setAttribute('inert', '');
     }
-    const toggleText = document.getElementById('goToggleText');
-    if (toggleText) toggleText.textContent = globalOverrideOpen ? '收起' : '展开';
 
     if (!animate) {
         window.requestAnimationFrame(() => section.classList.remove('no-motion'));
@@ -761,7 +759,7 @@ export function renderModelConfig() {
         clearBatchBar();
         const err = document.createElement('div');
         err.className = 'error';
-        err.innerHTML = `<p>⚠️ 配置文件解析失败</p><p class="error-detail">${escapeAttr(parseError)}</p><p class="error-detail">${escapeAttr(slimPath)}</p>`;
+        err.innerHTML = `<p><svg class="i" aria-hidden="true"><use href="#i-alert"></use></svg>配置文件解析失败</p><p class="error-detail">${escapeAttr(parseError)}</p><p class="error-detail">${escapeAttr(slimPath)}</p>`;
         container.appendChild(err);
         updateSaveStatus();
         return;
@@ -772,7 +770,7 @@ export function renderModelConfig() {
     // 3) 空状态：文件不存在且没有任何方案（仍可用工具栏「新增方案」创建）
     if (!slimExists && visiblePresets.length === 0) {
         clearBatchBar();
-        container.innerHTML = '<div class="empty"><p>📭 未找到 oh-my-opencode-slim 配置文件</p><p class="empty-hint">点击工具栏「新增方案」创建第一个方案，保存后自动创建配置文件</p></div>';
+        container.innerHTML = '<div class="empty"><p><svg class="i" aria-hidden="true"><use href="#i-inbox"></use></svg>未找到 oh-my-opencode-slim 配置文件</p><p class="empty-hint">点击工具栏「新增方案」创建第一个方案，保存后自动创建配置文件</p></div>';
         updateSaveStatus();
         return;
     }
@@ -801,7 +799,7 @@ function buildOverrideHint() {
     const parts = [];
     if (envPresetOverride) parts.push(`环境变量 OH_MY_OPENCODE_SLIM_PRESET=${envPresetOverride}`);
     if (projectConfigPath) parts.push(`项目级配置（${projectConfigPath}）`);
-    hint.textContent = '⚠️ 此处编辑可能不生效：' + parts.join('；') + ' 的优先级高于本配置文件';
+    hint.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-alert"></use></svg>此处编辑可能不生效：' + escapeAttr(parts.join('；')) + ' 的优先级高于本配置文件';
     return hint;
 }
 
@@ -1081,7 +1079,7 @@ function createAgentRow(preset, agent) {
     // 行尾 ✕：按方案是否带 extends / 行的来源决定语义
     const rowDel = document.createElement('button');
     rowDel.className = 'btn btn-del';
-    rowDel.textContent = '✕';
+    rowDel.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-x"></use></svg>';
 
     if (!preset.extends) {
         // ① 无继承方案：直接删除该行
@@ -1432,14 +1430,14 @@ export async function handleSlimSave() {
         const result = await api.SaveSlimConfig(payload);
         if (!result || result.success === false) {
             const msg = (result && result.error) || '未知错误';
-            showToast('保存失败: ' + msg + '。文件可能已被外部修改，请点「🔄 刷新」后重试', 'error');
+            showToast('保存失败: ' + msg + '。文件可能已被外部修改，请点「刷新」后重试', 'error');
             return;
         }
         // 保存成功：重新加载以刷新 revision / 继承合成结果 / 变更基线
         await loadModelConfig();
         showToast('已保存。若在运行中的 OpenCode 未生效：请重载（v1）或稍候自动刷新（v2）', 'success');
     } catch (err) {
-        showToast('保存失败: ' + formatApiError(err) + '。文件可能已被外部修改，请点「🔄 刷新」后重试', 'error');
+        showToast('保存失败: ' + formatApiError(err) + '。文件可能已被外部修改，请点「刷新」后重试', 'error');
     } finally {
         if (btn) {
             btn.disabled = false;

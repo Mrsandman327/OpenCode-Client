@@ -9,6 +9,111 @@
     <script src="/lib/qrcode.min.js"></script>
 </head>
 <body>
+    <!-- 内联 SVG 图标 sprite：按钮通过 <use href="#i-xxx"> 引用，避免 emoji -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="i-paperclip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+        </symbol>
+        <!-- 上传/下载：lucide 完整图标（带托盘），描边比常规图标略粗，小尺寸下更清晰 -->
+        <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
+        </symbol>
+        <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>
+        </symbol>
+        <symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>
+        </symbol>
+        <!-- 关闭 / 勾选 / 菜单 / 设置：替换界面中可见的 ✕ ✓ ☰ ⚙ 文本符号 -->
+        <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6L6 18"/><path d="M6 6l12 12"/>
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"/>
+        </symbol>
+        <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+        </symbol>
+        <!-- 语义图标：用于替换界面中可见的 emoji（⚠️ ❓ ✦ 🔄 💬 📋 📄 📁 🧩 📭 📖 🔍 ✏️ 📝 💻 🔧 🧠 🗜️ 📸 🌙 ☀️ ➕ ↩） -->
+        <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+        </symbol>
+        <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
+        </symbol>
+        <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+        </symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
+        </symbol>
+        <symbol id="i-message" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+        </symbol>
+        <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+        </symbol>
+        <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+        </symbol>
+        <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+        </symbol>
+        <symbol id="i-puzzle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/>
+        </symbol>
+        <symbol id="i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+        </symbol>
+        <symbol id="i-book-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </symbol>
+        <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>
+        </symbol>
+        <symbol id="i-file-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 18v-6"/>
+        </symbol>
+        <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>
+        </symbol>
+        <symbol id="i-wrench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+        </symbol>
+        <symbol id="i-lightbulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>
+        </symbol>
+        <symbol id="i-minimize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" x2="21" y1="10" y2="3"/><line x1="3" x2="10" y1="21" y2="14"/>
+        </symbol>
+        <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>
+        </symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+        </symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/><path d="M12 5v14"/>
+        </symbol>
+        <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>
+        </symbol>
+        <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>
+        </symbol>
+        <symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.9 5.2A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 4"/><path d="M6.6 6.6C3.6 8.5 2 12 2 12s3.5 7 10 7c1.3 0 2.5-.3 3.6-.7"/>
+        </symbol>
+    </svg>
     <!-- ======== 顶部导航栏 ======== -->
     <header class="header">
         <h1 class="app-title" id="appTitle" title="切换左侧导航展开状态"><span class="app-title-icon" aria-hidden="true"></span>OpenCode 工作台</h1>
@@ -16,7 +121,7 @@
             <button type="button" class="btn btn-config" id="btnWtOpen" title="在终端中打开" disabled><span class="btn-terminal-icon" aria-hidden="true"></span>在终端打开</button>
             <button type="button" class="btn btn-primary" id="btnToggleWeb" data-mode="start">▶ 启动 OpenCode</button>
             <!-- 移动端顶栏：隐藏上面两个按钮，只保留主题切换 -->
-            <button type="button" class="header-theme-toggle" id="btnTheme" title="切换主题" aria-label="切换主题">🌙</button>
+            <button type="button" class="header-theme-toggle" id="btnTheme" title="切换主题" aria-label="切换主题"><svg class="i" aria-hidden="true"><use href="#i-moon"></use></svg></button>
         </div>
     </header>
 
@@ -53,7 +158,7 @@
                 <div class="notify-panel-head">
                     <span class="notify-panel-title">消息历史</span>
                     <button type="button" class="notify-clear" id="notifyClear">清空</button>
-                    <button type="button" class="notify-close" id="notifyClose" aria-label="关闭">✕</button>
+                    <button type="button" class="notify-close" id="notifyClose" aria-label="关闭"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
                 </div>
                 <div class="notify-list" id="notifyList"></div>
             </div>
@@ -91,7 +196,7 @@
                                 <span class="oc-tree-search-count" id="ocTreeSearchCount">-</span>
                             </div>
                             <button type="button" class="oc-tree-search-clear" id="ocTreeSearchClear" title="清空搜索" disabled>清空</button>
-                            <button type="button" class="oc-tree-search-close" id="ocTreeSearchClose" title="关闭搜索（Esc）" aria-label="关闭搜索">✕</button>
+                            <button type="button" class="oc-tree-search-close" id="ocTreeSearchClose" title="关闭搜索（Esc）" aria-label="关闭搜索"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
                         </div>
                         <div class="oc-tree" id="ocTree">
                             <div class="oc-empty">启动服务后加载会话列表</div>
@@ -120,7 +225,7 @@
                     <main class="oc-chat">
                         <!-- Tab 标签行常驻：高度与左侧会话列表头、右侧服务状态头一致（44px） -->
                         <div class="oc-tabs-bar" id="ocTabsBar">
-                            <button type="button" class="oc-chat-head-mobile-toggle" id="btnMobileTree" title="打开项目树">☰</button>
+                            <button type="button" class="oc-chat-head-mobile-toggle" id="btnMobileTree" title="打开项目树" aria-label="打开项目树"><svg class="i" aria-hidden="true"><use href="#i-menu"></use></svg></button>
                             <!-- 移动端没有 Tab 列表：标题显示在这条栏内 -->
                             <span class="oc-chat-mobile-title" id="ocMobileChatTitle">未选择会话</span>
                             <div class="oc-tabs-list" id="ocTabsList"></div>
@@ -140,7 +245,7 @@
                             <div class="oc-messages-pool" id="ocMessagesPool">
                                 <div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>
                             </div>
-                            <button type="button" class="oc-scroll-bottom" id="btnScrollBottom" title="回到会话底部">↓</button>
+                            <button type="button" class="oc-scroll-bottom" id="btnScrollBottom" title="回到会话底部"><svg class="i" aria-hidden="true"><use href="#i-arrow-down"></use></svg></button>
                             <div class="oc-user-nav" id="ocUserNav">
                                 <button type="button" class="oc-user-nav-btn" id="btnUserNavPrev" title="上一条用户消息">▲</button>
                                 <span class="oc-user-nav-count" id="ocUserNavCount">-</span>
@@ -184,7 +289,7 @@
                             <!-- 权限请求弹层：横向铺满会话区，紧凑高度，非全屏遮罩 -->
                             <div class="oc-permission-pop" id="permissionModal" style="display:none">
                                 <div class="oc-permission-body">
-                                    <div class="oc-permission-title"><span class="oc-permission-icon">⚠️</span> <span id="permissionTitleText">需要权限</span></div>
+                                    <div class="oc-permission-title"><span class="oc-permission-icon"><svg class="i" aria-hidden="true"><use href="#i-alert"></use></svg></span> <span id="permissionTitleText">需要权限</span></div>
                                     <div class="oc-permission-desc" id="permissionInfo"></div>
                                     <div class="oc-permission-resources" id="permissionResources"></div>
                                 </div>
@@ -199,7 +304,7 @@
                                 <div class="oc-refs hidden" id="ocRefs"></div>
                                 <textarea id="ocPrompt" disabled></textarea>
                                 <div class="oc-input-actions">
-                                    <button type="button" class="oc-attach-btn" id="btnAttachFile" disabled title="附件">📎</button>
+                                    <button type="button" class="oc-attach-btn" id="btnAttachFile" disabled title="附件"><svg class="i" aria-hidden="true"><use href="#i-paperclip"></use></svg></button>
                                     <button type="button" class="btn btn-primary" id="btnSendPrompt" disabled>发送</button>
                                 </div>
                             </div>
@@ -297,7 +402,6 @@
                                 <span><b id="disabledCount">0</b> 个禁用</span>
                             </span>
                         </span>
-                        <span class="go-toggle-text" id="goToggleText">展开</span>
                     </button>
 
                     <div class="go-body" id="goBody" inert>
@@ -505,7 +609,7 @@
         <div class="modal fork-modal">
             <div class="fork-header">
                 <span class="fork-title">从消息创建新会话</span>
-                <button type="button" class="fork-close" id="btnForkClose" title="关闭">✕</button>
+                <button type="button" class="fork-close" id="btnForkClose" title="关闭"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
             </div>
             <div class="fork-search">
                 <input id="forkSearchInput" placeholder="搜索" autocomplete="off" />
@@ -863,7 +967,7 @@
                         <span class="fb-term-badge" id="fileBrowserTerminalCount">0</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshFiles"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</button>
-                    <button type="button" class="btn btn-sm" id="btnCloseFileBrowser">✕</button>
+                    <button type="button" class="btn btn-sm" id="btnCloseFileBrowser" title="关闭" aria-label="关闭"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
                 </div>
             </div>
             <div class="file-browser-body">
@@ -886,7 +990,7 @@
                             <div class="file-browser-empty" id="fileBrowserListEmpty">请选择目录</div>
                             <div class="file-browser-list" id="fileBrowserList"></div>
                             <div class="file-browser-files-toolbar">
-                                <button type="button" class="btn file-browser-upload-plus" id="btnFileBrowserUpload" title="上传文件">⬆上传文件</button>
+                                <button type="button" class="btn file-browser-upload-plus" id="btnFileBrowserUpload" title="上传文件"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg>上传文件</button>
                         </div>
                     </div>
                     <div class="oc-tree-context-menu" id="fileBrowserContextMenu" style="display:none">
@@ -914,8 +1018,8 @@
                             <div class="file-browser-git-header" id="fileBrowserGitHistoryTitle">
                                 提交历史
                                 <span>
-                                    <button type="button" class="btn btn-xs file-browser-git-push-btn" id="btnFileBrowserGitPull" title="拉取远端">⬇ 拉取</button>
-                                    <button type="button" class="btn btn-xs file-browser-git-push-btn" id="btnFileBrowserGitPush" title="推送到远端">⬆ 推送</button>
+                                    <button type="button" class="btn btn-xs file-browser-git-push-btn" id="btnFileBrowserGitPull" title="拉取远端"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>拉取</button>
+                                    <button type="button" class="btn btn-xs file-browser-git-push-btn" id="btnFileBrowserGitPush" title="推送到远端"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg>推送</button>
                                 </span>
                             </div>
                             <div class="file-browser-git-body" id="fileBrowserGitHistoryBody">
@@ -928,7 +1032,7 @@
                             <div class="file-browser-search-input-row">
                                 <span class="file-browser-search-input-ic oc-fb-icon oc-fb-icon-search"></span>
                                 <input type="text" id="fileBrowserSearchInput" placeholder="搜索内容（在会话目录内全文检索）" spellcheck="false" autocomplete="off" />
-                                <span class="file-browser-search-clear" id="btnFileBrowserSearchClear" title="清空">✕</span>
+                                <span class="file-browser-search-clear" id="btnFileBrowserSearchClear" title="清空"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>
                             </div>
                             <div class="file-browser-search-opts">
                                 <button type="button" class="file-browser-search-opt" id="btnFbSearchCase" title="区分大小写">Aa</button>
@@ -951,7 +1055,7 @@
                                 <div class="file-browser-preview-title" id="filePreviewTitle">请选择文件</div>
                                 <div class="file-browser-preview-actions" id="filePreviewActions"></div>
                             </div>
-                            <button type="button" class="btn btn-sm" id="btnFileBrowserDownload" style="display:none">⬇ 下载</button>
+                            <button type="button" class="btn btn-sm" id="btnFileBrowserDownload" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>下载</button>
                         </div>
                         <div class="file-browser-preview-meta" id="filePreviewMeta"></div>
                     </div>
@@ -1045,7 +1149,7 @@
                     <span>完成</span><span id="subtaskEnded"></span>
                 </div>
                 <div class="meta-row" id="subtaskDescRow" style="display:none">
-                    <span>📝 </span><span id="subtaskDesc"></span>
+                    <span><svg class="i" aria-hidden="true"><use href="#i-file-plus"></use></svg></span><span id="subtaskDesc"></span>
                 </div>
                 <div class="subtask-prompt-collapse">
                     <button type="button" class="btn btn-sm subtask-prompt-toggle" id="subtaskPromptToggle">展开原始任务</button>
@@ -1053,7 +1157,7 @@
                 </div>
                 <div class="meta-row-muted">
                     <code id="subtaskSid" class="subtask-sid"></code>
-                    <button type="button" class="btn btn-sm subtask-copy-sid" id="subtaskCopySid" title="复制 SessionId">📋</button>
+                    <button type="button" class="btn btn-sm subtask-copy-sid" id="subtaskCopySid" title="复制 SessionId"><svg class="i" aria-hidden="true"><use href="#i-clipboard"></use></svg></button>
                 </div>
             </div>
             <div class="subtask-modal-body" id="subtaskMessages">

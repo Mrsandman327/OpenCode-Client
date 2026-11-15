@@ -172,7 +172,7 @@ export function renderTree(tree) {
         // 目录行：分组标题 + 会话计数徽章（沿用原目录行标记与类名）
         const dirSesCount = (dir.children || []).length;
         html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
-        html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle ${toggleClass(true)}"></div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置">⚙</button></div>`;
+        html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle ${toggleClass(true)}"></div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置"><svg class="i" aria-hidden="true"><use href="#i-settings"></use></svg></button></div>`;
         html += `<div class="oc-tree-children">`;
         // 目录内会话按更新时间倒序，保持会话位置固定
         var sesList = (dir.children || []).slice();
@@ -186,10 +186,10 @@ export function renderTree(tree) {
             store.sessionMap[ses.id] = { title: ses.title, directory: sesDir, updatedAt: updatedAt };
             // 会话卡片：图标 + 标题 + 相对时间 + 删除按钮；active 由 updateTreeActiveSession 维护
             html += `<div class="oc-tree-node oc-tree-session" data-session-id="${escapeHtml(ses.id)}">`;
-            html += `<div class="oc-tree-indent"></div><span class="oc-tree-session-icon">💬</span><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n'+sesDir+'\n'+updatedAt)}">${escapeHtml(ses.title)}</span>`;
+            html += `<div class="oc-tree-indent"></div><span class="oc-tree-session-icon"><svg class="i" aria-hidden="true"><use href="#i-message"></use></svg></span><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n'+sesDir+'\n'+updatedAt)}">${escapeHtml(ses.title)}</span>`;
             if (updatedAt) html += `<span class="oc-tree-session-time">${escapeHtml(formatRelativeTime(updatedAt))}</span>`;
             html += `<div class="oc-tree-tooltip"><div class="oc-tree-tooltip-title">${escapeHtml(ses.title)}</div><div class="oc-tree-tooltip-row">${escapeHtml(sesDir)}</div><div class="oc-tree-tooltip-row">${escapeHtml(updatedAt)}</div></div>`;
-            html += `<button class="oc-tree-del" data-del-id="${escapeHtml(ses.id)}" title="删除会话">✕</button>`;
+            html += `<button class="oc-tree-del" data-del-id="${escapeHtml(ses.id)}" title="删除会话"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>`;
             html += `</div>`;
         }
         html += `</div></div>`;
@@ -644,7 +644,7 @@ export function initTreeContextMenu() {
             var title = configBtn ? configBtn.dataset.configDir : '';
             if (!title) {
                 var label = dirRow.querySelector('.oc-tree-label');
-                title = label ? label.textContent.replace(/^📂\s*/, '').trim() : '';
+                title = label ? label.textContent.trim() : '';
             }
             showTreeContextMenu(e, 'dir', { title: title });
             return;

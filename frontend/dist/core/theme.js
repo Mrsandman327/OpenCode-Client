@@ -22,7 +22,9 @@ export function setTheme(theme) {
 
 function updateThemeIcon(theme) {
     const btn = document.getElementById('btnTheme');
-    if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+    if (btn) btn.innerHTML = theme === 'dark'
+        ? '<svg class="i" aria-hidden="true"><use href="#i-moon"></use></svg>'
+        : '<svg class="i" aria-hidden="true"><use href="#i-sun"></use></svg>';
 }
 
 setTheme(getTheme());

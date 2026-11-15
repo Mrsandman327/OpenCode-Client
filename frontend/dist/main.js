@@ -288,7 +288,7 @@ function initMain() {
             showApiError('刷新失败: ', err);
         }
         btn.disabled = false;
-        btn.textContent = '🔄 刷新';
+        btn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-refresh"></use></svg>刷新';
     });
 
     // 搜索框事件

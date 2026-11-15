@@ -687,6 +687,10 @@ input::placeholder, textarea::placeholder {
     font-size: 12px;
     line-height: 1;
     cursor: pointer;
+    /* 图标按钮：内容居中 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .notify-close:hover {
     color: var(--text-primary);
@@ -1278,6 +1282,8 @@ input::placeholder, textarea::placeholder {
     line-height: 1;
     align-items: center;
     justify-content: center;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
@@ -1645,6 +1651,10 @@ input::placeholder, textarea::placeholder {
     padding: 0 2px;
     border-radius: var(--radius-xs);
     line-height: 1;
+    /* 图标按钮：内容居中 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .oc-tab-close:hover {
     color: var(--danger);
@@ -2435,8 +2445,11 @@ input::placeholder, textarea::placeholder {
     padding: 0 6px;
     line-height: 1;
     border-radius: var(--radius-sm);
+    /* 图标按钮：内容水平垂直居中（display 由行悬停规则切换为 inline-flex） */
+    align-items: center;
+    justify-content: center;
 }
-.oc-tree-session:hover .oc-tree-del { display: inline; }
+.oc-tree-session:hover .oc-tree-del { display: inline-flex; }
 .oc-tree-del:hover {
     color: var(--danger);
     background: var(--danger-bg);
@@ -2521,6 +2534,10 @@ input::placeholder, textarea::placeholder {
     z-index: 8;
     width: 36px;
     height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
     border-radius: var(--radius-pill);
     border: 1px solid var(--border);
     background: var(--bg-card);
@@ -3530,7 +3547,7 @@ input::placeholder, textarea::placeholder {
 .oc-update-line1 { display: flex; align-items: center; gap: 8px; }
 .oc-update-line2 { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
 .oc-update-grow { flex: 1; min-width: 0; }
-.oc-update-ic { color: var(--accent); }
+.oc-update-ic { color: var(--accent); display: inline-flex; align-items: center; }
 .oc-update-ic.ok { color: var(--success); }
 .oc-update-ic.err { color: var(--danger); }
 .oc-update-ver { font-family: "SF Mono", "Cascadia Code", Consolas, monospace; }
@@ -3649,6 +3666,10 @@ input::placeholder, textarea::placeholder {
     font-size: 16px;
     cursor: pointer;
     padding: 2px;
+    /* 图标按钮：内容居中 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .fork-close:hover { color: var(--danger); }
 .fork-search { padding: 0 16px 10px; flex-shrink: 0; }
@@ -3993,6 +4014,72 @@ input::placeholder, textarea::placeholder {
 .oc-empty.error {
     color: var(--danger);
 }
+/* 内联 SVG 图标：尺寸固定，颜色继承 currentColor（由按钮/文本颜色决定） */
+svg.i {
+    width: 16px;
+    height: 16px;
+    display: block;
+    flex-shrink: 0;
+}
+/* 紧凑控件内的图标尺寸：这些容器原本靠小字号渲染 ✕ ✓ ☰ ⚙ 文本符号，
+   换成图标后按容器缩小，避免撑大按钮或破坏行高；颜色/描边仍由 symbol 与 currentColor 决定 */
+.oc-tab-close svg.i,
+.file-browser-tab-close svg.i { width: 10px; height: 10px; }
+.oc-tree-del svg.i,
+.oc-tree-config svg.i,
+.oc-tree-search-close svg.i,
+.file-browser-search-clear svg.i,
+.notify-close svg.i,
+.pc-file-del svg.i,
+.oc-attach-chip-remove svg.i,
+.mcp-kv-del svg.i,
+.btn-del svg.i { width: 12px; height: 12px; }
+/* 16px 圆形悬浮关闭按钮：图标再小一号，避免贴边 */
+.btw-float-close svg.i { width: 10px; height: 10px; }
+.oc-todo-check svg.i { width: 12px; height: 12px; }
+.oc-tool-status svg.i { width: 11px; height: 11px; }
+.oc-update-ic svg.i { width: 14px; height: 14px; }
+.oc-update-step-ic svg.i { width: 10px; height: 10px; }
+.oc-update-r-icon svg.i { width: 22px; height: 22px; }
+.pc-empty-icon svg.i { width: 36px; height: 36px; }
+/* 行内文本中的图标（错误提示 / 空态 / 说明条 / 元信息 / 附件名 / 知识库插入标记）：
+   与文字同基线，不单独占行 */
+.error p > svg.i,
+.empty p > svg.i,
+.no-sources-banner > svg.i,
+.slim-override-hint > svg.i,
+.meta-row > span > svg.i,
+.pc-editor-filename > svg.i,
+.oc-attach-chip-name > svg.i,
+.kb-code-line .kb-txt > svg.i {
+    display: inline-block;
+    vertical-align: -2px;
+    margin-right: 4px;
+    width: 14px;
+    height: 14px;
+}
+.oc-attach-chip-name > svg.i,
+.kb-code-line .kb-txt > svg.i { width: 12px; height: 12px; }
+/* 其余图标容器：按原 emoji 字号缩小并对齐 */
+.header-theme-toggle svg.i { width: 16px; height: 16px; }
+.oc-permission-icon { display: inline-flex; align-items: center; }
+.oc-permission-icon svg.i { width: 14px; height: 14px; }
+.oc-tree-session-icon svg.i { width: 12px; height: 12px; }
+.subtask-copy-sid svg.i { width: 13px; height: 13px; }
+.pc-file-icon { display: inline-flex; align-items: center; }
+.pc-file-icon svg.i { width: 16px; height: 16px; }
+.file-browser-git-action-btn svg.i { width: 12px; height: 12px; }
+.file-browser-search-empty .big { display: flex; justify-content: center; }
+.file-browser-search-empty .big svg.i { width: 26px; height: 26px; }
+.btn-refresh svg.i { width: 15px; height: 15px; }
+/* 图标与文字并排时的行内对齐（这些容器原本只是行内文本） */
+.oc-tool-status,
+.oc-question-finish-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .oc-attach-btn {
     width: 34px;
     height: 34px;
@@ -4047,6 +4134,9 @@ input::placeholder, textarea::placeholder {
     font-size: 13px;
     line-height: 1;
     margin-left: 2px;
+    /* 图标靠行内基线对齐，随文字行高排布 */
+    display: inline-flex;
+    align-items: center;
 }
 .oc-attach-chip-remove:hover { color: var(--danger); }
 
@@ -5419,14 +5509,32 @@ input::placeholder, textarea::placeholder {
     color: var(--text-muted);
 }
 /* API Key 与明文切换按钮贴合 */
+/* API Key 与明文切换按钮贴合：边框由容器统一提供，
+   聚焦时与其它输入框一致（1px accent + accent-glow），不会只亮一半 */
 .prov-apikey-row {
     display: flex;
     gap: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-card);
 }
 .prov-apikey-row .prov-edit-apikey {
     flex: 1;
-    border-right: none;
-    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+.prov-apikey-row .btn-eye {
+    border: none;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+}
+.prov-apikey-row:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
 }
 /* 空状态占位 */
 .prov-empty {
@@ -5939,6 +6047,20 @@ input::placeholder, textarea::placeholder {
     opacity: 0.45;
     cursor: not-allowed;
 }
+/* 密钥显隐图标：与「网络配置」的 .cfg-eye-btn 同一套 eye-on / eye-off */
+.btn-eye svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.btn-eye .eye-off { display: none; }
+.btn-eye.is-visible { color: var(--accent); }
+.btn-eye.is-visible .eye-on { display: none; }
+.btn-eye.is-visible .eye-off { display: block; }
 /* 网络配置：服务口令输入行（输入框 + 显示明文按钮，复用 .btn-eye） */
 .modal-field .pwd-row {
     display: flex;
@@ -6707,7 +6829,7 @@ input::placeholder, textarea::placeholder {
 .file-browser-search-input-row input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 12px; }
 .file-browser-search-input-row input::placeholder { color: var(--text-muted); }
 .file-browser-search-input-ic { width: 12px; height: 12px; flex-shrink: 0; }
-.file-browser-search-clear { color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 2px; user-select: none; }
+.file-browser-search-clear { color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 2px; user-select: none; display: inline-flex; align-items: center; }
 .file-browser-search-clear:hover { color: var(--text-primary); }
 .file-browser-search-opts { display: flex; align-items: center; gap: 4px; }
 .file-browser-search-opt { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 10.5px; cursor: pointer; font-family: Consolas, monospace; }
@@ -6953,6 +7075,10 @@ input::placeholder, textarea::placeholder {
     font-size: 12px;
     flex-shrink: 0;
     margin-left: 4px;
+}
+.file-browser-git-sync-icon svg {
+    width: 14px;
+    height: 14px;
 }
 
 /* 发布标签（指向该提交的版本标签）：次要信息，用灰色药丸，不抢提交标题的注意力 */
@@ -7479,6 +7605,10 @@ input::placeholder, textarea::placeholder {
     padding: 0 3px;
     border-radius: 4px;
     line-height: 1;
+    /* 图标按钮：内容居中 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .file-browser-tab-close:hover {
     color: var(--danger);
@@ -8305,7 +8435,7 @@ body.file-browser-diff-dragging {
     font-size: 15px;
 }
 
-.pc-empty-icon { font-size: 40px; margin-bottom: 16px; opacity: .5; }
+.pc-empty-icon { font-size: 40px; margin-bottom: 16px; opacity: .5; display: flex; justify-content: center; }
 
 .pc-empty p { margin: 0 0 4px; font-weight: 500; }
 
@@ -8363,6 +8493,10 @@ body.file-browser-diff-dragging {
     border-radius: 4px;
     text-align: center;
     line-height: 22px;
+    /* 图标按钮：内容居中 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
     opacity: 0;
     transition: opacity .12s, color .12s, background .12s;
 }
@@ -8595,6 +8729,10 @@ body.file-browser-diff-dragging {
     border-radius: 4px;
     opacity: 0;
     transition: opacity .15s, color .15s, background .15s;
+    /* 图标按钮：内容居中 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .oc-tree-dir-row:hover .oc-tree-config,
@@ -10239,19 +10377,20 @@ input.toolbar-input {
     gap: 6px;
     flex-shrink: 0;
 }
+/* 覆盖/禁用摘要：只保留小圆点 + 文字，不再画胶囊底色和边框；
+   文字统一中性色，仅小圆点带颜色 */
 #view-omo .go-chip {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    height: 22px;
-    padding: 0 9px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
-    color: var(--text-muted);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
     font-size: 11px;
     font-weight: 500;
     white-space: nowrap;
-    transition: color var(--transition), background var(--transition), border-color var(--transition);
+    transition: color var(--transition);
 }
 #view-omo .go-chip b {
     font-weight: 600;
@@ -10260,32 +10399,17 @@ input.toolbar-input {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: currentColor;
+    background: var(--text-muted);
     flex-shrink: 0;
 }
-#view-omo .go-chip-override:not(.is-zero) {
-    border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-    background: var(--accent-ghost);
-    color: var(--accent);
+#view-omo .go-chip-override:not(.is-zero) .go-dot {
+    background: var(--accent);
 }
-#view-omo .go-chip-disabled:not(.is-zero) {
-    border-color: color-mix(in srgb, var(--danger) 28%, transparent);
-    background: var(--danger-bg);
-    color: var(--danger);
+#view-omo .go-chip-disabled:not(.is-zero) .go-dot {
+    background: var(--danger);
 }
 #view-omo .go-chip.is-zero {
-    background: transparent;
-    border-color: var(--border);
     color: var(--text-muted);
-}
-#view-omo .go-toggle-text {
-    flex-shrink: 0;
-    color: var(--text-muted);
-    font-size: 11px;
-    white-space: nowrap;
-}
-#view-omo .go-header:hover .go-toggle-text {
-    color: var(--text-secondary);
 }
 
 /* ---------- 展开/收起过渡 ---------- */
@@ -11773,6 +11897,10 @@ input.toolbar-input {
     cursor: pointer;
     font-size: 13px;
     line-height: 1;
+    /* 图标按钮：内容居中 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .mcp-kv-del:hover { color: var(--danger); background: var(--danger-bg); }

@@ -92,7 +92,7 @@ export function renderTodos() {
             const pri = priorityClass[t.priority] || '';
             if (done) {
                 html += `<div class="oc-todo-item done ${pri}" title="${escapeHtml(t.content)}">`;
-                html += `<span class="oc-todo-check">✓</span>`;
+                html += `<span class="oc-todo-check"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></span>`;
             } else {
                 html += `<div class="oc-todo-item ${pri}" title="${escapeHtml(t.content)}">`;
                 html += `<span class="oc-todo-check" data-content="${escapeHtml(t.content)}"></span>`;

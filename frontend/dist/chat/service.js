@@ -864,7 +864,7 @@ function renderUpdateBanner(kind, data) {
     var ver = '<b class="oc-update-ver">v' + escapeHtml(data.version || '') + '</b>';
     if (kind === 'found') {
         el.className = 'oc-update-banner found';
-        el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic">✦</span>'
+        el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic"><svg class="i" aria-hidden="true"><use href="#i-sparkle"></use></svg></span>'
             + '<span class="oc-update-grow">发现新版本 ' + ver + '</span>'
             + '<button class="btn btn-primary oc-update-btn" id="ocUpdateDownloadBtn">后台下载</button></div>'
             + '<div class="oc-update-line2">约 96 MB · 后台下载，期间可继续使用</div>';
@@ -886,7 +886,7 @@ function renderUpdateBanner(kind, data) {
     }
     if (kind === 'ready') {
         el.className = 'oc-update-banner ready';
-        el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic ok">✓</span>'
+        el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic ok"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></span>'
             + '<span class="oc-update-grow">' + ver + ' 已下载并准备就绪</span>'
             + '<button class="btn btn-primary oc-update-btn" id="ocUpdateApplyBtn">立即完成更新</button></div>'
             + '<div class="oc-update-line2">将重启 OpenCode 服务（约 10 秒），期间无法对话。</div>';
@@ -895,7 +895,7 @@ function renderUpdateBanner(kind, data) {
     }
     if (kind === 'failed') {
         el.className = 'oc-update-banner failed';
-        el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic err">✕</span>'
+        el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic err"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>'
             + '<span class="oc-update-grow">' + escapeHtml(data.error || '更新任务失败') + '</span>'
             + '<button class="btn btn-sm oc-update-btn" id="ocUpdateRetryBtn">重试</button></div>'
             + '<div class="oc-update-line2">已下载的部分会保留，重试将从中断处继续。</div>';
@@ -1083,10 +1083,10 @@ function showUpdateApplyModal() {
         + '<div class="modal-header"><h3 id="ocUpdateModalTitle">正在完成更新</h3></div>'
         + '<div class="modal-body">'
         +   '<div class="oc-update-steps" id="ocUpdateSteps">'
-        +     '<div class="oc-update-step" data-step="stop"><span class="oc-update-step-ic">✓</span><span>停止 OpenCode 服务</span></div>'
-        +     '<div class="oc-update-step" data-step="replace"><span class="oc-update-step-ic">✓</span><span>替换二进制（旧版本已备份）</span></div>'
-        +     '<div class="oc-update-step" data-step="start"><span class="oc-update-step-ic">✓</span><span>启动服务</span></div>'
-        +     '<div class="oc-update-step" data-step="check"><span class="oc-update-step-ic">✓</span><span>校验运行版本</span></div>'
+        +     '<div class="oc-update-step" data-step="stop"><span class="oc-update-step-ic"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></span><span>停止 OpenCode 服务</span></div>'
+        +     '<div class="oc-update-step" data-step="replace"><span class="oc-update-step-ic"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></span><span>替换二进制（旧版本已备份）</span></div>'
+        +     '<div class="oc-update-step" data-step="start"><span class="oc-update-step-ic"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></span><span>启动服务</span></div>'
+        +     '<div class="oc-update-step" data-step="check"><span class="oc-update-step-ic"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></span><span>校验运行版本</span></div>'
         +   '</div>'
         +   '<div class="oc-update-result" id="ocUpdateResult" style="display:none"></div>'
         + '</div>'
@@ -1113,7 +1113,7 @@ function showUpdateApplyModal() {
             overlay.querySelector('#ocUpdateSteps').style.display = 'none';
             var r = overlay.querySelector('#ocUpdateResult');
             r.style.display = 'block';
-            r.innerHTML = '<div class="oc-update-r-icon ok">✓</div>'
+            r.innerHTML = '<div class="oc-update-r-icon ok"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></div>'
                 + '<div class="oc-update-r-t1">已更新到 v' + escapeHtml(ver) + '</div>'
                 + '<div class="oc-update-r-t2">服务已重启，运行版本校验通过。</div>';
             var f = overlay.querySelector('#ocUpdateModalFooter');
@@ -1125,7 +1125,7 @@ function showUpdateApplyModal() {
             overlay.querySelector('#ocUpdateSteps').style.display = 'none';
             var r = overlay.querySelector('#ocUpdateResult');
             r.style.display = 'block';
-            r.innerHTML = '<div class="oc-update-r-icon err">' + (rolled ? '↩' : '✕') + '</div>'
+            r.innerHTML = '<div class="oc-update-r-icon err">' + (rolled ? '<svg class="i" aria-hidden="true"><use href="#i-undo"></use></svg>' : '<svg class="i" aria-hidden="true"><use href="#i-x"></use></svg>') + '</div>'
                 + '<div class="oc-update-r-t1">' + (rolled ? '已自动回滚' : '更新未完成') + '</div>'
                 + '<div class="oc-update-r-t2">' + escapeHtml(msg) + '</div>'
                 + (rolled ? '<div class="oc-update-rollback-note">已恢复到更新前的版本（备份 tools/opencode.exe.bak），服务已重新启动。</div>' : '');

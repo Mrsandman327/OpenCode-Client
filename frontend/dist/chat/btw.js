@@ -114,11 +114,11 @@ function ensureBtwFloat() {
     f.className = 'btw-float';
     f.style.display = 'none';
     f.innerHTML = '<button type="button" class="btw-float-main" title="打开侧问">'
-        + '<span class="btw-float-icon">💬</span>'
+        + '<span class="btw-float-icon"><svg class="i" aria-hidden="true"><use href="#i-message"></use></svg></span>'
         + '<span class="btw-float-spinner"></span>'
         + '<span class="btw-float-dot" style="display:none"></span>'
         + '</button>'
-        + '<button type="button" class="btw-float-close" title="完全关闭并清除侧问">✕</button>';
+        + '<button type="button" class="btw-float-close" title="完全关闭并清除侧问"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>';
     // 与「回到会话底部」按钮同容器同基准（.oc-messages-wrap 是其 absolute 定位基准），
     // 两个按钮垂直堆叠：侧问在上（bottom:54）、回底在下（bottom:12）。
     const host = document.querySelector('.oc-messages-wrap') || document.body;

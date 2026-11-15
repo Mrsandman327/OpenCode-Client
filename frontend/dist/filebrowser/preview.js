@@ -784,7 +784,7 @@ export function renderFileBrowserTabs() {
         var active = t.path === state.activeFileTabPath ? ' active' : '';
         return '<div class="file-browser-tab' + active + '" data-path="' + escapeHtml(t.path) + '" title="' + escapeHtml(t.path) + '">' +
             '<span class="file-browser-tab-name">' + escapeHtml(t.name) + '</span>' +
-            '<span class="file-browser-tab-close" data-close="' + escapeHtml(t.path) + '">✕</span>' +
+            '<span class="file-browser-tab-close" data-close="' + escapeHtml(t.path) + '"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>' +
         '</div>';
     }).join('');
     tabsEl.style.display = 'flex';

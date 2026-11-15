@@ -123,7 +123,7 @@ export function renderSkillList(filter) {
 
     // 无来源目录提示横幅
     if (noSourcesMode && filtered.length > 0) {
-        list.innerHTML += '<div class="no-sources-banner">⚠ 尚未添加来源目录，当前展示的是 opencode 全局技能目录。添加来源目录后可管理启用状态。</div>';
+        list.innerHTML += '<div class="no-sources-banner"><svg class="i" aria-hidden="true"><use href="#i-alert"></use></svg>尚未添加来源目录，当前展示的是 opencode 全局技能目录。添加来源目录后可管理启用状态。</div>';
     }
 
     if (!filtered.length && skills.length > 0) {
@@ -512,10 +512,10 @@ export async function applySkillScheme(name) {
     try {
         var result = await api.ApplySkillScheme(name);
         var msgParts = [];
-        if (result.applied && result.applied.length > 0) msgParts.push('✓ 成功应用 ' + result.applied.length + ' 个技能');
-        if (result.missing && result.missing.length > 0) msgParts.push('✗ ' + result.missing.length + ' 个技能缺失: ' + result.missing.join(', '));
-        if (result.conflicts && result.conflicts.length > 0) msgParts.push('✗ ' + result.conflicts.length + ' 个技能冲突: ' + result.conflicts.join(', '));
-        if (result.errors && result.errors.length > 0) msgParts.push('✗ 错误: ' + result.errors.join(', '));
+        if (result.applied && result.applied.length > 0) msgParts.push('成功应用 ' + result.applied.length + ' 个技能');
+        if (result.missing && result.missing.length > 0) msgParts.push(result.missing.length + ' 个技能缺失: ' + result.missing.join(', '));
+        if (result.conflicts && result.conflicts.length > 0) msgParts.push(result.conflicts.length + ' 个技能冲突: ' + result.conflicts.join(', '));
+        if (result.errors && result.errors.length > 0) msgParts.push('错误: ' + result.errors.join(', '));
         showToast(msgParts.join(' | '), result.success ? 'success' : 'error');
         store.skillsLoaded = false;
         await loadSkillsData();

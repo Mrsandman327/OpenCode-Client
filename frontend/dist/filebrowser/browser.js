@@ -865,13 +865,13 @@ export function setGitRemoteActionLoading(action, loading) {
         pullBtn.disabled = !!loading;
         pullBtn.innerHTML = action === 'pull' && loading
             ? '<span class="file-browser-git-btn-spinner"></span><span>拉取中...</span>'
-            : '⬇ 拉取';
+            : '<svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>拉取';
     }
     if (pushBtn) {
         pushBtn.disabled = !!loading;
         pushBtn.innerHTML = action === 'push' && loading
             ? '<span class="file-browser-git-btn-spinner"></span><span>推送中...</span>'
-            : '⬆ 推送';
+            : '<svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg>推送';
     }
 }
 
@@ -1278,7 +1278,7 @@ export function renderGitTreeNodes(node, groupName, depth) {
         // 目录级操作：与文件行保持同一套规则与顺序（撤销在前，暂存/取消暂存在后）；
         // 已暂存分组只能取消暂存，未暂存分组可整体暂存。后端对目录路径原生支持。
         var dirActions = '';
-        var dirDiscard = '<button type="button" class="file-browser-git-action-btn file-browser-git-discard-btn" data-dir-path="' + escapeHtml(child.path) + '" data-dir-action="discard" title="撤销该文件夹的变更">↩</button>';
+        var dirDiscard = '<button type="button" class="file-browser-git-action-btn file-browser-git-discard-btn" data-dir-path="' + escapeHtml(child.path) + '" data-dir-action="discard" title="撤销该文件夹的变更"><svg class="i" aria-hidden="true"><use href="#i-undo"></use></svg></button>';
         if (groupName === 'unstaged') {
             dirActions = '<span class="file-browser-git-dir-actions">' +
                 dirDiscard +
@@ -1319,7 +1319,7 @@ export function renderGitTreeFileRow(item, groupName, depth, indentUnit) {
     var fullPath = String(item.path || '').replace(/^\//, '');
     var displayName = item.name || fullPath;
     var actionBtn = '';
-    var discardBtn = '<button type="button" class="file-browser-git-action-btn file-browser-git-discard-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="discard" title="撤销变更">↩</button>';
+    var discardBtn = '<button type="button" class="file-browser-git-action-btn file-browser-git-discard-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="discard" title="撤销变更"><svg class="i" aria-hidden="true"><use href="#i-undo"></use></svg></button>';
     if (groupName === 'unstaged') {
         actionBtn = '<button type="button" class="file-browser-git-action-btn" data-git-path="' + escapeHtml(item.path) + '" data-action="stage" title="加入暂存区" ' + (store.fileBrowserState.git.stageLoadingPath === item.path || store.fileBrowserState.git.stageAllLoading ? 'disabled' : '') + '>+</button>';
     } else if (groupName === 'staged') {
@@ -1430,7 +1430,7 @@ export function renderFileBrowserGitHistory(bodyEl) {
     var html = state.git.historyItems.map(function(item) {
         var expanded = state.git.expandedCommitHash === item.hash;
         var fileHtml = '';
-        var syncedIcon = item.synced === false ? '<span class="file-browser-git-sync-icon" title="未同步到服务器">⬆</span>' : '';
+        var syncedIcon = item.synced === false ? '<span class="file-browser-git-sync-icon" title="未同步到服务器"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg></span>' : '';
         // 发布标签：指向该提交的版本标签（每行只显示一个，版本号最高）
         var tagHtml = item.tag ? '<span class="file-browser-git-tag" title="标签：' + escapeHtml(item.tag) + '">' + escapeHtml(item.tag) + '</span>' : '';
         if (expanded) {
@@ -1689,7 +1689,7 @@ async function runFileBrowserSearch() {
     var q = input.value.trim();
     var seq = ++fbSearchSeq;
     if (!q) {
-        results.innerHTML = '<div class="file-browser-search-empty"><div class="big">⌕</div>输入关键字，在会话目录内搜索文件内容</div>';
+        results.innerHTML = '<div class="file-browser-search-empty"><div class="big"><svg class="i" aria-hidden="true"><use href="#i-search"></use></svg></div>输入关键字，在会话目录内搜索文件内容</div>';
         stats.innerHTML = '';
         return;
     }

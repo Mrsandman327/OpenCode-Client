@@ -155,7 +155,7 @@ function modelSubcardHtml(model, capabilities) {
                 <span class="btn-toggle-abilities-text">设置</span>
                 <span class="toggle-arrow">▾</span>
             </button>
-            <button class="btn btn-del btn-del-model" title="删除">✕</button>
+            <button class="btn btn-del btn-del-model" title="删除" aria-label="删除"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
             ${modelAbilitiesHtml(capabilities, m.limit)}
         </div>`;
 }
@@ -174,7 +174,7 @@ export async function loadProviders() {
         if (openBtn) openBtn.disabled = !getProviderConfigDir(providerConfigPath);
         renderProviders(providers || []);
     } catch (err) {
-        list.innerHTML = `<div class="error"><p>⚠️ 加载失败</p><p class="error-detail">${escapeHtml(err.message||err)}</p></div>`;
+        list.innerHTML = `<div class="error"><p><svg class="i" aria-hidden="true"><use href="#i-alert"></use></svg>加载失败</p><p class="error-detail">${escapeHtml(err.message||err)}</p></div>`;
         if (openBtn) openBtn.disabled = true;
     }
 }
@@ -349,7 +349,10 @@ export function providerCardHtml(p) {
                         <span class="prov-field-label">API Key</span>
                         <div class="prov-apikey-row">
                             <input class="prov-edit-apikey" value="${escapeHtml(p.apiKey||'')}" type="password" placeholder="sk-..." />
-                            <button class="btn-eye" type="button" title="切换明文">👁</button>
+                            <button class="btn-eye" type="button" title="显示密钥" aria-label="显示密钥" aria-pressed="false">
+                                <svg class="eye-on" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"></use></svg>
+                                <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye-off"></use></svg>
+                            </button>
                         </div>
                     </label>
                     <label class="provider-conn-col">
@@ -442,13 +445,13 @@ export function bindProviderEvents(providers) {
     document.querySelectorAll('.btn-eye').forEach(btn => {
         btn.addEventListener('click', () => {
             const input = btn.parentElement.querySelector('.prov-edit-apikey');
-            if (input.type === 'password') {
-                input.type = 'text';
-                btn.textContent = '🙈';
-            } else {
-                input.type = 'password';
-                btn.textContent = '👁';
-            }
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            // 与「网络配置」的密码按钮同一套图标：eye-on / eye-off 由 .is-visible 切换
+            btn.classList.toggle('is-visible', show);
+            btn.title = show ? '隐藏密钥' : '显示密钥';
+            btn.setAttribute('aria-label', show ? '隐藏密钥' : '显示密钥');
+            btn.setAttribute('aria-pressed', show ? 'true' : 'false');
         });
     });
 

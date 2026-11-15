@@ -73,7 +73,7 @@ export function renderTabsBar() {
         var active = tab.sessionID === store.activeTabId ? ' active' : '';
         return '<div class="oc-tab' + active + '" data-session-id="' + escapeHtml(tab.sessionID) + '">' +
             '<span class="oc-tab-title">' + escapeHtml(tab.title || tab.sessionID) + '</span>' +
-            '<span class="oc-tab-close" data-close-id="' + escapeHtml(tab.sessionID) + '">✕</span>' +
+            '<span class="oc-tab-close" data-close-id="' + escapeHtml(tab.sessionID) + '"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>' +
         '</div>';
     }).join('');
 

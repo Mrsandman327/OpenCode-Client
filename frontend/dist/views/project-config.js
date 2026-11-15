@@ -242,7 +242,7 @@ export function renderCurrentTab() {
 export function renderCoreConfigTab(tab) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists) {
-        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon">⚙️</div><p>无项目配置</p><p class="pc-empty-desc">该项目下没有 .opencode/opencode.jsonc 或 opencode.json</p><button class="btn btn-sm btn-primary pc-empty-btn" id="btnViewGlobalConfig">查看全局配置</button></div>';
+        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-settings"></use></svg></div><p>无项目配置</p><p class="pc-empty-desc">该项目下没有 .opencode/opencode.jsonc 或 opencode.json</p><button class="btn btn-sm btn-primary pc-empty-btn" id="btnViewGlobalConfig">查看全局配置</button></div>';
         document.getElementById('btnViewGlobalConfig').addEventListener('click', viewGlobalConfig);
         return;
     }
@@ -255,7 +255,7 @@ export async function viewGlobalConfig() {
     try {
         var info = await api.GetGlobalOpenCodeConfig();
         if (!info.content) {
-            body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon">📄</div><p>全局配置不存在</p><p class="pc-empty-desc">' + escapeHtml(info.path) + '</p></div>';
+            body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-file"></use></svg></div><p>全局配置不存在</p><p class="pc-empty-desc">' + escapeHtml(info.path) + '</p></div>';
             return;
         }
         renderPreview(info.path, info.content, true);
@@ -275,7 +275,7 @@ export function renderSkillsTab(tab) {
     var actionsHtml = '<div class="pc-skills-actions"><button class="btn btn-sm btn-primary pc-btn-import-skills">导入技能</button></div>';
 
     if (!tab.exists || !tab.files || !tab.files.length) {
-        body.innerHTML = actionsHtml + '<div class="pc-empty"><div class="pc-empty-icon">🧩</div><p>无项目技能</p><p class="pc-empty-desc">.opencode/skills/ 目录下没有技能</p></div>';
+        body.innerHTML = actionsHtml + '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-puzzle"></use></svg></div><p>无项目技能</p><p class="pc-empty-desc">.opencode/skills/ 目录下没有技能</p></div>';
     } else {
         var html = actionsHtml + '<div class="pc-skill-list">';
         tab.files.forEach(function(f) {
@@ -288,7 +288,7 @@ export function renderSkillsTab(tab) {
             html += '</div>';
             html += '<div class="pc-skill-card-actions">';
             html += '<button class="btn btn-sm btn-primary pc-skill-view" data-path="' + escapeHtml(f.path) + '">查看</button>';
-            html += '<button class="pc-file-del pc-skill-del" data-del-path="' + escapeHtml(f.path) + '" title="删除">✕</button>';
+            html += '<button class="pc-file-del pc-skill-del" data-del-path="' + escapeHtml(f.path) + '" title="删除" aria-label="删除"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>';
             html += '</div>';
             html += '</div>';
         });
@@ -417,7 +417,7 @@ export function renderBrowseView(category, dirPath, result, backLabel, backActio
     var body = document.getElementById('projectConfigBody');
     if (!result.exists || !result.files || !result.files.length) {
         body.innerHTML = '<div class="pc-editor">' +
-            '<div class="pc-editor-toolbar"><span class="pc-editor-filename">📁 ' + escapeHtml(dirPath) + '</span>' +
+            '<div class="pc-editor-toolbar"><span class="pc-editor-filename"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg>' + escapeHtml(dirPath) + '</span>' +
             '<button class="btn btn-sm btn-ghost pc-btn-browse-back">' + backLabel + '</button></div>' +
             '<div class="pc-empty"><p>目录为空</p>' +
             '<button class="btn btn-sm btn-primary pc-btn-add-entry">+ 新增文件</button></div></div>';
@@ -427,7 +427,7 @@ export function renderBrowseView(category, dirPath, result, backLabel, backActio
         var sorted = dirs.concat(files);
 
         body.innerHTML = '<div class="pc-editor">' +
-            '<div class="pc-editor-toolbar"><span class="pc-editor-filename">📁 ' + escapeHtml(dirPath) + '</span>' +
+            '<div class="pc-editor-toolbar"><span class="pc-editor-filename"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg>' + escapeHtml(dirPath) + '</span>' +
             '<button class="btn btn-sm btn-ghost pc-btn-browse-back">' + backLabel + '</button></div>' +
             renderFileListHtml(category, dirPath, sorted, true) +
             '<div class="pc-file-list-footer"><button class="btn btn-sm btn-primary pc-btn-add-entry">+ 新增文件</button></div></div>';
@@ -443,13 +443,15 @@ export function renderFileListHtml(category, basePath, files, showDelete) {
     var html = '<div class="pc-file-list">';
     files.forEach(function(f) {
         var fullPath = (basePath ? basePath + '/' : '') + f.path;
-        var icon = f.type === 'dir' ? '📁' : '📄';
+        var icon = f.type === 'dir'
+            ? '<svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg>'
+            : '<svg class="i" aria-hidden="true"><use href="#i-file"></use></svg>';
         html += '<div class="pc-file-item" data-category="' + escapeHtml(category) + '" data-path="' + escapeHtml(fullPath) + '" data-type="' + escapeHtml(f.type) + '">';
         html += '<span class="pc-file-icon">' + icon + '</span>';
         html += '<span class="pc-file-name">' + escapeHtml(f.name) + '</span>';
         html += '<span class="pc-file-arrow">→</span>';
         if (showDelete) {
-            html += '<button class="pc-file-del" data-del-path="' + escapeHtml(fullPath) + '" data-del-type="' + escapeHtml(f.type) + '" title="删除">✕</button>';
+            html += '<button class="pc-file-del" data-del-path="' + escapeHtml(fullPath) + '" data-del-type="' + escapeHtml(f.type) + '" title="删除" aria-label="删除"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>';
         }
         html += '</div>';
     });
@@ -506,7 +508,7 @@ export function goBrowseBack() {
 export function renderAgentsMdTab(tab) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists) {
-        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon">📋</div><p>项目未初始化</p><p class="pc-empty-desc">请先执行 /init 初始化项目，将自动创建 AGENTS.md</p></div>';
+        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-clipboard"></use></svg></div><p>项目未初始化</p><p class="pc-empty-desc">请先执行 /init 初始化项目，将自动创建 AGENTS.md</p></div>';
         return;
     }
     openFileEditor('agentsMd', tab.files[0].path);
@@ -519,7 +521,7 @@ export function renderAgentsMdTab(tab) {
 export function renderFileListTab(category, tab, emptyTitle, emptyDesc) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists || !tab.files || !tab.files.length) {
-        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon">📂</div><p>' + emptyTitle + '</p><p class="pc-empty-desc">' + emptyDesc + '</p>' +
+        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg></div><p>' + emptyTitle + '</p><p class="pc-empty-desc">' + emptyDesc + '</p>' +
             '<button class="btn btn-sm btn-primary pc-btn-add-entry">+ 新增</button></div>';
         bindAddEntryButton(category, '', function() { loadProjectConfigSummary(); });
         return;
