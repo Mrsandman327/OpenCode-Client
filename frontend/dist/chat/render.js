@@ -1092,14 +1092,14 @@ export function renderQuestionTool(part) {
     const head = document.createElement('div');
     head.className = 'oc-tool-head';
     let statusText, statusClass;
-    if (isCompleted) { statusText = '✓ 已回答'; statusClass = 'ok'; }
-    else if (isDismissed) { statusText = '↩ 已跳过'; statusClass = 'skipped'; }
-    else if (isError) { statusText = '✗ 失败'; statusClass = 'err'; }
+    if (isCompleted) { statusText = '已回答'; statusClass = 'ok'; }
+    else if (isDismissed) { statusText = '已跳过'; statusClass = 'skipped'; }
+    else if (isError) { statusText = '失败'; statusClass = 'err'; }
     else {
         const answeredCount = part.__pendingAnswers.filter(function(a) { return a && a.length; }).length;
         statusText = questions.length > 1 && answeredCount > 0
-            ? '⏳ 已答 ' + answeredCount + '/' + questions.length
-            : '⏳ 等待回答';
+            ? '已答 ' + answeredCount + '/' + questions.length
+            : '等待回答';
         statusClass = 'running';
     }
     head.innerHTML = `<span class="oc-tool-icon">❓</span> 提问 <span class="oc-tool-status ${statusClass}">${statusText}</span>` + (isCompleted ? buildDurationHtml(part, false) : '');
@@ -1414,6 +1414,7 @@ export function renderTool(part) {
     const isCompleted = status === 'completed';
     const isError = status === 'error';
     const isRunning = status === 'running';
+    const isInterrupted = status === 'interrupted' || status === 'interrupt';
     const key = partExpandKey(part, tool || 'tool');
 
     const isShell = tool === 'bash' || tool === 'shell';
@@ -1434,7 +1435,7 @@ export function renderTool(part) {
     const category = isShell ? 'shell' : (fc ? fc.cat : 'tool');
 
     const el = document.createElement('div');
-    el.className = `oc-part oc-tool oc-tool-${category}` + (isCompleted ? ' done' : '') + (isError ? ' error' : '') + (isRunning ? ' running' : '');
+    el.className = `oc-part oc-tool oc-tool-${category}` + (isCompleted ? ' done' : '') + (isError ? ' error' : '') + (isRunning ? ' running' : '') + (isInterrupted ? ' interrupt' : '');
 
     const head = document.createElement('div');
     head.className = 'oc-tool-head';
@@ -1446,9 +1447,10 @@ export function renderTool(part) {
 
     let statusText = '';
     let statusClass = '';
-    if (isCompleted) { statusText = '✓ 完成'; statusClass = 'ok'; }
-    else if (isError) { statusText = '✗ 失败'; statusClass = 'err'; }
-    else if (isRunning) { statusText = '⏳ 运行中'; statusClass = 'running'; }
+    if (isCompleted) { statusText = '完成'; statusClass = 'ok'; }
+    else if (isError) { statusText = '失败'; statusClass = 'err'; }
+    else if (isInterrupted) { statusText = '中断'; statusClass = 'interrupt'; }
+    else if (isRunning) { statusText = '运行中'; statusClass = 'running'; }
     else { statusText = status || '等待'; statusClass = 'pending'; }
 
     // 文件类工具的输入里带绝对路径（input 可能是对象或 JSON 字符串），
@@ -1612,9 +1614,11 @@ export function renderEditDiff(part, tool) {
     const isRunning = (part.state && part.state.status) === 'running';
     const isCompleted = (part.state && part.state.status) === 'completed';
     const isError = (part.state && part.state.status) === 'error';
+    const isInterrupted = (part.state && part.state.status) === 'interrupted' || (part.state && part.state.status) === 'interrupt';
     if (isCompleted) el.classList.add('done');
     if (isError) el.classList.add('error');
     if (isRunning) el.classList.add('running');
+    if (isInterrupted) el.classList.add('interrupt');
 
     const key = partExpandKey(part, tool || 'edit');
     const expanded = !!(store.expandedParts[key] ?? isRunning);
@@ -1623,9 +1627,10 @@ export function renderEditDiff(part, tool) {
     const head = document.createElement('div');
     head.className = 'oc-tool-head';
     let statusText = '', statusClass = '';
-    if (isCompleted) { statusText = '✓ 完成'; statusClass = 'ok'; }
-    else if (isError) { statusText = '✗ 失败'; statusClass = 'err'; }
-    else if (isRunning) { statusText = '⏳ 运行中'; statusClass = 'running'; }
+    if (isCompleted) { statusText = '完成'; statusClass = 'ok'; }
+    else if (isError) { statusText = '失败'; statusClass = 'err'; }
+    else if (isInterrupted) { statusText = '中断'; statusClass = 'interrupt'; }
+    else if (isRunning) { statusText = '运行中'; statusClass = 'running'; }
     else { statusText = '等待'; statusClass = 'pending'; }
 
     const oldLines = input.oldString.split('\n');

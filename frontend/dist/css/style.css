@@ -2902,9 +2902,7 @@ input::placeholder, textarea::placeholder {
     border-radius: var(--radius-sm);
     overflow: hidden;
 }
-.oc-tool.done { border-left: 3px solid var(--success); }
-.oc-tool.error { border-left: 3px solid var(--danger); }
-.oc-tool.running { border-left: 3px solid var(--warning); }
+/* 工具卡片状态：不再用左侧彩色边框，状态只由状态行的圆点表达 */
 .oc-tool-head {
     display: flex;
     align-items: center;
@@ -2928,11 +2926,31 @@ input::placeholder, textarea::placeholder {
 }
 .oc-tool-head:hover { background: var(--bg-card-hover); }
 .oc-tool-icon { font-size: 15px; flex-shrink: 0; }
-.oc-tool-status { margin-left: auto; font-size: 11px; font-weight: 600; flex-shrink: 0; }
-.oc-tool-status.ok { color: var(--success); }
-.oc-tool-status.err { color: var(--danger); }
-.oc-tool-status.running { color: var(--warning); }
-.oc-tool-status.pending { color: var(--text-muted); }
+.oc-tool-status {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    /* 文字统一用中性色，状态只由圆点颜色表达 */
+    color: var(--text-muted);
+}
+.oc-tool-status::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+}
+.oc-tool-status.ok::before { background: var(--success); }
+.oc-tool-status.err::before { background: var(--danger); }
+.oc-tool-status.interrupt::before { background: var(--warning); }
+.oc-tool-status.running::before { background: var(--accent); }
+.oc-tool-status.pending::before,
+.oc-tool-status.skipped::before { background: var(--text-muted); }
 .oc-tool-duration { font-size: 11px; font-weight: 400; color: var(--text-muted); flex-shrink: 0; margin-left: 6px; font-variant-numeric: tabular-nums; }
 .oc-tool-body { border-top: 1px solid var(--border); overflow: hidden; }
 .oc-tool-io { padding: 6px 10px; overflow: hidden; }
@@ -6574,9 +6592,9 @@ svg.i.is-spinning {
     border-left-color: var(--text-muted);
 }
 
-/* skipped status badge */
+/* skipped 状态：与其它状态一致，只用灰色圆点，不加背景与文字色 */
 .oc-tool-status.skipped {
-    background: var(--bg-input);
+    background: none;
     color: var(--text-muted);
 }
 
