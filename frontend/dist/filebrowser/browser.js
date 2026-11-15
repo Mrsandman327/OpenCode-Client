@@ -864,13 +864,13 @@ export function setGitRemoteActionLoading(action, loading) {
     if (pullBtn) {
         pullBtn.disabled = !!loading;
         pullBtn.innerHTML = action === 'pull' && loading
-            ? '<span class="file-browser-git-btn-spinner"></span><span>拉取中...</span>'
+            ? '<svg class="i is-spinning" aria-hidden="true"><use href="#i-refresh"></use></svg>拉取中...'
             : '<svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>拉取';
     }
     if (pushBtn) {
         pushBtn.disabled = !!loading;
         pushBtn.innerHTML = action === 'push' && loading
-            ? '<span class="file-browser-git-btn-spinner"></span><span>推送中...</span>'
+            ? '<svg class="i is-spinning" aria-hidden="true"><use href="#i-refresh"></use></svg>推送中...'
             : '<svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg>推送';
     }
 }

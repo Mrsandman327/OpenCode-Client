@@ -4021,6 +4021,9 @@ svg.i {
     display: block;
     flex-shrink: 0;
 }
+svg.i.is-spinning {
+    animation: spin 0.8s linear infinite;
+}
 /* 紧凑控件内的图标尺寸：这些容器原本靠小字号渲染 ✕ ✓ ☰ ⚙ 文本符号，
    换成图标后按容器缩小，避免撑大按钮或破坏行高；颜色/描边仍由 symbol 与 currentColor 决定 */
 .oc-tab-close svg.i,
@@ -7195,7 +7198,8 @@ svg.i {
 }
 .file-browser-git-push-btn {
     font-size: 11px;
-    padding: 3px 10px;
+    height: 24px;
+    padding: 0 10px;
     border-radius: var(--radius-pill);
     border: 1px solid var(--border);
     background: var(--bg-card);
@@ -7205,6 +7209,8 @@ svg.i {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    /* 行盒与 16px 图标同高，文本与图标中心严格对齐 */
+    line-height: 16px;
 }
 .file-browser-git-push-btn + .file-browser-git-push-btn {
     margin-left: 6px;
@@ -7216,16 +7222,6 @@ svg.i {
 .file-browser-git-push-btn:disabled {
     opacity: 0.5;
     cursor: default;
-}
-.file-browser-git-btn-spinner {
-    width: 10px;
-    height: 10px;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    display: inline-block;
-    flex-shrink: 0;
 }
 .file-browser-git-body {
     flex: 1;
