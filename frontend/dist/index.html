@@ -960,14 +960,9 @@
     <div class="modal-overlay" id="fileBrowserModal" style="display:none">
         <div class="modal file-browser-modal" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h3 id="fileBrowserTitle">文件浏览</h3>
+                <h3 id="fileBrowserTitle">文件管理</h3>
                 <div class="btn-group">
-                    <button type="button" class="btn btn-sm file-browser-terminal-btn" id="btnFileBrowserTerminalToggle" title="打开/收起终端">
-                        <span>终端</span>
-                        <span class="fb-term-badge" id="fileBrowserTerminalCount">0</span>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-refresh" id="btnRefreshFiles"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</button>
-                    <button type="button" class="btn btn-sm" id="btnCloseFileBrowser" title="关闭" aria-label="关闭"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
+                    <button type="button" class="modal-close-btn" id="btnCloseFileBrowser" title="关闭（Esc）" aria-label="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
                 </div>
             </div>
             <div class="file-browser-body">
@@ -975,6 +970,14 @@
                     <button type="button" class="file-browser-mode-btn active" id="btnFileBrowserModeFiles" title="会话目录"><span class="oc-fb-icon oc-fb-icon-session-dir"></span></button>
                     <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeSearch" title="搜索"><span class="oc-fb-icon oc-fb-icon-search"></span></button>
                     <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeGit" title="Git 变更"><span class="oc-fb-icon oc-fb-icon-git"></span></button>
+                    <div class="file-browser-mode-sep" aria-hidden="true"></div>
+                    <button type="button" class="file-browser-mode-btn" id="btnFileBrowserTerminalToggle" title="打开/收起终端" aria-label="打开/收起终端">
+                        <span class="oc-fb-icon oc-fb-icon-terminal"></span>
+                        <span class="fb-term-badge" id="fileBrowserTerminalCount">0</span>
+                    </button>
+                    <button type="button" class="file-browser-mode-btn" id="btnRefreshFiles" title="刷新" aria-label="刷新">
+                        <span class="oc-fb-icon oc-fb-icon-refresh-file"></span>
+                    </button>
                 </div>
                     <aside class="file-browser-list-panel">
                         <div class="file-browser-files-panel" id="fileBrowserFilesPanel">

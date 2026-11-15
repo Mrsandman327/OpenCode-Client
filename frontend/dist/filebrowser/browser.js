@@ -1027,7 +1027,11 @@ export function openFileBrowserModal(rootDir, options) {
         unstageLoadingPath: '',
         stageAllLoading: false,
     };
-    if (title) title.textContent = '文件管理 - ' + (rootDir || '');
+    if (title) {
+        // 弹窗版标题：文件管理：<根目录>；独立窗口下标题栏本身是隐藏的
+        title.textContent = rootDir ? ('文件管理：' + rootDir) : '文件管理';
+        title.title = rootDir || '';
+    }
     if (hasExtraFeatures) {
         modal.classList.remove('file-browser-compact');
     } else {

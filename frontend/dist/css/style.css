@@ -6641,7 +6641,9 @@ svg.i.is-spinning {
     height: 96vh;
     display: flex;
     flex-direction: column;
-    padding: 10px;
+    /* 标题栏需要像公共弹窗那样贴边，所以内边距从这里移到 .file-browser-body */
+    padding: 0;
+    overflow: hidden;
     /* 文件树与 Git 变更树共用的行度量：两处缩进/行高/字号必须一致，
        否则并排看会出现错位。改这里就能同时影响两侧。 */
     --fb-row-h: 22px;
@@ -6663,21 +6665,31 @@ svg.i.is-spinning {
 #fileBrowserModal.file-browser-standalone #btnCloseFileBrowser {
     display: none;
 }
+/* 标题栏完全沿用公共弹窗（.modal-card .modal-header）的尺寸：
+   padding 12px 18px、标题 14.5px，只保留「文件管理：路径 + 关闭」。 */
 .file-browser-modal .modal-header {
+    padding: 12px 18px;
+    background: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
-    padding-bottom: 10px;
+}
+
+/* 独立窗口：不显示标题栏，内容占满窗口 */
+#fileBrowserModal.file-browser-standalone .modal-header {
+    display: none;
 }
 .file-browser-modal .modal-header h3 {
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 600;
     color: var(--text-primary);
-    letter-spacing: -0.022em;
+    letter-spacing: -0.01em;
 }
 .file-browser-body {
     display: grid;
     grid-template-columns: 52px var(--file-browser-left-width, 320px) 8px minmax(0, 1fr);
     min-height: 0;
     flex: 1;
+    /* 原 .file-browser-modal 的 10px 内边距移到这里，标题栏因此可以贴边 */
+    padding: 10px;
 }
 .file-browser-mode-bar {
     display: flex;
@@ -6687,6 +6699,56 @@ svg.i.is-spinning {
     padding: 12px 8px;
     background: var(--bg-card);
     border-right: 1px solid var(--border);
+}
+
+/* 导航栏底部：分隔线 + 终端/刷新图标按钮。
+   margin-top:auto 把它们推到导航栏最底部，上方模式按钮保持顶部排列。 */
+.file-browser-mode-sep {
+    width: 24px;
+    height: 1px;
+    margin: auto 0 0;
+    background: var(--border);
+    flex-shrink: 0;
+}
+
+.file-browser-mode-btn {
+    position: relative;
+}
+
+/* 终端图标：复用「在终端中打开」的同一份 SVG */
+.file-browser-mode-btn .oc-fb-icon-terminal {
+    -webkit-mask-image: url("../assets/终端.svg");
+    mask-image: url("../assets/终端.svg");
+}
+
+/* 刷新图标：改用「刷新文件」版 */
+.file-browser-mode-btn .oc-fb-icon-refresh-file {
+    -webkit-mask-image: url("../assets/刷新文件.svg");
+    mask-image: url("../assets/刷新文件.svg");
+}
+
+/* 终端打开时的选中态（原 .file-browser-terminal-btn.on 的视觉） */
+.file-browser-mode-btn.on {
+    border-color: rgba(64, 128, 255, 0.55);
+    background: rgba(64, 128, 255, 0.14);
+    color: #1565c0;
+}
+
+[data-theme="dark"] .file-browser-mode-btn.on { color: #7cb0ff; }
+
+/* 终端数量角标：压在图标右上角 */
+.file-browser-mode-btn .fb-term-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    line-height: 14px;
+    font-size: 9px;
+    border-radius: 7px;
+    background: var(--accent, #1565c0);
+    color: #fff;
 }
 /* 文件浏览器工具栏图标（会话目录 / Git 变更 / 刷新）：assets 下 SVG 作遮罩，颜色随按钮文字 */
 .oc-fb-icon {
@@ -7646,7 +7708,7 @@ svg.i.is-spinning {
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 16px;
+    padding: 8px;
 }
 
 /* 外部修改提示条：不阻断预览，只提醒「磁盘上已变」 */
