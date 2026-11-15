@@ -897,7 +897,7 @@ export function updateSendButton() {
     }
     const busy = isSessionBusy(store.currentSessionId);
     if (busy) {
-        btn.textContent = '⏹ 停止';
+        btn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-square"></use></svg>停止';
         btn.className = 'btn btn-danger-outline';
         btn.dataset.mode = 'stop';
     } else {

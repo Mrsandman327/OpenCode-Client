@@ -679,7 +679,9 @@ export function toggleWeb() {
     if (!btn || btn.disabled) return;
     btn.disabled = true;
     btn.dataset.mode = store.webRunning ? 'stop' : 'start';
-    btn.textContent = store.webRunning ? '⏳ 停止中...' : '⏳ 启动中...';
+    btn.innerHTML = store.webRunning
+        ? '<svg class="i is-spinning" aria-hidden="true"><use href="#i-refresh"></use></svg>停止中...'
+        : '<svg class="i is-spinning" aria-hidden="true"><use href="#i-refresh"></use></svg>启动中...';
     const task = store.webRunning ? stopWeb() : startWeb();
     task.finally(() => {
         // 按钮状态由 updateWebUI 统一恢复（含文案/样式切换）
@@ -747,13 +749,13 @@ export function updateWebUI() {
         if (store.webRunning) {
             btnToggle.disabled = false;
             btnToggle.dataset.mode = 'stop';
-            btnToggle.textContent = '■ 停止 OpenCode';
+            btnToggle.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-square"></use></svg>停止 OpenCode';
             btnToggle.classList.add('btn-danger-outline');
             btnToggle.classList.remove('btn-primary');
         } else {
             btnToggle.disabled = false;
             btnToggle.dataset.mode = 'start';
-            btnToggle.textContent = '▶ 启动 OpenCode';
+            btnToggle.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-play"></use></svg>启动 OpenCode';
             btnToggle.classList.add('btn-primary');
             btnToggle.classList.remove('btn-danger-outline');
         }

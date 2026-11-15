@@ -24,6 +24,12 @@
         <symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>
         </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="6 3 20 12 6 21 6 3"/>
+        </symbol>
+        <symbol id="i-square" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="5" width="14" height="14" rx="1.5"/>
+        </symbol>
         <!-- 关闭 / 勾选 / 菜单 / 设置：替换界面中可见的 ✕ ✓ ☰ ⚙ 文本符号 -->
         <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 6L6 18"/><path d="M6 6l12 12"/>
@@ -119,7 +125,7 @@
         <h1 class="app-title" id="appTitle" title="切换左侧导航展开状态"><span class="app-title-icon" aria-hidden="true"></span>OpenCode 工作台</h1>
         <div class="header-actions">
             <button type="button" class="btn btn-config" id="btnWtOpen" title="在终端中打开" disabled><span class="btn-terminal-icon" aria-hidden="true"></span>在终端打开</button>
-            <button type="button" class="btn btn-primary" id="btnToggleWeb" data-mode="start">▶ 启动 OpenCode</button>
+            <button type="button" class="btn btn-primary" id="btnToggleWeb" data-mode="start"><svg class="i" aria-hidden="true"><use href="#i-play"></use></svg>启动 OpenCode</button>
             <!-- 移动端顶栏：隐藏上面两个按钮，只保留主题切换 -->
             <button type="button" class="header-theme-toggle" id="btnTheme" title="切换主题" aria-label="切换主题"><svg class="i" aria-hidden="true"><use href="#i-moon"></use></svg></button>
         </div>

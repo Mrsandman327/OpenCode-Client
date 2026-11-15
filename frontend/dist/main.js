@@ -278,7 +278,7 @@ function initMain() {
     document.getElementById('btnRefresh').addEventListener('click', async () => {
         const btn = document.getElementById('btnRefresh');
         btn.disabled = true;
-        btn.textContent = '⏳ 刷新中...';
+        btn.innerHTML = '<svg class="i is-spinning" aria-hidden="true"><use href="#i-refresh"></use></svg>刷新中...';
         try {
             await api.Refresh();
             store.skillsLoaded = false;
