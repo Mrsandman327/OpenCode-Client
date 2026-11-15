@@ -1923,7 +1923,9 @@ input::placeholder, textarea::placeholder {
     flex-direction: column;
     padding: 0;
     overflow: hidden;
-    background: var(--bg-secondary);
+    /* 与其他 .modal-card 弹窗一致：内容区白底（深色主题为 --bg-card） */
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
 }
 .subtask-modal-header {
     display: flex;
