@@ -452,8 +452,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .oc-panel-icon-schedule {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
     margin: 0 4px;
     -webkit-mask-image: url("../assets/定时任务.svg");
     mask-image: url("../assets/定时任务.svg");

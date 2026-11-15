@@ -71,44 +71,180 @@ func IsGitRepository(dir string) bool {
 	return strings.TrimSpace(out) == "true"
 }
 
+// ============================================================
+// Git 仓库信息与 status 缓存
+// ============================================================
+
+// gitRepoInfo 一次 rev-parse 拿到仓库根、Git 目录与公共目录。
+// 比分别调用 --is-inside-work-tree 与多次 rev-parse 少启动两个进程。
+func gitRepoInfo(dir string) (top, gitDir, commonDir string, err error) {
+	out, err := runGitCommand(dir, "rev-parse", "--show-toplevel", "--absolute-git-dir", "--git-common-dir")
+	if err != nil {
+		return "", "", "", err
+	}
+	lines := strings.Split(strings.TrimRight(out, "\r\n"), "\n")
+	if len(lines) < 3 {
+		return "", "", "", fmt.Errorf("不是 Git 工作区")
+	}
+	top = strings.TrimRight(lines[0], "\r")
+	gitDir = strings.TrimRight(lines[1], "\r")
+	commonDir = absGitPath(dir, strings.TrimRight(lines[2], "\r"))
+	return top, gitDir, commonDir, nil
+}
+
+// absGitPath 把 Git 输出的路径转为绝对路径。
+// --git-common-dir 在 worktree 中可能返回相对路径；Windows 上还可能以 "/" 开头。
+func absGitPath(base, p string) string {
+	if p == "" {
+		return p
+	}
+	if filepath.IsAbs(p) || p[0] == '/' || p[0] == '\\' {
+		return filepath.Clean(p)
+	}
+	return filepath.Join(base, p)
+}
+
+// gitMetaTime 返回「HEAD 或 refs 可能变化」的最新时间戳。
+//
+// 只 stat 少量文件，比每次跑完整 git status 便宜得多：
+//   - index / HEAD / logs/HEAD：提交、切换分支、暂存会改这些；
+//   - FETCH_HEAD / packed-refs / refs 目录：拉取与分支/标签增删；
+//   - config：远程地址或工作区配置变化。
+func gitMetaTime(gitDir, commonDir string) time.Time {
+	var latest time.Time
+	consider := func(p string) {
+		if info, err := os.Stat(p); err == nil && info.ModTime().After(latest) {
+			latest = info.ModTime()
+		}
+	}
+	for _, p := range []string{
+		filepath.Join(gitDir, "index"),
+		filepath.Join(gitDir, "HEAD"),
+		filepath.Join(gitDir, "logs", "HEAD"),
+		filepath.Join(commonDir, "FETCH_HEAD"),
+		filepath.Join(commonDir, "config"),
+		filepath.Join(commonDir, "packed-refs"),
+	} {
+		consider(p)
+	}
+	// 分支/标签通过 rename 写入，改的是所在目录的 mtime。
+	_ = filepath.WalkDir(filepath.Join(commonDir, "refs"), func(p string, d os.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			consider(p)
+		}
+		return nil
+	})
+	return latest
+}
+
+// gitStatusCacheEntry 缓存一次 status 的结果，meta 未变时直接复用。
+type gitStatusCacheEntry struct {
+	meta  time.Time
+	files []model.GitChangedFile
+}
+
+const gitStatusCacheMax = 128
+
+var (
+	gitStatusCacheMu sync.Mutex
+	gitStatusCache   = make(map[string]gitStatusCacheEntry)
+)
+
 // ListGitChanges 返回指定目录下的当前 Git 变更文件列表。
 func ListGitChanges(dir string) model.GitStatusResult {
-	if !IsGitRepository(dir) {
+	top, gitDir, commonDir, err := gitRepoInfo(dir)
+	if err != nil {
 		return model.GitStatusResult{IsGitRepo: false, Files: []model.GitChangedFile{}, Message: "当前目录未启用 Git 版本管理"}
 	}
-	out, err := runGitCommand(dir, "-c", "core.quotepath=false", "status", "--porcelain", "--untracked-files=all")
+	// 同一工作区（含其子目录）共用一个缓存条目
+	key := filepath.Clean(top)
+	meta := gitMetaTime(gitDir, commonDir)
+
+	gitStatusCacheMu.Lock()
+	if entry, ok := gitStatusCache[key]; ok && entry.meta.Equal(meta) {
+		files := append([]model.GitChangedFile(nil), entry.files...)
+		gitStatusCacheMu.Unlock()
+		return model.GitStatusResult{IsGitRepo: true, Files: files, Message: ""}
+	}
+	gitStatusCacheMu.Unlock()
+
+	out, err := runGitCommand(dir, "-c", "core.quotepath=false", "status", "--porcelain=v2", "-z", "--untracked-files=all")
 	if err != nil {
 		return model.GitStatusResult{IsGitRepo: true, Files: []model.GitChangedFile{}, Message: err.Error()}
 	}
+	files := parseGitStatus(out)
+
+	gitStatusCacheMu.Lock()
+	if len(gitStatusCache) >= gitStatusCacheMax {
+		gitStatusCache = make(map[string]gitStatusCacheEntry)
+	}
+	gitStatusCache[key] = gitStatusCacheEntry{meta: meta, files: append([]model.GitChangedFile(nil), files...)}
+	gitStatusCacheMu.Unlock()
+
+	return model.GitStatusResult{IsGitRepo: true, Files: files, Message: ""}
+}
+
+// parseGitStatus 解析 `git status --porcelain=v2 -z` 的输出。
+//
+// 相比 v1 的逐行解析，v2 + -z 有三点好处：
+//   - 记录之间用 NUL 分隔，文件名含空格、换行、制表符都不会错位；
+//   - 重命名的原路径是独立的一条记录，不需要靠 " -> " 字符串猜测；
+//   - X/Y 状态、子模块状态都是固定字段。
+//
+// 记录格式（空格分隔，字段数见 statusFields）：
+//
+//	1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
+//	2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path>   (原路径是下一条记录)
+//	u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
+//	? <path>
+// 每条普通记录 path 之前的字段数：'1' 8 个、'2' 9 个、'u' 10 个
+var gitStatusFields = [256]int{'1': 8, '2': 9, 'u': 10}
+
+func parseGitStatus(out string) []model.GitChangedFile {
 	files := make([]model.GitChangedFile, 0)
-	s := bufio.NewScanner(strings.NewReader(out))
-	// 大仓库单行可能超长（超长路径/文件名），默认 64KB 会触发 token too long，放宽到 10MB
-	s.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
-	for s.Scan() {
-		line := s.Text()
-		if strings.TrimSpace(line) == "" || len(line) < 3 {
+	recs := strings.Split(out, "\x00")
+	for i := 0; i < len(recs); i++ {
+		rec := recs[i]
+		if len(rec) < 2 {
 			continue
 		}
-		status := line[:2]
-		rest := strings.TrimSpace(line[3:])
-		if strings.Contains(rest, " -> ") {
-			parts := strings.Split(rest, " -> ")
-			rest = parts[len(parts)-1]
+		switch rec[0] {
+		case '1', '2', 'u':
+			n := gitStatusFields[rec[0]]
+			if n == 0 {
+				continue
+			}
+			f := strings.SplitN(rec, " ", n+1)
+			if len(f) < n+1 || len(f[1]) != 2 {
+				continue
+			}
+			path := f[n]
+			// 重命名/复制的原路径是紧随其后的一条记录，跳过它
+			if rec[0] == '2' && i+1 < len(recs) {
+				i++
+			}
+			files = append(files, newGitChangedFile(path, f[1]))
+		case '?':
+			files = append(files, newGitChangedFile(rec[2:], "??"))
 		}
-		path := filepath.ToSlash(rest)
-		tracked := status != "??"
-		hasStaged := tracked && status[0] != ' ' && status[0] != '?'
-		hasUnstaged := tracked && status[1] != ' ' && status[1] != '?'
-		files = append(files, model.GitChangedFile{
-			Path:        "/" + path,
-			Name:        filepath.Base(rest),
-			StatusCode:  strings.TrimSpace(status),
-			Tracked:     tracked,
-			HasStaged:   hasStaged,
-			HasUnstaged: hasUnstaged,
-		})
 	}
-	return model.GitStatusResult{IsGitRepo: true, Files: files, Message: ""}
+	return files
+}
+
+// newGitChangedFile 把 porcelain v2 的 XY 状态映射为前端使用的结构。
+// X 是暂存区相对 HEAD 的状态，Y 是工作区相对暂存区的状态，'.' 表示无变化。
+func newGitChangedFile(path, xy string) model.GitChangedFile {
+	path = strings.TrimSuffix(path, "\r")
+	x, y := xy[0], xy[1]
+	tracked := xy != "??"
+	return model.GitChangedFile{
+		Path:        "/" + filepath.ToSlash(path),
+		Name:        filepath.Base(path),
+		StatusCode:  strings.TrimSpace(xy),
+		Tracked:     tracked,
+		HasStaged:   tracked && x != '.',
+		HasUnstaged: tracked && y != '.',
+	}
 }
 
 // parseTagOutput 解析 `git for-each-ref` 的标签输出，返回「提交 sha → 标签名」。
