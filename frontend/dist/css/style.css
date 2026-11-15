@@ -2680,7 +2680,7 @@ input::placeholder, textarea::placeholder {
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-.oc-message.user .oc-message-role { color: var(--accent); text-align: right; }
+.oc-message.user .oc-message-role { color: var(--text-muted); text-align: right; }
 .oc-message-meta {
     font-size: 10px;
     color: var(--text-muted);

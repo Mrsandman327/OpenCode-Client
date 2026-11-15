@@ -226,12 +226,14 @@ export function buildMessageNode(item, sessionID) {
         : (role === 'assistant' ? '助手'
             : (role === 'system' ? '系统' : role));
     const parts = item.parts || [];
+    // 消息时间：直接跟在角色名后面（用户 · 2026-11-15 20:31:13）
+    const msgTime = formatDateTime(info.time?.created || info.time?.updated || info.createdAt);
     const node = document.createElement('div');
     node.className = `oc-message ${role}`;
     if (info.id) node.dataset.messageId = info.id;
     // 供增量追加校验：旧 DOM 与新缓存条目的签名不一致时回退全量重建。
     node.dataset.renderSignature = messageRenderSignature(item);
-    node.innerHTML = `<div class="oc-message-role">${escapeHtml(displayRole)}</div>`;
+    node.innerHTML = `<div class="oc-message-role">${escapeHtml(displayRole)}${msgTime ? ' · ' + escapeHtml(msgTime) : ''}</div>`;
     const body = document.createElement('div');
     body.className = 'oc-message-parts';
     // 渲染前按 part 自身顺序修正：不依赖 SSE 事件到达顺序（Web 端可能乱序）
@@ -311,9 +313,7 @@ export function buildMessageNode(item, sessionID) {
             node.appendChild(metaEl);
         }
     }
-    // 消息时间：user / assistant 都显示在卡片底部（右下角）；
-    // 助手消息的 token 统计放在**时间行左侧**（v2 历史消息没有步骤行，不做合成）。
-    const msgTime = formatDateTime(info.time?.created || info.time?.updated || info.createdAt);
+    // 助手消息的 token 统计放在卡片底部（时间已移到角色行，不再重复）
     var usageText = '';
     if (role === 'assistant' && info.tokens) {
         var tk2 = info.tokens || {};
@@ -330,22 +330,13 @@ export function buildMessageNode(item, sessionID) {
                 + ' 统计:' + formatCompactNumber(totalTok2) + ' tokens';
         }
     }
-    if ((msgTime || usageText) && (role === 'user' || role === 'assistant')) {
-        // 同一行：token 统计靠左、时间靠右（由 CSS 的 space-between 实现）
+    if (usageText && role === 'assistant') {
         const footerEl = document.createElement('div');
         footerEl.className = 'oc-message-footer';
-        if (usageText) {
-            const usageEl = document.createElement('span');
-            usageEl.className = 'oc-message-usage';
-            usageEl.textContent = usageText;
-            footerEl.appendChild(usageEl);
-        }
-        if (msgTime) {
-            const timeEl = document.createElement('span');
-            timeEl.className = 'oc-message-time';
-            timeEl.textContent = '⏱ ' + msgTime;
-            footerEl.appendChild(timeEl);
-        }
+        const usageEl = document.createElement('span');
+        usageEl.className = 'oc-message-usage';
+        usageEl.textContent = usageText;
+        footerEl.appendChild(usageEl);
         node.appendChild(footerEl);
     }
     return node;
