@@ -48,7 +48,7 @@ type FileSearchConfig struct {
 // 默认上限：配置文件缺失、或文件里没写这些字段时生效。
 // 配置文件显式写 0 表示不限制（保留给高级用户，需自行承担渲染压力）。
 const (
-	defaultMaxFileSizeKB  = 2048
+	defaultMaxFileSizeKB  = 4096
 	defaultMaxFileMatches = 300
 	defaultMaxFiles       = 2000
 )
