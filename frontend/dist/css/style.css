@@ -1780,8 +1780,7 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ==================== 子任务详情弹窗 ==================== */
-/* 双类选择器提升特异性：.modal 在样式表后段定义了 max-width:100vw，
-   单类 .subtask-modal 会被它覆盖，导致宽度收不下来。 */
+/* 双类选择器保留弹窗自身的尺寸，不被公共外壳的基础规则覆盖。 */
 .modal.subtask-modal {
     /* 宽度较原设计缩小约 1/5（80vw/1000px → 64vw/800px，最小 640px） */
     width: 70vw;
@@ -1796,22 +1795,13 @@ input::placeholder, textarea::placeholder {
     background: var(--bg-card);
     border-radius: var(--radius-md);
 }
-.subtask-modal-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-.subtask-modal-header h3 {
-    margin: 0;
-    font-size: 16px;
+/* 头部左侧组：标题 + 状态徽章紧挨（配合公共 .modal-header 的两端对齐，关闭按钮靠右）；
+   标题省略号留在该组内，避免长标题把关闭按钮挤出头部。 */
+.subtask-head-left h3 {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* 头部左侧组：标题 + 状态徽章紧挨（配合公共 .modal-header 的两端对齐，关闭按钮靠右） */
 .subtask-head-left {
     display: flex;
     align-items: center;
@@ -3491,35 +3481,24 @@ input::placeholder, textarea::placeholder {
 .oc-todo-item:hover .oc-todo-text {
     white-space: normal;
 }
-/* fork 弹窗：从消息创建新会话（固定宽度，小屏防溢出）*/
-.fork-modal { width: 520px; max-width: calc(100vw - 48px); display: flex; flex-direction: column; height: 380px; border-radius: var(--radius-md); }
-.fork-header {
+/* fork 弹窗：从消息创建新会话（固定宽度/高度，小屏防溢出）。
+   头部、底栏外观由公共 .modal-header 提供，这里只保留尺寸。 */
+.modal.fork-modal { width: 520px; max-width: calc(100vw - 48px); height: 380px; }
+/* 正文采用纵向列布局：搜索框固定在顶部，消息列表吃满剩余高度并自己滚动。
+   外层 .modal-body 关闭滚动，避免与 .fork-msg-list 形成双滚动条。 */
+.modal.fork-modal .modal-body {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 16px 10px;
-    flex-shrink: 0;
+    flex-direction: column;
+    overflow: hidden;
 }
-.fork-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
-.fork-close {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 16px;
-    cursor: pointer;
-    padding: 2px;
-    /* 图标按钮：内容居中 */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-.fork-close:hover { color: var(--danger); }
+/* 正文已有 16/18 的内边距，搜索框不再叠加左右外边距 */
 .fork-search {
-    margin: 0 16px 10px;
+    margin: 0 0 10px;
 }
 /* ========== 侧问面板（/btw）：弹窗复用 .modal-card 公共样式（modal-header/body/footer），
    仅设定尺寸；内部线程按会话区消息卡渲染（.oc-message user/assistant） ========== */
-.btw-modal { width: 780px; max-width: calc(100vw - 48px); height: 650px; max-height: calc(100vh - 48px); }
+/* 双类选择器：保证侧问面板自己的尺寸优先级高于公共外壳的 max-height */
+.modal.btw-modal { width: 780px; max-width: calc(100vw - 48px); height: 650px; max-height: calc(100vh - 48px); }
 /* 线程容器：flex column 让 .oc-message 的 align-self 生效（用户靠右 / 助手靠左） */
 .btw-thread { display: flex; flex-direction: column; gap: 12px; }
 /* 侧问回答需要能复制：body 默认 user-select:none，这里显式放开 */
@@ -3566,7 +3545,8 @@ input::placeholder, textarea::placeholder {
     font-size: 9px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
 }
 .btw-float-close:hover { color: var(--danger); border-color: var(--danger); background: var(--bg-card-hover); }
-.fork-msg-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px; }
+/* 列表自己滚动，左右不再额外缩进（由 .modal-body 统一提供内边距） */
+.fork-msg-list { flex: 1; min-height: 0; overflow-y: auto; }
 .fork-msg-row {
     display: flex;
     align-items: center;
@@ -4191,35 +4171,8 @@ svg.i.is-spinning {
     flex-shrink: 0;
 }
 
-/* 弹窗 */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    z-index: 300;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-}
 #dirBrowserModal {
     z-index: 360;
-}
-.modal {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 24px;
-    max-width: 100vw;
-    max-height: 100vh;
-    overflow-y: auto;
-    box-shadow: var(--shadow-lg);
-}
-.modal h3 {
-    font-size: 13px;
-    color: var(--text-primary);
-    font-weight: 600;
 }
 /* 字段说明：比 label 更弱，用于 NO_PROXY 等需要解释格式的输入项 */
 
@@ -4238,13 +4191,6 @@ svg.i.is-spinning {
         column-gap: 0;
     }
 }
-.modal-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-    margin-top: 20px;
-}
-
 .frontend-web-status-running {
     color: var(--success);
     font-weight: 600;
@@ -4257,120 +4203,6 @@ svg.i.is-spinning {
 .frontend-web-qr-hint.warn { color: #d97706; }
 .proxy-modal {
     width: 460px;
-}
-/* ============================================================
-   公共 Modal 控件（标准卡片弹窗）
-   基准来源：知识库条目编辑弹窗视觉规范。
-   用法：容器加 .modal-card，内部三段式 .modal-header / .modal-body / .modal-footer。
-   注意：全部规则以 .modal-card 作用域限定，避免影响 file-browser / project-config / kb 等已有弹窗。
-   ============================================================ */
-.modal-card {
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-    overflow: hidden;
-    background: var(--bg-card);
-    border-radius: var(--radius-md);
-    max-height: 90vh;
-    animation: modalPopIn 0.18s ease;
-}
-@keyframes modalPopIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-.modal-card .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 18px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-secondary);
-    flex-shrink: 0;
-}
-.modal-card .modal-header h3 {
-    margin: 0;
-    font-size: 14.5px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--text-primary);
-}
-.modal-card .modal-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 16px 18px;
-    background: var(--bg-primary);
-}
-.modal-card .modal-footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg-secondary);
-    flex-shrink: 0;
-}
-/* 底部按钮统一高度，保证同一行严格对齐（同知识库方案） */
-.modal-card .modal-footer .btn,
-.modal-card .modal-footer .btn-cancel {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 34px;
-}
-/* 通用确认弹窗（core/dialog.js）：替代 window.confirm，标题可自定义 */
-.confirm-modal {
-    width: 420px;
-    max-width: calc(100vw - 32px);
-}
-.confirm-modal .confirm-modal-body {
-    white-space: normal;
-    line-height: 1.65;
-    font-size: 13.5px;
-    color: var(--text-secondary);
-}
-.prompt-modal .prompt-message {
-    margin: 0 0 10px;
-    font-size: 13px;
-    color: var(--text-secondary);
-}
-.prompt-modal .prompt-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 8px 10px;
-}
-/* Modal 头部关闭按钮：透明底图标按钮（关闭.svg 遮罩，颜色随主题文字色）。
-   通用类，不限于 .modal-card——项目配置 / 知识库等头部同样使用。 */
-.modal-close-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-.modal-close-btn:hover {
-    /* 悬停反馈按主题取"可见对比色"：
-       light 主题下 --bg-card-hover(#f5f5f7) 与弹窗头部底色(--bg-secondary)完全相同、
-       叠上去看不见，故默认(light)用黑色 6% 叠加（浅灰块）；
-       dark 下原变量 #242426→#303032 本就可见，保持现状。 */
-    background: rgba(0, 0, 0, 0.06);
-    color: var(--text-primary);
-}
-[data-theme="dark"] .modal-close-btn:hover {
-    background: var(--bg-card-hover);
-}
-.modal-close-btn .oc-fb-icon {
-    width: 14px;
-    height: 14px;
 }
 .proxy-separator {
     border: none;
@@ -6059,11 +5891,8 @@ svg.i.is-spinning {
 .file-browser-modal {
     width: 96vw;
     height: 96vh;
-    display: flex;
-    flex-direction: column;
-    /* 标题栏需要像公共弹窗那样贴边，所以内边距从这里移到 .file-browser-body */
-    padding: 0;
-    overflow: hidden;
+    /* 公共外壳默认 max-height:90vh；文件浏览器需要保持 96vh 的工作区高度 */
+    max-height: 96vh;
     /* 文件树与 Git 变更树共用的行度量：两处缩进/行高/字号必须一致，
        否则并排看会出现错位。改这里就能同时影响两侧。 */
     --fb-row-h: 22px;
@@ -6078,6 +5907,7 @@ svg.i.is-spinning {
 #fileBrowserModal.file-browser-standalone .file-browser-modal {
     width: 100vw;
     height: 100vh;
+    max-height: 100vh;
     border-radius: 0;
     box-shadow: none;
 }
@@ -6085,31 +5915,24 @@ svg.i.is-spinning {
 #fileBrowserModal.file-browser-standalone #btnCloseFileBrowser {
     display: none;
 }
-/* 标题栏完全沿用公共弹窗（.modal-card .modal-header）的尺寸：
-   padding 12px 18px、标题 14.5px，只保留「文件管理：路径 + 关闭」。 */
-.file-browser-modal .modal-header {
-    padding: 12px 18px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-}
 
 /* 独立窗口：不显示标题栏，内容占满窗口 */
 #fileBrowserModal.file-browser-standalone .modal-header {
     display: none;
 }
-.file-browser-modal .modal-header h3 {
-    font-size: 14.5px;
-    font-weight: 600;
-    color: var(--text-primary);
-    letter-spacing: -0.01em;
-}
-.file-browser-body {
+/* 文件浏览正文：同时是公共 .modal-body。用双类选择器压过公共正文的
+   16/18 内边距与纵向滚动，避免出现外层滚动 + 内部面板滚动的双滚动条。 */
+.file-browser-modal .file-browser-body {
     display: grid;
     grid-template-columns: 52px var(--file-browser-left-width, 320px) 8px minmax(0, 1fr);
     min-height: 0;
     flex: 1;
-    /* 原 .file-browser-modal 的 10px 内边距移到这里，标题栏因此可以贴边 */
+    /* 标题栏贴边，内边距留在正文；内部面板各自滚动 */
     padding: 10px;
+    overflow: hidden;
+    /* 公共 .modal-body 是 bg-primary（纯白），文件浏览器原来是 bg-secondary 工作区底色，
+       白色会让内部白色面板失去层次，这里恢复原底色 */
+    background: var(--bg-secondary);
 }
 .file-browser-mode-bar {
     display: flex;
@@ -6425,22 +6248,23 @@ svg.i.is-spinning {
 	border-radius: var(--radius-sm);
 	background: var(--bg-input);
 }
+/* 冲突弹窗的按钮分两组（覆盖/重命名 与 确认/取消），统一挂到 .modal-footer；
+   清除 .modal-actions 默认的上外边距，避免底部栏被二次撑高。 */
+.file-browser-upload-conflict-footer {
+	flex-wrap: wrap;
+}
+.file-browser-upload-conflict-footer .modal-actions {
+	margin-top: 0;
+}
 .file-browser-upload-conflict-actions {
 	justify-content: flex-start;
 	gap: 8px;
-	padding-top: 4px;
+	/* 左侧“覆盖/重命名”与右侧“确认/取消”分开，保持原弹窗的操作层次 */
+	margin-right: auto;
 }
+/* 只保留冲突弹窗自己的宽度上限；内边距、圆角、阴影交由公共 .modal 外壳统一 */
 #fileBrowserUploadConflictModal .proxy-modal {
 	max-width: 460px;
-	border-radius: 18px;
-	padding: 22px 22px 18px;
-	box-shadow: 0 18px 52px rgba(0,0,0,0.18);
-}
-#fileBrowserUploadConflictModal h3 {
-	font-size: 18px;
-	font-weight: 700;
-	margin-bottom: 14px;
-	letter-spacing: -0.02em;
 }
 
 /* 操作错误提示 */
@@ -7767,30 +7591,12 @@ body.file-browser-diff-dragging {
     border: 1px solid var(--border);
 }
 
+/* 只保留项目配置自己的宽高；外壳外观、头部边距与标题字号交给公共 .modal */
 .project-config-modal {
     width: min(92vw, 1600px);
     max-width: 100%;
     height: 90vh;
     max-height: 100%;
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-    background: var(--bg-secondary);
-    overflow: hidden;
-}
-
-.project-config-modal .modal-header {
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-
-.project-config-modal .modal-header h3 {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-primary);
-    letter-spacing: -0.022em;
-    margin: 0;
 }
 
 /* ===== Tab 栏 ===== */
@@ -7833,9 +7639,12 @@ body.file-browser-diff-dragging {
 
 /* ===== 内容区 ===== */
 
-.project-config-body {
+/* 项目配置正文同时是 .modal-body：保留原有左右留白与滚动，
+   用双类选择器压过公共正文的 16/18 内边距。 */
+.project-config-modal .project-config-body {
     flex: 1;
     overflow: auto;
+    padding: 0;
     margin: 5px 25px;
 }
 
@@ -8231,14 +8040,6 @@ body.file-browser-diff-dragging {
 .btn-ghost:hover,
 [data-btn="ghost"]:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
-/* ========== 通用工具类（消除内联样式） ========== */
-/* 弹窗头部布局：标题 + 右侧操作区 */
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
 /* 弹窗内按钮组 */
 .btn-group {
     display: flex;
@@ -8431,6 +8232,14 @@ input.toolbar-input {
 }
 
 /* ===== 子任务弹窗通用区块 ===== */
+/* 中部统一包进 .modal-body：只负责纵向布局，不滚动；
+   元信息区固定，消息区自己滚动，避免出现双滚动条。 */
+.subtask-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
 .subtask-modal-section {
     flex-shrink: 0;
     padding: 12px 20px;
@@ -9004,31 +8813,18 @@ input.toolbar-input {
 /* 空状态 */
 
 /* ---------------- 条目编辑弹窗 ----------------
-   结构复用项目弹窗范式（.modal-overlay + .modal + .modal-header），
-   这里只覆盖面板尺寸/内边距与内部布局 */
+   外壳、头部、底栏全部复用公共 .modal 规则，这里只保留面板尺寸与内部布局 */
 .kb-entry-modal {
     width: min(880px, 90vw);
     height: min(80vh, 720px);
+}
+/* 中部包裹层：只做纵向布局，不滚动；
+   字段区保留自己的滚动，归属行固定在底部，避免双滚动条。 */
+.kb-entry-modal .modal-body {
     display: flex;
     flex-direction: column;
     padding: 0;
     overflow: hidden;
-    background: var(--bg-card);
-    border-radius: var(--radius-md);
-    animation: kbPopIn 0.18s ease;
-}
-.kb-entry-head {
-    padding: 12px 18px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-secondary);
-    flex-shrink: 0;
-}
-.kb-entry-head h3 {
-    margin: 0;
-    font-size: 14.5px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--text-primary);
 }
 
 /* ---------- 中部：三个必填区上下堆叠 ---------- */
@@ -9194,15 +8990,11 @@ input.toolbar-input {
 .kb-tag-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-ghost); }
 
 /* ---------- 底部操作栏 ---------- */
-.kb-entry-foot {
-    display: flex;
-    align-items: center;
+/* 与 .modal-footer 叠加使用：只保留“左侧提示 + 右侧按钮”的两端分布，
+   内边距、上边框、底色、高度都由公共底栏提供。 */
+.modal-footer.kb-entry-foot {
     justify-content: space-between;
     gap: 10px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg-secondary);
-    flex-shrink: 0;
 }
 .kb-entry-foot-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .kb-btn-ghost {
@@ -9280,27 +9072,18 @@ input.toolbar-input {
 /* 浮层：叠加在编辑弹窗（z-index 300）之上，两层弹窗同时出现时层级一眼可分 */
 .kb-convert-overlay { z-index: 420; }
 
+/* 尺寸之外的外壳属性交给公共 .modal；88vh 上限保留以适配较矮窗口 */
 .kb-convert-modal {
     width: min(660px, 94vw);
     max-height: 88vh;
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-    overflow: hidden;
-    background: var(--bg-card);
-    border-radius: var(--radius-md);
-    animation: kbPopIn 0.18s ease;
 }
 
+/* 正文同时是 .modal-body：公共规则已提供内边距、底色与滚动，
+   这里只补充纵向排列与表单项间距。 */
 .kb-convert-body {
-    flex: 1;
-    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    padding: 16px 18px;
-    overflow-y: auto;
-    background: var(--bg-primary);
 }
 
 /* ---------- 表单行：左侧固定标签列 + 右侧内容列 ---------- */
@@ -10837,7 +10620,7 @@ input.toolbar-input {
     max-height: 680px;
 }
 
-/* 覆盖 .modal-card .modal-body 的 padding，改为左右分栏 */
+/* 覆盖公共 .modal-body 的 padding，改为左右分栏 */
 .mcp-modal .modal-body {
     padding: 0;
     overflow: hidden;
@@ -11142,10 +10925,8 @@ input.toolbar-input {
     border-left: 1px solid var(--border);
 }
 
-/* 表单底部按钮栏：复用 .modal-footer；删除已移到列表项，这里只保留右侧按钮组 */
-.mcp-modal .modal-footer {
-    justify-content: flex-end;
-}
+/* 表单底部按钮栏：直接复用公共 .modal-footer 的右对齐，
+   不再重复声明 justify-content */
 
 /* 空状态 / 加载失败 */
 .mcp-empty {

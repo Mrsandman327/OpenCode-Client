@@ -8,6 +8,7 @@
 
 import { escapeHtml, escapeAttr } from './utils.js';
 import { buttonHtml } from '../components/button.js';
+import { createModal, openModal, closeModal } from '../components/modal.js';
 
 /**
  * 显示确认弹窗。
@@ -27,24 +28,16 @@ export function showConfirm(options) {
     var cancelText = opts.cancelText || '取消';
 
     return new Promise(function(resolve) {
-        var overlay = document.createElement('div');
-        overlay.className = 'modal-overlay';
-        overlay.innerHTML =
-            '<div class="modal modal-card confirm-modal" role="dialog" aria-modal="true">' +
-                '<div class="modal-header">' +
-                    '<h3>' + escapeHtml(title) + '</h3>' +
-                    '<button type="button" class="modal-close-btn" data-confirm-cancel title="关闭（Esc）" aria-label="关闭">' +
-                        '<span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span>' +
-                    '</button>' +
-                '</div>' +
-                '<div class="modal-body confirm-modal-body">' +
-                    escapeHtml(message).replace(/\n/g, '<br>') +
-                '</div>' +
-                '<div class="modal-footer">' +
-                    buttonHtml({ label: cancelText, variant: 'secondary', className: 'btn-cancel', attrs: { 'data-confirm-cancel': true } }) +
-                    buttonHtml({ label: okText, attrs: { 'data-confirm-ok': true } }) +
-                '</div>' +
-            '</div>';
+        // 外壳交给组件生成：头部/正文/底栏与关闭按钮都在组件里
+        var overlay = createModal({
+            modalClass: 'confirm-modal',
+            title: title,
+            bodyClass: 'confirm-modal-body',
+            bodyHtml: escapeHtml(message).replace(/\n/g, '<br>'),
+            footerHtml:
+                buttonHtml({ label: cancelText, variant: 'secondary', className: 'btn-cancel', attrs: { 'data-confirm-cancel': true } }) +
+                buttonHtml({ label: okText, attrs: { 'data-confirm-ok': true } })
+        });
 
         var settled = false;
 
@@ -56,23 +49,22 @@ export function showConfirm(options) {
             resolve(result);
         }
 
+        // Esc / 点遮罩 / 关闭按钮都由组件统一关闭，组件关完会派发 modal:close
+        overlay.addEventListener('modal:close', function() {
+            close(false);
+        });
+
         function onKey(e) {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                close(false);
-            } else if (e.key === 'Enter') {
+            // Esc 已交给组件；这里只保留 Enter 直接确认
+            if (e.key === 'Enter') {
                 e.preventDefault();
                 close(true);
             }
         }
 
-        // 点击遮罩空白处关闭
-        overlay.addEventListener('mousedown', function(e) {
-            if (e.target === overlay) close(false);
-        });
         overlay.querySelectorAll('[data-confirm-cancel]').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                close(false);
+                closeModal(overlay);
             });
         });
         overlay.querySelector('[data-confirm-ok]').addEventListener('click', function() {
@@ -80,10 +72,8 @@ export function showConfirm(options) {
         });
         document.addEventListener('keydown', onKey, true);
 
-        document.body.appendChild(overlay);
         // 默认聚焦确认按钮，Enter 直接确认
-        var okBtn = overlay.querySelector('[data-confirm-ok]');
-        if (okBtn) okBtn.focus();
+        openModal(overlay, { focus: '[data-confirm-ok]' });
     });
 }
 
@@ -109,25 +99,18 @@ export function showPrompt(options) {
     var cancelText = opts.cancelText || '取消';
 
     return new Promise(function(resolve) {
-        var overlay = document.createElement('div');
-        overlay.className = 'modal-overlay';
-        overlay.innerHTML =
-            '<div class="modal modal-card confirm-modal prompt-modal" role="dialog" aria-modal="true">' +
-                '<div class="modal-header">' +
-                    '<h3>' + escapeHtml(title) + '</h3>' +
-                    '<button type="button" class="modal-close-btn" data-prompt-cancel title="关闭（Esc）" aria-label="关闭">' +
-                        '<span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span>' +
-                    '</button>' +
-                '</div>' +
-                '<div class="modal-body confirm-modal-body">' +
-                    (message ? '<p class="prompt-message">' + escapeHtml(message) + '</p>' : '') +
-                    '<input type="text" class="ctl prompt-input" value="' + escapeAttr(defaultValue) + '" placeholder="' + escapeAttr(placeholder) + '">' +
-                '</div>' +
-                '<div class="modal-footer">' +
-                    buttonHtml({ label: cancelText, variant: 'secondary', className: 'btn-cancel', attrs: { 'data-prompt-cancel': true } }) +
-                    buttonHtml({ label: okText, attrs: { 'data-prompt-ok': true } }) +
-                '</div>' +
-            '</div>';
+        // 外壳交给组件生成；正文 = 可选说明 + 输入框
+        var overlay = createModal({
+            modalClass: 'confirm-modal prompt-modal',
+            title: title,
+            bodyClass: 'confirm-modal-body',
+            bodyHtml:
+                (message ? '<p class="prompt-message">' + escapeHtml(message) + '</p>' : '') +
+                '<input type="text" class="ctl prompt-input" value="' + escapeAttr(defaultValue) + '" placeholder="' + escapeAttr(placeholder) + '">',
+            footerHtml:
+                buttonHtml({ label: cancelText, variant: 'secondary', className: 'btn-cancel', attrs: { 'data-prompt-cancel': true } }) +
+                buttonHtml({ label: okText, attrs: { 'data-prompt-ok': true } })
+        });
 
         var input = overlay.querySelector('.prompt-input');
         var settled = false;
@@ -140,23 +123,23 @@ export function showPrompt(options) {
             resolve(result);
         }
 
+        // Esc / 点遮罩 / 关闭按钮由组件统一关闭
+        overlay.addEventListener('modal:close', function() {
+            close(null);
+        });
+
         function onKey(e) {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                close(null);
-            }
+            // Esc 已交给组件，这里不再重复处理
+            if (e.key === 'Escape') e.preventDefault();
         }
 
         overlay.querySelectorAll('[data-prompt-cancel]').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                close(null);
+                closeModal(overlay);
             });
         });
         overlay.querySelector('[data-prompt-ok]').addEventListener('click', function() {
             close(input.value);
-        });
-        overlay.addEventListener('mousedown', function(e) {
-            if (e.target === overlay) close(null);
         });
         input.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
@@ -166,8 +149,8 @@ export function showPrompt(options) {
         });
         document.addEventListener('keydown', onKey, true);
 
-        document.body.appendChild(overlay);
-        input.focus();
+        // createModal 已挂到 body；这里只负责显示与聚焦输入框
+        openModal(overlay, { focus: '.prompt-input' });
         // 重命名场景预填旧名称，全选后直接输入即可覆盖
         input.select();
     });

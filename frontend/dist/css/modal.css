@@ -1,0 +1,192 @@
+/* ============================================================
+   弹窗外壳（配合 components/modal.js）
+   ============================================================
+   结构固定为「遮罩 + 卡片 + 三段」：
+
+   <div class="modal-overlay">
+       <div class="modal modal-card">
+           <div class="modal-header"><h3>标题</h3><button class="modal-close-btn">…</button></div>
+           <div class="modal-body">正文</div>
+           <div class="modal-footer">按钮</div>
+       </div>
+   </div>
+
+   本文件只负责「外观」：遮罩、卡片圆角/底色/阴影、三段的内边距与分隔线、
+   关闭按钮、弹出动画。
+   尺寸（宽/高/max-height）与内容排版属于宿主，写在各自的视图规则里；
+   .modal-card 保留为等价别名，兼容历史上只写了一个类的弹窗。
+   ============================================================ */
+
+/* ---------- 遮罩 ---------- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* ---------- 卡片本体 ---------- */
+.modal,
+.modal-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    max-height: 90vh;
+    animation: modalPopIn 0.18s ease;
+}
+
+/* 边框与阴影只挂在外壳本体上：
+   .modal-card 单独使用时（配置弹窗、动态新增方案弹窗）已有自己的边框/阴影，
+   不在别名里重复声明，避免叠加出更重的描边。 */
+.modal {
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    /* 小窗口兜底：各弹窗自己的 max-width 仍可覆盖它 */
+    max-width: 100vw;
+}
+
+/* 弹窗内正文的小标题（三段式头部之外的 h3） */
+.modal h3 {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* 弹窗内的按钮行（未使用 .modal-footer 的老弹窗仍可用） */
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+/* ---------- 弹出动画 ---------- */
+@keyframes modalPopIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 三段式 ---------- */
+.modal .modal-header,
+.modal-card .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.modal .modal-header h3,
+.modal-card .modal-header h3 {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+.modal .modal-body,
+.modal-card .modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 18px;
+    background: var(--bg-primary);
+}
+
+.modal .modal-footer,
+.modal-card .modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+/* 底部按钮统一高度，保证同一行严格对齐（同知识库方案） */
+.modal .modal-footer .btn,
+.modal .modal-footer .btn-cancel,
+.modal-card .modal-footer .btn,
+.modal-card .modal-footer .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+}
+
+/* ---------- 头部关闭按钮 ---------- */
+/* 透明底图标按钮（关闭.svg 遮罩，颜色随主题文字色）。
+   通用类，不限于 .modal-card——项目配置 / 知识库等头部同样使用。 */
+.modal-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    /* 与 .btn 一致：去掉浏览器默认焦点框，避免弹窗打开时按钮上出现黑框 */
+    outline: none;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.modal-close-btn:hover {
+    /* 悬停反馈按主题取「可见对比色」：
+       light 主题下 --bg-card-hover(#f5f5f7) 与弹窗头部底色(--bg-secondary)完全相同、
+       叠上去看不见，故默认(light)用黑色 6% 叠加（浅灰块）；
+       dark 下原变量 #242426→#303032 本就可见，保持现状。 */
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .modal-close-btn:hover {
+    background: var(--bg-card-hover);
+}
+
+.modal-close-btn .oc-fb-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* ---------- 通用确认 / 输入弹窗（core/dialog.js） ---------- */
+.confirm-modal {
+    width: 420px;
+    max-width: calc(100vw - 32px);
+}
+
+.confirm-modal .confirm-modal-body {
+    white-space: normal;
+    line-height: 1.65;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+}
+
+.prompt-modal .prompt-message {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.prompt-modal .prompt-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+}

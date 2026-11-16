@@ -4,8 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OC Manager</title>
+    <!-- 弹窗外壳放在 style.css 之前：它只是「默认外观」，
+         style.css 里各弹窗自己的 width / max-height / 圆角覆盖要能压过它 -->
+    <link rel="stylesheet" href="/css/modal.css" />
     <link rel="stylesheet" href="/css/style.css" />
-    <!-- 控件级样式单独成文件，避免 style.css 继续膨胀（顺序在 style.css 之后，便于覆盖宿主布局） -->
+    <!-- 控件级样式：按钮、输入、搜索、开关，按需覆盖 style.css 里的宿主布局 -->
     <link rel="stylesheet" href="/css/button.css" />
     <!-- 主按钮单独一套：改主按钮样式不会影响普通按钮 -->
     <link rel="stylesheet" href="/css/button-primary.css" />
@@ -623,16 +626,19 @@
     <!-- 从消息创建新会话（fork 弹窗） -->
     <div class="modal-overlay" id="forkModal" style="display:none">
         <div class="modal fork-modal">
-            <div class="fork-header">
-                <span class="fork-title">从消息创建新会话</span>
-                <button type="button" class="fork-close" id="btnForkClose" title="关闭"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
+            <div class="modal-header">
+                <h3>从消息创建新会话</h3>
+                <button type="button" class="modal-close-btn" id="btnForkClose" title="关闭"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
             </div>
-            <div class="search fork-search">
-                <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                <input class="search__input" id="forkSearchInput" placeholder="搜索" autocomplete="off" />
+            <!-- 搜索、消息列表与“加载更多”统一放进正文；列表自己滚动，避免双滚动条 -->
+            <div class="modal-body">
+                <div class="search fork-search">
+                    <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                    <input class="search__input" id="forkSearchInput" placeholder="搜索" autocomplete="off" />
+                </div>
+                <div class="fork-msg-list" id="forkMsgList"></div>
+                <div class="fork-more" id="forkMoreBtn" style="display:none">加载更早消息</div>
             </div>
-            <div class="fork-msg-list" id="forkMsgList"></div>
-            <div class="fork-more" id="forkMoreBtn" style="display:none">加载更早消息</div>
         </div>
     </div>
 
@@ -981,7 +987,7 @@
                     <button type="button" class="modal-close-btn" id="btnCloseFileBrowser" title="关闭（Esc）" aria-label="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
                 </div>
             </div>
-            <div class="file-browser-body">
+            <div class="modal-body file-browser-body">
                 <div class="file-browser-mode-bar">
                     <button type="button" class="file-browser-mode-btn active" id="btnFileBrowserModeFiles" title="会话目录"><span class="oc-fb-icon oc-fb-icon-session-dir"></span></button>
                     <button type="button" class="file-browser-mode-btn" id="btnFileBrowserModeSearch" title="搜索"><span class="oc-fb-icon oc-fb-icon-search"></span></button>
@@ -1121,24 +1127,31 @@
 
     <div class="modal-overlay" id="fileBrowserUploadConflictModal" style="display:none">
         <div class="modal proxy-modal" onclick="event.stopPropagation()">
-            <h3>文件重名处理</h3>
-            <div class="field field--md">
-                <label>当前目录中已存在同名文件</label>
-                <div id="fileBrowserUploadConflictName" class="path-value">--</div>
+            <div class="modal-header">
+                <h3>文件重名处理</h3>
             </div>
-            <div class="file-browser-upload-conflict-note">你可以直接覆盖已有文件，或者输入一个新的文件名后重新上传。</div>
-            <div class="modal-actions file-browser-upload-conflict-actions">
-                <button type="button" data-btn="danger" id="btnFileBrowserUploadOverwrite">覆盖</button>
-                <button type="button" data-btn="secondary" data-btn-size="sm" id="btnFileBrowserUploadRenameMode">重命名</button>
+            <div class="modal-body">
+                <div class="field field--md">
+                    <label>当前目录中已存在同名文件</label>
+                    <div id="fileBrowserUploadConflictName" class="path-value">--</div>
+                </div>
+                <div class="file-browser-upload-conflict-note">你可以直接覆盖已有文件，或者输入一个新的文件名后重新上传。</div>
+                <div class="field field--md" id="fileBrowserUploadRenameField" style="display:none">
+                    <label for="fileBrowserUploadRenameInput">新文件名</label>
+                    <input id="fileBrowserUploadRenameInput" />
+                    <div class="file-browser-upload-error" id="fileBrowserUploadConflictError"></div>
+                </div>
             </div>
-            <div class="field field--md" id="fileBrowserUploadRenameField" style="display:none">
-                <label for="fileBrowserUploadRenameInput">新文件名</label>
-                <input id="fileBrowserUploadRenameInput" />
-                <div class="file-browser-upload-error" id="fileBrowserUploadConflictError"></div>
-            </div>
-            <div class="modal-actions">
-                <button type="button" data-btn="primary" id="btnFileBrowserUploadRenameConfirm" style="display:none">确认重命名上传</button>
-                <button type="button" class="btn-cancel" id="btnFileBrowserUploadConflictCancel">取消</button>
+            <!-- 两组操作合并进同一底栏：左侧覆盖/重命名，右侧确认/取消 -->
+            <div class="modal-footer file-browser-upload-conflict-footer">
+                <div class="modal-actions file-browser-upload-conflict-actions">
+                    <button type="button" data-btn="danger" id="btnFileBrowserUploadOverwrite">覆盖</button>
+                    <button type="button" data-btn="secondary" data-btn-size="sm" id="btnFileBrowserUploadRenameMode">重命名</button>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" data-btn="primary" id="btnFileBrowserUploadRenameConfirm" style="display:none">确认重命名上传</button>
+                    <button type="button" class="btn-cancel" id="btnFileBrowserUploadConflictCancel">取消</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1146,13 +1159,15 @@
     <!-- ===== 子任务详情弹窗 ===== -->
     <div class="modal-overlay" id="subtaskModal" style="display:none">
         <div class="modal subtask-modal modal-card" onclick="event.stopPropagation()">
-            <div class="modal-header subtask-modal-header">
+            <div class="modal-header">
                 <div class="subtask-head-left">
                     <h3 id="subtaskModalTitle">子任务详情</h3>
                     <span class="subtask-status-badge" id="subtaskStatusBadge"></span>
                 </div>
                 <button type="button" class="modal-close-btn" id="subtaskModalCloseBtn" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
+            <!-- 元信息与消息区统一进正文；元信息固定，消息区自己滚动 -->
+            <div class="modal-body">
             <div class="subtask-modal-section">
                 <div class="meta-row">
                     <span id="subtaskAgent"></span>
@@ -1182,6 +1197,7 @@
             <div class="subtask-modal-body" id="subtaskMessages">
                 <div class="empty-state empty-state--sm">正在加载子任务详情...</div>
             </div>
+            </div>
         </div>
     </div>
 
@@ -1199,7 +1215,7 @@
                 <button type="button" class="pc-tab" data-pc-tab="commands">用户命令</button>
                 <button type="button" class="pc-tab" data-pc-tab="rules">用户规则</button>
             </div>
-            <div class="project-config-body" id="projectConfigBody">
+            <div class="modal-body project-config-body" id="projectConfigBody">
                 <div class="empty-state empty-state--sm">加载中...</div>
             </div>
         </div>
@@ -1210,13 +1226,14 @@
          分类与标签收拢到弹窗底部一行（不再是右侧元数据面板）。 -->
     <div class="modal-overlay" id="kbEntryModal" style="display:none">
         <div class="modal kb-entry-modal" onclick="event.stopPropagation()">
-            <!-- 头部：弹窗标题 + 关闭 -->
-            <div class="modal-header kb-entry-head">
+            <!-- 头部：弹窗标题 + 关闭；外观统一由公共 .modal-header 提供 -->
+            <div class="modal-header">
                 <h3 id="kbEntryModalTitle">新建条目</h3>
                 <button type="button" class="modal-close-btn" id="kbEntryCloseBtn" title="关闭弹窗"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
 
-            <!-- 中部：三个独立必填区 -->
+            <!-- 中部：三个独立必填区 + 归属行，统一包进公共正文容器 -->
+            <div class="modal-body">
             <div class="kb-entry-fields">
                 <!-- 必填区 1：标题 -->
                 <section class="field" id="kbFieldTitle">
@@ -1268,11 +1285,12 @@
                     <div class="kb-tag-editor" id="kbTagEditor"></div>
                 </div>
             </div>
+            </div>
 
             <!-- 底部：取消 / 保存 / 转化为资产
                  删除入口在条目卡片 / 列表行右上角的删除按钮上，弹窗内不放删除按钮；
                  「转化为资产」仅对已保存（有 ID）的条目可用，新建未保存时由 JS 置灰 -->
-            <div class="kb-entry-foot">
+            <div class="modal-footer kb-entry-foot">
                 <div class="kb-entry-foot-right">
                     <button type="button" class="kb-btn-ghost" id="kbEntryCancelBtn">取消</button>
                     <button type="button" data-btn="primary" id="kbEntrySaveBtn">保存</button>
@@ -1304,12 +1322,12 @@
          由 JS 按 mode 渲染三种形态——create（新文件）/ overwrite（红绿 diff）/ append（追加到 AGENTS.md）。 -->
     <div class="modal-overlay kb-convert-overlay" id="kbConvertModal" style="display:none">
         <div class="modal kb-convert-modal" onclick="event.stopPropagation()">
-            <div class="modal-header kb-entry-head">
+            <div class="modal-header">
                 <h3>转化为 OpenCode 资产</h3>
                 <button type="button" class="modal-close-btn" id="kbConvertCloseBtn" title="关闭弹窗"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
 
-            <div class="kb-convert-body">
+            <div class="modal-body kb-convert-body">
                 <!-- 类型：决定目标产物的形态（技能 = 独立目录，项目准则 = 追加到 AGENTS.md） -->
                 <div class="kb-form-row">
                     <div class="field__label kb-form-label">类型</div>
@@ -1411,7 +1429,7 @@
                 </div>
             </div>
 
-            <div class="kb-entry-foot">
+            <div class="modal-footer kb-entry-foot">
                 <div class="kb-conv-foot-note" id="kbConvFootNote"></div>
                 <div class="kb-entry-foot-right">
                     <button type="button" class="kb-btn-ghost" id="kbConvertCancelBtn">取消</button>
@@ -1701,7 +1719,7 @@
     </script>
     <!-- ===== 定时任务新建弹窗 ===== -->
     <div class="modal-overlay" id="scheduleModal" style="display:none">
-        <div class="modal-card oc-schedule-modal" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
+        <div class="modal modal-card oc-schedule-modal" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
             <div class="modal-header">
                 <h3 id="scheduleModalTitle">新建定时任务</h3>
                 <button type="button" class="modal-close-btn" id="btnScheduleClose" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
@@ -1849,7 +1867,7 @@
 
     <!-- ===== 定时任务只读详情 ===== -->
     <div class="modal-overlay" id="scheduleDetailModal" style="display:none">
-        <div class="modal-card oc-schedule-detail-modal" role="dialog" aria-modal="true">
+        <div class="modal modal-card oc-schedule-detail-modal" role="dialog" aria-modal="true">
             <div class="modal-header">
                 <h3>定时任务详情</h3>
                 <button type="button" class="modal-close-btn" id="btnScheduleDetailClose" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>

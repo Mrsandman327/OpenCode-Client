@@ -8,6 +8,7 @@
 // ============================
 import { isBrowserRuntimeForMain, showToast, showApiError, isDesktopRuntime, loadWailsRuntime, bindOverlayClose } from './core/utils.js';
 import { enhanceSwitches } from './components/switch.js';
+import { enhanceModals } from './components/modal.js';
 import { enhanceButtons } from './components/button.js';
 import { getTheme, setTheme } from './core/theme.js';
 import { api } from './core/apicall.js';
@@ -71,6 +72,8 @@ function initMain() {
     // 这样后续 querySelector('.btn-primary')、getElementById 都能拿到正确元素。
     enhanceButtons(document);
     enhanceSwitches(document);
+    // 静态弹窗：统一接管关闭按钮、点击遮罩空白、Esc 只关栈顶
+    enhanceModals(document);
 
     // 全局拦截外部链接点击：防止 WebView/页面导航离开工作台（聊天消息里的 markdown 链接也走这里）
     document.addEventListener('click', function(e) {
