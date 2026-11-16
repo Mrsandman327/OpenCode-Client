@@ -2839,7 +2839,7 @@ input::placeholder, textarea::placeholder {
     overflow: hidden;
     min-width: 0;
 }
-.oc-reasoning-head:hover { background: var(--bg-card-hover); }
+.oc-reasoning-head:hover { background: var(--bg-sidebar-active); }
 .oc-reasoning-icon { font-size: 13px; }
 /* 思考过程的用时靠右，与工具卡片的用时/状态位置一致 */
 .oc-reasoning-head .oc-tool-duration { margin-left: auto; }
@@ -2922,7 +2922,7 @@ input::placeholder, textarea::placeholder {
     min-width: 0;
     flex-shrink: 1;
 }
-.oc-tool-head:hover { background: var(--bg-card-hover); }
+.oc-tool-head:hover { background: var(--bg-sidebar-active); }
 .oc-tool-icon {
     font-size: 15px;
     flex-shrink: 0;
@@ -3038,7 +3038,7 @@ input::placeholder, textarea::placeholder {
     font-size: 10px;
     line-height: 1.5;
 }
-.oc-diff-line code { white-space: pre-wrap; word-break: break-word; }
+.oc-diff-line code { white-space: pre-wrap; word-break: break-word; font-family: Cascadia Code;font-size: 10px;}
 .oc-diff-line.diff-removed { background: rgba(255, 59, 48, 0.16); }
 .oc-diff-line.diff-removed code { color: var(--danger); }
 .oc-diff-line.diff-added { background: rgba(52, 199, 89, 0.16); }
@@ -4694,12 +4694,8 @@ svg.i.is-spinning {
     font-size: 12px;
     color: var(--text-muted);
 }
-.proxy-switch-row input {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--success);
-    cursor: pointer;
-}
+/* 代理行的开关用 components/switch.js 的 .sw；input 由组件视觉隐藏，
+   不能再给 .proxy-switch-row input 设宽高，否则会破坏隐藏尺寸。 */
 .proxy-preview {
     min-height: 32px;
     padding: 8px 12px;
@@ -5253,58 +5249,7 @@ svg.i.is-spinning {
     min-height: 72px;
 }
 
-/* 开关组件 */
-.toggle {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-}
-
-.toggle input {
-    display: none;
-}
-
-.toggle-slider {
-    position: relative;
-    width: 44px;
-    height: 26px;
-    background: var(--border-light);
-    border-radius: 13px;
-    transition: all 0.25s ease;
-    border: none;
-}
-.toggle-slider::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 20px;
-    height: 20px;
-    background: #fff;
-    border-radius: 50%;
-    transition: all 0.25s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-}
-.toggle input:checked + .toggle-slider {
-    background: var(--success);
-    border-color: var(--success);
-}
-
-.toggle input:checked + .toggle-slider::after {
-    background: #fff;
-    left: 20px;
-}
-
-.toggle input:disabled + .toggle-slider {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-/* hover：轻微淡出并保持描边色一致（合并同选择器的两条规则） */
-.toggle:hover .toggle-slider {
-    opacity: 0.85;
-    border-color: var(--border-light);
-}
+/* 统一开关控件的样式已抽到 css/switch.css（组件见 components/switch.js） */
 
 /* ========== 加载 / 空 / 错误状态 ========== */
 .loading, .empty, .error {
@@ -5471,49 +5416,7 @@ svg.i.is-spinning {
     flex-shrink: 0;
     align-items: center;
 }
-/* 启用开关：iOS 风格 toggle（位于标题栏左侧、原状态圆点位置） */
-.prov-toggle {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    user-select: none;
-}
-.prov-toggle input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    opacity: 0;
-    overflow: hidden;
-}
-.prov-toggle-track {
-    position: relative;
-    width: 34px;
-    height: 20px;
-    background: var(--border);
-    border-radius: 9999px;
-    flex-shrink: 0;
-    transition: background-color 0.2s ease;
-}
-.prov-toggle-thumb {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    background: #fff;
-    border-radius: 50%;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-    transition: transform 0.2s ease;
-}
-.prov-toggle input:checked + .prov-toggle-track {
-    background: var(--accent);
-}
-.prov-toggle input:checked + .prov-toggle-track .prov-toggle-thumb {
-    transform: translateX(14px);
-}
+/* 启用开关统一使用 components/switch.js 的 .sw（见上文「统一开关控件」） */
 /* 连接配置：纵向堆叠（窄卡片下三栏会显示不全） */
 .provider-conn-row {
     display: flex;
@@ -8313,11 +8216,6 @@ body.file-browser-diff-dragging {
 
 
 
-/* 开关整合到技能卡片 */
-.skill-card .toggle {
-    flex-shrink: 0;
-}
-
 /* 冲突标签：与卡片内其它标签（.skill-tag）保持同一尺寸基线，仅换用危险色 */
 .conflict-tag {
     font-size: 10.5px;
@@ -10646,66 +10544,7 @@ input.toolbar-input {
     white-space: nowrap;
 }
 
-/* 启用开关：紧凑拨杆，视觉沿用项目的 accent 交互色 */
-#view-omo .go-switch {
-    position: relative;
-    width: 30px;
-    height: 17px;
-    display: inline-flex;
-    flex-shrink: 0;
-    cursor: pointer;
-}
-#view-omo .go-switch input {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 1;
-}
-#view-omo .go-switch input:disabled {
-    cursor: not-allowed;
-}
-#view-omo .go-switch-track {
-    width: 30px;
-    height: 17px;
-    display: block;
-    position: relative;
-    border-radius: var(--radius-pill);
-    background: var(--border-light);
-    transition: background var(--transition);
-}
-#view-omo .go-switch-track::after {
-    content: '';
-    position: absolute;
-    left: 2px;
-    top: 2px;
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-    transition: transform var(--transition);
-}
-#view-omo .go-switch input:checked + .go-switch-track {
-    background: var(--accent);
-}
-#view-omo .go-switch input:checked + .go-switch-track::after {
-    transform: translateX(13px);
-}
-#view-omo .go-switch input:disabled + .go-switch-track {
-    opacity: 0.45;
-}
-/* 主调度器：开关保持「开」但退成中性灰，表达受保护而非可操作 */
-#view-omo .go-switch input:disabled:checked + .go-switch-track {
-    background: var(--text-muted);
-}
-#view-omo .go-switch input:focus-visible + .go-switch-track {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-}
+/* 启用开关统一使用 components/switch.js 的 .sw（见「统一开关控件」） */
 
 /* ---------- 模型来源 / 模型控件 ---------- */
 #view-omo .go-select {
@@ -11240,31 +11079,7 @@ input.toolbar-input {
 }
 .cfg-web-enable h3 { font-size: 12.5px; font-weight: 600; }
 .cfg-web-enable p { margin-top: 3px; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
-.cfg-switch { position: relative; display: inline-flex; flex-shrink: 0; margin-left: auto; }
-.cfg-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
-.cfg-switch span {
-    width: 34px;
-    height: 20px;
-    border-radius: 10px;
-    background: var(--bg-card-hover);
-    border: 1px solid var(--border);
-    position: relative;
-    cursor: pointer;
-    transition: background var(--transition), border-color var(--transition);
-}
-.cfg-switch span::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--text-muted);
-    transition: transform var(--transition), background var(--transition);
-}
-.cfg-switch input:checked + span { background: var(--accent); border-color: var(--accent); }
-.cfg-switch input:checked + span::after { transform: translateX(14px); background: #fff; }
+/* 配置面板的启用开关统一使用 components/switch.js 的 .sw（见「统一开关控件」） */
 .cfg-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 10px; }
 .cfg-field label { display: block; font-size: 10.5px; color: var(--text-muted); margin-bottom: 5px; }
 .cfg-field input {
@@ -11624,7 +11439,7 @@ input.toolbar-input {
 }
 .cfg-network .proxy-switch-row strong { display: block; font-size: 12px; }
 .cfg-network .proxy-switch-row small { display: block; margin-top: 2px; font-size: 10.5px; color: var(--text-muted); }
-.cfg-network .proxy-switch-row input[type="checkbox"] { margin-left: auto; width: 14px; height: 14px; accent-color: var(--accent); }
+/* 开关已由 components/switch.js 接管，这里不再覆盖 input 尺寸（会给 .sw input 加宽高破坏隐藏） */
 .cfg-network .field-hint { display: block; margin-top: 4px; font-size: 9.5px; color: var(--text-muted); }
 .cfg-network .proxy-preview {
     margin-top: 10px;
@@ -11706,7 +11521,7 @@ input.toolbar-input {
 /* ============================================================
    MCP 连接器配置弹窗（视图：views/mcp-config.js）
    仅补充布局：颜色 / 字体 / 圆角 / 阴影 / 按钮 / 输入框 / 开关 /
-   提示条全部复用上方既有类（.modal-card / .btn / .cfg-* / .cfg-switch）。
+   提示条全部复用上方既有类（.modal-card / .btn / .cfg-* / .sw）。
    深色/浅色主题由 html[data-theme] 的变量自动切换，此处不定义颜色变量。
    ============================================================ */
 

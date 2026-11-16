@@ -8,7 +8,7 @@ import { store } from '../core/state.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
-
+import { switchHtml } from '../components/switch.js';
 export let skills = [];
 
 // ========== 技能页顶部配置区的 UI 状态 ==========
@@ -75,9 +75,7 @@ export function renderSkillList(filter) {
         var safePath = escapeHtml(s.path);
         var safeDesc = escapeHtml(s.description || '无描述');
 
-        // 开关状态
-        var checkedAttr = s.linked ? 'checked' : '';
-        var disabledAttr = (!s.enableable) ? 'disabled' : '';
+        // 开关的选中/禁用状态与提示文案（选中与禁用由组件接收布尔值渲染）
         var toggleTitle = s.conflict ? '冲突，不可操作' : (s.noSources ? '无来源目录，不可操作' : (s.linked ? '点击禁用' : '点击启用'));
 
         // 卡片结构（对齐原型）：顶部一行 = 图标 + 信息 + 右上开关；路径独立成行贴底。
@@ -93,11 +91,18 @@ export function renderSkillList(filter) {
                     '</div>' +
                     '<div class="skill-desc">' + safeDesc + '</div>' +
                 '</div>' +
-                '<label class="toggle" title="' + toggleTitle + '">' +
-                    '<input type="checkbox" ' + checkedAttr + ' ' + disabledAttr +
-                        ' data-action="toggle-skill" data-skill-path="' + safePath + '" data-skill-name="' + safeName + '" />' +
-                    '<span class="toggle-slider"></span>' +
-                '</label>' +
+                // 统一开关控件（components/switch.js）：结构与样式全项目共用一份，
+                // 事件仍走 data-action="toggle-skill" 的委托，所以 data-* 原样透传。
+                switchHtml({
+                    checked: !!s.linked,
+                    disabled: !s.enableable,
+                    title: toggleTitle,
+                    attrs: {
+                        'data-action': 'toggle-skill',
+                        'data-skill-path': s.path,
+                        'data-skill-name': s.name,
+                    },
+                }) +
             '</div>';
 
         // 冲突状态：展开显示冲突来源（整行块，位于顶部信息区与底部路径之间）

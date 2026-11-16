@@ -8,6 +8,7 @@ import { escapeHtml, showToast, showApiError, bindOverlayClose, MODEL_EFFORTS } 
 import { dirname } from '../core/path.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { showConfirm } from '../core/dialog.js';
+import { switchHtml } from '../components/switch.js';
 
 export let providerCache = [];
 
@@ -368,10 +369,12 @@ export function providerCardHtml(p) {
             <div class="provider-card-header">
                 <div class="provider-title">
                     <span class="prov-expand-ic" aria-hidden="true"></span>
-                    <label class="prov-toggle" title="启用该供应商">
-                        <input type="checkbox" class="prov-edit-enabled" ${enabled ? 'checked' : ''} />
-                        <span class="prov-toggle-track"><span class="prov-toggle-thumb"></span></span>
-                    </label>
+                    ${/* 统一开关控件：启用该供应商（点击即保存） */ ''}
+                    ${switchHtml({
+                        className: 'prov-edit-enabled',
+                        checked: enabled,
+                        title: '启用该供应商',
+                    })}
                     <span class="prov-name">${escapeHtml(p.name || p.key || '新供应商')}</span>
                     <span class="prov-key">${escapeHtml(p.key || '未命名')}</span>
                     <span class="prov-badge">${allModels.length} 个模型</span>
@@ -535,7 +538,7 @@ export function bindProviderEvents(providers) {
             if (!el || el.dataset.expandBound) return;
             el.dataset.expandBound = '1';
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.prov-toggle, .btn-del-card, .btn-save-card, .btn-add-model-card, .btn-fetch-models, .btn-toggle-abilities, .btn-del-model, input, select')) return;
+                if (e.target.closest('.sw, .btn-del-card, .btn-save-card, .btn-add-model-card, .btn-fetch-models, .btn-toggle-abilities, .btn-del-model, input, select')) return;
                 // 记住展开/折叠状态：下次打开模型服务仍是这个样子
                 setProviderExpanded(card, !card.classList.contains('expanded'));
             });

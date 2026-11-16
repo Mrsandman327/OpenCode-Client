@@ -26,6 +26,7 @@ import { dirname } from '../core/path.js';
 import { store, currentDir } from '../core/state.js';
 import { toModelOptions, formatApiError } from '../core/v2compat.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
+import { createSwitch } from '../components/switch.js';
 
 // ========== 视图状态（全部由 loadModelConfig 填充） ==========
 export let slimPath = '';           // 配置文件路径
@@ -378,36 +379,29 @@ function createGlobalAgentRow(row) {
         + (row.unsupported ? ' is-unsupported' : '');
     el.dataset.key = row.key;
 
-    // ---------- 第一列：启用开关 + agent 名 + 只读角色徽标 ----------
+    // ---------- 第一列：统一开关控件 + agent 名 + 只读角色徽标 ----------
     const agentCell = document.createElement('div');
     agentCell.className = 'go-agent-cell';
 
-    const switchLabel = document.createElement('label');
-    switchLabel.className = 'go-switch';
-    switchLabel.title = row.protected
-        ? '主调度器，不可禁用'
-        : (row.enabled ? '禁用 ' + row.key : '启用 ' + row.key);
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.checked = row.enabled;
-    checkbox.disabled = row.protected;
-    checkbox.setAttribute('aria-label', '启用 ' + row.key);
-    checkbox.addEventListener('change', () => {
-        if (row.protected) {
-            checkbox.checked = true;
-            return;
-        }
-        row.enabled = checkbox.checked;
-        commitGlobalRows();
+    // 主调度器（protected）禁用但仍显示「开启」的中性灰，表达受保护而非可关闭，
+    // 这条语义由组件内的 .sw input:disabled:checked 规则统一承担。
+    const switchEl = createSwitch({
+        checked: row.enabled,
+        disabled: row.protected,
+        title: row.protected
+            ? '主调度器，不可禁用'
+            : (row.enabled ? '禁用 ' + row.key : '启用 ' + row.key),
+        ariaLabel: '启用 ' + row.key,
+        onChange: (event, input) => {
+            if (row.protected) {
+                input.checked = true;
+                return;
+            }
+            row.enabled = input.checked;
+            commitGlobalRows();
+        },
     });
-
-    const track = document.createElement('span');
-    track.className = 'go-switch-track';
-    track.setAttribute('aria-hidden', 'true');
-    switchLabel.appendChild(checkbox);
-    switchLabel.appendChild(track);
-    agentCell.appendChild(switchLabel);
+    agentCell.appendChild(switchEl);
 
     const agentInfo = document.createElement('div');
     agentInfo.className = 'go-agent-info';

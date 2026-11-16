@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OC Manager</title>
     <link rel="stylesheet" href="/css/style.css" />
+    <!-- 控件级样式单独成文件，避免 style.css 继续膨胀（顺序在 style.css 之后，便于覆盖宿主布局） -->
+    <link rel="stylesheet" href="/css/switch.css" />
     <script src="/lib/marked.min.js"></script>
     <script src="/lib/qrcode.min.js"></script>
 </head>
@@ -794,7 +796,7 @@
                                         <strong>启用代理</strong>
                                         <small>启动 OpenCode 前注入代理环境变量</small>
                                     </span>
-                                    <input type="checkbox" id="proxyEnabled" />
+                                    <span class="sw"><input type="checkbox" id="proxyEnabled" data-switch /></span>
                                 </label>
                                 <div class="proxy-field-row">
                                     <div class="modal-field">
@@ -827,9 +829,8 @@
                                         <h3>启用 Web 服务</h3>
                                         <p>关闭后，其他设备将无法访问当前工作区。</p>
                                     </div>
-                                    <label class="cfg-switch" title="启用 Web 服务">
-                                        <input type="checkbox" id="cfgWebSwitch" />
-                                        <span></span>
+                                    <label class="sw" title="启用 Web 服务">
+                                        <input type="checkbox" id="cfgWebSwitch" data-switch />
                                     </label>
                                 </div>
                                 <div class="cfg-form-grid">
@@ -1463,9 +1464,8 @@
                                         <h3>启用</h3>
                                         <p>关闭时写入 <code>disabled: true</code>，保留配置但不连接</p>
                                     </div>
-                                    <label class="cfg-switch" title="启用该连接器">
-                                        <input type="checkbox" id="mcpEnabled" checked />
-                                        <span></span>
+                                    <label class="sw" title="启用该连接器">
+                                        <input type="checkbox" id="mcpEnabled" checked data-switch />
                                     </label>
                                 </div>
                             </div>
@@ -1530,9 +1530,8 @@
                                             <h3>Code Mode</h3>
                                             <p>开启时工具经代码执行通道调用，节省上下文；关闭后工具直接进入模型工具列表（占用更多上下文）</p>
                                         </div>
-                                        <label class="cfg-switch" title="Code Mode">
-                                            <input type="checkbox" id="mcpCodemode" checked />
-                                            <span></span>
+                                        <label class="sw" title="Code Mode">
+                                            <input type="checkbox" id="mcpCodemode" checked data-switch />
                                         </label>
                                     </div>
 
@@ -1541,9 +1540,8 @@
                                             <h3>共享连接（pool）</h3>
                                             <p>多个目录共用同一连接与工具列表，仅 2026-07-28 协议生效</p>
                                         </div>
-                                        <label class="cfg-switch" title="共享连接">
-                                            <input type="checkbox" id="mcpPool" />
-                                            <span></span>
+                                        <label class="sw" title="共享连接">
+                                            <input type="checkbox" id="mcpPool" data-switch />
                                         </label>
                                     </div>
 

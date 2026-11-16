@@ -7,6 +7,7 @@
 // 模块导入（依赖关系显式声明）
 // ============================
 import { isBrowserRuntimeForMain, showToast, showApiError, isDesktopRuntime, loadWailsRuntime, bindOverlayClose } from './core/utils.js';
+import { enhanceSwitches } from './components/switch.js';
 import { getTheme, setTheme } from './core/theme.js';
 import { api } from './core/apicall.js';
 import { store } from './core/state.js';
@@ -363,6 +364,9 @@ function initMain() {
 
     // 侧问面板（/btw）：绑定面板与悬浮按钮事件（需 #btwModal DOM 就绪）
     bindBtwPanelEvents();
+
+    // 静态 HTML 里的开关：补出统一控件的轨道与滑块（只改 DOM 结构，不碰事件）
+    enhanceSwitches(document);
 }
 
 if (document.readyState === 'loading') {
