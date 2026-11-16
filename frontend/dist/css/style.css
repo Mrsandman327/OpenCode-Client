@@ -5112,6 +5112,9 @@ svg.i.is-spinning {
     overflow: hidden;
     background: var(--bg-card);
 }
+.prov-apikey-row:focus-within {
+    border-color: var(--accent);
+}
 .prov-apikey-row .prov-edit-apikey {
     flex: 1;
     border: none;
@@ -5512,6 +5515,9 @@ svg.i.is-spinning {
     outline: none;
     box-sizing: border-box;
     overflow: hidden;
+}
+.file-browser-code-editor:focus-within {
+    border-color: var(--accent);
 }
 
 
@@ -8023,11 +8029,15 @@ body.file-browser-diff-dragging {
     height: 30px;
     padding: 4px 10px;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     background: var(--bg-input);
     color: var(--text-primary);
     font-size: 12px;
     outline: none;
+}
+.pc-code-editor .cm-panel.cm-search .cm-textfield:focus,
+.file-browser-code-editor .cm-panel.cm-search .cm-textfield:focus {
+    border-color: var(--accent);
 }
 
 
