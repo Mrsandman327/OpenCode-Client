@@ -4,26 +4,15 @@
 
 import { store } from './state.js';
 import { formatApiError } from './v2compat.js';
-import { recordToast } from './toast-history.js';
+// Toast 实现已抽到 components/toast.js（样式 css/toast.css），这里只做转发，
+// 保持全项目既有的 showToast(message, type) 调用签名不变。
+import { showToast } from '../components/toast.js';
+
+export { showToast };
 
 // DOM 快捷引用
 export const $ = (sel) => document.querySelector(sel);
 export const $$ = (sel) => document.querySelectorAll(sel);
-
-// Toast 通知
-let toastTimer = null;
-
-export function showToast(message, type = 'info') {
-    const toast = $('#toast');
-    toast.textContent = message;
-    toast.className = `toast ${type} show`;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-        toast.classList.remove('show');
-    }, 2800);
-    // 同步写入通知历史（左下角「通知」入口内可回看）
-    recordToast(message, type);
-}
 
 /** 统一的 API 错误提示：prefix + formatApiError(e)，以 error 样式 toast 展示。
  *  各模块 catch 中展示请求错误时统一调用，避免直接拼 e.message 丢掉
