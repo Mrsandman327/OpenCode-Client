@@ -193,9 +193,12 @@ export function switchTab(sessionID) {
         var dirPath = (info && info.directory) || '';
         dirEl.textContent = dirPath || sessionID;
         dirEl.title = dirPath || '';
+        // 真实目录存到 data-dir（显示文本可能是会话 ID）；
+        // 点击入口统一由 #ocDirBar 承担，子元素不再单独绑 onclick。
+        dirEl.dataset.dir = dirPath;
         dirBar.onclick = function() {
-            // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）
-            if (dirPath) openFileBrowserStandaloneFor(dirPath, { features: ['git'] });
+            var p = dirEl.dataset.dir || '';
+            if (p) openFileBrowserStandaloneFor(p, { features: ['git'] });
         };
     }
 

@@ -433,9 +433,11 @@ export async function selectSession(id) {
         var dirPath = info?.directory || '';
         dirEl.textContent = dirPath || id;
         dirEl.title = dirPath || '';
-        // path 上的 title 保留为"完整路径"预览（省略号截断时悬浮可见）。
+        // 真实目录存到 data-dir：显示文本可能是会话 ID，不能直接拿来当路径。
+        // 目录栏只保留这一个点击入口，子元素不再单独绑 onclick（否则冒泡会打开两个窗口）。
+        dirEl.dataset.dir = dirPath;
         dirBar.onclick = function() {
-            var p = info?.directory || '';
+            var p = dirEl.dataset.dir || '';
             if (!p) return;
             // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）
             openFileBrowserStandaloneFor(p, { features: ['git'] });
@@ -1512,10 +1514,16 @@ export async function sendPrompt() {
         // 发送成功：启动无响应看门狗——20s 内既无流式输出也无失败事件时提示（见 armPromptWatch）
         armPromptWatch(sid);
         if (isNew) {
-            dirEl.onclick = function() {
-                // 右侧面板会话目录：点击直接打开独立窗口（桌面端原生窗口 / Web 端新标签页）
-                openFileBrowserStandaloneFor(sessionDir, { features: ['git'] });
-            };
+            // 新建会话后目录栏显示刚选的目录：更新 data-dir，
+            // 点击入口仍由 #ocDirBar 统一处理，避免子元素与父容器各开一个窗口。
+            dirEl.dataset.dir = sessionDir;
+            var dirBarEl = document.getElementById('ocDirBar');
+            if (dirBarEl) {
+                dirBarEl.onclick = function() {
+                    var p = dirEl.dataset.dir || '';
+                    if (p) openFileBrowserStandaloneFor(p, { features: ['git'] });
+                };
+            }
         }
         clearKnowledgeRefs();
         if (!isMobileTreeMode()) {
