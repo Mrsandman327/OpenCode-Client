@@ -431,9 +431,10 @@ input::placeholder, textarea::placeholder {
 
 .oc-panel-icon-service,
 .oc-panel-icon-subtask,
-.oc-panel-icon-todo {
-    width: 24px;
-    height: 24px;
+.oc-panel-icon-todo,
+.oc-panel-icon-schedule{
+    width: 16px;
+    height: 16px;
 }
 
 .oc-panel-icon-service {
@@ -452,9 +453,6 @@ input::placeholder, textarea::placeholder {
 }
 
 .oc-panel-icon-schedule {
-    width: 15px;
-    height: 15px;
-    margin: 0 4px;
     -webkit-mask-image: url("../assets/定时任务.svg");
     mask-image: url("../assets/定时任务.svg");
 }
