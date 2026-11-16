@@ -456,6 +456,11 @@
                         <span class="stat-value" id="statGlobal">0</span>
                         <span class="stat-label">全局技能</span>
                     </div>
+                    <!-- 技能过滤：紧跟在统计项后，与其他视图的搜索框同一套组件 -->
+                    <div class="search skill-search">
+                        <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                        <input class="search__input" type="text" id="skillSearch" placeholder="输入技能名称过滤..." />
+                    </div>
                     <div class="stats-spacer"></div>
                     <button type="button" data-btn="refresh" data-btn-size="sm" id="btnRefresh" title="刷新技能列表"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</button>
                 </section>
@@ -504,16 +509,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- L4: 搜索栏（保持不变；path-bar-search 仅用于本页收紧行距，
-                     分隔线由上方状态行 / 展开配置区的 border-bottom 提供） -->
-                <section class="path-bar path-bar-search">
-                    <span class="path-label">搜索：</span>
-                    <div class="search">
-                        <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                        <input class="search__input" type="text" id="skillSearch" placeholder="输入技能名称过滤..." />
-                    </div>
-                </section>
 
                 <!-- L5: 技能列表 -->
                 <main class="skill-list" id="skillList">

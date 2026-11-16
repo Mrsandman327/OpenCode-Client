@@ -787,29 +787,12 @@ input::placeholder, textarea::placeholder {
     flex-shrink: 0;
 }
 
-/* 技能管理视图：顶部固定 + 列表滚动 */
-#view-skills.active {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-}
-#view-skills .stats-bar,
-#view-skills .path-bar {
-    flex-shrink: 0;
-}
 /* 技能管理页三行工具栏（来源目录 / 技能方案 / 搜索）垂直间距收紧：
    全站 .path-bar 默认 padding 10px 24px，相邻两行间距为 10+10=20px；
    此处仅技能页把上下内边距收窄为 5px，相邻两行间距降到 10px，
    整体更紧凑，同时保留足够的点击/视觉呼吸空间。 */
 #view-skills .path-bar {
     padding: 5px 24px;
-}
-/* 搜索行：分隔线由上方「配置状态行 / 展开的配置区」的 border-bottom 提供，
-   此处不再重复画上边框，避免折叠时两条 1px 线贴在一起形成 2px 双线。
-   选择器带上 .path-bar 提高一级优先级，确保覆盖上方 padding 简写。 */
-#view-skills .path-bar.path-bar-search {
-    padding-top: 5px;
-    padding-bottom: 9px;
 }
 #view-skills .skill-list {
     flex: 1;
@@ -11527,6 +11510,7 @@ input.toolbar-input {
 }
 
 /* 技能页搜索：与工具栏同宽，不撑满整行 */
-.path-bar-search .search {
+.stats-bar .search {
     width: 260px;
+    flex: 0 1 260px;
 }
