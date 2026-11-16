@@ -9,6 +9,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
+import { buttonHtml } from '../components/button.js';
 import { store, currentDir } from '../core/state.js';
 import { showToast, showApiError, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop, refreshTodoPanel } from '../core/utils.js';
 import { getNetworkConfig } from './config.js';
@@ -429,7 +430,7 @@ export function renderServiceStatus() {
                 //   - aria-label 保留同一文案，供读屏与无 tooltip 场景使用；
                 //   - 图标尺寸/描边颜色由 .oc-service-icon 统一控制（stroke 取 currentColor 跟随按钮色）。
                 const actions = '<span class="oc-service-actions">' +
-                    '<button type="button" class="btn btn-sm" data-mcp-action="connect" data-mcp-idx="' + idx + '" title="重连" aria-label="重连">' +
+                    '<button type="button" data-btn="secondary" data-btn-size="sm" data-mcp-action="connect" data-mcp-idx="' + idx + '" title="重连" aria-label="重连">' +
                         '<svg class="oc-service-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
                     '</button>' +
                     (running ? '<button type="button" class="btn btn-sm btn-del" data-mcp-action="disconnect" data-mcp-idx="' + idx + '" title="断开" aria-label="断开">' +
@@ -868,7 +869,7 @@ function renderUpdateBanner(kind, data) {
         el.className = 'oc-update-banner found';
         el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic"><svg class="i" aria-hidden="true"><use href="#i-sparkle"></use></svg></span>'
             + '<span class="oc-update-grow">发现新版本 ' + ver + '</span>'
-            + '<button class="btn btn-primary oc-update-btn" id="ocUpdateDownloadBtn">后台下载</button></div>'
+            + buttonHtml({ label: '后台下载', className: 'oc-update-btn', id: 'ocUpdateDownloadBtn' }) + '</div>'
             + '<div class="oc-update-line2">约 96 MB · 后台下载，期间可继续使用</div>';
         bindUpdateClick('ocUpdateDownloadBtn', function () { startUpdateDownload(data.version); });
         return;
@@ -890,7 +891,7 @@ function renderUpdateBanner(kind, data) {
         el.className = 'oc-update-banner ready';
         el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic ok"><svg class="i" aria-hidden="true"><use href="#i-check"></use></svg></span>'
             + '<span class="oc-update-grow">' + ver + ' 已下载并准备就绪</span>'
-            + '<button class="btn btn-primary oc-update-btn" id="ocUpdateApplyBtn">立即完成更新</button></div>'
+            + buttonHtml({ label: '立即完成更新', className: 'oc-update-btn', id: 'ocUpdateApplyBtn' }) + '</div>'
             + '<div class="oc-update-line2">将重启 OpenCode 服务（约 10 秒），期间无法对话。</div>';
         bindUpdateClick('ocUpdateApplyBtn', function () { applyUpdate(data.version); });
         return;
@@ -899,7 +900,7 @@ function renderUpdateBanner(kind, data) {
         el.className = 'oc-update-banner failed';
         el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic err"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>'
             + '<span class="oc-update-grow">' + escapeHtml(data.error || '更新任务失败') + '</span>'
-            + '<button class="btn btn-sm oc-update-btn" id="ocUpdateRetryBtn">重试</button></div>'
+            + '<button data-btn="secondary" data-btn-size="sm" class="oc-update-btn" id="ocUpdateRetryBtn">重试</button></div>'
             + '<div class="oc-update-line2">已下载的部分会保留，重试将从中断处继续。</div>';
         bindUpdateClick('ocUpdateRetryBtn', function () { startUpdateDownload(data.version); });
         return;
@@ -1119,7 +1120,7 @@ function showUpdateApplyModal() {
                 + '<div class="oc-update-r-t1">已更新到 v' + escapeHtml(ver) + '</div>'
                 + '<div class="oc-update-r-t2">服务已重启，运行版本校验通过。</div>';
             var f = overlay.querySelector('#ocUpdateModalFooter');
-            f.innerHTML = '<button class="btn btn-primary" id="ocUpdateModalOk">完成</button>';
+            f.innerHTML = buttonHtml({ label: '完成', id: 'ocUpdateModalOk' });
             f.querySelector('#ocUpdateModalOk').addEventListener('click', function () { overlay.remove(); });
         },
         showFailed: function (msg, rolled) {
@@ -1132,7 +1133,7 @@ function showUpdateApplyModal() {
                 + '<div class="oc-update-r-t2">' + escapeHtml(msg) + '</div>'
                 + (rolled ? '<div class="oc-update-rollback-note">已恢复到更新前的版本（备份 tools/opencode.exe.bak），服务已重新启动。</div>' : '');
             var f = overlay.querySelector('#ocUpdateModalFooter');
-            f.innerHTML = '<button class="btn btn-sm" id="ocUpdateModalClose">关闭</button>';
+            f.innerHTML = '<button data-btn="secondary" data-btn-size="sm" id="ocUpdateModalClose">关闭</button>';
             f.querySelector('#ocUpdateModalClose').addEventListener('click', function () { overlay.remove(); });
         },
     };

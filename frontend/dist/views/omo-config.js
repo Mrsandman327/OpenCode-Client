@@ -27,6 +27,7 @@ import { store, currentDir } from '../core/state.js';
 import { toModelOptions, formatApiError } from '../core/v2compat.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
 import { createSwitch } from '../components/switch.js';
+import { buttonHtml } from '../components/button.js';
 
 // ========== 视图状态（全部由 loadModelConfig 填充） ==========
 export let slimPath = '';           // 配置文件路径
@@ -124,7 +125,7 @@ export async function loadModelConfig() {
 
         renderModelConfig();
     } catch (err) {
-        container.innerHTML = `<div class="error"><p><svg class="i" aria-hidden="true"><use href="#i-alert"></use></svg>加载失败</p><p class="error-detail">${escapeAttr(formatApiError(err))}</p><button class="btn btn-primary" id="btnRetryOmoLoad">重试</button></div>`;
+        container.innerHTML = `<div class="error"><p><svg class="i" aria-hidden="true"><use href="#i-alert"></use></svg>加载失败</p><p class="error-detail">${escapeAttr(formatApiError(err))}</p>${buttonHtml({ label: '重试', id: 'btnRetryOmoLoad' })}</div>`;
         const retryBtn = container.querySelector('#btnRetryOmoLoad');
         if (retryBtn) retryBtn.addEventListener('click', loadModelConfig);
     }
@@ -809,7 +810,7 @@ function renderBatchBar() {
             <option value="">-- 批量设置模型 --</option>
             ${modelOptionsHtml('')}
         </select>
-        <button class="btn btn-sm btn-open" id="btnApplyBatch">应用</button>
+        <button data-btn="open" data-btn-size="sm" id="btnApplyBatch">应用</button>
     `;
     batchBar.innerHTML = '';
     batchBar.appendChild(bar);
@@ -1222,7 +1223,7 @@ export function showAddEntryModal(presetName) {
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" id="btnCancelAddEntry">取消</button>
-                <button class="btn btn-primary" id="btnConfirmAddEntry">确定</button>
+                ${buttonHtml({ label: '确定', id: 'btnConfirmAddEntry' })}
             </div>
         </div>`;
     document.body.appendChild(overlay);
@@ -1309,7 +1310,7 @@ export function showAddPresetModal() {
             </div>
             <div class="modal-footer">
                 <button class="btn btn-cancel" id="btnCancelAddPreset">取消</button>
-                <button class="btn btn-primary" id="btnConfirmAddPreset">确定</button>
+                ${buttonHtml({ label: '确定', id: 'btnConfirmAddPreset' })}
             </div>
         </div>`;
     document.body.appendChild(overlay);

@@ -420,13 +420,13 @@ export function providerCardHtml(p) {
                     </label>
                 </div>
                 <div class="provider-models">
-                    <div class="provider-models-title">模型 <button class="btn btn-sm btn-add btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-sm btn-add btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">获取模型列表</button></div>
+                    <div class="provider-models-title">模型 <button class="btn btn-xs btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-xs btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">获取模型列表</button></div>
                     <div class="card-models-list" data-key="${escapeHtml(p.key)}">
                         ${modelsHtml}
                     </div>
                 </div>
                 <div class="provider-save-row">
-                    <button class="btn btn-sm btn-save-card" data-key="${escapeHtml(p.key)}">保存</button>
+                    <button class="btn btn-xs btn-primary btn-save-card" data-key="${escapeHtml(p.key)}">保存</button>
                 </div>
             </div>
         </div>`;

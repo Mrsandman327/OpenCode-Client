@@ -6,6 +6,9 @@
     <title>OC Manager</title>
     <link rel="stylesheet" href="/css/style.css" />
     <!-- 控件级样式单独成文件，避免 style.css 继续膨胀（顺序在 style.css 之后，便于覆盖宿主布局） -->
+    <link rel="stylesheet" href="/css/button.css" />
+    <!-- 主按钮单独一套：改主按钮样式不会影响普通按钮 -->
+    <link rel="stylesheet" href="/css/button-primary.css" />
     <link rel="stylesheet" href="/css/switch.css" />
     <script src="/lib/marked.min.js"></script>
     <script src="/lib/qrcode.min.js"></script>
@@ -126,8 +129,8 @@
     <header class="header">
         <h1 class="app-title" id="appTitle" title="切换左侧导航展开状态"><span class="app-title-icon" aria-hidden="true"></span>OpenCode 工作台</h1>
         <div class="header-actions">
-            <button type="button" class="btn btn-config" id="btnWtOpen" title="在终端中打开" disabled><span class="btn-terminal-icon" aria-hidden="true"></span>在终端打开</button>
-            <button type="button" class="btn btn-primary" id="btnToggleWeb" data-mode="start"><svg class="i" aria-hidden="true"><use href="#i-play"></use></svg>启动 OpenCode</button>
+            <button type="button" data-btn="config" id="btnWtOpen" title="在终端中打开" disabled><span class="btn-terminal-icon" aria-hidden="true"></span>在终端打开</button>
+            <button type="button" data-btn="primary" id="btnToggleWeb" data-mode="start"><svg class="i" aria-hidden="true"><use href="#i-play"></use></svg>启动 OpenCode</button>
             <!-- 移动端顶栏：隐藏上面两个按钮，只保留主题切换 -->
             <button type="button" class="header-theme-toggle" id="btnTheme" title="切换主题" aria-label="切换主题"><svg class="i" aria-hidden="true"><use href="#i-moon"></use></svg></button>
         </div>
@@ -245,9 +248,9 @@
                         <div class="oc-search-bar" id="ocSearchBar" style="display:none">
                             <input type="text" id="ocSearchInput" placeholder="搜索当前会话消息..." />
                             <span class="oc-search-count" id="ocSearchCount"></span>
-                            <button type="button" class="btn btn-sm" id="ocSearchPrev" disabled>▲</button>
-                            <button type="button" class="btn btn-sm" id="ocSearchNext" disabled>▼</button>
-                            <button type="button" class="btn btn-sm" id="ocSearchClose">×</button>
+                            <button type="button" data-btn="secondary" data-btn-size="sm" id="ocSearchPrev" disabled>▲</button>
+                            <button type="button" data-btn="secondary" data-btn-size="sm" id="ocSearchNext" disabled>▼</button>
+                            <button type="button" data-btn="secondary" data-btn-size="sm" id="ocSearchClose">×</button>
                         </div>
                         <div class="oc-messages-wrap">
                             <div class="oc-messages-pool" id="ocMessagesPool">
@@ -302,9 +305,9 @@
                                     <div class="oc-permission-resources" id="permissionResources"></div>
                                 </div>
                                 <div class="oc-permission-actions">
-                                    <button type="button" class="btn btn-sm" id="btnPermReject">拒绝</button>
-                                    <button type="button" class="btn btn-sm btn-primary" id="btnPermAlways">始终允许</button>
-                                    <button type="button" class="btn btn-sm" id="btnPermOnce">允许一次</button>
+                                    <button type="button" data-btn="secondary" data-btn-size="sm" id="btnPermReject">拒绝</button>
+                                    <button type="button" data-btn="primary" data-btn-size="sm" id="btnPermAlways">始终允许</button>
+                                    <button type="button" data-btn="secondary" data-btn-size="sm" id="btnPermOnce">允许一次</button>
                                 </div>
                             </div>
                             <div class="oc-input-wrap">
@@ -313,7 +316,7 @@
                                 <textarea id="ocPrompt" disabled></textarea>
                                 <div class="oc-input-actions">
                                     <button type="button" class="oc-attach-btn" id="btnAttachFile" disabled title="附件"><svg class="i" aria-hidden="true"><use href="#i-paperclip"></use></svg></button>
-                                    <button type="button" class="btn btn-primary" id="btnSendPrompt" disabled>发送</button>
+                                    <button type="button" data-btn="primary" id="btnSendPrompt" disabled>发送</button>
                                 </div>
                             </div>
                         </div>
@@ -385,11 +388,11 @@
             <div class="view-panel" id="view-omo">
                 <!-- 顶部工具栏（固定）：左侧文件操作，右侧保存状态 + 次要操作 + 主操作 -->
                 <div class="omo-toolbar" role="toolbar" aria-label="OMO 配置操作">
-                    <button type="button" class="btn btn-sm btn-open" id="btnOpenSlimDir" title="在资源管理器中打开配置文件所在目录"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开配置文件</button>
+                    <button type="button" data-btn="open" data-btn-size="sm" id="btnOpenSlimDir" title="在资源管理器中打开配置文件所在目录"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开配置文件</button>
                     <div class="omo-toolbar-actions">
                         <span class="save-status" id="saveStatus"></span>
-                        <button type="button" class="btn btn-sm btn-open" id="btnAddModelType"><svg class="kb-i kb-i-14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>新增方案</button>
-                        <button type="button" class="btn btn-sm btn-primary" id="btnSaveModels"><svg class="kb-i kb-i-14" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg><span id="btnSaveModelsText">保存配置</span></button>
+                        <button type="button" data-btn="open" data-btn-size="sm" id="btnAddModelType"><svg class="kb-i kb-i-14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>新增方案</button>
+                        <button type="button" data-btn="primary" data-btn-size="sm" id="btnSaveModels"><svg class="kb-i kb-i-14" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg><span id="btnSaveModelsText">保存配置</span></button>
                     </div>
                 </div>
 
@@ -447,7 +450,7 @@
                         <span class="stat-label">全局技能</span>
                     </div>
                     <div class="stats-spacer"></div>
-                    <button type="button" class="btn btn-sm btn-refresh" id="btnRefresh" title="刷新技能列表"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</button>
+                    <button type="button" data-btn="refresh" data-btn-size="sm" id="btnRefresh" title="刷新技能列表"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</button>
                 </section>
 
                 <!-- L2: 配置状态行（常态形态）
@@ -469,7 +472,7 @@
                             技能方案：<b id="skillPlanCount">未添加</b>
                         </span>
                     </div>
-                    <button type="button" class="btn btn-sm skill-cfg-toggle" id="btnSkillCfgToggle" aria-expanded="false" aria-controls="skillCfgInline" title="展开 / 收起技能来源与方案配置">
+                    <button type="button" data-btn="secondary" data-btn-size="sm" class="skill-cfg-toggle" id="btnSkillCfgToggle" aria-expanded="false" aria-controls="skillCfgInline" title="展开 / 收起技能来源与方案配置">
                         更改
                         <svg class="skill-cfg-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
                     </button>
@@ -519,7 +522,7 @@
 
                     <!-- 标签筛选：与分类筛选相互独立，可与搜索叠加 -->
                     <div class="kb-tag-filter">
-                        <button type="button" class="btn btn-sm kb-tag-btn" id="kbTagFilterBtn" title="按标签筛选">
+                        <button type="button" data-btn="secondary" data-btn-size="sm" class="kb-tag-btn" id="kbTagFilterBtn" title="按标签筛选">
                             <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><path d="M7 7h.01"/></svg>
                             <span id="kbTagFilterLabel" class="kb-tag-btn-label">标签</span>
                             <svg class="kb-i kb-i-14 kb-tag-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
@@ -541,7 +544,7 @@
                         </button>
                     </div>
 
-                    <button type="button" class="btn btn-primary btn-sm" id="kbNewEntryBtn">
+                    <button type="button" data-btn="primary" data-btn-size="sm" id="kbNewEntryBtn">
                         <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
                         新建条目
                     </button>
@@ -582,7 +585,7 @@
                         <input type="search" id="providerSearch" placeholder="搜索供应商、模型…" autocomplete="off" />
                     </div>
                     <div class="toolbar-spacer"></div>
-                    <button type="button" class="btn btn-sm" id="btnExpandAllProviders" title="展开或折叠全部卡片">展开 / 折叠</button>
+                    <button type="button" data-btn="secondary" data-btn-size="sm" id="btnExpandAllProviders" title="展开或折叠全部卡片">展开 / 折叠</button>
                     <div class="pv-seg" id="providerViewSeg">
                         <button type="button" class="pv-seg-btn" data-view="list" title="列表视图（单列）">
                             <svg class="pv-i" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>
@@ -594,9 +597,9 @@
                         </button>
                     </div>
                     <!-- MCP 连接器：打开全局 mcp.servers 配置弹窗 -->
-                    <button type="button" class="btn btn-sm" id="btnOpenMcp" title="管理 MCP 连接器（全局配置）">MCP 连接器</button>
-                    <button type="button" class="btn btn-sm btn-open" id="btnOpenProviderConfigDir" title="在文件浏览器中打开配置文件所在目录"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开配置文件</button>
-                    <button type="button" class="btn btn-primary btn-sm" id="btnAddProvider">＋ 添加供应商</button>
+                    <button type="button" data-btn="secondary" data-btn-size="sm" id="btnOpenMcp" title="管理 MCP 连接器（全局配置）">MCP 连接器</button>
+                    <button type="button" data-btn="open" data-btn-size="sm" id="btnOpenProviderConfigDir" title="在文件浏览器中打开配置文件所在目录"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开配置文件</button>
+                    <button type="button" data-btn="primary" data-btn-size="sm" id="btnAddProvider">＋ 添加供应商</button>
                 </div>
 
                 <div class="providers-scroll">
@@ -642,8 +645,8 @@
                 <div class="btw-thread" id="btwThread"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-sm btw-copy" style="display:none">复制回答</button>
-                <button type="button" class="btn btn-sm btw-retry" style="display:none">重试</button>
+                <button type="button" data-btn="secondary" data-btn-size="sm" class="btw-copy" style="display:none">复制回答</button>
+                <button type="button" data-btn="secondary" data-btn-size="sm" class="btw-retry" style="display:none">重试</button>
             </div>
         </div>
     </div>
@@ -764,7 +767,7 @@
                                     <p>OpenCode 服务地址、访问口令与代理设置。保存后下次启动生效。</p>
                                 </div>
                                 <div class="cfg-network-actions" id="proxyModalActions">
-                                    <button type="button" class="btn btn-primary" id="btnSaveProxy">保存</button>
+                                    <button type="button" data-btn="primary" id="btnSaveProxy">保存</button>
                                 </div>
                             </div>
                             <div class="cfg-settings-card cfg-network">
@@ -948,7 +951,7 @@
                             <span class="oc-fb-icon oc-fb-icon-back" aria-hidden="true"></span>
                         </button>
                         <input type="text" class="dir-browser-path" id="dirBrowserPath" placeholder="输入路径">
-                        <button type="button" class="btn btn-sm" id="btnDirBrowserGo">转到</button>
+                        <button type="button" data-btn="secondary" data-btn-size="sm" id="btnDirBrowserGo">转到</button>
                     </div>
                     <div class="dir-browser-list" id="dirBrowserList"></div>
                 </section>
@@ -957,7 +960,7 @@
                 <span class="dir-browser-selected" id="dirBrowserSelected"></span>
                 <div>
                     <button type="button" class="btn btn-cancel" id="btnDirBrowserCancel">取消</button>
-                    <button type="button" class="btn btn-primary" id="btnDirBrowserSelect">选择此目录</button>
+                    <button type="button" data-btn="primary" id="btnDirBrowserSelect">选择此目录</button>
                 </div>
             </div>
         </div>
@@ -990,10 +993,10 @@
                         <div class="file-browser-files-panel" id="fileBrowserFilesPanel">
                             <div class="file-browser-list-header">
                                 <div class="file-browser-list-header-title">文件列表</div>
-                                <button type="button" class="btn btn-sm file-browser-create-dir-btn" id="btnFileBrowserCreateFile" title="新建文件">
+                                <button type="button" data-btn="secondary" data-btn-size="sm" class="file-browser-create-dir-btn" id="btnFileBrowserCreateFile" title="新建文件">
                                     <span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-file" aria-hidden="true"></span>
                                 </button>
-                                <button type="button" class="btn btn-sm file-browser-create-dir-btn" id="btnFileBrowserCreateDir" title="新建文件夹">
+                                <button type="button" data-btn="secondary" data-btn-size="sm" class="file-browser-create-dir-btn" id="btnFileBrowserCreateDir" title="新建文件夹">
                                     <span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-folder" aria-hidden="true"></span>
                                 </button>
                             </div>
@@ -1017,7 +1020,7 @@
                             <div class="file-browser-git-body" id="fileBrowserGitCurrentBody">
                                 <div class="file-browser-git-commit-bar">
                                     <textarea class="file-browser-git-commit-input" id="fileBrowserGitCommitInput" placeholder="输入提交信息" rows="2"></textarea>
-                                    <button type="button" class="btn btn-sm file-browser-git-commit-btn" id="btnFileBrowserGitCommit">提交</button>
+                                    <button type="button" data-btn="primary" data-btn-size="sm" class="file-browser-git-commit-btn" id="btnFileBrowserGitCommit">提交</button>
                                 </div>
                                 <div id="fileBrowserGitCurrentList">
                                     <div class="file-browser-empty">正在检查 Git 状态...</div>
@@ -1028,8 +1031,8 @@
                             <div class="file-browser-git-header" id="fileBrowserGitHistoryTitle">
                                 提交历史
                                 <span>
-                                    <button type="button" class="btn btn-xs file-browser-git-push-btn" id="btnFileBrowserGitPull" title="拉取远端"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>拉取</button>
-                                    <button type="button" class="btn btn-xs file-browser-git-push-btn" id="btnFileBrowserGitPush" title="推送到远端"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg>推送</button>
+                                    <button type="button" data-btn="secondary" data-btn-size="xs" class="file-browser-git-push-btn" id="btnFileBrowserGitPull" title="拉取远端"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>拉取</button>
+                                    <button type="button" data-btn="secondary" data-btn-size="xs" class="file-browser-git-push-btn" id="btnFileBrowserGitPush" title="推送到远端"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg>推送</button>
                                 </span>
                             </div>
                             <div class="file-browser-git-body" id="fileBrowserGitHistoryBody">
@@ -1065,14 +1068,14 @@
                                 <div class="file-browser-preview-title" id="filePreviewTitle">请选择文件</div>
                                 <div class="file-browser-preview-actions" id="filePreviewActions"></div>
                             </div>
-                            <button type="button" class="btn btn-sm" id="btnFileBrowserDownload" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>下载</button>
+                            <button type="button" data-btn="secondary" data-btn-size="sm" id="btnFileBrowserDownload" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>下载</button>
                         </div>
                         <div class="file-browser-preview-meta" id="filePreviewMeta"></div>
                     </div>
                     <!-- 外部修改提示：仅在文件被其它程序改动且当前有未保存编辑时出现 -->
                     <div class="fb-external-change" id="fileBrowserExternalChange" style="display:none">
                         <span class="fb-external-change-text" id="fileBrowserExternalChangeText">该文件已在外部修改</span>
-                        <button type="button" class="btn btn-xs" id="btnFileBrowserExternalReload">重新加载</button>
+                        <button type="button" data-btn="secondary" data-btn-size="xs" id="btnFileBrowserExternalReload">重新加载</button>
                     </div>
                     <div class="file-browser-preview-body" id="filePreviewBody">
                         <div class="file-browser-empty">请选择左侧文件进行预览</div>
@@ -1119,8 +1122,8 @@
             </div>
             <div class="file-browser-upload-conflict-note">你可以直接覆盖已有文件，或者输入一个新的文件名后重新上传。</div>
             <div class="modal-actions file-browser-upload-conflict-actions">
-                <button type="button" class="btn btn-danger-outline" id="btnFileBrowserUploadOverwrite">覆盖</button>
-                <button type="button" class="btn btn-sm" id="btnFileBrowserUploadRenameMode">重命名</button>
+                <button type="button" data-btn="danger" id="btnFileBrowserUploadOverwrite">覆盖</button>
+                <button type="button" data-btn="secondary" data-btn-size="sm" id="btnFileBrowserUploadRenameMode">重命名</button>
             </div>
             <div class="modal-field" id="fileBrowserUploadRenameField" style="display:none">
                 <label for="fileBrowserUploadRenameInput">新文件名</label>
@@ -1128,7 +1131,7 @@
                 <div class="file-browser-upload-error" id="fileBrowserUploadConflictError"></div>
             </div>
             <div class="modal-actions">
-                <button type="button" class="btn btn-primary" id="btnFileBrowserUploadRenameConfirm" style="display:none">确认重命名上传</button>
+                <button type="button" data-btn="primary" id="btnFileBrowserUploadRenameConfirm" style="display:none">确认重命名上传</button>
                 <button type="button" class="btn-cancel" id="btnFileBrowserUploadConflictCancel">取消</button>
             </div>
         </div>
@@ -1162,12 +1165,12 @@
                     <span><svg class="i" aria-hidden="true"><use href="#i-file-plus"></use></svg></span><span id="subtaskDesc"></span>
                 </div>
                 <div class="subtask-prompt-collapse">
-                    <button type="button" class="btn btn-sm subtask-prompt-toggle" id="subtaskPromptToggle">展开原始任务</button>
+                    <button type="button" data-btn="secondary" data-btn-size="sm" class="subtask-prompt-toggle" id="subtaskPromptToggle">展开原始任务</button>
                     <pre id="subtaskPromptText" class="subtask-prompt-text" style="display:none"></pre>
                 </div>
                 <div class="meta-row-muted">
                     <code id="subtaskSid" class="subtask-sid"></code>
-                    <button type="button" class="btn btn-sm subtask-copy-sid" id="subtaskCopySid" title="复制 SessionId"><svg class="i" aria-hidden="true"><use href="#i-clipboard"></use></svg></button>
+                    <button type="button" data-btn="secondary" data-btn-size="sm" class="subtask-copy-sid" id="subtaskCopySid" title="复制 SessionId"><svg class="i" aria-hidden="true"><use href="#i-clipboard"></use></svg></button>
                 </div>
             </div>
             <div class="subtask-modal-body" id="subtaskMessages">
@@ -1266,7 +1269,7 @@
             <div class="kb-entry-foot">
                 <div class="kb-entry-foot-right">
                     <button type="button" class="kb-btn-ghost" id="kbEntryCancelBtn">取消</button>
-                    <button type="button" class="btn btn-primary" id="kbEntrySaveBtn">保存</button>
+                    <button type="button" data-btn="primary" id="kbEntrySaveBtn">保存</button>
                     <button type="button" class="kb-btn-convert" id="kbEntryConvertBtn" title="转化为 OpenCode 资产">转化为资产</button>
                 </div>
             </div>
@@ -1406,7 +1409,7 @@
                 <div class="kb-conv-foot-note" id="kbConvFootNote"></div>
                 <div class="kb-entry-foot-right">
                     <button type="button" class="kb-btn-ghost" id="kbConvertCancelBtn">取消</button>
-                    <button type="button" class="btn btn-primary" id="kbConvertConfirmBtn">确认写入</button>
+                    <button type="button" data-btn="primary" id="kbConvertConfirmBtn">确认写入</button>
                 </div>
             </div>
         </div>
@@ -1428,8 +1431,8 @@
                 <aside class="mcp-nav">
                     <div class="mcp-nav-list" id="mcpList"></div>
                     <div class="mcp-nav-foot">
-                        <button type="button" class="btn btn-sm" id="btnMcpAdd">+ 新增连接器</button>
-                        <button type="button" class="btn btn-sm" id="btnMcpGlobalTimeout">全局超时</button>
+                        <button type="button" data-btn="secondary" data-btn-size="sm" id="btnMcpAdd">+ 新增连接器</button>
+                        <button type="button" data-btn="secondary" data-btn-size="sm" id="btnMcpGlobalTimeout">全局超时</button>
                     </div>
                 </aside>
 
@@ -1454,8 +1457,8 @@
                                 <div class="cfg-field" id="mcpType">
                                     <label>类型</label>
                                     <div style="display:flex;gap:8px">
-                                        <button type="button" class="btn btn-sm" data-mcp-type="remote">remote</button>
-                                        <button type="button" class="btn btn-sm" data-mcp-type="local">local</button>
+                                        <button type="button" data-btn="secondary" data-btn-size="sm" data-mcp-type="remote">remote</button>
+                                        <button type="button" data-btn="secondary" data-btn-size="sm" data-mcp-type="local">local</button>
                                     </div>
                                 </div>
 
@@ -1504,7 +1507,7 @@
                                     <label for="mcpCwd">工作目录（cwd）</label>
                                     <div class="mcp-input-row">
                                         <input id="mcpCwd" placeholder="留空表示使用项目目录" autocomplete="off" />
-                                        <button type="button" class="btn btn-sm" id="btnMcpPickCwd" title="选择目录">选择</button>
+                                        <button type="button" data-btn="secondary" data-btn-size="sm" id="btnMcpPickCwd" title="选择目录">选择</button>
                                     </div>
                                 </div>
 
@@ -1617,8 +1620,8 @@
 
                     <div class="modal-footer mcp-footer">
                         <div style="display:flex;gap:8px">
-                            <button type="button" class="btn btn-sm" id="btnMcpCancel">取消</button>
-                            <button type="button" class="btn btn-sm btn-primary" id="btnMcpSave">保存</button>
+                            <button type="button" data-btn="secondary" data-btn-size="sm" id="btnMcpCancel">取消</button>
+                            <button type="button" data-btn="primary" data-btn-size="sm" id="btnMcpSave">保存</button>
                         </div>
                     </div>
                 </section>
@@ -1657,8 +1660,8 @@
                     <div class="modal-footer">
                         <span></span>
                         <div style="display:flex;gap:8px">
-                            <button type="button" class="btn btn-sm" id="btnMcpGlobalBack">返回</button>
-                            <button type="button" class="btn btn-sm btn-primary" id="btnMcpGlobalSave">保存</button>
+                            <button type="button" data-btn="secondary" data-btn-size="sm" id="btnMcpGlobalBack">返回</button>
+                            <button type="button" data-btn="primary" data-btn-size="sm" id="btnMcpGlobalSave">保存</button>
                         </div>
                     </div>
                 </section>
@@ -1666,7 +1669,7 @@
                 <!-- 右：空状态 / 加载失败 -->
                 <section class="mcp-empty" id="mcpEmpty" style="display:none">
                     <div id="mcpEmptyText">从左侧选择一个连接器，或点「新增连接器」</div>
-                    <button type="button" class="btn btn-sm" id="btnMcpReload" style="display:none">重新加载</button>
+                    <button type="button" data-btn="secondary" data-btn-size="sm" id="btnMcpReload" style="display:none">重新加载</button>
                 </section>
             </div>
         </div>
@@ -1832,8 +1835,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-sm" id="btnScheduleCancel">取消</button>
-                <button type="button" class="btn btn-primary btn-sm" id="btnScheduleCreate">创建任务</button>
+                <button type="button" data-btn="secondary" data-btn-size="sm" id="btnScheduleCancel">取消</button>
+                <button type="button" data-btn="primary" data-btn-size="sm" id="btnScheduleCreate">创建任务</button>
             </div>
         </div>
     </div>

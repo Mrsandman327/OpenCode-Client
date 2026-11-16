@@ -8,6 +8,7 @@
 // ============================
 import { isBrowserRuntimeForMain, showToast, showApiError, isDesktopRuntime, loadWailsRuntime, bindOverlayClose } from './core/utils.js';
 import { enhanceSwitches } from './components/switch.js';
+import { enhanceButtons } from './components/button.js';
 import { getTheme, setTheme } from './core/theme.js';
 import { api } from './core/apicall.js';
 import { store } from './core/state.js';
@@ -66,6 +67,11 @@ import './chat/notifications.js';
 // index.html 用动态 import 分流入口，模块可能在 DOMContentLoaded 之后才加载完成，
 // 因此不能只依赖该事件，需按 readyState 判断后立即执行。
 function initMain() {
+    // 静态 HTML 里的按钮与开关：启动时先补出统一类名 / 控件结构，再绑定任何事件。
+    // 这样后续 querySelector('.btn-primary')、getElementById 都能拿到正确元素。
+    enhanceButtons(document);
+    enhanceSwitches(document);
+
     // 全局拦截外部链接点击：防止 WebView/页面导航离开工作台（聊天消息里的 markdown 链接也走这里）
     document.addEventListener('click', function(e) {
         var target = e.target;
@@ -364,9 +370,6 @@ function initMain() {
 
     // 侧问面板（/btw）：绑定面板与悬浮按钮事件（需 #btwModal DOM 就绪）
     bindBtwPanelEvents();
-
-    // 静态 HTML 里的开关：补出统一控件的轨道与滑块（只改 DOM 结构，不碰事件）
-    enhanceSwitches(document);
 }
 
 if (document.readyState === 'loading') {

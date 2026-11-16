@@ -1,0 +1,137 @@
+/* ============================================================
+   统一按钮样式（配合 components/button.js）
+   ============================================================
+   不变量：圆角 radius-sm、字体 500、间距 6px、行高 1.2、统一过渡与轻投影。
+   尺寸档位（.btn-sm / .btn-xs）只改内边距与字号；
+   配色变体（.btn-primary / .btn-open / .btn-danger-outline …）只改颜色。
+   两者互不覆盖：class="btn btn-sm btn-primary" 恒为「小号主按钮」。
+   ============================================================ */
+
+/* ========== 按钮（统一体系） ==========
+ * 不变量：圆角 radius-sm、字体 500、间距 6px、行高 1.2（高度可预测）、统一过渡。
+ * 尺寸用附加类区分（.btn-md 默认 / .btn-sm / .btn-xs），只改内边距与字号。
+ * 配色用变体类区分（.btn-primary / .btn-secondary / .btn-danger-outline …），只改颜色。
+ * 两者互不覆盖：class="btn btn-sm btn-primary" 永远是「小号蓝底」。 */
+.btn,
+[data-btn] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color .2s ease, box-shadow .2s ease, color .2s ease, border-color .2s ease;
+    white-space: nowrap;
+    outline: none;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* 主按钮（.btn-primary）的样式在 css/button-primary.css，本文件只放普通按钮骨架 */
+
+.btn-refresh,
+[data-btn="refresh"] {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+.btn-refresh:hover:not(:disabled),
+[data-btn="refresh"]:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* 尺寸档位：只改内边距与字号，绝不改颜色（配色由变体类决定） */
+.btn-sm,
+[data-btn-size="sm"] {
+    padding: 5px 14px;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+/* 小号但没指定变体时，保持原来的「次级按钮」观感 */
+.btn-sm:not(.btn-primary):not(.btn-danger-outline),
+[data-btn-size="sm"]:not([data-btn="primary"]):not([data-btn="danger"]) {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+.btn-sm:hover:not(:disabled):not(.btn-primary),
+[data-btn-size="sm"]:hover:not(:disabled):not([data-btn="primary"]) {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+/* 更小档位：卡片内的小操作（保存、添加模型等） */
+.btn-xs,
+[data-btn-size="xs"] {
+    padding: 4px 12px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+.btn-xs:not(.btn-primary):not(.btn-danger-outline),
+[data-btn-size="xs"]:not([data-btn="primary"]):not([data-btn="danger"]) {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+.btn-xs:hover:not(:disabled):not(.btn-primary),
+[data-btn-size="xs"]:hover:not(:disabled):not([data-btn="primary"]) {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.btn-open,
+[data-btn="open"] {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.btn-open:hover:not(:disabled),
+[data-btn="open"]:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.btn-danger-outline,
+[data-btn="danger"] {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius-sm);
+}
+.btn-danger-outline:hover:not(:disabled),
+[data-btn="danger"]:hover:not(:disabled) {
+    background: var(--danger);
+    color: #fff;
+}
+
+.btn-config,
+[data-btn="config"] {
+    background: var(--bg-input);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+.btn-config:hover:not(:disabled),
+[data-btn="config"]:hover:not(:disabled) {
+    background: var(--accent);
+    color: #fff;
+}

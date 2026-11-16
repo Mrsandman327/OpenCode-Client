@@ -11,6 +11,7 @@ import { fileBrowserHighlightCode } from '../filebrowser/preview.js';
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { formatApiError } from '../core/v2compat.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
+import { buttonHtml } from '../components/button.js';
 
 window._projectConfig = {
     rootDir: '',
@@ -242,7 +243,7 @@ export function renderCurrentTab() {
 export function renderCoreConfigTab(tab) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists) {
-        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-settings"></use></svg></div><p>无项目配置</p><p class="pc-empty-desc">该项目下没有 .opencode/opencode.jsonc 或 opencode.json</p><button class="btn btn-sm btn-primary pc-empty-btn" id="btnViewGlobalConfig">查看全局配置</button></div>';
+        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-settings"></use></svg></div><p>无项目配置</p><p class="pc-empty-desc">该项目下没有 .opencode/opencode.jsonc 或 opencode.json</p>' + buttonHtml({ label: '查看全局配置', size: 'sm', className: 'pc-empty-btn', id: 'btnViewGlobalConfig' }) + '</div>';
         document.getElementById('btnViewGlobalConfig').addEventListener('click', viewGlobalConfig);
         return;
     }
@@ -272,7 +273,7 @@ export function renderSkillsTab(tab) {
     var body = document.getElementById('projectConfigBody');
 
     // 顶部操作栏
-    var actionsHtml = '<div class="pc-skills-actions"><button class="btn btn-sm btn-primary pc-btn-import-skills">导入技能</button></div>';
+    var actionsHtml = '<div class="pc-skills-actions">' + buttonHtml({ label: '导入技能', size: 'sm', className: 'pc-btn-import-skills' }) + '</div>';
 
     if (!tab.exists || !tab.files || !tab.files.length) {
         body.innerHTML = actionsHtml + '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-puzzle"></use></svg></div><p>无项目技能</p><p class="pc-empty-desc">.opencode/skills/ 目录下没有技能</p></div>';
@@ -287,7 +288,7 @@ export function renderSkillsTab(tab) {
             }
             html += '</div>';
             html += '<div class="pc-skill-card-actions">';
-            html += '<button class="btn btn-sm btn-primary pc-skill-view" data-path="' + escapeHtml(f.path) + '">查看</button>';
+            html += buttonHtml({ label: '查看', size: 'sm', className: 'pc-skill-view', attrs: { 'data-path': f.path } });
             html += '<button class="pc-file-del pc-skill-del" data-del-path="' + escapeHtml(f.path) + '" title="删除" aria-label="删除"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>';
             html += '</div>';
             html += '</div>';
@@ -345,12 +346,12 @@ export function showImportSkillsModal() {
             var btnHtml = '';
             if (s.imported) {
                 statusHtml = '<span class="pc-import-tag imported">已导入</span>';
-                btnHtml = '<button class="btn btn-sm pc-btn-imported" disabled>已导入</button>';
+                btnHtml = '<button data-btn="secondary" data-btn-size="sm" class="pc-btn-imported" disabled>已导入</button>';
             } else {
                 if (s.globalExist) {
                     statusHtml = '<span class="pc-import-tag global">全局已有</span>';
                 }
-                btnHtml = '<button class="btn btn-sm btn-primary pc-btn-do-import" data-src="' + escapeHtml(s.sourcePath) + '" data-name="' + escapeHtml(s.name) + '">导入</button>';
+                btnHtml = buttonHtml({ label: '导入', size: 'sm', className: 'pc-btn-do-import', attrs: { 'data-src': s.sourcePath, 'data-name': s.name } });
             }
             html += '<div class="pc-skill-card">';
             html += '<div class="pc-skill-info">';
@@ -372,7 +373,7 @@ export function showImportSkillsModal() {
 }
 
 export function renderSkillsHeader() {
-    return '<div class="pc-skills-actions"><button class="btn btn-sm btn-ghost pc-btn-back-to-skills">← 返回技能列表</button></div>';
+    return '<div class="pc-skills-actions"><button data-btn="ghost" data-btn-size="sm" class="pc-btn-back-to-skills">← 返回技能列表</button></div>';
 }
 
 export function bindImportEvents() {
@@ -418,9 +419,9 @@ export function renderBrowseView(category, dirPath, result, backLabel, backActio
     if (!result.exists || !result.files || !result.files.length) {
         body.innerHTML = '<div class="pc-editor">' +
             '<div class="pc-editor-toolbar"><span class="pc-editor-filename"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg>' + escapeHtml(dirPath) + '</span>' +
-            '<button class="btn btn-sm btn-ghost pc-btn-browse-back">' + backLabel + '</button></div>' +
+            '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-browse-back">' + backLabel + '</button></div>' +
             '<div class="pc-empty"><p>目录为空</p>' +
-            '<button class="btn btn-sm btn-primary pc-btn-add-entry">+ 新增文件</button></div></div>';
+            buttonHtml({ label: '+ 新增文件', size: 'sm', className: 'pc-btn-add-entry' }) + '</div></div>';
     } else {
         var dirs = result.files.filter(function(f) { return f.type === 'dir'; });
         var files = result.files.filter(function(f) { return f.type === 'file'; });
@@ -428,9 +429,9 @@ export function renderBrowseView(category, dirPath, result, backLabel, backActio
 
         body.innerHTML = '<div class="pc-editor">' +
             '<div class="pc-editor-toolbar"><span class="pc-editor-filename"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg>' + escapeHtml(dirPath) + '</span>' +
-            '<button class="btn btn-sm btn-ghost pc-btn-browse-back">' + backLabel + '</button></div>' +
+            '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-browse-back">' + backLabel + '</button></div>' +
             renderFileListHtml(category, dirPath, sorted, true) +
-            '<div class="pc-file-list-footer"><button class="btn btn-sm btn-primary pc-btn-add-entry">+ 新增文件</button></div></div>';
+            '<div class="pc-file-list-footer">' + buttonHtml({ label: '+ 新增文件', size: 'sm', className: 'pc-btn-add-entry' }) + '</div></div>';
     }
     bindBrowseEvents(category, dirPath);
     bindDeleteButtons(category, dirPath, function() { browseSubDir(category, dirPath); });
@@ -522,13 +523,13 @@ export function renderFileListTab(category, tab, emptyTitle, emptyDesc) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists || !tab.files || !tab.files.length) {
         body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg></div><p>' + emptyTitle + '</p><p class="pc-empty-desc">' + emptyDesc + '</p>' +
-            '<button class="btn btn-sm btn-primary pc-btn-add-entry">+ 新增</button></div>';
+            buttonHtml({ label: '+ 新增', size: 'sm', className: 'pc-btn-add-entry' }) + '</div>';
         bindAddEntryButton(category, '', function() { loadProjectConfigSummary(); });
         return;
     }
 
     body.innerHTML = renderFileListHtml(category, '', tab.files, true) +
-        '<div class="pc-file-list-footer"><button class="btn btn-sm btn-primary pc-btn-add-entry">+ 新增</button></div>';
+        '<div class="pc-file-list-footer">' + buttonHtml({ label: '+ 新增', size: 'sm', className: 'pc-btn-add-entry' }) + '</div>';
 
     body.querySelectorAll('.pc-file-item').forEach(function(item) {
         item.addEventListener('click', function(e) {
@@ -576,11 +577,11 @@ export function renderPreview(fileName, content, readOnly) {
 
     var label = readOnly ? '全局配置 · 只读' : escapeHtml(fileName);
     var actions = readOnly
-        ? '<button class="btn btn-sm btn-ghost pc-btn-back">← 返回</button>'
+        ? '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>'
         : (isMarkdown
-            ? '<button class="btn btn-sm btn-primary pc-btn-edit">编辑</button>' +
-              '<button class="btn btn-sm btn-ghost pc-btn-back">← 返回</button>'
-            : '<button class="btn btn-sm btn-ghost pc-btn-back">← 返回</button>');
+            ? buttonHtml({ label: '编辑', size: 'sm', className: 'pc-btn-edit' }) +
+              '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>'
+            : '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>');
 
     var previewHtml = '';
     if (isMarkdown && typeof marked !== 'undefined') {
@@ -647,10 +648,10 @@ export function switchToEditMode(fileName, content) {
         '<div class="pc-editor-toolbar">' +
             '<span class="pc-editor-filename">' + escapeHtml(fileName) + ' <span style="color:var(--warning);font-size:11px">编辑中</span><span class="pc-editor-status-dirty" id="pcEditorDirtyBadge" style="display:none">未保存</span></span>' +
             '<div class="pc-editor-actions">' +
-                '<button class="btn btn-sm btn-ghost pc-btn-back">← 返回</button>' +
-                '<button class="btn btn-sm btn-ghost pc-editor-search-btn pc-btn-search">搜索</button>' +
-                '<button class="btn btn-sm btn-primary pc-btn-save">保存</button>' +
-                (allowPreviewToggle ? '<button class="btn btn-sm btn-ghost pc-btn-preview">预览</button>' : '') +
+                '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>' +
+                '<button data-btn="ghost" data-btn-size="sm" class="pc-editor-search-btn pc-btn-search">搜索</button>' +
+                buttonHtml({ label: '保存', size: 'sm', className: 'pc-btn-save' }) +
+                (allowPreviewToggle ? '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-preview">预览</button>' : '') +
             '</div>' +
         '</div>' +
         '<div class="pc-editor-cm-wrap"><div class="pc-code-editor" id="pcCodeEditor"></div></div>' +
@@ -661,9 +662,9 @@ export function switchToEditMode(fileName, content) {
             '<div class="pc-editor-toolbar">' +
                 '<span class="pc-editor-filename">' + escapeHtml(fileName) + ' <span style="color:var(--warning);font-size:11px">编辑中</span></span>' +
                 '<div class="pc-editor-actions">' +
-                    '<button class="btn btn-sm btn-ghost pc-btn-back">← 返回</button>' +
-                    '<button class="btn btn-sm btn-primary pc-btn-save">保存</button>' +
-                    (allowPreviewToggle ? '<button class="btn btn-sm btn-ghost pc-btn-preview">预览</button>' : '') +
+                    '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>' +
+                    buttonHtml({ label: '保存', size: 'sm', className: 'pc-btn-save' }) +
+                    (allowPreviewToggle ? '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-preview">预览</button>' : '') +
                 '</div>' +
             '</div>' +
             '<textarea class="pc-editor-textarea-simple" id="pcEditorTextarea" spellcheck="false">' + escapeHtml(content) + '</textarea>' +

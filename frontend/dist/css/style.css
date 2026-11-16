@@ -299,103 +299,7 @@ input::placeholder, textarea::placeholder {
     mask-image: url("../assets/sidebar-show.svg");
 }
 
-/* ========== 按钮 (Apple 风格) ========== */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 8px 18px;
-    border: none;
-    border-radius: var(--radius-pill);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition);
-    white-space: nowrap;
-    outline: none;
-    font-family: inherit;
-    letter-spacing: -0.01em;
-}
-
-.btn:active {
-    transform: scale(0.97);
-}
-
-.btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.btn-primary {
-    background: var(--accent);
-    color: var(--text-on-accent);
-    border-radius: var(--radius-sm);
-}
-.btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
-}
-
-.btn-refresh {
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-}
-.btn-refresh:hover:not(:disabled) {
-    background: var(--bg-card-hover);
-    color: var(--accent);
-    border-color: var(--accent);
-}
-
-.btn-sm {
-    padding: 5px 14px;
-    font-size: 13px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    flex-shrink: 0;
-}
-
-.btn-sm:hover:not(:disabled) {
-    background: var(--bg-card-hover);
-    color: var(--accent);
-    border-color: var(--accent);
-}
-
-.btn-open {
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    flex-shrink: 0;
-}
-.btn-open:hover:not(:disabled) {
-    background: var(--bg-card-hover);
-    color: var(--accent);
-    border-color: var(--accent);
-}
-
-.btn-danger-outline {
-    background: var(--danger-bg);
-    color: var(--danger);
-    border: 1px solid var(--danger);
-    border-radius: var(--radius-sm);
-}
-.btn-danger-outline:hover:not(:disabled) {
-    background: var(--danger);
-    color: #fff;
-}
-
-.btn-config {
-    background: var(--bg-input);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    font-weight: 600;
-}
-.btn-config:hover:not(:disabled) {
-    background: var(--accent);
-    color: #fff;
-}
+/* 按钮体系（.btn 及变体 / 尺寸档位）已抽到 css/button.css，组件见 components/button.js */
 
 /* 工具按钮图标：assets SVG 作遮罩，颜色随按钮文字（全站统一的 mask 机制） */
 .btn-terminal-icon {
@@ -858,13 +762,6 @@ input::placeholder, textarea::placeholder {
     min-width: 0;
 }
 
-/* 工具栏内按钮统一为紧凑小号（5×14 / 13px），与供应商页「＋ 添加供应商」、
-   知识库工具栏同一口径；三枚按钮高度一致、圆角统一 radius-sm。
-   主按钮蓝底白字由下方 .omo-toolbar .btn-primary 作用域规则保证（防 .btn-sm 覆盖）。 */
-.omo-toolbar .btn-sm {
-    padding: 5px 14px;
-    font-size: 13px;
-}
 .omo-toolbar .oc-fb-icon {
     width: 14px;
     height: 14px;
@@ -875,26 +772,6 @@ input::placeholder, textarea::placeholder {
 .omo-toolbar .save-status {
     flex-shrink: 0;
     white-space: nowrap;
-}
-
-/* 主按钮「保存配置」：蓝底白字 + 轻投影。
-   .btn-sm 在样式表中后定义、同特异性，会用灰底覆盖 .btn-primary 的背景与文字，
-   hover 时还会把文字染蓝；这里用作用域选择器提升优先级，并显式压住 hover 白字
-   （与 .pv-toolbar .btn-primary / .oc-toolbar .btn-primary 同一做法）。 */
-.omo-toolbar .btn-primary {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-}
-.omo-toolbar .btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
-    color: #fff;
-    border-color: transparent;
-}
-.omo-toolbar .btn-primary:disabled {
-    box-shadow: none;
 }
 
 #view-omo #modelConfig {
@@ -1299,16 +1176,6 @@ input::placeholder, textarea::placeholder {
     border-color: var(--accent);
 }
 /* 主操作（启动）：实心 accent，运行态由 JS 切换为 .btn-danger-outline */
-.header-actions .btn-primary {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-}
-.header-actions .btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
-}
 /* 危险操作（停止）：淡红底红字，hover 实心红 */
 .header-actions .btn-danger-outline {
     background: var(--danger-bg);
@@ -4769,6 +4636,7 @@ svg.i.is-spinning {
     transition: background var(--transition);
 }
 /* 添加条目：纯图标按钮（默认无背景无边框，悬浮图标高亮） */
+
 .btn-add-entry {
     width: 24px;
     height: 24px;
@@ -4991,9 +4859,6 @@ svg.i.is-spinning {
     border-radius: var(--radius-sm);
     background: var(--accent-ghost);
 }
-
-/* 旧底部操作栏相关规则（.model-actions / .btn-save / 全局 .btn-add-type）已随布局移除：
-   按钮的主次样式改由 .omo-toolbar 作用域规则负责，这里只保留保存状态文字。 */
 
 .save-status {
     font-size: 12px;
@@ -5492,7 +5357,7 @@ svg.i.is-spinning {
 .provider-models-title {
     font-size: 13px;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     margin-bottom: 8px;
     letter-spacing: -0.01em;
     display: flex;
@@ -5776,23 +5641,6 @@ svg.i.is-spinning {
 .btn-del:active {
     transform: scale(0.95);
 }
-.btn-add {
-    background: var(--accent);
-    color: var(--text-on-accent);
-    border: none;
-    font-weight: 500;
-    border-radius: var(--radius-sm);
-    padding: 5px 16px;
-    font-size: 12px;
-    cursor: pointer;
-    letter-spacing: -0.01em;
-}
-.btn-add:hover {
-    background: var(--accent-hover);
-}
-.btn-add:active {
-    transform: scale(0.97);
-}
 /* 供应商卡片内的「手动添加/获取模型列表」：弱化次级样式，小圆角 */
 .provider-card .btn-add-model-card,
 .provider-card .btn-fetch-models {
@@ -5844,22 +5692,6 @@ svg.i.is-spinning {
 /* 保存按钮：用 #view-providers 提升优先级替代 !important。
    ID + class 的权重（1,1,0）高于 .btn / .btn-sm 以及 .btn-sm:hover:not(:disabled)（0,3,0），
    因此胶囊改方角、配色、字号都能稳定覆盖，无需 !important */
-#view-providers .btn-save-card {
-    background: var(--accent);
-    color: var(--text-on-accent);
-    border: none;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    cursor: pointer;
-}
-#view-providers .btn-save-card:hover {
-    background: var(--accent-hover);
-}
-#view-providers .btn-save-card:active {
-    transform: scale(0.97);
-}
 /* 删除卡片按钮：无边框、默认弱化色，仅悬浮时变红（与通用 .btn-del 口径一致）；
    同样用 #view-providers 前缀压过 .btn-del / .btn 的默认样式 */
 #view-providers .btn-del-card {
@@ -6203,21 +6035,6 @@ svg.i.is-spinning {
     stroke-linecap: round;
     stroke-linejoin: round;
 }
-/* 工具栏主按钮「添加供应商」：照原型/「启动 OpenCode」主按钮样式（蓝底白字 + 轻投影）。
-   .btn-sm 在样式表中后定义，会覆盖 .btn-primary 的背景/颜色，hover 时还会把文字染成蓝色，
-   这里用作用域选择器提升优先级并显式保持白字（与 .oc-toolbar .btn-primary 同一做法）。 */
-.pv-toolbar .btn-primary {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-}
-.pv-toolbar .btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
-    color: #fff;
-}
-
 /* ============================================================
    响应式
    ============================================================ */
@@ -6402,20 +6219,6 @@ svg.i.is-spinning {
     color: var(--success);
 }
 
-.oc-question-finish-btn {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-pill);
-    padding: 6px 16px;
-    font-size: 12px;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s;
-}
-.oc-question-finish-btn:hover {
-    background: var(--accent-hover);
-}
 
 /* 底部统一提交按钮行 */
 .oc-question-submit-row {
@@ -6936,22 +6739,7 @@ svg.i.is-spinning {
     border-color: var(--accent);
 }
 .file-browser-git-commit-btn {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 6px 14px;
-    cursor: pointer;
-    white-space: nowrap;
     margin-top: 0.8em;
-}
-.file-browser-git-commit-btn:hover:not(:disabled) {
-    background: var(--accent-hover);
-    color: #fff;
-}
-.file-browser-git-commit-btn:disabled {
-    opacity: 0.6;
-    cursor: default;
 }
 .file-browser-preview-header-main {
 	display: flex;
@@ -8803,7 +8591,8 @@ body.file-browser-diff-dragging {
 .pc-import-tag.global { color: var(--warning); background: var(--warning-bg, #fff3cd); }
 
 /* ===== 幽灵按钮 ===== */
-.btn-ghost {
+.btn-ghost,
+[data-btn="ghost"] {
     background: transparent;
     color: var(--text-muted);
     border: 1px solid transparent;
@@ -8814,7 +8603,8 @@ body.file-browser-diff-dragging {
     cursor: pointer;
     transition: background .12s, color .12s;
 }
-.btn-ghost:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.btn-ghost:hover,
+[data-btn="ghost"]:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
 /* ========== 通用工具类（消除内联样式） ========== */
 /* 弹窗头部布局：标题 + 右侧操作区 */
@@ -11529,20 +11319,6 @@ input.toolbar-input {
    必须保证它压过 .mcp-main / .mcp-empty 的 display:flex。 */
 .mcp-modal [hidden] { display: none !important; }
 
-/* .btn-sm（350 行）会覆盖 .btn-primary（330 行）的背景与文字色，
-   项目其它工具栏都是靠局部规则恢复的。这里同样处理，保证「保存」与
-   选中的类型按钮是强调色。 */
-.mcp-modal .btn-primary {
-    background: var(--accent);
-    color: var(--text-on-accent);
-    border-color: var(--accent);
-}
-
-.mcp-modal .btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
-}
-
 /* 弹窗尺寸：沿用项目弹窗的 90vh 高度策略，宽度按左右分栏需要收窄到 900 */
 .mcp-modal {
     width: min(92vw, 900px);
@@ -12031,16 +11807,6 @@ input.toolbar-input {
 .oc-schedule-icon-btn svg { width: 14px; height: 14px; }
 
 .oc-schedule-modal { width: 640px; max-width: calc(100vw - 32px); }
-.oc-schedule-modal .btn-primary {
-    background: var(--accent);
-    color: var(--text-on-accent);
-    border-color: var(--accent);
-}
-.oc-schedule-modal .btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
-    color: var(--text-on-accent);
-    border-color: var(--accent-hover);
-}
 .oc-schedule-detail-modal { width: 560px; max-width: calc(100vw - 32px); }
 .oc-schedule-form { display: flex; flex-direction: column; gap: 12px; }
 .oc-schedule-section { display: flex; flex-direction: column; gap: 8px; }

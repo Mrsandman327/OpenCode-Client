@@ -1354,7 +1354,7 @@ export function renderQuestionTool(part) {
         const submitRow = document.createElement('div');
         submitRow.className = 'oc-question-submit-row';
         const submitBtn = document.createElement('button');
-        submitBtn.className = 'oc-question-finish-btn';
+        submitBtn.className = 'btn btn-xs btn-primary oc-question-finish-btn';
         submitBtn.innerHTML = iconSvg('i-check') + ' 提交回答';
         submitBtn.addEventListener('click', function() {
             submitAllAnswers();

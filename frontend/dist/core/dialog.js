@@ -7,6 +7,7 @@
 // ============================================================
 
 import { escapeHtml, escapeAttr } from './utils.js';
+import { buttonHtml } from '../components/button.js';
 
 /**
  * 显示确认弹窗。
@@ -40,8 +41,8 @@ export function showConfirm(options) {
                     escapeHtml(message).replace(/\n/g, '<br>') +
                 '</div>' +
                 '<div class="modal-footer">' +
-                    '<button type="button" class="btn btn-cancel" data-confirm-cancel>' + escapeHtml(cancelText) + '</button>' +
-                    '<button type="button" class="btn btn-primary" data-confirm-ok>' + escapeHtml(okText) + '</button>' +
+                    buttonHtml({ label: cancelText, variant: 'secondary', className: 'btn-cancel', attrs: { 'data-confirm-cancel': true } }) +
+                    buttonHtml({ label: okText, attrs: { 'data-confirm-ok': true } }) +
                 '</div>' +
             '</div>';
 
@@ -123,8 +124,8 @@ export function showPrompt(options) {
                     '<input type="text" class="prompt-input" value="' + escapeAttr(defaultValue) + '" placeholder="' + escapeAttr(placeholder) + '">' +
                 '</div>' +
                 '<div class="modal-footer">' +
-                    '<button type="button" class="btn btn-cancel" data-prompt-cancel>' + escapeHtml(cancelText) + '</button>' +
-                    '<button type="button" class="btn btn-primary" data-prompt-ok>' + escapeHtml(okText) + '</button>' +
+                    buttonHtml({ label: cancelText, variant: 'secondary', className: 'btn-cancel', attrs: { 'data-prompt-cancel': true } }) +
+                    buttonHtml({ label: okText, attrs: { 'data-prompt-ok': true } }) +
                 '</div>' +
             '</div>';
 

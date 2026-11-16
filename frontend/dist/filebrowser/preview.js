@@ -12,6 +12,7 @@ import { dirname } from '../core/path.js';
 // Markdown 清洗（白名单 + href 协议校验）统一走 core/sanitize.js 的公共实现
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { formatApiError } from '../core/v2compat.js';
+import { buttonHtml } from '../components/button.js';
 
 export async function fileBrowserApiStat(rootDir, relPath) {
     return await api.StatBrowserFile(rootDir, relPath);
@@ -328,9 +329,12 @@ export function renderFilePreviewToolbar() {
         var canSave = state.previewMode === 'git' && diff && diff.isDirty() && !state.savingPreview;
         var buttons = '';
         if (state.previewMode === 'git') {
-            buttons = '<button type="button" class="btn btn-sm btn-primary" id="btnGitDiffSave"' +
-                (canSave ? '' : ' disabled') + '>' +
-                (state.savingPreview ? '保存中...' : '保存') + '</button>';
+            buttons = buttonHtml({
+                label: state.savingPreview ? '保存中...' : '保存',
+                size: 'sm',
+                id: 'btnGitDiffSave',
+                disabled: !canSave,
+            });
         }
         actionsEl.innerHTML = buttons;
         var gSave = document.getElementById('btnGitDiffSave');
@@ -358,7 +362,12 @@ export function renderFilePreviewToolbar() {
         if (state.previewRenderMode === 'edit') {
             buttons += '<button type="button" class="btn btn-sm pc-editor-search-btn' + (fileBrowserIsSearchOpen() ? ' active' : '') + '" id="btnFilePreviewSearch">' + (fileBrowserIsSearchOpen() ? '关闭搜索' : '搜索') + '</button>';
         }
-        buttons += '<button type="button" class="btn btn-sm btn-primary" id="btnFilePreviewSave"' + ((!fileBrowserIsDirty() || state.savingPreview || (state.previewReadResult && state.previewReadResult.truncated)) ? ' disabled' : '') + '>' + (state.savingPreview ? '保存中...' : '保存') + '</button>';
+        buttons += buttonHtml({
+            label: state.savingPreview ? '保存中...' : '保存',
+            size: 'sm',
+            id: 'btnFilePreviewSave',
+            disabled: !fileBrowserIsDirty() || state.savingPreview || (state.previewReadResult && state.previewReadResult.truncated),
+        });
     }
 
     actionsEl.innerHTML = buttons;
@@ -1076,7 +1085,7 @@ export function renderNoExtPreview(item, meta) {
         '<div class="file-browser-noext-hint">系统暂时无法自动判断该文件类型。你可以按普通文本方式尝试预览。</div>' +
         '<div class="file-browser-noext-name">文件：' + escapeHtml(item.name || meta.name || item.path || '') + '</div>' +
         '<div class="file-browser-noext-actions">' +
-            '<button type="button" class="btn btn-sm btn-refresh" id="btnOpenNoExtAsText">按普通文本打开</button>' +
+            '<button type="button" data-btn="refresh" data-btn-size="sm" id="btnOpenNoExtAsText">按普通文本打开</button>' +
         '</div>' +
     '</div>';
 }
