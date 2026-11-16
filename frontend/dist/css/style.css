@@ -6926,7 +6926,7 @@ svg.i.is-spinning {
 .file-browser-search-opt:hover { background: var(--bg-card-hover); }
 .file-browser-search-opt.active { background: var(--accent-ghost); color: var(--accent); border-color: rgba(10, 132, 255, 0.25); }
 
-.file-browser-search-results { flex: 1; overflow-y: auto; min-height: 0; padding: 2px 0; }
+.file-browser-search-results { flex: 1; overflow-y: auto; min-height: 0; padding: 2px 0; background: var(--bg-input);}
 .file-browser-search-group-head { display: flex; align-items: center; gap: 5px; padding: 4px 10px; cursor: pointer; user-select: none; }
 .file-browser-search-group-head:hover { background: var(--bg-card-hover); }
 .file-browser-search-group-head .arrow { display: inline-block; color: var(--text-muted); font-size: 8px; width: 9px; text-align: center; }
@@ -7001,6 +7001,7 @@ svg.i.is-spinning {
 .file-browser-git-current-section {
     flex: 0 0 var(--git-current-pct, 60%);
     min-height: 0;
+    border-bottom: 1px solid var(--border);
 }
 .file-browser-git-history-section {
     flex: 0 0 var(--git-history-pct, 40%);
@@ -7274,8 +7275,9 @@ svg.i.is-spinning {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: none;
-    background: transparent;
+    /* 标题栏只留背景，边界线交给外层 section，避免出现两条重复的线 */
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-input);
     color: var(--text-primary);
     font-size: 13px;
     font-weight: 600;
