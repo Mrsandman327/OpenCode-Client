@@ -433,8 +433,8 @@ input::placeholder, textarea::placeholder {
 .oc-panel-icon-subtask,
 .oc-panel-icon-todo,
 .oc-panel-icon-schedule{
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
 }
 
 .oc-panel-icon-service {
