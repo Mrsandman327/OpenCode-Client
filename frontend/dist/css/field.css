@@ -1,0 +1,109 @@
+/* ============================================================
+   表单控件（.ctl）与字段组（.field）
+   ============================================================
+   .ctl 只负责「外观」：边框、圆角、底色、文字色、焦点色。
+   宽度、高度、内边距、字号一律不写死——那些属于布局，由放它的地方决定。
+
+   例：
+     工具栏下拉   .oc-model-info select { height: 26px; padding: 0 10px; … }
+     卡片内输入框  .provider-card input   { width: 100%; padding: 8px 14px; … }
+     表单字段组    .field > input         { width: 100%; height: 30px; … }
+   ============================================================ */
+
+/* ---------- 控件外观（唯一一套） ---------- */
+
+input.ctl,
+select.ctl,
+textarea.ctl,
+.field > input,
+.field > select,
+.field > textarea {
+    border: 1px solid var(--border);
+    /* 与搜索框统一：全部走同一个圆角变量，避免一处 6px 一处 8px */
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+}
+
+input.ctl:focus,
+select.ctl:focus,
+textarea.ctl:focus,
+.field > input:focus,
+.field > select:focus,
+.field > textarea:focus {
+    border-color: var(--accent);
+}
+
+select.ctl,
+.field > select {
+    cursor: pointer;
+}
+
+textarea.ctl,
+.field > textarea {
+    resize: vertical;
+}
+
+/* ---------- 字段组（可选布局） ---------- */
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+/* 字段组里的控件：铺满一行（这是「字段组」的布局约定，不是控件自身的） */
+.field > input,
+.field > select,
+.field > textarea {
+    width: 100%;
+    height: 30px;
+    padding: 0 9px;
+    font-size: 12px;
+}
+
+textarea.ctl,
+.field > textarea {
+    height: auto;
+    padding: 8px 9px;
+    line-height: 1.5;
+}
+
+/* 字段标签：既可作为 .field 的直接子元素，也可单独使用（放在自定义容器里） */
+.field > label,
+.field > .field__label,
+.field__label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+/* 弹窗表单的字段组：只调标签字号与间距 */
+.field--md {
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.field--md > label,
+.field--md > .field__label,
+.field--md .field__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* 说明文字 */
+.field__hint,
+.field-hint {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}

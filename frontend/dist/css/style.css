@@ -1869,33 +1869,8 @@ input::placeholder, textarea::placeholder {
     .oc-tree-search-bar.is-open { animation: none; }
 }
 .oc-tree-search-field {
-    display: flex;
-    align-items: center;
-    gap: 5px;
     flex: 1;
     min-width: 0;
-    height: 27px;
-    padding: 0 7px;
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    background: var(--bg-input);
-    transition: border-color 0.15s ease;
-}
-.oc-tree-search-field:focus-within {
-    border-color: var(--accent);
-}
-.oc-tree-search-icon {
-    display: inline-flex;
-    flex-shrink: 0;
-    color: var(--text-muted);
-}
-.oc-tree-search-icon svg {
-    width: 13px;
-    height: 13px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
 }
 /* 提高特异性，覆盖全局 input[type="search"] 的边框 / 内边距 */
 .oc-tree-search-bar input[type="search"] {
@@ -1903,14 +1878,6 @@ input::placeholder, textarea::placeholder {
     min-width: 0;
     height: 100%;
     padding: 0;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    font-size: 12.5px;
-    outline: none;
-}
-.oc-tree-search-bar input[type="search"]:focus {
-    border: none;
 }
 /* 关闭 WebKit 原生搜索清除按钮：本行已有独立的「清空」入口，避免出现两个 ✕ */
 .oc-tree-search-bar input[type="search"]::-webkit-search-cancel-button,
@@ -3564,18 +3531,9 @@ input::placeholder, textarea::placeholder {
     justify-content: center;
 }
 .fork-close:hover { color: var(--danger); }
-.fork-search { padding: 0 16px 10px; flex-shrink: 0; }
-.fork-search input {
-    width: 100%;
-    padding: 8px 12px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    outline: none;
-    font-size: 13px;
+.fork-search {
+    margin: 0 16px 10px;
 }
-.fork-search input:focus { border-color: var(--accent); }
 /* ========== 侧问面板（/btw）：弹窗复用 .modal-card 公共样式（modal-header/body/footer），
    仅设定尺寸；内部线程按会话区消息卡渲染（.oc-message user/assistant） ========== */
 .btw-modal { width: 780px; max-width: calc(100vw - 48px); height: 650px; max-height: calc(100vh - 48px); }
@@ -4115,29 +4073,8 @@ svg.i.is-spinning {
 }
 /* 顶部搜索行：显示并允许编辑当前 @ 查询词 */
 .oc-kb-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
+    margin: 8px 12px;
 }
-.oc-kb-search-icon {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-    color: var(--text-muted);
-}
-.oc-kb-search-input {
-    flex: 1;
-    min-width: 0;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: 12.5px;
-}
-.oc-kb-search-input::placeholder { color: var(--text-muted); }
 .oc-kb-scroll {
     max-height: 260px;
     overflow-y: auto;
@@ -4240,29 +4177,6 @@ svg.i.is-spinning {
     -webkit-mask-image: url("../assets/variant.svg");
     mask-image: url("../assets/variant.svg");
 }
-.oc-model-select {
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    font-family: "SF Mono", monospace;
-    cursor: pointer;
-    outline: none;
-    min-width: 80px;
-    max-width: 240px;
-}
-.oc-model-select:focus {
-    border-color: var(--accent);
-}
-.oc-model-select option {
-    font-family: "SF Mono", monospace;
-    font-size: 11px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    padding: 4px;
-}
 
 /* ========== OMO 配置批量栏 ========== */
 .batch-model-bar {
@@ -4286,12 +4200,6 @@ svg.i.is-spinning {
     flex: 1;
     height: 30px;
     padding: 0 8px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-size: 13px;
-    outline: none;
 }
 .model-check {
     width: 15px;
@@ -4330,17 +4238,7 @@ svg.i.is-spinning {
     color: var(--text-primary);
     font-weight: 600;
 }
-.modal-field {
-    margin-bottom: 12px;
-}
 /* 字段说明：比 label 更弱，用于 NO_PROXY 等需要解释格式的输入项 */
-.modal-field .field-hint {
-    display: block;
-    margin-top: 4px;
-    font-size: 11px;
-    line-height: 1.5;
-    color: var(--text-muted);
-}
 
 /* 网络配置：成对字段（地址 + 端口）排在同一行，减少弹窗高度 */
 .proxy-field-row {
@@ -4348,7 +4246,7 @@ svg.i.is-spinning {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: 10px;
 }
-.proxy-field-row .modal-field {
+.proxy-field-row .field {
     margin-bottom: 12px;
 }
 @media (max-width: 520px) {
@@ -4356,26 +4254,6 @@ svg.i.is-spinning {
         grid-template-columns: minmax(0, 1fr);
         column-gap: 0;
     }
-}
-.modal-field label {
-    display: block;
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-    font-weight: 500;
-}
-.modal-field input {
-    width: 100%;
-    padding: 8px 12px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-size: 14px;
-    outline: none;
-}
-.modal-field input:focus {
-    border-color: var(--accent);
 }
 .modal-actions {
     display: flex;
@@ -4478,16 +4356,6 @@ svg.i.is-spinning {
     width: 100%;
     box-sizing: border-box;
     padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 14px;
-    outline: none;
-}
-.prompt-modal .prompt-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 /* Modal 头部关闭按钮：透明底图标按钮（关闭.svg 遮罩，颜色随主题文字色）。
    通用类，不限于 .modal-card——项目配置 / 知识库等头部同样使用。 */
@@ -4801,14 +4669,7 @@ svg.i.is-spinning {
 .model-select,
 .model-reasoning-select {
     padding: 6px 10px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-size: 12px;
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     cursor: pointer;
-    outline: none;
     transition: border-color var(--transition);
 }
 
@@ -4823,10 +4684,6 @@ svg.i.is-spinning {
     max-width: 160px;
 }
 
-.model-select:focus,
-.model-reasoning-select:focus {
-    border-color: var(--accent);
-}
 
 .model-select option,
 .model-reasoning-select option {
@@ -5215,17 +5072,7 @@ svg.i.is-spinning {
 .provider-card-header:hover {
     background: var(--bg-card-hover);
 }
-.prov-edit-name {
-    font-size: 12px;
-    color: var(--text-primary);
-    letter-spacing: -0.022em;
-}
-.prov-edit-key {
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--text-muted);
-    font-family: "SF Mono", "Cascadia Code", monospace;
-    letter-spacing: -0.01em;
+.provider-card .prov-edit-key {
     margin-right: 25px;
 }
 .provider-card-actions {
@@ -5241,13 +5088,6 @@ svg.i.is-spinning {
     flex-direction: column;
     gap: 10px;
 }
-.provider-conn-col {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-    width: 100%;
-}
 .provider-conn-col input,
 .provider-conn-col select {
     width: 100%;
@@ -5256,6 +5096,10 @@ svg.i.is-spinning {
     font-size: 12px;
     font-weight: 600;
     color: var(--text-muted);
+}
+.provider-conn-col {
+    width: 100%;
+    min-width: 0;
 }
 /* API Key 与明文切换按钮贴合 */
 /* API Key 与明文切换按钮贴合：边框由容器统一提供，
@@ -5280,10 +5124,6 @@ svg.i.is-spinning {
     border-left: 1px solid var(--border);
     border-radius: 0;
     background: transparent;
-}
-.prov-apikey-row:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-glow);
 }
 /* 空状态占位 */
 /* 默认收起：仅标题栏 + 摘要 + 启用模型名单；点击标题栏展开后显示完整编辑区 */
@@ -5370,23 +5210,11 @@ svg.i.is-spinning {
     min-width: 0;
     height: 30px;
     padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 12px;
-    outline: none;
 }
 .provider-card .model-field input {
     height: 30px;
     padding: 4px 4px;
-    font-size: 11.5px;
-    font-family: inherit;
-    background: var(--bg-input);
-    border-radius: 6px;
-    font-family: Cascadia Code;
 }
-.model-field input:focus { border-color: var(--accent); }
 
 /* 展开区：二级面板，和卡片主体区分层级 */
 .model-abilities {
@@ -5448,12 +5276,6 @@ svg.i.is-spinning {
     width: 140px;
     height: 30px;
     padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 12px;
-    outline: none;
 }
 /* 覆盖 .provider-card input 的 13px / 大 padding，限制区输入框固定 12px */
 .provider-card .model-limit-input {
@@ -5462,7 +5284,6 @@ svg.i.is-spinning {
     font-size: 10px;
     font-family: Cascadia Code;
 }
-.model-limit-input:focus { border-color: var(--accent); }
 .limit-row {
     display: flex;
     align-items: center;
@@ -5606,33 +5427,10 @@ svg.i.is-spinning {
 /* 供应商卡片内输入框统一样式 */
 .provider-card input {
     padding: 8px 14px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    outline: none;
-    font-size: 13px;
-    letter-spacing: -0.01em;
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     transition: border-color 0.15s ease;
-}
-.provider-card input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-glow);
 }
 .provider-card select {
     padding: 8px 12px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    outline: none;
-    font-size: 13px;
-    letter-spacing: -0.01em;
-    font-family: Cascadia Code;
-}
-.provider-card select:focus {
-    border-color: var(--accent);
 }
 /* 保存按钮：用 #view-providers 提升优先级替代 !important。
    ID + class 的权重（1,1,0）高于 .btn / .btn-sm 以及 .btn-sm:hover:not(:disabled)（0,3,0），
@@ -5716,10 +5514,6 @@ svg.i.is-spinning {
     overflow: hidden;
 }
 
-.file-browser-code-editor:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-glow);
-}
 
 .file-browser-code-editor .cm-editor {
     height: 100%;
@@ -5770,11 +5564,11 @@ svg.i.is-spinning {
 .btn-eye.is-visible .eye-on { display: none; }
 .btn-eye.is-visible .eye-off { display: block; }
 /* 网络配置：服务口令输入行（输入框 + 显示明文按钮，复用 .btn-eye） */
-.modal-field .pwd-row {
+.field .pwd-row {
     display: flex;
     gap: 0;
 }
-.modal-field .pwd-row input {
+.field .pwd-row input {
     flex: 1;
     width: auto;
     border-right: none;
@@ -5907,38 +5701,9 @@ svg.i.is-spinning {
     flex-wrap: wrap;
 }
 .pv-search {
-    display: flex;
-    align-items: center;
-    gap: 6px;
     flex: 1;
     min-width: 180px;
     max-width: 340px;
-    padding: 0 10px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
-    transition: border-color var(--transition);
-}
-.pv-search:focus-within { border-color: var(--accent); }
-.pv-search .pv-i {
-    width: 14px;
-    height: 14px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-}
-.pv-search input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    padding: 6px 0;
-    font-size: 13px;
-    color: var(--text-primary);
-    outline: none;
-    min-width: 0;
-    font-family: inherit;
 }
 .pv-seg {
     display: flex;
@@ -6196,22 +5961,9 @@ svg.i.is-spinning {
 .oc-question-custom-input {
     flex: 1;
     padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 12px;
-    font-family: inherit;
 }
 
-.oc-question-custom-input::placeholder {
-    color: var(--text-muted);
-}
 
-.oc-question-custom-input:focus {
-    outline: none;
-    border-color: var(--accent);
-}
 
 /* 跳过按钮行（在自定义输入下方） */
 .oc-question-skip-row {
@@ -6297,9 +6049,12 @@ svg.i.is-spinning {
 #view-skills .skill-path { padding-top: 13px; }
 
 /* ======== 搜索栏 ======== */
+.oc-search-bar .search {
+    flex: 1;
+    min-width: 0;
+}
 .oc-search-bar { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
-.oc-search-bar input { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); font-size: 13px; outline: none; }
-.oc-search-bar input:focus { border-color: var(--accent); }
+.oc-search-bar input { flex: 1; padding: 6px 10px; }
 .oc-search-bar .btn { background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border); }
 .oc-search-bar .btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 .oc-search-count { font-size: 11px; color: var(--text-dim); min-width: 60px; text-align: center; }
@@ -6565,11 +6320,10 @@ svg.i.is-spinning {
 .file-browser-search-panel.active { display: flex; }
 
 .file-browser-search-top { padding: 8px 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; background: var(--bg-input); }
-.file-browser-search-input-row { display: flex; align-items: center; gap: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 8px; height: 30px; }
-.file-browser-search-input-row:focus-within { border-color: var(--accent); }
-.file-browser-search-input-row input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 12px; }
-.file-browser-search-input-row input::placeholder { color: var(--text-muted); }
-.file-browser-search-input-ic { width: 12px; height: 12px; flex-shrink: 0; }
+.file-browser-search-input-row {
+    width: 100%;
+    flex: none;
+}
 .file-browser-search-clear { color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 2px; user-select: none; display: inline-flex; align-items: center; }
 .file-browser-search-clear:hover { color: var(--text-primary); }
 .file-browser-search-opts { display: flex; align-items: center; gap: 4px; }
@@ -6602,20 +6356,6 @@ svg.i.is-spinning {
     height: 18px;
     display: block;
     flex-shrink: 0;
-}
-.file-browser-create-dir-inline {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-secondary);
-}
-.file-browser-create-dir-inline input {
-    flex: 1;
-    min-width: 0;
-    font-size: 12px;
-    padding: 6px 10px;
 }
 .file-browser-create-dir-confirm {
     color: var(--accent);
@@ -6670,18 +6410,8 @@ svg.i.is-spinning {
 .file-browser-git-commit-input {
     flex: 1;
     padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-card);
-    color: var(--text-primary);
-    font-size: 12px;
-    font-family: "SF Mono", "Cascadia Code", monospace;
-    outline: none;
     min-height: 48px;
     resize: vertical;
-}
-.file-browser-git-commit-input:focus {
-    border-color: var(--accent);
 }
 .file-browser-git-commit-btn {
     margin-top: 0.8em;
@@ -6722,18 +6452,6 @@ svg.i.is-spinning {
 	font-weight: 700;
 	margin-bottom: 14px;
 	letter-spacing: -0.02em;
-}
-#fileBrowserUploadRenameInput {
-	width: 100%;
-	padding: 10px 12px;
-	border: 1px solid var(--border);
-	border-radius: var(--radius-sm);
-	background: var(--bg-card);
-	color: var(--text-primary);
-	outline: none;
-}
-#fileBrowserUploadRenameInput:focus {
-	border-color: var(--accent);
 }
 
 /* 操作错误提示 */
@@ -8242,16 +7960,10 @@ body.file-browser-diff-dragging {
 
 .pc-editor-textarea-simple {
     flex: 1;
-    border: none;
-    outline: none;
     resize: none;
     margin: 0;
     padding: 14px 16px;
-    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
-    font-size: 13px;
     line-height: 1.6;
-    color: var(--text-primary);
-    background: var(--bg-primary);
     tab-size: 4;
     white-space: pre-wrap;
     word-break: break-word;
@@ -8318,11 +8030,6 @@ body.file-browser-diff-dragging {
     outline: none;
 }
 
-.pc-code-editor .cm-panel.cm-search .cm-textfield:focus,
-.file-browser-code-editor .cm-panel.cm-search .cm-textfield:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-glow);
-}
 
 .pc-code-editor .cm-panel.cm-search .cm-button,
 .pc-code-editor .cm-panel.cm-search button,
@@ -8554,13 +8261,11 @@ body.file-browser-diff-dragging {
     flex: 1;
     height: 30px;
     padding: 0 10px;
-    font-size: 13px;
 }
 /* 提高优先级以覆盖全局 input[type=...] 的 font-size/padding */
 input.toolbar-input {
     height: 30px;
     padding: 0 10px;
-    font-size: 13px;
 }
 /* 弹窗内下拉框（宽度撑满，其余继承全局表单样式） */
 .modal-select {
@@ -8670,16 +8375,6 @@ input.toolbar-input {
     min-width: 0;
     height: 30px;
     padding: 0 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 13px;
-    outline: none;
-}
-.dir-browser-path:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 .dir-browser-list {
     flex: 1;
@@ -8843,32 +8538,15 @@ input.toolbar-input {
 
 /* 搜索框 */
 .kb-search {
-    display: flex;
-    align-items: center;
-    gap: 6px;
     flex: 1;
     min-width: 180px;
     max-width: 340px;
-    padding: 0 10px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
-    transition: border-color var(--transition);
 }
-.kb-search:focus-within { border-color: var(--accent); }
 /* 提高特异性以覆盖全局 input[type="search"] 样式 */
 .kb-toolbar .kb-search input {
     flex: 1;
-    border: none;
-    background: transparent;
-    padding: 6px 0;
-    font-size: 13px;
-    color: var(--text-primary);
-    outline: none;
     min-width: 0;
 }
-.kb-toolbar .kb-search input:focus { border-color: transparent; }
 
 .kb-toolbar-spacer { flex: 1; }
 
@@ -9390,11 +9068,6 @@ input.toolbar-input {
     justify-content: space-between;
     gap: 8px;
 }
-.kb-field-label {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--text-secondary);
-}
 /* 必填星号 */
 .kb-field-req { color: var(--danger); font-weight: 700; }
 /* 内容区的「编辑 / 预览」分段控件：复用工具栏 .kb-seg 范式，尺寸再收紧一档 */
@@ -9405,19 +9078,11 @@ input.toolbar-input {
 .kb-entry-modal .kb-field-input {
     width: 100%;
     padding: 9px 12px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: 13.5px;
     line-height: 1.6;
-    outline: none;
     resize: none;
-    /* 全局 html/body 关闭了文本选择，输入控件内必须恢复，否则无法选中与复制 */
+    /* 全局 html/body 关闭了文本选择，这个控件在弹窗里需要能选中与复制 */
     user-select: text;
     -webkit-user-select: text;
-    transition: border-color var(--transition), box-shadow var(--transition);
 }
 /* 多行输入（说明 / 内容）的换行行为必须显式声明，不依赖各 WebView 的默认样式：
    pre-wrap 让长行按容器宽度软换行，break-word 让无空格长串（URL / 代码）也能折断，
@@ -9429,16 +9094,7 @@ input.toolbar-input {
     overflow: auto;
     overflow-x: hidden;
 }
-.kb-entry-modal .kb-field-input::placeholder { color: var(--text-muted); }
-.kb-entry-modal .kb-field-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-glow);
-}
 /* 标题：单行输入，字号略大 */
-.kb-entry-modal .kb-field-title {
-    font-size: 16px;
-    font-weight: 600;
-}
 /* 说明：约 2-3 行高 */
 .kb-entry-modal .kb-field-summary { min-height: 64px; }
 /* 内容：占主要高度，等宽字体便于书写 Markdown（字号与说明区保持一致，避免视觉跳级） */
@@ -9446,7 +9102,6 @@ input.toolbar-input {
     flex: 1;
     min-height: 180px;
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 13.5px;
     line-height: 1.7;
 }
 
@@ -9472,7 +9127,6 @@ input.toolbar-input {
 
 /* 校验错误态：红框 + 红字提示，聚焦时用柔和红色光晕 */
 .kb-field.invalid .kb-field-input { border-color: var(--danger); }
-.kb-field.invalid .kb-field-input:focus { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-bg); }
 .kb-field-error {
     display: none;
     font-size: 12px;
@@ -9493,9 +9147,6 @@ input.toolbar-input {
 }
 .kb-meta-inline { display: flex; align-items: center; gap: 8px; }
 .kb-meta-inline > label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-muted);
     flex-shrink: 0;
 }
 .kb-meta-select { min-width: 150px; }
@@ -9548,12 +9199,6 @@ input.toolbar-input {
     transition: all var(--transition);
 }
 .kb-tag-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-ghost); }
-.kb-entry-meta .kb-tag-add-input {
-    width: 110px;
-    padding: 3px 9px;
-    border-radius: var(--radius-pill);
-    font-size: 12px;
-}
 
 /* ---------- 底部操作栏 ---------- */
 .kb-entry-foot {
@@ -9673,8 +9318,6 @@ input.toolbar-input {
     width: 66px;
     flex-shrink: 0;
     padding-top: 6px;
-    font-size: 12.5px;
-    color: var(--text-muted);
 }
 .kb-form-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 
@@ -9738,8 +9381,8 @@ input.toolbar-input {
 
 /* ---------- 输入行 ---------- */
 .kb-input-line { display: flex; align-items: center; gap: 8px; }
-.kb-conv-select { flex: 1; min-width: 0; padding: 6px 10px; font-size: 13px; }
-.kb-conv-input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px; }
+.kb-conv-select { flex: 1; min-width: 0; padding: 6px 10px; }
+.kb-conv-input { flex: 1; min-width: 0; padding: 7px 10px; }
 .kb-conv-ext {
     flex-shrink: 0;
     font-size: 12px;
@@ -10256,21 +9899,11 @@ input.toolbar-input {
     height: 28px;
     min-width: 0;
     padding: 0 8px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    font-family: inherit;
-    font-size: 11.5px;
-    outline: none;
     cursor: pointer;
     transition: border-color var(--transition), color var(--transition), opacity var(--transition);
 }
 #view-omo .go-select:hover:not(:disabled) {
     border-color: var(--border-light);
-}
-#view-omo .go-select:focus {
-    border-color: var(--accent);
 }
 #view-omo .go-select:disabled {
     color: var(--text-muted);
@@ -10316,9 +9949,6 @@ input.toolbar-input {
     flex: 1;
     max-width: 340px;
     border-style: dashed;
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 11px;
     cursor: not-allowed;
 }
 #view-omo .go-readonly-note {
@@ -10786,19 +10416,6 @@ input.toolbar-input {
 .cfg-web-enable p { margin-top: 3px; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
 /* 配置面板的启用开关统一使用 components/switch.js 的 .sw（见「统一开关控件」） */
 .cfg-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 10px; }
-.cfg-field label { display: block; font-size: 10.5px; color: var(--text-muted); margin-bottom: 5px; }
-.cfg-field input {
-    width: 100%;
-    height: 30px;
-    padding: 0 9px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 12px;
-    outline: none;
-}
-.cfg-field input:focus { border-color: var(--accent); }
 .cfg-web-status-panel {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 112px;
@@ -11115,25 +10732,12 @@ input.toolbar-input {
     grid-template-columns: minmax(0, 1fr) 120px;
     gap: 10px;
 }
-.cfg-network .modal-field { margin-bottom: 10px; }
-.cfg-network .modal-field label {
-    display: block;
-    margin-bottom: 5px;
-    font-size: 10.5px;
-    color: var(--text-muted);
-}
-.cfg-network .modal-field input {
+.cfg-network .field { margin-bottom: 10px; }
+.cfg-network .field input {
     width: 100%;
     height: 30px;
     padding: 0 9px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 12px;
-    outline: none;
 }
-.cfg-network .modal-field input:focus { border-color: var(--accent); }
 .cfg-network .proxy-separator { margin: 14px 0; border: none; border-top: 1px solid var(--border); }
 .cfg-network .proxy-switch-row {
     display: flex;
@@ -11145,7 +10749,6 @@ input.toolbar-input {
 .cfg-network .proxy-switch-row strong { display: block; font-size: 12px; }
 .cfg-network .proxy-switch-row small { display: block; margin-top: 2px; font-size: 10.5px; color: var(--text-muted); }
 /* 开关已由 components/switch.js 接管，这里不再覆盖 input 尺寸（会给 .sw input 加宽高破坏隐藏） */
-.cfg-network .field-hint { display: block; margin-top: 4px; font-size: 9.5px; color: var(--text-muted); }
 .cfg-network .proxy-preview {
     margin-top: 10px;
     padding: 8px 10px;
@@ -11414,23 +11017,17 @@ input.toolbar-input {
     min-width: 0;
 }
 
-/* 字段纵向堆叠：.cfg-field 本身没有外边距 */
+/* 字段纵向堆叠：.field 本身没有外边距 */
 .mcp-fields {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
-/* textarea / select 没有现成类，按 .cfg-field input 的取值补齐 */
+/* textarea / select 没有现成类，按 .field input 的取值补齐 */
 .mcp-fields textarea,
 .mcp-fields select {
     width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 12px;
-    outline: none;
     padding: 6px 9px;
 }
 
@@ -11440,11 +11037,8 @@ input.toolbar-input {
     min-height: 66px;
     resize: vertical;
     line-height: 1.5;
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
-.mcp-fields textarea:focus,
-.mcp-fields select:focus { border-color: var(--accent); }
 
 /* 三列数字（超时） */
 .mcp-grid-3 {
@@ -11456,20 +11050,13 @@ input.toolbar-input {
 /* 键值对行 */
 .mcp-kv-list { display: flex; flex-direction: column; gap: 6px; }
 
-/* 键值对输入框：复制 .cfg-field input 的取值（现有样式只作用于 .cfg-field 内） */
+/* 键值对输入框：复制 .field input 的取值（现有样式只作用于 .field 内） */
 .mcp-kv-row input {
     width: 100%;
     height: 30px;
     padding: 0 9px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    font-size: 12px;
-    outline: none;
 }
 
-.mcp-kv-row input:focus { border-color: var(--accent); }
 
 .mcp-kv-row {
     display: grid;
@@ -11753,24 +11340,15 @@ input.toolbar-input {
 /* 全局没有 [hidden] 规则，面板改成 flex 后必须显式回收 */
 .oc-schedule-modal [hidden] { display: none !important; }
 /* 定时任务弹窗按原型保留 13/36 的表单尺寸，不跟随全局 cfg-field 的紧凑尺寸 */
-.oc-schedule-modal .cfg-field label {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
-}
-.oc-schedule-modal .cfg-field input,
-.oc-schedule-modal .cfg-field select,
-.oc-schedule-modal .cfg-field textarea {
+.oc-schedule-modal .field input,
+.oc-schedule-modal .field select,
+.oc-schedule-modal .field textarea {
     width: 100%;
     height: 36px;
     padding: 8px 12px;
-    /* time / datetime-local 默认会落到等宽字体，和同排下拉框不一致，显式继承 */
-    font-family: inherit;
-    font-size: 14px;
     box-sizing: border-box;
 }
-.oc-schedule-modal .cfg-field textarea {
+.oc-schedule-modal .field textarea {
     height: auto;
     min-height: 64px;
     resize: vertical;
@@ -11832,7 +11410,6 @@ input.toolbar-input {
     flex: 0 0 112px;
     height: 36px;
     padding: 8px 12px;
-    font-size: 14px;
     box-sizing: border-box;
 }
 .oc-schedule-inline .oc-schedule-time {
@@ -11906,4 +11483,40 @@ input.toolbar-input {
     word-break: break-word;
     color: var(--text-secondary);
     font-family: inherit;
+}
+
+/* 系统配置行：开关推到行尾（宿主布局，不属于开关控件本身） */
+.cfg-web-enable .sw {
+    margin-left: auto;
+}
+/* 网络代理整行是 <label>，内层 span 承载开关：覆盖 .proxy-switch-row span 的纵向布局 */
+.proxy-switch-row .sw {
+    display: inline-flex;
+    flex-direction: row;
+    gap: 6px;
+}
+
+/* 会话区下拉：紧凑等宽，宽度按内容（min/max 兜底）—— 布局属于宿主 */
+.oc-model-info select {
+    height: 26px;
+    padding: 0 10px;
+    min-width: 80px;
+    max-width: 240px;
+}
+
+/* 弹窗表单：字段组内的控件大一号（宿主按场景覆盖，不影响其它地方的 .ctl） */
+.modal .field > input,
+.modal .field > select,
+.modal .field > textarea {
+    height: 38px;
+    padding: 0 12px;
+}
+.modal .field > textarea {
+    height: auto;
+    padding: 8px 12px;
+}
+
+/* 技能页搜索：与工具栏同宽，不撑满整行 */
+.path-bar-search .search {
+    width: 260px;
 }

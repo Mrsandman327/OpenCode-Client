@@ -121,7 +121,7 @@ export function showPrompt(options) {
                 '</div>' +
                 '<div class="modal-body confirm-modal-body">' +
                     (message ? '<p class="prompt-message">' + escapeHtml(message) + '</p>' : '') +
-                    '<input type="text" class="prompt-input" value="' + escapeAttr(defaultValue) + '" placeholder="' + escapeAttr(placeholder) + '">' +
+                    '<input type="text" class="ctl prompt-input" value="' + escapeAttr(defaultValue) + '" placeholder="' + escapeAttr(placeholder) + '">' +
                 '</div>' +
                 '<div class="modal-footer">' +
                     buttonHtml({ label: cancelText, variant: 'secondary', className: 'btn-cancel', attrs: { 'data-prompt-cancel': true } }) +

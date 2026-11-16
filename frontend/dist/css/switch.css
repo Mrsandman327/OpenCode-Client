@@ -85,17 +85,3 @@
     opacity: 0.85;
 }
 
-/* ---------- 宿主布局的少量适配 ---------- */
-
-/* 系统配置项行（.cfg-web-enable）：文字在左、开关推到行尾 */
-.cfg-web-enable .sw {
-    margin-left: auto;
-}
-
-/* 网络代理整行是 <label>（整行可点），内层用 span 承载开关；
-   .proxy-switch-row span 的纵向布局会作用到这里，必须覆盖回横向 */
-.proxy-switch-row .sw {
-    display: inline-flex;
-    flex-direction: row;
-    gap: 6px;
-}

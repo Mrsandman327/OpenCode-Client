@@ -10,6 +10,7 @@ import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { showConfirm } from '../core/dialog.js';
 import { switchHtml } from '../components/switch.js';
 import { emptyHtml } from '../components/empty.js';
+import { controlHtml } from '../components/field.js';
 
 export let providerCache = [];
 
@@ -114,13 +115,13 @@ function modelAbilitiesHtml(capabilities, limit) {
             <div class="setting-title">限制</div>
             <div class="mod-row"><span class="mod-label">上下文</span>
                 <div class="limit-row">
-                    <input class="model-limit-input model-limit-context" type="number" min="1" placeholder="默认 200000" value="${contextValue}">
+                    <input class="ctl model-limit-input model-limit-context" type="number" min="1" placeholder="默认 200000" value="${contextValue}">
                     <span class="mod-unit">tokens</span>
                 </div>
             </div>
             <div class="mod-row"><span class="mod-label">最大输出</span>
                 <div class="limit-row">
-                    <input class="model-limit-input model-limit-output" type="number" min="1" placeholder="默认 32000" value="${outputValue}">
+                    <input class="ctl model-limit-input model-limit-output" type="number" min="1" placeholder="默认 32000" value="${outputValue}">
                     <span class="mod-unit">tokens</span>
                 </div>
             </div>
@@ -145,11 +146,11 @@ function modelSubcardHtml(model, capabilities) {
                 <div class="model-head-row">
                     <div class="model-field">
                         <span class="model-head-label">模型ID</span>
-                        <input class="model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr} />
+                        <input class="ctl model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr} />
                     </div>
                     <div class="model-field">
                         <span class="model-head-label">名称</span>
-                        <input class="model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" />
+                        <input class="ctl model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" />
                     </div>
                 </div>
             </div>
@@ -392,33 +393,13 @@ export function providerCardHtml(p) {
             <div class="prov-models-line">${modelsLine}</div>
             <div class="provider-card-body">
                 <div class="provider-conn-row">
-                    ${isNew ? `<label class="provider-conn-col"><span class="prov-field-label">供应商标识 (key)</span><input class="prov-edit-key" value="${escapeHtml(p.key || '')}" placeholder="key (如 deepseek)" /></label>` : ''}
-                    <label class="provider-conn-col">
-                        <span class="prov-field-label">供应商名称</span>
-                        <input class="prov-edit-name" value="${escapeHtml(p.name||'')}" placeholder="名称" />
-                    </label>
+                    ${isNew ? `<label class="provider-conn-col"><span class="prov-field-label">供应商标识 (key)</span>${controlHtml({ className: 'prov-edit-key', value: p.key || '', placeholder: 'key (如 deepseek)' })}</label>` : ''}
+                    <label class="provider-conn-col"><span class="prov-field-label">供应商名称</span>${controlHtml({ className: 'prov-edit-name', value: p.name || '', placeholder: '名称' })}</label>
                 </div>
                 <div class="provider-conn-row">
-                    <label class="provider-conn-col">
-                        <span class="prov-field-label">请求地址 (baseURL)</span>
-                        <input class="prov-edit-url" value="${escapeHtml(p.baseURL||'')}" placeholder="https://api.xxx.com/v1" />
-                    </label>
-                    <label class="provider-conn-col">
-                        <span class="prov-field-label">API Key</span>
-                        <div class="prov-apikey-row">
-                            <input class="prov-edit-apikey" value="${escapeHtml(p.apiKey||'')}" type="password" placeholder="sk-..." />
-                            <button class="btn-eye" type="button" title="显示密钥" aria-label="显示密钥" aria-pressed="false">
-                                <svg class="eye-on" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"></use></svg>
-                                <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye-off"></use></svg>
-                            </button>
-                        </div>
-                    </label>
-                    <label class="provider-conn-col">
-                        <span class="prov-field-label">接口格式</span>
-                        <select class="prov-edit-npm" data-raw-npm="${escapeHtml(p.package || '')}" aria-label="interface format">
-                            ${packageOptionsHtml}
-                        </select>
-                    </label>
+                    <label class="provider-conn-col"><span class="prov-field-label">请求地址 (baseURL)</span>${controlHtml({ className: 'prov-edit-url', value: p.baseURL || '', placeholder: 'https://api.xxx.com/v1' })}</label>
+                    <label class="provider-conn-col"><span class="prov-field-label">API Key</span><div class="prov-apikey-row">${controlHtml({ className: 'prov-edit-apikey', type: 'password', value: p.apiKey || '', placeholder: 'sk-...' })}<button class="btn-eye" type="button" title="显示密钥" aria-label="显示密钥" aria-pressed="false"><svg class="eye-on" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"></use></svg><svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye-off"></use></svg></button></div></label>
+                    <label class="provider-conn-col"><span class="prov-field-label">接口格式</span><select class="ctl prov-edit-npm" data-raw-npm="${escapeHtml(p.package || '')}" aria-label="interface format">${packageOptionsHtml}</select></label>
                 </div>
                 <div class="provider-models">
                     <div class="provider-models-title">模型 <button class="btn btn-xs btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-xs btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">获取模型列表</button></div>

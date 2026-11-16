@@ -449,7 +449,7 @@ function createGlobalAgentRow(row) {
         sourceCell.appendChild(locked);
     } else {
         const sourceSelect = document.createElement('select');
-        sourceSelect.className = 'go-select go-source-select';
+        sourceSelect.className = 'ctl go-select go-source-select';
         sourceSelect.title = '决定该 agent 是否写入配置文件顶层 agents';
         sourceSelect.setAttribute('aria-label', row.key + ' 的模型来源');
         [
@@ -489,7 +489,7 @@ function createGlobalAgentRow(row) {
         modelCell.appendChild(note);
     } else if (row.source === 'explicit') {
         const modelSelect = document.createElement('select');
-        modelSelect.className = 'go-select go-model-pick';
+        modelSelect.className = 'ctl go-select go-model-pick';
         modelSelect.innerHTML = globalModelOptionsHtml(row.model);
         modelSelect.value = row.model || '';
         modelSelect.disabled = !row.enabled;
@@ -501,7 +501,7 @@ function createGlobalAgentRow(row) {
         });
 
         const variantSelect = document.createElement('select');
-        variantSelect.className = 'go-select go-variant-pick';
+        variantSelect.className = 'ctl go-select go-variant-pick';
         variantSelect.innerHTML = variantOptionsHtml(row.variant);
         variantSelect.value = row.variant || '';
         variantSelect.disabled = !row.enabled;
@@ -555,7 +555,7 @@ function createGlobalAgentRow(row) {
 /** 置灰的只读下拉（跟随类来源 / 备选模型链） */
 function createLockedSelect(text, title) {
     const select = document.createElement('select');
-    select.className = 'go-select go-locked-select';
+    select.className = 'ctl go-select go-locked-select';
     select.disabled = true;
     select.title = title;
     select.setAttribute('aria-label', text);
@@ -806,7 +806,7 @@ function renderBatchBar() {
     bar.className = 'batch-model-bar';
     bar.innerHTML = `
         <label class="batch-check"><input type="checkbox" id="selectAllModels" /> <span>全选</span></label>
-        <select class="batch-model-select" id="batchModelSelect">
+        <select class="ctl batch-model-select" id="batchModelSelect">
             <option value="">-- 批量设置模型 --</option>
             ${modelOptionsHtml('')}
         </select>
@@ -1045,7 +1045,7 @@ function createAgentRow(preset, agent) {
     // 顶层显式覆盖时展示顶层模型（置灰），其余情况展示方案自身值
     const display = presetRowDisplay(agent);
     const select = document.createElement('select');
-    select.className = 'model-select';
+    select.className = 'ctl model-select';
     select.title = '模型';
     select.innerHTML = modelOptionsHtml(display.model);
     select.value = display.model;
@@ -1059,7 +1059,7 @@ function createAgentRow(preset, agent) {
 
     // variant（思考力度）下拉：同样，改动继承行即覆盖
     const variantSelect = document.createElement('select');
-    variantSelect.className = 'model-reasoning-select';
+    variantSelect.className = 'ctl model-reasoning-select';
     variantSelect.title = 'variant（思考力度）';
     variantSelect.innerHTML = variantOptionsHtml(display.variant);
     variantSelect.value = display.variant;
@@ -1203,7 +1203,7 @@ export function showAddEntryModal(presetName) {
                 <button type="button" class="modal-close-btn" id="btnCloseAddEntry" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
             </div>
             <div class="modal-body">
-                <div class="modal-field">
+                <div class="field field--md">
                     <label>Agent 名</label>
                     <select id="modalEntryKey" class="modal-select">
                         <option value="">（选择内置 agent）</option>
@@ -1212,11 +1212,11 @@ export function showAddEntryModal(presetName) {
                     </select>
                     <input id="modalEntryKeyCustom" placeholder="输入自定义 agent 名" style="display:none;margin-top:6px" />
                 </div>
-                <div class="modal-field">
+                <div class="field field--md">
                     <label>模型</label>
                     <select id="modalEntryModel" class="modal-select">${modelOptionsHtml('')}</select>
                 </div>
-                <div class="modal-field">
+                <div class="field field--md">
                     <label>variant（思考力度）</label>
                     <select id="modalEntryVariant" class="modal-select">${variantOptionsHtml('')}</select>
                 </div>
@@ -1296,11 +1296,11 @@ export function showAddPresetModal() {
                 </button>
             </div>
             <div class="modal-body">
-                <div class="modal-field">
+                <div class="field field--md">
                     <label>方案名</label>
                     <input id="modalPresetName" placeholder="如 my-plan" />
                 </div>
-                <div class="modal-field">
+                <div class="field field--md">
                     <label>继承自</label>
                     <select id="modalPresetBase" class="modal-select">
                         <option value="">不继承</option>

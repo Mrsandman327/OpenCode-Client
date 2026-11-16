@@ -1269,7 +1269,7 @@ export function renderQuestionTool(part) {
             const customRow = document.createElement('div');
             customRow.className = 'oc-question-custom';
             const customInput = document.createElement('input');
-            customInput.className = 'oc-question-custom-input';
+            customInput.className = 'ctl oc-question-custom-input';
             customInput.placeholder = '输入自定义回答...';
             customInput.value = part.__pendingCustom[qi] || '';
             customInput.addEventListener('input', () => {

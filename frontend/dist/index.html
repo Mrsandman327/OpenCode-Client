@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="/css/button-primary.css" />
     <link rel="stylesheet" href="/css/empty.css" />
     <link rel="stylesheet" href="/css/toast.css" />
+    <link rel="stylesheet" href="/css/field.css" />
+    <link rel="stylesheet" href="/css/search.css" />
     <link rel="stylesheet" href="/css/switch.css" />
     <script src="/lib/marked.min.js"></script>
     <script src="/lib/qrcode.min.js"></script>
@@ -203,9 +205,9 @@
                             </button>
                         </div>
                         <div class="oc-tree-search-bar" id="ocTreeSearchBar">
-                            <div class="oc-tree-search-field">
-                                <span class="oc-tree-search-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></span>
-                                <input type="search" id="ocTreeSearchInput" placeholder="搜索会话..." aria-label="搜索会话" autocomplete="off" />
+                            <div class="search oc-tree-search-field">
+                                <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                                <input class="search__input" type="search" id="ocTreeSearchInput" placeholder="搜索会话..." aria-label="搜索会话" autocomplete="off" />
                                 <span class="oc-tree-search-count" id="ocTreeSearchCount">-</span>
                             </div>
                             <button type="button" class="oc-tree-search-clear" id="ocTreeSearchClear" title="清空搜索" disabled>清空</button>
@@ -248,7 +250,10 @@
                             </button>
                         </div>
                         <div class="oc-search-bar" id="ocSearchBar" style="display:none">
-                            <input type="text" id="ocSearchInput" placeholder="搜索当前会话消息..." />
+                            <div class="search">
+                                <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                                <input class="search__input" type="text" id="ocSearchInput" placeholder="搜索当前会话消息..." />
+                            </div>
                             <span class="oc-search-count" id="ocSearchCount"></span>
                             <button type="button" data-btn="secondary" data-btn-size="sm" id="ocSearchPrev" disabled>▲</button>
                             <button type="button" data-btn="secondary" data-btn-size="sm" id="ocSearchNext" disabled>▼</button>
@@ -267,15 +272,15 @@
                         </div>
                         <div class="oc-model-info">
                             <span class="oc-select-icon oc-select-icon-agent"></span>
-                            <select class="oc-model-select" id="ocAgentSelect">
+                            <select class="ctl" id="ocAgentSelect">
                                 <option value="">默认</option>
                             </select>
                             <span class="oc-select-icon oc-select-icon-model"></span>
-                            <select class="oc-model-select" id="ocModelSelect">
+                            <select class="ctl" id="ocModelSelect">
                                 <option value="">默认</option>
                             </select>
                             <span class="oc-select-icon oc-select-icon-variant"></span>
-                            <select class="oc-model-select" id="ocVariantSelect">
+                            <select class="ctl" id="ocVariantSelect">
                                 <option value="">默认</option>
                                 <option value="minimal">Minimal</option>
                                 <option value="low">Low</option>
@@ -293,9 +298,9 @@
                             </div>
                             <!-- 知识库 @ 引用搜索面板：在 #ocPrompt 输入 @ 时弹出，交互与定位对齐命令面板 -->
                             <div class="oc-kb-palette" id="ocKbPalette" style="display:none">
-                                <div class="oc-kb-search">
-                                    <span class="oc-kb-search-icon"><svg class="kb-i kb-i-14" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5l-4.2-4.2"/></svg></span>
-                                    <input type="text" class="oc-kb-search-input" id="ocKbSearchInput" placeholder="搜索知识库..." autocomplete="off" spellcheck="false" />
+                                <div class="search oc-kb-search">
+                                    <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                                    <input class="search__input oc-kb-search-input" type="text" id="ocKbSearchInput" placeholder="搜索知识库..." autocomplete="off" spellcheck="false" />
                                 </div>
                                 <div class="oc-kb-scroll" id="ocKbScroll"></div>
                             </div>
@@ -504,7 +509,10 @@
                      分隔线由上方状态行 / 展开配置区的 border-bottom 提供） -->
                 <section class="path-bar path-bar-search">
                     <span class="path-label">搜索：</span>
-                    <input type="text" id="skillSearch" class="toolbar-input" placeholder="输入技能名称过滤..." />
+                    <div class="search">
+                        <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                        <input class="search__input" type="text" id="skillSearch" placeholder="输入技能名称过滤..." />
+                    </div>
                 </section>
 
                 <!-- L5: 技能列表 -->
@@ -517,9 +525,9 @@
             <div class="view-panel" id="view-knowledge">
                 <!-- 顶部工具栏：搜索 + 标签筛选 + 列表/卡片切换 + 新建 -->
                 <div class="kb-toolbar">
-                    <div class="kb-search">
-                        <svg class="kb-i kb-i-14" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5l-4.2-4.2"/></svg>
-                        <input type="search" id="kbSearch" placeholder="搜索标题、说明、标签…" autocomplete="off" />
+                    <div class="search kb-search">
+                        <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                        <input class="search__input" type="search" id="kbSearch" placeholder="搜索标题、说明、标签…" autocomplete="off" />
                     </div>
 
                     <!-- 标签筛选：与分类筛选相互独立，可与搜索叠加 -->
@@ -582,9 +590,9 @@
             <div class="view-panel" id="view-providers">
                 <!-- 工具栏（照知识库 .kb-toolbar）：搜索 + 展开/折叠 + 列表/卡片切换 + 打开配置文件 + 添加供应商 -->
                 <div class="pv-toolbar">
-                    <div class="pv-search">
-                        <svg class="pv-i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5l-4.2-4.2"/></svg>
-                        <input type="search" id="providerSearch" placeholder="搜索供应商、模型…" autocomplete="off" />
+                    <div class="search pv-search">
+                        <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                        <input class="search__input" type="search" id="providerSearch" placeholder="搜索供应商、模型…" autocomplete="off" />
                     </div>
                     <div class="toolbar-spacer"></div>
                     <button type="button" data-btn="secondary" data-btn-size="sm" id="btnExpandAllProviders" title="展开或折叠全部卡片">展开 / 折叠</button>
@@ -624,8 +632,9 @@
                 <span class="fork-title">从消息创建新会话</span>
                 <button type="button" class="fork-close" id="btnForkClose" title="关闭"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
             </div>
-            <div class="fork-search">
-                <input id="forkSearchInput" placeholder="搜索" autocomplete="off" />
+            <div class="search fork-search">
+                <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                <input class="search__input" id="forkSearchInput" placeholder="搜索" autocomplete="off" />
             </div>
             <div class="fork-msg-list" id="forkMsgList"></div>
             <div class="fork-more" id="forkMoreBtn" style="display:none">加载更早消息</div>
@@ -775,19 +784,19 @@
                             <div class="cfg-settings-card cfg-network">
                                 <div class="cfg-network-title">OpenCode 服务地址</div>
                                 <div class="proxy-field-row">
-                                    <div class="modal-field">
+                                    <div class="field field--md">
                                         <label for="serviceHost">服务地址</label>
-                                        <input id="serviceHost" placeholder="127.0.0.1" />
+                                        <input class="ctl" id="serviceHost" placeholder="127.0.0.1" />
                                     </div>
-                                    <div class="modal-field">
+                                    <div class="field field--md">
                                         <label for="servicePort">服务端口</label>
-                                        <input id="servicePort" inputmode="numeric" placeholder="49374" />
+                                        <input class="ctl" id="servicePort" inputmode="numeric" placeholder="49374" />
                                     </div>
                                 </div>
-                                <div class="modal-field">
+                                <div class="field field--md">
                                     <label for="servicePassword">服务访问口令</label>
                                     <div class="cfg-password-row">
-                                        <input id="servicePassword" type="password" placeholder="12345678" autocomplete="off" />
+                                        <input class="ctl" id="servicePassword" type="password" placeholder="12345678" autocomplete="off" />
                                         <button class="cfg-eye-btn" type="button" id="btnToggleServicePwd" title="显示口令" aria-label="显示口令" aria-pressed="false">
                                             <svg class="eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
                                             <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.9 5.2A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 4"/><path d="M6.6 6.6C3.6 8.5 2 12 2 12s3.5 7 10 7c1.3 0 2.5-.3 3.6-.7"/></svg>
@@ -804,18 +813,18 @@
                                     <span class="sw"><input type="checkbox" id="proxyEnabled" data-switch /></span>
                                 </label>
                                 <div class="proxy-field-row">
-                                    <div class="modal-field">
+                                    <div class="field field--md">
                                         <label for="proxyHost">代理地址</label>
-                                        <input id="proxyHost" placeholder="127.0.0.1" />
+                                        <input class="ctl" id="proxyHost" placeholder="127.0.0.1" />
                                     </div>
-                                    <div class="modal-field">
+                                    <div class="field field--md">
                                         <label for="proxyPort">代理端口</label>
-                                        <input id="proxyPort" inputmode="numeric" placeholder="7897" />
+                                        <input class="ctl" id="proxyPort" inputmode="numeric" placeholder="7897" />
                                     </div>
                                 </div>
-                                <div class="modal-field">
+                                <div class="field field--md">
                                     <label for="proxyNoProxy">代理排除地址</label>
-                                    <input id="proxyNoProxy" placeholder="10.0.0.0/8, 192.168.0.0/16, .corp.example" />
+                                    <input class="ctl" id="proxyNoProxy" placeholder="10.0.0.0/8, 192.168.0.0/16, .corp.example" />
                                     <small class="field-hint">不走代理的地址，逗号分隔；默认已包含 localhost,127.0.0.1</small>
                                 </div>
                                 <div class="proxy-preview" id="proxyPreview"></div>
@@ -839,8 +848,8 @@
                                     </label>
                                 </div>
                                 <div class="cfg-form-grid">
-                                    <div class="cfg-field"><label for="frontendWebHost">监听地址</label><input id="frontendWebHost" placeholder="127.0.0.1" /></div>
-                                    <div class="cfg-field"><label for="frontendWebPort">监听端口</label><input id="frontendWebPort" inputmode="numeric" placeholder="8081" /></div>
+                                    <div class="field"><label for="frontendWebHost">监听地址</label><input id="frontendWebHost" placeholder="127.0.0.1" /></div>
+                                    <div class="field"><label for="frontendWebPort">监听端口</label><input id="frontendWebPort" inputmode="numeric" placeholder="8081" /></div>
                                 </div>
                                 <div class="cfg-web-status-panel">
                                     <div class="cfg-web-status-info">
@@ -952,7 +961,7 @@
                         <button type="button" class="dir-browser-up" id="btnDirBrowserBack" title="返回上一级">
                             <span class="oc-fb-icon oc-fb-icon-back" aria-hidden="true"></span>
                         </button>
-                        <input type="text" class="dir-browser-path" id="dirBrowserPath" placeholder="输入路径">
+                        <input type="text" class="ctl dir-browser-path" id="dirBrowserPath" placeholder="输入路径">
                         <button type="button" data-btn="secondary" data-btn-size="sm" id="btnDirBrowserGo">转到</button>
                     </div>
                     <div class="dir-browser-list" id="dirBrowserList"></div>
@@ -1021,7 +1030,7 @@
                             <div class="file-browser-git-header" id="fileBrowserGitCurrentTitle">当前变更</div>
                             <div class="file-browser-git-body" id="fileBrowserGitCurrentBody">
                                 <div class="file-browser-git-commit-bar">
-                                    <textarea class="file-browser-git-commit-input" id="fileBrowserGitCommitInput" placeholder="输入提交信息" rows="2"></textarea>
+                                    <textarea class="ctl file-browser-git-commit-input" id="fileBrowserGitCommitInput" placeholder="输入提交信息" rows="2"></textarea>
                                     <button type="button" data-btn="primary" data-btn-size="sm" class="file-browser-git-commit-btn" id="btnFileBrowserGitCommit">提交</button>
                                 </div>
                                 <div id="fileBrowserGitCurrentList">
@@ -1044,9 +1053,9 @@
                     </div>
                     <div class="file-browser-search-panel" id="fileBrowserSearchPanel">
                         <div class="file-browser-search-top">
-                            <div class="file-browser-search-input-row">
-                                <span class="file-browser-search-input-ic oc-fb-icon oc-fb-icon-search"></span>
-                                <input type="text" id="fileBrowserSearchInput" placeholder="搜索内容（在会话目录内全文检索）" spellcheck="false" autocomplete="off" />
+                            <div class="search file-browser-search-input-row">
+                                <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
+                                <input class="search__input" type="text" id="fileBrowserSearchInput" placeholder="搜索内容（在会话目录内全文检索）" spellcheck="false" autocomplete="off" />
                                 <span class="file-browser-search-clear" id="btnFileBrowserSearchClear" title="清空"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>
                             </div>
                             <div class="file-browser-search-opts">
@@ -1118,7 +1127,7 @@
     <div class="modal-overlay" id="fileBrowserUploadConflictModal" style="display:none">
         <div class="modal proxy-modal" onclick="event.stopPropagation()">
             <h3>文件重名处理</h3>
-            <div class="modal-field">
+            <div class="field field--md">
                 <label>当前目录中已存在同名文件</label>
                 <div id="fileBrowserUploadConflictName" class="path-value">--</div>
             </div>
@@ -1127,7 +1136,7 @@
                 <button type="button" data-btn="danger" id="btnFileBrowserUploadOverwrite">覆盖</button>
                 <button type="button" data-btn="secondary" data-btn-size="sm" id="btnFileBrowserUploadRenameMode">重命名</button>
             </div>
-            <div class="modal-field" id="fileBrowserUploadRenameField" style="display:none">
+            <div class="field field--md" id="fileBrowserUploadRenameField" style="display:none">
                 <label for="fileBrowserUploadRenameInput">新文件名</label>
                 <input id="fileBrowserUploadRenameInput" />
                 <div class="file-browser-upload-error" id="fileBrowserUploadConflictError"></div>
@@ -1215,29 +1224,29 @@
             <!-- 中部：三个独立必填区 -->
             <div class="kb-entry-fields">
                 <!-- 必填区 1：标题 -->
-                <section class="kb-field" id="kbFieldTitle">
+                <section class="field" id="kbFieldTitle">
                     <div class="kb-field-head">
-                        <label class="kb-field-label" for="kbEntryTitle">标题 <span class="kb-field-req">*</span></label>
+                        <label class="field__label" for="kbEntryTitle">标题 <span class="kb-field-req">*</span></label>
                     </div>
-                    <input type="text" id="kbEntryTitle" class="kb-field-input kb-field-title"
+                    <input type="text" id="kbEntryTitle" class="ctl kb-field-input kb-field-title"
                            placeholder="一句话说清这条知识是什么" autocomplete="off" />
                     <div class="kb-field-error" id="kbErrTitle"></div>
                 </section>
 
                 <!-- 必填区 2：说明（用户手填的短文本，列表页展示这条） -->
-                <section class="kb-field" id="kbFieldSummary">
+                <section class="field" id="kbFieldSummary">
                     <div class="kb-field-head">
-                        <label class="kb-field-label" for="kbEntrySummary">说明 <span class="kb-field-req">*</span></label>
+                        <label class="field__label" for="kbEntrySummary">说明 <span class="kb-field-req">*</span></label>
                     </div>
-                    <textarea id="kbEntrySummary" class="kb-field-input kb-field-summary" rows="2" wrap="soft"
+                    <textarea id="kbEntrySummary" class="ctl kb-field-input kb-field-summary" rows="2" wrap="soft"
                               placeholder="一两句话概括，列表页显示这条"></textarea>
                     <div class="kb-field-error" id="kbErrSummary"></div>
                 </section>
 
                 <!-- 必填区 3：内容（Markdown 正文，占主要高度；支持编辑 / 预览 切换） -->
-                <section class="kb-field kb-field-grow" id="kbFieldContent">
+                <section class="field kb-field-grow" id="kbFieldContent">
                     <div class="kb-field-head">
-                        <label class="kb-field-label" for="kbEntryContent">内容 <span class="kb-field-req">*</span></label>
+                        <label class="field__label" for="kbEntryContent">内容 <span class="kb-field-req">*</span></label>
                         <!-- 编辑 / 预览 分段控件：默认停在「编辑」，切「预览」用 marked 渲染 textarea 当前内容 -->
                         <div class="kb-seg kb-content-seg" id="kbContentSeg">
                             <button type="button" class="kb-seg-btn active" data-kb-content-mode="edit">编辑</button>
@@ -1245,7 +1254,7 @@
                         </div>
                     </div>
                     <!-- wrap="soft"：长行按容器宽度软换行，不出现横向滚动条 -->
-                    <textarea id="kbEntryContent" class="kb-field-input kb-field-content" wrap="soft"
+                    <textarea id="kbEntryContent" class="ctl kb-field-input kb-field-content" wrap="soft"
                               placeholder="在这里写正文，支持 Markdown 语法…" spellcheck="false"></textarea>
                     <!-- 预览容器：默认隐藏，切到「预览」时写入 marked 渲染结果（.oc-text 为项目统一 Markdown 排版） -->
                     <div class="oc-text kb-md-preview" id="kbContentPreview" style="display:none"></div>
@@ -1256,11 +1265,11 @@
             <!-- 归属行：分类 + 标签 -->
             <div class="kb-entry-meta">
                 <div class="kb-meta-inline">
-                    <label for="kbEntryCat">分类</label>
-                    <select id="kbEntryCat" class="kb-meta-select"></select>
+                    <label class="field__label" for="kbEntryCat">分类</label>
+                    <select id="kbEntryCat" class="ctl kb-meta-select"></select>
                 </div>
                 <div class="kb-meta-inline kb-meta-tags">
-                    <label>标签</label>
+                    <label class="field__label">标签</label>
                     <div class="kb-tag-editor" id="kbTagEditor"></div>
                 </div>
             </div>
@@ -1308,7 +1317,7 @@
             <div class="kb-convert-body">
                 <!-- 类型：决定目标产物的形态（技能 = 独立目录，项目准则 = 追加到 AGENTS.md） -->
                 <div class="kb-form-row">
-                    <div class="kb-form-label">类型</div>
+                    <div class="field__label kb-form-label">类型</div>
                     <div class="kb-form-main">
                         <div class="kb-radio-group">
                             <label class="kb-radio-opt">
@@ -1334,7 +1343,7 @@
 
                 <!-- 作用域：全局 = 跨项目可用；项目 = 写入所选项目 -->
                 <div class="kb-form-row">
-                    <div class="kb-form-label">作用域</div>
+                    <div class="field__label kb-form-label">作用域</div>
                     <div class="kb-form-main">
                         <div class="kb-radio-group">
                             <label class="kb-radio-opt">
@@ -1352,10 +1361,10 @@
 
                 <!-- 目标项目：仅作用域 = 项目时显示；选项来自 api.GetProjectTree() 两级树的顶层目录，默认选中当前会话所在目录 -->
                 <div class="kb-form-row" id="kbConvProjectRow">
-                    <div class="kb-form-label">目标项目</div>
+                    <div class="field__label kb-form-label">目标项目</div>
                     <div class="kb-form-main">
                         <div class="kb-input-line">
-                            <select id="kbConvProject" class="kb-conv-select"></select>
+                            <select id="kbConvProject" class="ctl kb-conv-select"></select>
                         </div>
                         <div class="kb-conv-note" id="kbConvProjectNote"></div>
                     </div>
@@ -1363,7 +1372,7 @@
 
                 <!-- 同步方式：复制（默认，独立文件）/ 软链接（指向知识库条目，改动立即生效） -->
                 <div class="kb-form-row">
-                    <div class="kb-form-label">同步方式</div>
+                    <div class="field__label kb-form-label">同步方式</div>
                     <div class="kb-form-main">
                         <div class="kb-radio-group">
                             <label class="kb-radio-opt">
@@ -1382,10 +1391,10 @@
 
                 <!-- 名称：技能为目录名（入口固定 SKILL.md），命令/规则为文件名；项目准则固定 AGENTS，故整行隐藏 -->
                 <div class="kb-form-row" id="kbConvNameRow">
-                    <div class="kb-form-label">名称</div>
+                    <div class="field__label kb-form-label">名称</div>
                     <div class="kb-form-main">
                         <div class="kb-input-line">
-                            <input type="text" id="kbConvName" class="kb-conv-input" autocomplete="off" placeholder="目标名称，如 deploy-flow" />
+                            <input type="text" id="kbConvName" class="ctl kb-conv-input" autocomplete="off" placeholder="目标名称，如 deploy-flow" />
                             <span class="kb-conv-ext" id="kbConvExtHint">.md</span>
                         </div>
                         <div class="kb-conv-note" id="kbConvNameNote"></div>
@@ -1448,7 +1457,7 @@
                         <!-- 基础信息 -->
                         <div class="cfg-settings-card">
                             <div class="mcp-fields">
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label for="mcpName">名称</label>
                                     <input id="mcpName" placeholder="context7" autocomplete="off" />
                                     <div class="cfg-web-sub" style="margin-top:5px">
@@ -1456,7 +1465,7 @@
                                     </div>
                                 </div>
 
-                                <div class="cfg-field" id="mcpType">
+                                <div class="field" id="mcpType">
                                     <label>类型</label>
                                     <div style="display:flex;gap:8px">
                                         <button type="button" data-btn="secondary" data-btn-size="sm" data-mcp-type="remote">remote</button>
@@ -1479,13 +1488,13 @@
                         <!-- remote 字段组：URL / Headers -->
                         <div class="cfg-settings-card" data-mcp-group="remote">
                             <div class="mcp-fields">
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label for="mcpUrl">URL</label>
                                     <input id="mcpUrl" placeholder="https://mcp.example.com/mcp" autocomplete="off" />
                                     <div class="cfg-web-sub" style="margin-top:5px">绝对地址，Streamable HTTP</div>
                                 </div>
 
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label>Headers</label>
                                     <div class="mcp-kv-list" id="mcpHeaders"></div>
                                     <button type="button" class="mcp-kv-add" data-mcp-add-kv="header">+ 添加请求头</button>
@@ -1499,21 +1508,21 @@
                         <!-- local 字段组：命令 / cwd / 环境变量 -->
                         <div class="cfg-settings-card" data-mcp-group="local" hidden>
                             <div class="mcp-fields">
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label for="mcpCommand">命令</label>
                                     <textarea id="mcpCommand" placeholder="npx&#10;-y&#10;@modelcontextprotocol/server-everything"></textarea>
                                     <div class="cfg-web-sub" style="margin-top:5px">一行一个参数，第一行是可执行文件</div>
                                 </div>
 
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label for="mcpCwd">工作目录（cwd）</label>
                                     <div class="mcp-input-row">
-                                        <input id="mcpCwd" placeholder="留空表示使用项目目录" autocomplete="off" />
+                                        <input class="ctl" id="mcpCwd" placeholder="留空表示使用项目目录" autocomplete="off" />
                                         <button type="button" data-btn="secondary" data-btn-size="sm" id="btnMcpPickCwd" title="选择目录">选择</button>
                                     </div>
                                 </div>
 
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label>环境变量（environment）</label>
                                     <div class="mcp-kv-list" id="mcpEnv"></div>
                                     <button type="button" class="mcp-kv-add" data-mcp-add-kv="env">+ 添加环境变量</button>
@@ -1550,7 +1559,7 @@
                                         </label>
                                     </div>
 
-                                    <div class="cfg-field">
+                                    <div class="field">
                                         <label for="mcpProtocol">协议版本（protocol）</label>
                                         <select id="mcpProtocol">
                                             <option value="legacy">legacy</option>
@@ -1559,18 +1568,18 @@
                                         </select>
                                     </div>
 
-                                    <div class="cfg-field">
+                                    <div class="field">
                                         <label>单个连接器超时（毫秒）</label>
                                         <div class="mcp-grid-3">
-                                            <div class="cfg-field">
+                                            <div class="field">
                                                 <label for="mcpTimeoutStartup">startup</label>
                                                 <input id="mcpTimeoutStartup" type="number" min="1" placeholder="30000" />
                                             </div>
-                                            <div class="cfg-field">
+                                            <div class="field">
                                                 <label for="mcpTimeoutCatalog">catalog</label>
                                                 <input id="mcpTimeoutCatalog" type="number" min="1" placeholder="30000" />
                                             </div>
-                                            <div class="cfg-field">
+                                            <div class="field">
                                                 <label for="mcpTimeoutExecution">execution</label>
                                                 <input id="mcpTimeoutExecution" type="number" min="1" placeholder="600000" />
                                             </div>
@@ -1578,7 +1587,7 @@
                                     </div>
 
                                     <!-- OAuth 只对 remote 有意义：三态由单选控制 -->
-                                    <div class="cfg-field" data-mcp-group="remote">
+                                    <div class="field" data-mcp-group="remote">
                                         <label>OAuth</label>
                                         <div id="mcpOauthModes" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px">
                                             <label style="display:inline-flex;align-items:center;gap:5px">
@@ -1594,12 +1603,12 @@
 
                                         <div id="mcpOauthCustom" hidden style="margin-top:12px">
                                             <div class="mcp-fields">
-                                                <div class="cfg-field"><label for="mcpOauthClientId">client_id</label><input id="mcpOauthClientId" autocomplete="off" /></div>
-                                                <div class="cfg-field"><label for="mcpOauthClientSecret">client_secret</label><input id="mcpOauthClientSecret" type="password" autocomplete="off" /></div>
-                                                <div class="cfg-field"><label for="mcpOauthScope">scope</label><input id="mcpOauthScope" placeholder="tools:read tools:execute" autocomplete="off" /></div>
-                                                <div class="cfg-field"><label for="mcpOauthCallbackPort">callback_port</label><input id="mcpOauthCallbackPort" type="number" min="1" max="65535" placeholder="19876" /></div>
-                                                <div class="cfg-field"><label for="mcpOauthRedirectUri">redirect_uri</label><input id="mcpOauthRedirectUri" placeholder="http://127.0.0.1:19876/callback" autocomplete="off" /></div>
-                                                <div class="cfg-field"><label for="mcpOauthMetadataUrl">auth_server_metadata_url</label><input id="mcpOauthMetadataUrl" autocomplete="off" /></div>
+                                                <div class="field"><label for="mcpOauthClientId">client_id</label><input id="mcpOauthClientId" autocomplete="off" /></div>
+                                                <div class="field"><label for="mcpOauthClientSecret">client_secret</label><input id="mcpOauthClientSecret" type="password" autocomplete="off" /></div>
+                                                <div class="field"><label for="mcpOauthScope">scope</label><input id="mcpOauthScope" placeholder="tools:read tools:execute" autocomplete="off" /></div>
+                                                <div class="field"><label for="mcpOauthCallbackPort">callback_port</label><input id="mcpOauthCallbackPort" type="number" min="1" max="65535" placeholder="19876" /></div>
+                                                <div class="field"><label for="mcpOauthRedirectUri">redirect_uri</label><input id="mcpOauthRedirectUri" placeholder="http://127.0.0.1:19876/callback" autocomplete="off" /></div>
+                                                <div class="field"><label for="mcpOauthMetadataUrl">auth_server_metadata_url</label><input id="mcpOauthMetadataUrl" autocomplete="off" /></div>
                                             </div>
                                         </div>
                                     </div>
@@ -1638,15 +1647,15 @@
 
                         <div class="cfg-settings-card">
                             <div class="mcp-grid-3">
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label for="mcpGlobalStartup">startup</label>
                                     <input id="mcpGlobalStartup" type="number" min="1" placeholder="30000" />
                                 </div>
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label for="mcpGlobalCatalog">catalog</label>
                                     <input id="mcpGlobalCatalog" type="number" min="1" placeholder="30000" />
                                 </div>
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label for="mcpGlobalExecution">execution</label>
                                     <input id="mcpGlobalExecution" type="number" min="1" placeholder="600000" />
                                 </div>
@@ -1707,11 +1716,11 @@
                     <section class="oc-schedule-section">
                         <h4 class="oc-schedule-section-title">基本设置</h4>
                         <div class="oc-schedule-section-body">
-                            <div class="cfg-field">
+                            <div class="field">
                                 <label for="scheduleName">名称</label>
-                                <input id="scheduleName" type="text" placeholder="留空则按规则自动生成" autocomplete="off">
+                                <input class="ctl" id="scheduleName" type="text" placeholder="留空则按规则自动生成" autocomplete="off">
                             </div>
-                            <div class="cfg-field">
+                            <div class="field">
                                 <label>触发方式</label>
                                 <div class="oc-schedule-tabs" id="scheduleTabs">
                                     <button type="button" class="oc-schedule-tab" data-tab="once">不重复</button>
@@ -1725,29 +1734,29 @@
                         <h4 class="oc-schedule-section-title">时间设置</h4>
                         <div class="oc-schedule-section-body">
                             <div id="schedulePanelOnce" hidden>
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label>什么时候</label>
                                     <div class="oc-schedule-radios">
                                         <label><input type="radio" name="scheduleOnceMode" value="delay" checked> 延迟</label>
                                         <label><input type="radio" name="scheduleOnceMode" value="at"> 指定时间</label>
                                     </div>
                                 </div>
-                                <div class="cfg-field" id="scheduleDelayRow">
+                                <div class="field" id="scheduleDelayRow">
                                     <div class="oc-schedule-inline">
-                                        <input class="oc-schedule-num" id="scheduleDelayValue" type="number" min="1" value="20">
-                                        <select id="scheduleDelayUnit">
+                                        <input class="ctl oc-schedule-num" id="scheduleDelayValue" type="number" min="1" value="20">
+                                        <select class="ctl" id="scheduleDelayUnit">
                                             <option value="minutes">分钟后</option>
                                             <option value="hours">小时后</option>
                                         </select>
                                     </div>
                                 </div>
-                                <div class="cfg-field" id="scheduleOnceAtRow" hidden>
-                                    <input id="scheduleOnceAt" type="datetime-local">
+                                <div class="field" id="scheduleOnceAtRow" hidden>
+                                    <input class="ctl" id="scheduleOnceAt" type="datetime-local">
                                 </div>
                             </div>
 
                             <div id="schedulePanelRepeat">
-                                <div class="cfg-field">
+                                <div class="field">
                                     <label for="scheduleFreq">频率</label>
                                     <select id="scheduleFreq">
                                         <option value="hourly">间隔</option>
@@ -1757,22 +1766,22 @@
                                         <option value="custom">自定义 cron</option>
                                     </select>
                                 </div>
-                                <div class="cfg-field" id="scheduleIntervalRow" hidden>
+                                <div class="field" id="scheduleIntervalRow" hidden>
                                     <label for="scheduleIntervalValue">时间</label>
                                     <div class="oc-schedule-inline">
-                                        <input class="oc-schedule-num" id="scheduleIntervalValue" type="number" min="1" value="2">
-                                        <select id="scheduleIntervalUnit">
+                                        <input class="ctl oc-schedule-num" id="scheduleIntervalValue" type="number" min="1" value="2">
+                                        <select class="ctl" id="scheduleIntervalUnit">
                                             <option value="minutes">分钟</option>
                                             <option value="hours" selected>小时</option>
                                         </select>
                                     </div>
                                     <div class="oc-schedule-hint">最短 1 分钟；常用 5 / 15 / 30 分钟或 1 / 2 / 6 小时。</div>
                                 </div>
-                                <div class="cfg-field" id="scheduleTimeRow">
+                                <div class="field" id="scheduleTimeRow">
                                     <label for="scheduleTime">时间</label>
                                     <div class="oc-schedule-inline">
-                                        <input class="oc-schedule-time" id="scheduleTime" type="time" value="09:00">
-                                        <select id="scheduleTz">
+                                        <input class="ctl oc-schedule-time" id="scheduleTime" type="time" value="09:00">
+                                        <select class="ctl" id="scheduleTz">
                                             <option value="Asia/Shanghai">Asia/Shanghai</option>
                                             <option value="Asia/Tokyo">Asia/Tokyo</option>
                                             <option value="UTC">UTC</option>
@@ -1782,7 +1791,7 @@
                                     </div>
                                     <div class="oc-schedule-hint">时区决定「每天 9 点」具体是几点。</div>
                                 </div>
-                                <div class="cfg-field" id="scheduleWeekdayRow" hidden>
+                                <div class="field" id="scheduleWeekdayRow" hidden>
                                     <label>星期</label>
                                     <div class="oc-schedule-chips" id="scheduleWeekdays">
                                         <button type="button" class="oc-schedule-chip" data-day="1">一</button>
@@ -1794,30 +1803,30 @@
                                         <button type="button" class="oc-schedule-chip" data-day="0">日</button>
                                     </div>
                                 </div>
-                                <div class="cfg-field" id="scheduleMonthDayRow" hidden>
+                                <div class="field" id="scheduleMonthDayRow" hidden>
                                     <label for="scheduleMonthDay">每月几号</label>
-                                    <input class="oc-schedule-num" id="scheduleMonthDay" type="number" min="1" max="31" value="1">
+                                    <input class="ctl oc-schedule-num" id="scheduleMonthDay" type="number" min="1" max="31" value="1">
                                 </div>
-                                <div class="cfg-field" id="scheduleCronRow" hidden>
+                                <div class="field" id="scheduleCronRow" hidden>
                                     <label for="scheduleCron">cron 表达式</label>
-                                    <input id="scheduleCron" type="text" value="0 9 * * *" spellcheck="false">
+                                    <input class="ctl" id="scheduleCron" type="text" value="0 9 * * *" spellcheck="false">
                                     <div class="oc-schedule-hint" id="scheduleCronExplain"></div>
                                 </div>
                             </div>
 
-                            <div class="cfg-field" id="scheduleEndsRow">
+                            <div class="field" id="scheduleEndsRow">
                                 <label>结束条件</label>
                                 <div class="oc-schedule-ends">
                                     <label><input type="radio" name="scheduleEndsMode" value="never" checked> 永不</label>
                                     <label><input type="radio" name="scheduleEndsMode" value="times"> 最多
                                         <span class="oc-schedule-ends-control">
-                                            <input class="oc-schedule-num" id="scheduleEndsTimes" type="number" min="1" value="20" disabled>
+                                            <input class="ctl oc-schedule-num" id="scheduleEndsTimes" type="number" min="1" value="20" disabled>
                                             <span>次</span>
                                         </span>
                                     </label>
                                     <label><input type="radio" name="scheduleEndsMode" value="at"> 到
                                         <span class="oc-schedule-ends-control">
-                                            <input id="scheduleEndsAt" type="datetime-local" disabled>
+                                            <input class="ctl" id="scheduleEndsAt" type="datetime-local" disabled>
                                         </span>
                                     </label>
                                 </div>
@@ -1828,9 +1837,9 @@
                     <section class="oc-schedule-section">
                         <h4 class="oc-schedule-section-title">任务设置</h4>
                         <div class="oc-schedule-section-body">
-                            <div class="cfg-field">
+                            <div class="field">
                                 <label for="schedulePrompt">到点后发送</label>
-                                <textarea id="schedulePrompt" placeholder="例如：检查今天的构建状态并汇总"></textarea>
+                                <textarea class="ctl" id="schedulePrompt" placeholder="例如：检查今天的构建状态并汇总"></textarea>
                             </div>
                         </div>
                     </section>
@@ -1856,7 +1865,7 @@
                     <div class="oc-schedule-detail-row"><span>状态</span><strong id="scheduleDetailStatus">—</strong></div>
                     <div class="oc-schedule-detail-row"><span>触发规则</span><strong id="scheduleDetailRule">—</strong></div>
                     <div class="oc-schedule-detail-row"><span>下次触发</span><strong id="scheduleDetailNext">—</strong></div>
-                    <div class="cfg-field">
+                    <div class="field">
                         <label>到点后发送</label>
                         <pre class="oc-schedule-detail-prompt" id="scheduleDetailPrompt">—</pre>
                     </div>
