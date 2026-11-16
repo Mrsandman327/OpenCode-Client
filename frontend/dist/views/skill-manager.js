@@ -9,6 +9,7 @@ import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
 import { switchHtml } from '../components/switch.js';
+import { emptyHtml } from '../components/empty.js';
 export let skills = [];
 
 // ========== 技能页顶部配置区的 UI 状态 ==========
@@ -64,7 +65,7 @@ export function renderSkillList(filter) {
     filter = filter || '';
     var list = document.getElementById('skillList');
     if (!skills.length) {
-        list.innerHTML = '<div class="oc-empty">暂无技能</div>';
+        list.innerHTML = emptyHtml({ title: '暂无技能', size: 'sm' });
         return;
     }
     var noSourcesMode = skills.length > 0 && skills.every(function(s) { return s.noSources; });
@@ -126,7 +127,7 @@ export function renderSkillList(filter) {
     }
 
     if (!filtered.length && skills.length > 0) {
-        list.innerHTML = '<div class="oc-empty">没有匹配的技能</div>';
+        list.innerHTML = emptyHtml({ title: '没有匹配的技能', size: 'sm' });
     }
 }
 

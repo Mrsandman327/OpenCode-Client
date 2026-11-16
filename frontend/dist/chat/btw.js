@@ -88,7 +88,7 @@ function renderBtwPanel() {
             + '<div class="oc-message-parts"><div class="oc-part error-msg">没能回答这个问题</div></div>'
             + '</div>';
     }
-    if (!html) html = '<div class="oc-empty">请输入一个问题</div>';
+    if (!html) html = '<div class="empty-state empty-state--sm">请输入一个问题</div>';
     thread.innerHTML = html;
     // 本地图片（C:\... / file:// / 相对路径）异步替换为 data URL
     hydrateLocalImages(thread, currentDir());

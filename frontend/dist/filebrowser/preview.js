@@ -161,7 +161,7 @@ export function clearFileBrowserPreview() {
     var downloadBtn = document.getElementById('btnFileBrowserDownload');
     if (titleEl) titleEl.textContent = '请选择文件';
     if (metaEl) metaEl.textContent = '';
-    if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">请选择左侧文件进行预览</div>';
+    if (bodyEl) bodyEl.innerHTML = '<div class="empty-state empty-state--sm">请选择左侧文件进行预览</div>';
     destroyFileBrowserEditor();
     var state = store.fileBrowserState;
     if (!state) return;
@@ -970,7 +970,7 @@ export async function renderFilePreview(item, options) {
     var bodyEl = document.getElementById('filePreviewBody');
     if (titleEl) titleEl.textContent = item.name;
     if (metaEl) metaEl.textContent = '加载中...';
-    if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">正在读取文件...</div>';
+    if (bodyEl) bodyEl.innerHTML = '<div class="empty-state empty-state--sm">正在读取文件...</div>';
     renderFilePreviewToolbar();
 
     try {
@@ -1074,7 +1074,7 @@ export async function renderFilePreview(item, options) {
     } catch (err) {
         if (!isCurrentRequest()) return;
         if (metaEl) metaEl.textContent = '';
-        if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
+        if (bodyEl) bodyEl.innerHTML = '<div class="empty-state empty-state--sm empty-state--error">' + escapeHtml(formatApiError(err)) + '</div>';
         renderFilePreviewToolbar();
     }
 }
@@ -1103,7 +1103,7 @@ export function bindNoExtPreviewActions(item) {
 
 export function renderCSVPreview(content) {
     var lines = String(content || '').split(/\r?\n/).filter(function(line) { return line !== ''; });
-    if (!lines.length) return '<div class="file-browser-empty">CSV 文件为空</div>';
+    if (!lines.length) return '<div class="empty-state empty-state--sm">CSV 文件为空</div>';
     var rows = lines.map(function(line) { return line.split(','); });
     var html = '<div class="file-browser-table-wrap"><table class="file-browser-table"><tbody>';
     rows.forEach(function(cols, rowIndex) {
@@ -1166,7 +1166,7 @@ export async function renderGitFilePreview(path, presetRightContent, opts) {
     var bodyEl = document.getElementById('filePreviewBody');
     if (titleEl) titleEl.textContent = path.replace(/^\//, '');
     if (metaEl) metaEl.textContent = 'Git 变更预览';
-    if (!silent && bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">正在读取 Git 变更...</div>';
+    if (!silent && bodyEl) bodyEl.innerHTML = '<div class="empty-state empty-state--sm">正在读取 Git 变更...</div>';
     renderFilePreviewToolbar();
     try {
         var data = await fileBrowserApiGitPreview(state.rootDir, path);
@@ -1203,7 +1203,7 @@ export async function renderGitFilePreview(path, presetRightContent, opts) {
             // 避免把已有内容整块替换成错误页。
             showToast('刷新 Git 差异失败: ' + formatApiError(err), 'error');
         } else if (bodyEl) {
-            bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
+            bodyEl.innerHTML = '<div class="empty-state empty-state--sm empty-state--error">' + escapeHtml(formatApiError(err)) + '</div>';
         }
     }
 }
@@ -1220,7 +1220,7 @@ export async function renderGitHistoryFilePreview(commitHash, path) {
     var bodyEl = document.getElementById('filePreviewBody');
     if (titleEl) titleEl.textContent = path;
     if (metaEl) metaEl.textContent = '提交历史 · ' + commitHash.slice(0, 7);
-    if (bodyEl) bodyEl.innerHTML = '<div class="file-browser-empty">正在读取提交历史文件变更...</div>';
+    if (bodyEl) bodyEl.innerHTML = '<div class="empty-state empty-state--sm">正在读取提交历史文件变更...</div>';
     renderFilePreviewToolbar();
     try {
         var data = await fileBrowserApiGitHistoryPreview(state.rootDir, commitHash, path);
@@ -1235,7 +1235,7 @@ export async function renderGitHistoryFilePreview(commitHash, path) {
             rightReadOnly: true
         });
     } catch (err) {
-        bodyEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
+        bodyEl.innerHTML = '<div class="empty-state empty-state--sm empty-state--error">' + escapeHtml(formatApiError(err)) + '</div>';
     }
 }
 

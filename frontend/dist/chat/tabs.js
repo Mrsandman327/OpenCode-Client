@@ -140,7 +140,7 @@ export function activateTabContainer(sessionID) {
         if (el) {
             el.classList.add('active');
             el.style.display = 'flex';
-            el.innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';
+            el.innerHTML = '<div class="empty-state empty-state--sm">正在加载会话消息...</div>';
             if (tabActivationHandler) tabActivationHandler();
         }
     } else {
@@ -148,7 +148,7 @@ export function activateTabContainer(sessionID) {
         var hasCache = !!(store.messageCache && store.messageCache[sessionID] && store.messageCache[sessionID].length);
         var hasRealContent = !!existing.querySelector('.oc-part');
         if (!hasCache && !hasRealContent) {
-            existing.innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';
+            existing.innerHTML = '<div class="empty-state empty-state--sm">正在加载会话消息...</div>';
             if (tabActivationHandler) tabActivationHandler();
         }
     }
@@ -265,7 +265,7 @@ export function closeSessionTab(sessionID) {
             var pool = document.getElementById('ocMessagesPool');
             if (pool) {
                 pool.querySelectorAll('.oc-messages-tab').forEach(function(c) { c.remove(); });
-                pool.innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+                pool.innerHTML = '<div class="empty-state empty-state--sm">选择会话后查看消息，或输入内容创建新会话</div>';
             }
             // 所有标签已关闭：通知 session.js 清空右侧状态区（目录、定时任务、子任务、待办等）。
             // 必须放在 currentSessionId 置空之后触发，否则各面板会按旧会话重新拉取。

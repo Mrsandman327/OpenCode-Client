@@ -9,6 +9,7 @@ import { dirname } from '../core/path.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { showConfirm } from '../core/dialog.js';
 import { switchHtml } from '../components/switch.js';
+import { emptyHtml } from '../components/empty.js';
 
 export let providerCache = [];
 
@@ -327,7 +328,7 @@ export function renderProviders(providers) {
     const list = document.getElementById('providersList');
     const isEmpty = !providers || !providers.length;
     const empty = isEmpty
-        ? '<div class="prov-empty">暂无供应商，点击工具栏「添加供应商」</div>'
+        ? emptyHtml({ title: '暂无供应商，点击工具栏「添加供应商」', size: 'sm', bordered: true })
         : '';
     const html = (providers || []).map(p => providerCardHtml(p)).join('');
     // 空态强制单列（columns 下提示会挤在左列，居中到整个列表区）
@@ -360,7 +361,7 @@ export function providerCardHtml(p) {
         : '<span class="prov-models-label">模型</span><span class="prov-models-empty">暂无模型</span>';
     const modelsHtml = allModels.length
         ? allModels.map(m => modelSubcardHtml({ id: m.id, name: m.name || '', limit: m.limit }, m.capabilities)).join('')
-        : '<div class="prov-empty">暂无模型，点击「手动添加」或「 获取模型列表」</div>';
+        : emptyHtml({ title: '暂无模型，点击「手动添加」或「 获取模型列表」', size: 'sm', bordered: true });
     const baseHost = (p.baseURL || '').trim().replace(/^https?:\/\//, '');
     // 说明：接口格式下拉的类名 .prov-edit-npm 与 data-raw-npm 保留 v1 命名（CSS/事件绑定依赖），
     // 其承载的对外字段已是 v2 的 package
@@ -468,7 +469,7 @@ export function bindProviderEvents(providers) {
             const key = btn.dataset.key;
             const list = document.querySelector(`.card-models-list[data-key="${CSS.escape(key)}"]`);
             // 移除空态占位（若有）
-            const emptyEl = list.querySelector('.prov-empty');
+            const emptyEl = list.querySelector('.empty-state');
             if (emptyEl) emptyEl.remove();
             // 用共享的 modelSubcardHtml 生成子卡片（结构/折叠行为与静态渲染一致），
             // 默认不勾选任何能力（保存时全空则不写 capabilities 字段）
@@ -786,7 +787,7 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
 
             if (action === 'add') {
                 // 移除空态占位（若有）
-                const emptyEl = list.querySelector('.prov-empty');
+                const emptyEl = list.querySelector('.empty-state');
                 if (emptyEl) emptyEl.remove();
                 // 与「手动添加」走同一套 modelSubcardHtml 结构（能力区默认折叠）；
                 // 弹窗拉取的模型 ID 固定 readonly，默认不勾选任何能力（全空则不写 capabilities）

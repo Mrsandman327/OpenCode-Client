@@ -665,7 +665,7 @@ export async function stopWeb() {
         clearTimeout(store.sessionRefreshTimer);
         updateWebUI();
         clearClientUI();
-        document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
+        document.getElementById('ocTree').innerHTML = '<div class="empty-state empty-state--sm">启动服务后加载项目树</div>';
         showToast('已停止', 'info');
     } catch (e) {
         showApiError('停止失败: ', e);
@@ -706,7 +706,7 @@ export async function launchTerminal() {
 
 /** 清空客户端界面状态 */
 export function clearClientUI() {
-    document.getElementById('ocTree').innerHTML = '<div class="oc-empty">启动服务后加载项目树</div>';
+    document.getElementById('ocTree').innerHTML = '<div class="empty-state empty-state--sm">启动服务后加载项目树</div>';
     // 停止服务：复位移动端标题（桌面端标题只显示在 Tab 上）
     var mobileTitle = document.getElementById('ocMobileChatTitle');
     if (mobileTitle) {
@@ -716,17 +716,17 @@ export function clearClientUI() {
     // 直接清空消息池（stopWeb 已显式移除 tab 容器；此处兜底整体重置）
     var poolEl = document.getElementById('ocMessagesPool');
     if (poolEl) {
-        poolEl.innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+        poolEl.innerHTML = '<div class="empty-state empty-state--sm">选择会话后查看消息，或输入内容创建新会话</div>';
     } else {
-        getActiveMessagesEl().innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+        getActiveMessagesEl().innerHTML = '<div class="empty-state empty-state--sm">选择会话后查看消息，或输入内容创建新会话</div>';
     }
     var subtaskBox = document.getElementById('ocSubtasks');
     if (subtaskBox) {
-        subtaskBox.innerHTML = '<div class="oc-empty">当前会话暂无子任务</div>';
+        subtaskBox.innerHTML = '<div class="empty-state empty-state--sm">当前会话暂无子任务</div>';
         // 清掉内容指纹：否则下次刷新若指纹相同会跳过渲染，面板会一直空白
         delete subtaskBox.dataset.fp;
     }
-    document.getElementById('ocTodos').innerHTML = '<div class="oc-empty">当前会话暂无代办</div>';
+    document.getElementById('ocTodos').innerHTML = '<div class="empty-state empty-state--sm">当前会话暂无代办</div>';
     renderServiceStatus();
     document.getElementById('ocPrompt').value = '';
     updateModelInfo(null);

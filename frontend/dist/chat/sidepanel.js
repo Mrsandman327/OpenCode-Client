@@ -69,7 +69,7 @@ export function renderTodos() {
 
     const todos = extractTodos();
     if (!todos.length) {
-        box.innerHTML = '<div class="oc-empty">会话中暂无代办</div>';
+        box.innerHTML = '<div class="empty-state empty-state--sm">会话中暂无代办</div>';
         return;
     }
     // 按 OpenCode 的三种状态分组：进行中 / 待处理 / 已完成（含 cancelled）。
@@ -78,7 +78,7 @@ export function renderTodos() {
     const pending = todos.filter(t => !t.status || t.status === 'pending');
     const completed = todos.filter(t => t.status === 'completed' || t.status === 'cancelled');
     if (!inProgress.length && !pending.length && !completed.length) {
-        box.innerHTML = '<div class="oc-empty">会话中暂无代办</div>';
+        box.innerHTML = '<div class="empty-state empty-state--sm">会话中暂无代办</div>';
         return;
     }
 
@@ -305,14 +305,14 @@ export function renderSubtaskPanel() {
     if (!box) return;
     if (!store.webRunning || !store.currentSessionId) {
         if (box.dataset.fp !== 'off') {
-            box.innerHTML = '<div class="oc-empty">启动服务并选择会话后查看子任务</div>';
+            box.innerHTML = '<div class="empty-state empty-state--sm">启动服务并选择会话后查看子任务</div>';
             box.dataset.fp = 'off';
         }
         return;
     }
     if (!store.subtaskSummaries.length) {
         if (box.dataset.fp !== 'empty') {
-            box.innerHTML = '<div class="oc-empty">当前会话暂无子任务<br><small>子任务会在主会话触发 task 工具后显示在这里</small></div>';
+            box.innerHTML = '<div class="empty-state empty-state--sm">当前会话暂无子任务<br><small>子任务会在主会话触发 task 工具后显示在这里</small></div>';
             box.dataset.fp = 'empty';
         }
         return;
@@ -658,14 +658,14 @@ export async function loadSubtaskDetailMessages(childSessionId) {
             items.unshift({ info: { role: 'user' }, parts: [{ type: 'text', text: currentSubtaskPrompt }] });
         }
         if (!items.length) {
-            if (msgBox) msgBox.innerHTML = '<div class="oc-empty">子会话暂无消息</div>';
+            if (msgBox) msgBox.innerHTML = '<div class="empty-state empty-state--sm">子会话暂无消息</div>';
             return;
         }
         if (thisSeq !== store.detailMessageLoadSeq) return;
         renderDetailMessages(items, childSessionId);
     } catch (err) {
         if (thisSeq !== store.detailMessageLoadSeq) return;
-        if (msgBox) msgBox.innerHTML = '<div class="oc-empty error">加载失败：' + escapeHtml(formatApiError(err) || '网络错误') + '</div>';
+        if (msgBox) msgBox.innerHTML = '<div class="empty-state empty-state--sm empty-state--error">加载失败：' + escapeHtml(formatApiError(err) || '网络错误') + '</div>';
     } finally {
         store.detailLoading[childSessionId] = false;
     }

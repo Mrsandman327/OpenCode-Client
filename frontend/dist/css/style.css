@@ -3897,15 +3897,6 @@ input::placeholder, textarea::placeholder {
     padding: 12px;
     text-align: center;
 }
-.oc-empty {
-    color: var(--text-muted);
-    font-size: 13px;
-    padding: 20px;
-    text-align: center;
-}
-.oc-empty.error {
-    color: var(--danger);
-}
 /* 内联 SVG 图标：尺寸固定，颜色继承 currentColor（由按钮/文本颜色决定） */
 svg.i {
     width: 16px;
@@ -3936,7 +3927,6 @@ svg.i.is-spinning {
 .oc-update-ic svg.i { width: 14px; height: 14px; }
 .oc-update-step-ic svg.i { width: 10px; height: 10px; }
 .oc-update-r-icon svg.i { width: 22px; height: 22px; }
-.pc-empty-icon svg.i { width: 36px; height: 36px; }
 /* 行内文本中的图标（错误提示 / 空态 / 说明条 / 元信息 / 附件名 / 知识库插入标记）：
    与文字同基线，不单独占行 */
 .error p > svg.i,
@@ -5333,14 +5323,6 @@ svg.i.is-spinning {
     box-shadow: 0 0 0 2px var(--accent-glow);
 }
 /* 空状态占位 */
-.prov-empty {
-    padding: 10px 14px;
-    font-size: 12px;
-    color: var(--text-muted);
-    text-align: center;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius-sm);
-}
 /* 默认收起：仅标题栏 + 摘要 + 启用模型名单；点击标题栏展开后显示完整编辑区 */
 .provider-card-body {
     padding: 13px 14px 14px;
@@ -7686,11 +7668,6 @@ body.fb-term-resizing .fb-term-host { pointer-events: none; }
     background: rgba(127, 127, 127, 0.4);
     border-radius: 5px;
 }
-.file-browser-empty {
-    color: var(--text-muted);
-    font-size: 13px;
-    padding: 16px;
-}
 
 /* ========== 2. 代码块（如 <pre><code>） ========== */
 .file-browser-code {
@@ -8194,25 +8171,10 @@ body.file-browser-diff-dragging {
 
 /* ===== 空状态 ===== */
 
-.pc-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 300px;
-    padding: 48px 24px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 15px;
-}
 
-.pc-empty-icon { font-size: 40px; margin-bottom: 16px; opacity: .5; display: flex; justify-content: center; }
 
-.pc-empty p { margin: 0 0 4px; font-weight: 500; }
 
-.pc-empty-desc { font-size: 13px; font-weight: 400; margin-top: 4px; }
 
-.pc-empty-btn { margin-top: 16px; }
 
 .pc-loading {
     display: flex;
@@ -9406,16 +9368,6 @@ input.toolbar-input {
 }
 
 /* 空状态 */
-.kb-empty {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 48px 20px;
-    color: var(--text-muted);
-    font-size: 13px;
-}
 
 /* ---------------- 条目编辑弹窗 ----------------
    结构复用项目弹窗范式（.modal-overlay + .modal + .modal-header），

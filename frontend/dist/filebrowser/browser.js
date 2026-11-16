@@ -1169,7 +1169,7 @@ export async function loadFileBrowserList(path) {
     closeFileBrowserCreateDirInline();
     state.loadingList = true;
     var targetPath = path || '/';
-    if (listEl) listEl.innerHTML = '<div class="file-browser-empty">正在读取目录...</div>';
+    if (listEl) listEl.innerHTML = '<div class="empty-state empty-state--sm">正在读取目录...</div>';
     if (emptyEl) emptyEl.style.display = 'none';
     try {
         var data = await fileBrowserApiList(state.rootDir, targetPath);
@@ -1186,7 +1186,7 @@ export async function loadFileBrowserList(path) {
         markTreeSelection(state.rootNode, state.selectedPath);
         loadFileBrowserGitStatus();
     } catch (err) {
-        if (listEl) listEl.innerHTML = '<div class="file-browser-empty error">' + escapeHtml(formatApiError(err)) + '</div>';
+        if (listEl) listEl.innerHTML = '<div class="empty-state empty-state--sm empty-state--error">' + escapeHtml(formatApiError(err)) + '</div>';
     } finally {
         state.loadingList = false;
     }
@@ -1208,8 +1208,8 @@ export function renderFileBrowserGitSection() {
     if (commitBtn) commitBtn.disabled = !!state.git.commitSubmitting;
 
     if (!state.git.isGitRepo) {
-        listEl.innerHTML = '<div class="file-browser-empty">' + escapeHtml(state.git.message || '当前目录未启用 Git 版本管理') + '</div>';
-        historyBodyEl.innerHTML = '<div class="file-browser-empty">当前目录未启用 Git 版本管理</div>';
+        listEl.innerHTML = '<div class="empty-state empty-state--sm">' + escapeHtml(state.git.message || '当前目录未启用 Git 版本管理') + '</div>';
+        historyBodyEl.innerHTML = '<div class="empty-state empty-state--sm">当前目录未启用 Git 版本管理</div>';
         return;
     }
     var errorHtml = state.git.gitActionError ? '<div class="file-browser-git-action-error" style="padding:4px 8px">' + escapeHtml(state.git.gitActionError) + '</div>' : '';
@@ -1232,7 +1232,7 @@ export function renderFileBrowserGitGroup(title, files, groupName) {
             (groupName === 'unstaged' ? '<button type="button" class="btn file-browser-git-stage-all" id="btnStageAll" ' + (files.length ? '' : 'disabled') + '>全部暂存</button>' : '') +
         '</div>';
     if (!files.length) {
-        return html + '<div class="file-browser-empty">当前没有' + escapeHtml(title) + '文件</div></div>';
+        return html + '<div class="empty-state empty-state--sm">当前没有' + escapeHtml(title) + '文件</div></div>';
     }
     // 目录树渲染：按路径层级分组，目录可折叠
     html += renderGitTreeNodes(buildGitFileTree(files), groupName, 0);
@@ -1424,11 +1424,11 @@ export function bindCurrentGitFileEvents(bodyEl) {
 export function renderFileBrowserGitHistory(bodyEl) {
     var state = store.fileBrowserState;
     if (state.git.historyLoading && !state.git.historyItems.length) {
-        bodyEl.innerHTML = '<div class="file-browser-empty">正在读取提交历史...</div>';
+        bodyEl.innerHTML = '<div class="empty-state empty-state--sm">正在读取提交历史...</div>';
         return;
     }
     if (!state.git.historyItems.length) {
-        bodyEl.innerHTML = '<div class="file-browser-empty">暂无提交记录</div>';
+        bodyEl.innerHTML = '<div class="empty-state empty-state--sm">暂无提交记录</div>';
         return;
     }
     var html = state.git.historyItems.map(function(item) {
@@ -1439,9 +1439,9 @@ export function renderFileBrowserGitHistory(bodyEl) {
         var tagHtml = item.tag ? '<span class="file-browser-git-tag" title="标签：' + escapeHtml(item.tag) + '">' + escapeHtml(item.tag) + '</span>' : '';
         if (expanded) {
             if (item.loadingFiles) {
-                fileHtml = '<div class="file-browser-empty">正在读取提交文件...</div>';
+                fileHtml = '<div class="empty-state empty-state--sm">正在读取提交文件...</div>';
             } else if (!item.files.length) {
-                fileHtml = '<div class="file-browser-empty">该提交没有文件变更</div>';
+                fileHtml = '<div class="empty-state empty-state--sm">该提交没有文件变更</div>';
             } else {
                 fileHtml = '<div class="file-browser-git-history-files">' + item.files.map(function(file) {
                     var fileKey = item.hash + '::' + file.path;
@@ -1469,7 +1469,7 @@ export function renderFileBrowserGitHistory(bodyEl) {
     if (state.git.historyHasMore || state.git.historyLoading) {
         html += '<div class="file-browser-git-history-actions"><button type="button" class="file-browser-git-history-load-more" id="btnFileBrowserLoadGitHistory" ' + (state.git.historyLoading ? 'disabled' : '') + '>' + (state.git.historyLoading ? '加载中...' : '加载更多') + '</button></div>';
     } else {
-        html += '<div class="file-browser-empty">已加载全部提交</div>';
+        html += '<div class="empty-state empty-state--sm">已加载全部提交</div>';
     }
     bodyEl.innerHTML = html;
     bodyEl.querySelectorAll('.commit-item').forEach(function(btn) {

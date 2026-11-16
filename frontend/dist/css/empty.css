@@ -1,0 +1,102 @@
+/* ============================================================
+   空态样式（配合 components/empty.js）
+   ============================================================
+   结构：
+   <div class="empty-state">
+       <span class="empty-state__icon"><svg class="i"><use href="#i-inbox"></use></svg></span>
+       <p class="empty-state__title">主文字</p>
+       <p class="empty-state__desc">补充说明</p>
+       <div class="empty-state__action"><button …></div>
+   </div>
+
+   修饰符：
+   .empty-state--sm        紧凑（列表 / 树 / 卡片内）
+   .empty-state--bordered  虚线外框
+   .empty-state--error     错误态（危险色）
+   ============================================================ */
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* 紧凑版：列表行、树、卡片内部 */
+.empty-state--sm {
+    gap: 4px;
+    padding: 16px 12px;
+    font-size: 12.5px;
+}
+
+/* 虚线框：供应商卡片里的「暂无模型」这类内嵌提示 */
+.empty-state--bordered {
+    padding: 10px 14px;
+    font-size: 12px;
+    gap: 4px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+}
+
+/* 错误态 */
+.empty-state--error {
+    color: var(--danger);
+}
+
+.empty-state__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+
+.empty-state__icon .i {
+    width: 36px;
+    height: 36px;
+}
+
+.empty-state--sm .empty-state__icon .i {
+    width: 22px;
+    height: 22px;
+}
+
+.empty-state--error .empty-state__icon {
+    color: var(--danger);
+}
+
+.empty-state__title {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.empty-state--sm .empty-state__title {
+    font-size: 12.5px;
+    font-weight: 400;
+}
+
+.empty-state--error .empty-state__title {
+    color: var(--danger);
+}
+
+.empty-state__desc {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.empty-state__action {
+    margin-top: 4px;
+}
+
+/* 知识库卡片网格：空态需要跨满整行 */
+.kb-empty-cell {
+    grid-column: 1 / -1;
+}

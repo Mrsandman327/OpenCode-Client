@@ -106,13 +106,13 @@ async function buildTreeOnce() {
             return true;
         } else {
             window._lastProjectTree = [];
-            document.getElementById('ocTree').innerHTML = '<div class="oc-empty">暂无会话，新建会话后将自动出现</div>';
+            document.getElementById('ocTree').innerHTML = '<div class="empty-state empty-state--sm">暂无会话，新建会话后将自动出现</div>';
             updateTreeSummary([]);
             return false;
         }
     } catch (_) {
         window._lastProjectTree = [];
-        document.getElementById('ocTree').innerHTML = '<div class="oc-empty">加载树失败</div>';
+        document.getElementById('ocTree').innerHTML = '<div class="empty-state empty-state--sm">加载树失败</div>';
         updateTreeSummary([]);
         return false;
     }
@@ -141,7 +141,7 @@ export function renderTree(tree) {
     const container = document.getElementById('ocTree');
 
     if (!tree || tree.length === 0) {
-        container.innerHTML = '<div class="oc-empty">暂无会话</div>';
+        container.innerHTML = '<div class="empty-state empty-state--sm">暂无会话</div>';
         updateTreeSummary([]);
         updateTreeSearchStatus(0, 0);
         return;
@@ -389,7 +389,7 @@ export function applyTreeSearchFilter() {
         container.querySelectorAll('.oc-tree-node').forEach(function(node) {
             node.classList.add('oc-tree-search-hidden');
         });
-        container.insertAdjacentHTML('beforeend', '<div class="oc-empty oc-tree-search-empty">未找到匹配项</div>');
+        container.insertAdjacentHTML('beforeend', '<div class="empty-state empty-state--sm oc-tree-search-empty">未找到匹配项</div>');
     }
 
     var empty = container.querySelector('.oc-tree-search-empty');

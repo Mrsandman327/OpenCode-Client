@@ -105,7 +105,7 @@ export async function loadDirBrowserList(path) {
         renderDirBrowserList(dirs || []);
         return true;
     } catch (e) {
-        list.innerHTML = '<div class="oc-empty">读取目录失败</div>';
+        list.innerHTML = '<div class="empty-state empty-state--sm">读取目录失败</div>';
         showApiError('读取目录失败: ', e);
         return false;
     }
@@ -115,7 +115,7 @@ export async function loadDirBrowserList(path) {
 function renderDirBrowserList(dirs) {
     var list = document.getElementById('dirBrowserList');
     if (!dirs.length) {
-        list.innerHTML = '<div class="oc-empty">当前目录没有可进入的子目录</div>';
+        list.innerHTML = '<div class="empty-state empty-state--sm">当前目录没有可进入的子目录</div>';
         return;
     }
 

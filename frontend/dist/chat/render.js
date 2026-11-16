@@ -449,7 +449,7 @@ export function renderMessages(items, targetBox) {
         box.innerHTML = '';
         appendSessionErrorRowIfNeeded(box, list);
         if (!box.childElementCount) {
-            box.innerHTML = '<div class="oc-empty">该会话暂无消息</div>';
+            box.innerHTML = '<div class="empty-state empty-state--sm">该会话暂无消息</div>';
         }
         store.lastMessageCount = 0;
         store.lastSourceMessageCount = 0;

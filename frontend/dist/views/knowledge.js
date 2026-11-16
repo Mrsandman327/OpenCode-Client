@@ -14,6 +14,7 @@ import { store } from '../core/state.js';
 // 复用 core/sanitize.js 的 Markdown 白名单清洗（与 project-config.js 的用法一致），不重复实现安全逻辑
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
+import { emptyHtml } from '../components/empty.js';
 
 // ---------- 内联线性图标（不使用 emoji） ----------
 var ICONS = {
@@ -185,7 +186,7 @@ export async function loadKnowledgeView(force) {
 function renderKbError() {
     var cardView = $('#kbCardView');
     var listView = $('#kbListView');
-    var empty = '<div class="kb-empty">' + ICONS.search + '<span>知识库加载失败，请稍后重试</span></div>';
+    var empty = emptyHtml({ icon: 'i-search', title: '知识库加载失败，请稍后重试', className: 'kb-empty-cell' });
     if (cardView) cardView.innerHTML = empty;
     if (listView) listView.innerHTML = empty;
     var countEl = $('#kbListCount');
@@ -328,7 +329,7 @@ export function renderKbEntries() {
     // ---- 列表视图 ----
     if (listView) {
         if (!list.length) {
-            listView.innerHTML = '<div class="kb-empty">' + ICONS.search + '<span>' + escapeHtml(emptyText) + '</span></div>';
+            listView.innerHTML = emptyHtml({ icon: 'i-search', title: emptyText, className: 'kb-empty-cell' });
         } else {
             listView.innerHTML = list.map(function (e) {
                 return '<div class="kb-row" data-kb-entry="' + escapeAttr(e.id) + '">' +
@@ -352,7 +353,7 @@ export function renderKbEntries() {
     // ---- 卡片视图（默认） ----
     if (cardView) {
         if (!list.length) {
-            cardView.innerHTML = '<div class="kb-empty">' + ICONS.search + '<span>' + escapeHtml(emptyText) + '</span></div>';
+            cardView.innerHTML = emptyHtml({ icon: 'i-search', title: emptyText, className: 'kb-empty-cell' });
         } else {
             cardView.innerHTML = list.map(function (e) {
                 return '<div class="kb-card" data-kb-entry="' + escapeAttr(e.id) + '">' +

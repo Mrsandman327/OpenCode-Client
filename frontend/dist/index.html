@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/css/button.css" />
     <!-- 主按钮单独一套：改主按钮样式不会影响普通按钮 -->
     <link rel="stylesheet" href="/css/button-primary.css" />
+    <link rel="stylesheet" href="/css/empty.css" />
     <link rel="stylesheet" href="/css/switch.css" />
     <script src="/lib/marked.min.js"></script>
     <script src="/lib/qrcode.min.js"></script>
@@ -210,7 +211,7 @@
                             <button type="button" class="oc-tree-search-close" id="ocTreeSearchClose" title="关闭搜索（Esc）" aria-label="关闭搜索"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
                         </div>
                         <div class="oc-tree" id="ocTree">
-                            <div class="oc-empty">启动服务后加载会话列表</div>
+                            <div class="empty-state empty-state--sm">启动服务后加载会话列表</div>
                         </div>
                         <!-- 列表底部固定统计条：项目数 / 会话数，尺寸与右侧属性面板底部目录栏一致 -->
                         <div class="oc-tree-summary" id="ocTreeSummary" aria-live="polite">
@@ -254,7 +255,7 @@
                         </div>
                         <div class="oc-messages-wrap">
                             <div class="oc-messages-pool" id="ocMessagesPool">
-                                <div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>
+                                <div class="empty-state empty-state--sm">选择会话后查看消息，或输入内容创建新会话</div>
                             </div>
                             <button type="button" class="oc-scroll-bottom" id="btnScrollBottom" title="回到会话底部"><svg class="i" aria-hidden="true"><use href="#i-arrow-down"></use></svg></button>
                             <div class="oc-user-nav" id="ocUserNav">
@@ -306,7 +307,7 @@
                                 </div>
                                 <div class="oc-permission-actions">
                                     <button type="button" data-btn="secondary" data-btn-size="sm" id="btnPermReject">拒绝</button>
-                                    <button type="button" data-btn="primary" data-btn-size="sm" id="btnPermAlways">始终允许</button>
+                                    <button type="button" data-btn="secondary" data-btn-size="sm" id="btnPermAlways">始终允许</button>
                                     <button type="button" data-btn="secondary" data-btn-size="sm" id="btnPermOnce">允许一次</button>
                                 </div>
                             </div>
@@ -335,7 +336,7 @@
                             </div>
                             <div class="oc-panel-body">
                                 <div class="oc-services" id="ocServices">
-                                    <div class="oc-empty">启动服务后查看</div>
+                                    <div class="empty-state empty-state--sm">启动服务后查看</div>
                                 </div>
                             </div>
                         </div>
@@ -348,7 +349,7 @@
                             </div>
                             <div class="oc-panel-body">
                                 <div class="oc-schedules" id="ocSchedules">
-                                    <div class="oc-empty">当前会话暂无定时任务</div>
+                                    <div class="empty-state empty-state--sm">当前会话暂无定时任务</div>
                                 </div>
                             </div>
                         </div>
@@ -358,7 +359,7 @@
                             </div>
                             <div class="oc-panel-body">
                                 <div class="oc-subtasks" id="ocSubtasks">
-                                    <div class="oc-empty">当前会话暂无子任务</div>
+                                    <div class="empty-state empty-state--sm">当前会话暂无子任务</div>
                                 </div>
                             </div>
                         </div>
@@ -370,7 +371,7 @@
                             </div>
                             <div class="oc-panel-body">
                                 <div class="oc-todos" id="ocTodos">
-                                    <div class="oc-empty">会话中暂无代办</div>
+                                    <div class="empty-state empty-state--sm">会话中暂无代办</div>
                                 </div>
                             </div>
                         </div>
@@ -1000,7 +1001,7 @@
                                     <span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-folder" aria-hidden="true"></span>
                                 </button>
                             </div>
-                            <div class="file-browser-empty" id="fileBrowserListEmpty">请选择目录</div>
+                            <div class="empty-state empty-state--sm" id="fileBrowserListEmpty">请选择目录</div>
                             <div class="file-browser-list" id="fileBrowserList"></div>
                             <div class="file-browser-files-toolbar">
                                 <button type="button" class="btn file-browser-upload-plus" id="btnFileBrowserUpload" title="上传文件"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg>上传文件</button>
@@ -1023,7 +1024,7 @@
                                     <button type="button" data-btn="primary" data-btn-size="sm" class="file-browser-git-commit-btn" id="btnFileBrowserGitCommit">提交</button>
                                 </div>
                                 <div id="fileBrowserGitCurrentList">
-                                    <div class="file-browser-empty">正在检查 Git 状态...</div>
+                                    <div class="empty-state empty-state--sm">正在检查 Git 状态...</div>
                                 </div>
                             </div>                        </div>
                         <div class="file-browser-git-resize-handle" id="fileBrowserGitResizeHandle" aria-hidden="true"></div>
@@ -1036,7 +1037,7 @@
                                 </span>
                             </div>
                             <div class="file-browser-git-body" id="fileBrowserGitHistoryBody">
-                                <div class="file-browser-empty">正在读取提交历史...</div>
+                                <div class="empty-state empty-state--sm">正在读取提交历史...</div>
                             </div>
                         </div>
                     </div>
@@ -1078,7 +1079,7 @@
                         <button type="button" data-btn="secondary" data-btn-size="xs" id="btnFileBrowserExternalReload">重新加载</button>
                     </div>
                     <div class="file-browser-preview-body" id="filePreviewBody">
-                        <div class="file-browser-empty">请选择左侧文件进行预览</div>
+                        <div class="empty-state empty-state--sm">请选择左侧文件进行预览</div>
                     </div>                    <!-- ===== 内嵌终端抽屉（默认隐藏，由顶部「终端」按钮打开） ===== -->
                     <div class="fb-terminal collapsed" id="fileBrowserTerminal">
                         <div class="fb-terminal-grip" id="fileBrowserTerminalGrip" title="拖动调整终端高度"></div>
@@ -1174,7 +1175,7 @@
                 </div>
             </div>
             <div class="subtask-modal-body" id="subtaskMessages">
-                <div class="oc-empty">正在加载子任务详情...</div>
+                <div class="empty-state empty-state--sm">正在加载子任务详情...</div>
             </div>
         </div>
     </div>
@@ -1194,7 +1195,7 @@
                 <button type="button" class="pc-tab" data-pc-tab="rules">用户规则</button>
             </div>
             <div class="project-config-body" id="projectConfigBody">
-                <div class="oc-empty">加载中...</div>
+                <div class="empty-state empty-state--sm">加载中...</div>
             </div>
         </div>
     </div>

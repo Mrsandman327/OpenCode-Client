@@ -127,25 +127,25 @@ export function renderSchedulePanel() {
     if (!box) return;
 
     if (!scheduleState.sessionID) {
-        box.innerHTML = '<div class="oc-empty">请先选择会话</div>';
+        box.innerHTML = '<div class="empty-state empty-state--sm">请先选择会话</div>';
         return;
     }
     if (scheduleState.loading && !scheduleState.items.length) {
-        box.innerHTML = '<div class="oc-empty">正在加载定时任务…</div>';
+        box.innerHTML = '<div class="empty-state empty-state--sm">正在加载定时任务…</div>';
         return;
     }
     if (!scheduleState.enabled) {
-        box.innerHTML = '<div class="oc-empty">定时任务未启用'
+        box.innerHTML = '<div class="empty-state empty-state--sm">定时任务未启用'
             + '<div style="margin-top:4px;font-size:10.5px">在 opencode.jsonc 开启 <code>experimental.schedules</code> 后重启服务</div>'
             + '</div>';
         return;
     }
     if (scheduleState.error) {
-        box.innerHTML = '<div class="oc-empty error">' + escapeHtml(scheduleState.error) + '</div>';
+        box.innerHTML = '<div class="empty-state empty-state--sm empty-state--error">' + escapeHtml(scheduleState.error) + '</div>';
         return;
     }
     if (!scheduleState.items.length) {
-        box.innerHTML = '<div class="oc-empty">当前会话暂无定时任务</div>';
+        box.innerHTML = '<div class="empty-state empty-state--sm">当前会话暂无定时任务</div>';
         return;
     }
     box.innerHTML = scheduleState.items.map(renderScheduleItem).join('');

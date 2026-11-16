@@ -382,5 +382,5 @@ export function renderPendingAssistantPlaceholder(sessionID) {
 	if (!sessionID || sessionID !== store.currentSessionId) return;
 	const box = getTabMessagesEl(sessionID);
 	if (!box) return;
-	box.innerHTML = '<div class="oc-empty">正在等待模型回复...</div>';
+	box.innerHTML = '<div class="empty-state empty-state--sm">正在等待模型回复...</div>';
 }

@@ -324,7 +324,7 @@ export async function refreshCurrentSession() {
     store.lastMessageCount = 0;
     store.messageLoadSeq++;
     if (box) {
-        box.innerHTML = '<div class="oc-empty">正在刷新会话消息...</div>';
+        box.innerHTML = '<div class="empty-state empty-state--sm">正在刷新会话消息...</div>';
     }
 
     try {
@@ -448,7 +448,7 @@ export async function selectSession(id) {
     if (sessBox) {
         sessBox.classList.add('active');
         sessBox.style.display = 'flex';
-        sessBox.innerHTML = '<div class="oc-empty">正在加载会话消息...</div>';
+        sessBox.innerHTML = '<div class="empty-state empty-state--sm">正在加载会话消息...</div>';
         // 隐藏其他 tab 容器
         var poolEl = document.getElementById('ocMessagesPool');
         if (poolEl) {
@@ -634,7 +634,7 @@ export async function loadMessages(sessionID) {
         // 否则保留隐藏的 tab 容器与新建会话占位提示，避免误清空
         var poolEl = document.getElementById('ocMessagesPool');
         if (poolEl && !poolEl.querySelector('.oc-messages-tab')) {
-            poolEl.innerHTML = '<div class="oc-empty">选择会话后查看消息，或输入内容创建新会话</div>';
+            poolEl.innerHTML = '<div class="empty-state empty-state--sm">选择会话后查看消息，或输入内容创建新会话</div>';
         }
         return;
     }
@@ -763,7 +763,7 @@ export async function loadMessages(sessionID) {
             (store.openTabs || []).indexOf(tabRef) < 0) return;
         // 有缓存时校正失败不覆盖已显示内容（保留旧数据优于显示报错）
         if (!hasCache) {
-            box.innerHTML = `<div class="oc-empty error">${escapeHtml(formatApiError(e))}</div>`;
+            box.innerHTML = `<div class="empty-state empty-state--sm empty-state--error">${escapeHtml(formatApiError(e))}</div>`;
         }
     } finally {
         clearTimeout(inflightWatchdog);

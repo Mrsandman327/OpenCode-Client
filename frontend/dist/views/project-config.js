@@ -12,6 +12,7 @@ import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { formatApiError } from '../core/v2compat.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
 import { buttonHtml } from '../components/button.js';
+import { emptyHtml } from '../components/empty.js';
 
 window._projectConfig = {
     rootDir: '',
@@ -200,7 +201,7 @@ export async function loadProjectConfigSummary() {
         state.summary = await api.GetProjectConfigSummary(state.rootDir);
         renderCurrentTab();
     } catch (e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
+        body.innerHTML = emptyHtml({ title: '加载失败: ' + formatApiError(e), variant: 'error' });
     }
 }
 
@@ -243,7 +244,12 @@ export function renderCurrentTab() {
 export function renderCoreConfigTab(tab) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists) {
-        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-settings"></use></svg></div><p>无项目配置</p><p class="pc-empty-desc">该项目下没有 .opencode/opencode.jsonc 或 opencode.json</p>' + buttonHtml({ label: '查看全局配置', size: 'sm', className: 'pc-empty-btn', id: 'btnViewGlobalConfig' }) + '</div>';
+        body.innerHTML = emptyHtml({
+            icon: 'i-settings',
+            title: '无项目配置',
+            desc: '该项目下没有 .opencode/opencode.jsonc 或 opencode.json',
+            action: { label: '查看全局配置', className: 'pc-empty-btn', id: 'btnViewGlobalConfig' },
+        });
         document.getElementById('btnViewGlobalConfig').addEventListener('click', viewGlobalConfig);
         return;
     }
@@ -256,12 +262,12 @@ export async function viewGlobalConfig() {
     try {
         var info = await api.GetGlobalOpenCodeConfig();
         if (!info.content) {
-            body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-file"></use></svg></div><p>全局配置不存在</p><p class="pc-empty-desc">' + escapeHtml(info.path) + '</p></div>';
+            body.innerHTML = emptyHtml({ icon: 'i-file', title: '全局配置不存在', desc: info.path });
             return;
         }
         renderPreview(info.path, info.content, true);
     } catch (e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
+        body.innerHTML = emptyHtml({ title: '加载失败: ' + formatApiError(e), variant: 'error' });
     }
 }
 
@@ -276,7 +282,11 @@ export function renderSkillsTab(tab) {
     var actionsHtml = '<div class="pc-skills-actions">' + buttonHtml({ label: '导入技能', size: 'sm', className: 'pc-btn-import-skills' }) + '</div>';
 
     if (!tab.exists || !tab.files || !tab.files.length) {
-        body.innerHTML = actionsHtml + '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-puzzle"></use></svg></div><p>无项目技能</p><p class="pc-empty-desc">.opencode/skills/ 目录下没有技能</p></div>';
+        body.innerHTML = actionsHtml + emptyHtml({
+            icon: 'i-puzzle',
+            title: '无项目技能',
+            desc: '.opencode/skills/ 目录下没有技能',
+        });
     } else {
         var html = actionsHtml + '<div class="pc-skill-list">';
         tab.files.forEach(function(f) {
@@ -337,7 +347,10 @@ export function showImportSkillsModal() {
 
     api.GetImportableSkills(window._projectConfig.rootDir).then(function(skills) {
         if (!skills || !skills.length) {
-            body.innerHTML = renderSkillsHeader() + '<div class="pc-empty"><p>没有可导入的技能</p><p class="pc-empty-desc">请先在全局技能管理中配置来源目录</p></div>';
+            body.innerHTML = renderSkillsHeader() + emptyHtml({
+                title: '没有可导入的技能',
+                desc: '请先在全局技能管理中配置来源目录',
+            });
             return;
         }
         var html = renderSkillsHeader() + '<div class="pc-skill-list">';
@@ -368,7 +381,7 @@ export function showImportSkillsModal() {
         body.innerHTML = html;
         bindImportEvents();
     }).catch(function(e) {
-        body.innerHTML = renderSkillsHeader() + '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
+        body.innerHTML = renderSkillsHeader() + emptyHtml({ title: '加载失败: ' + formatApiError(e), variant: 'error' });
     });
 }
 
@@ -409,7 +422,7 @@ export function browseSkillDir(skillPath) {
 
         renderBrowseView('skills', skillPath, result, '← 返回技能列表', function() { renderCurrentTab(); });
     }).catch(function(e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
+        body.innerHTML = emptyHtml({ title: '加载失败: ' + formatApiError(e), variant: 'error' });
     });
 }
 
@@ -420,8 +433,10 @@ export function renderBrowseView(category, dirPath, result, backLabel, backActio
         body.innerHTML = '<div class="pc-editor">' +
             '<div class="pc-editor-toolbar"><span class="pc-editor-filename"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg>' + escapeHtml(dirPath) + '</span>' +
             '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-browse-back">' + backLabel + '</button></div>' +
-            '<div class="pc-empty"><p>目录为空</p>' +
-            buttonHtml({ label: '+ 新增文件', size: 'sm', className: 'pc-btn-add-entry' }) + '</div></div>';
+            emptyHtml({
+                title: '目录为空',
+                action: { label: '+ 新增文件', className: 'pc-btn-add-entry' },
+            }) + '</div>';
     } else {
         var dirs = result.files.filter(function(f) { return f.type === 'dir'; });
         var files = result.files.filter(function(f) { return f.type === 'file'; });
@@ -486,7 +501,7 @@ export function browseSubDir(category, dirPath) {
     api.ListProjectConfigDir(state.rootDir, category, dirPath).then(function(result) {
         renderBrowseView(category, dirPath, result, '← 返回上级', function() { goBrowseBack(); });
     }).catch(function(e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
+        body.innerHTML = emptyHtml({ title: '加载失败: ' + formatApiError(e), variant: 'error' });
     });
 }
 
@@ -509,7 +524,11 @@ export function goBrowseBack() {
 export function renderAgentsMdTab(tab) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists) {
-        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-clipboard"></use></svg></div><p>项目未初始化</p><p class="pc-empty-desc">请先执行 /init 初始化项目，将自动创建 AGENTS.md</p></div>';
+        body.innerHTML = emptyHtml({
+            icon: 'i-clipboard',
+            title: '项目未初始化',
+            desc: '请先执行 /init 初始化项目，将自动创建 AGENTS.md',
+        });
         return;
     }
     openFileEditor('agentsMd', tab.files[0].path);
@@ -522,8 +541,12 @@ export function renderAgentsMdTab(tab) {
 export function renderFileListTab(category, tab, emptyTitle, emptyDesc) {
     var body = document.getElementById('projectConfigBody');
     if (!tab.exists || !tab.files || !tab.files.length) {
-        body.innerHTML = '<div class="pc-empty"><div class="pc-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg></div><p>' + emptyTitle + '</p><p class="pc-empty-desc">' + emptyDesc + '</p>' +
-            buttonHtml({ label: '+ 新增', size: 'sm', className: 'pc-btn-add-entry' }) + '</div>';
+        body.innerHTML = emptyHtml({
+            icon: 'i-folder',
+            title: emptyTitle,
+            desc: emptyDesc,
+            action: { label: '+ 新增', className: 'pc-btn-add-entry' },
+        });
         bindAddEntryButton(category, '', function() { loadProjectConfigSummary(); });
         return;
     }
@@ -559,7 +582,7 @@ export function openFileEditor(category, relPath) {
         }
         switchToEditMode(result.path, result.content);
     }).catch(function(e) {
-        body.innerHTML = '<div class="pc-empty error">加载失败: ' + escapeHtml(formatApiError(e)) + '</div>';
+        body.innerHTML = emptyHtml({ title: '加载失败: ' + formatApiError(e), variant: 'error' });
     });
 }
 

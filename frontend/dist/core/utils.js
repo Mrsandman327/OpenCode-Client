@@ -384,7 +384,7 @@ export function setMessagesEmpty(text) {
     if (!pool) return;
     var active = pool.querySelector('.oc-messages-tab.active');
     if (active) {
-        active.innerHTML = '<div class="oc-empty">' + text + '</div>';
+        active.innerHTML = '<div class="empty-state empty-state--sm">' + text + '</div>';
         return;
     }
     var hasTabs = pool.querySelector('.oc-messages-tab');
@@ -399,7 +399,7 @@ export function setMessagesEmpty(text) {
         ph.textContent = text;
         return;
     }
-    pool.innerHTML = '<div class="oc-empty">' + text + '</div>';
+    pool.innerHTML = '<div class="empty-state empty-state--sm">' + text + '</div>';
 }
 
 /** 创建指定会话的消息容器（若不存在），返回容器元素 */
