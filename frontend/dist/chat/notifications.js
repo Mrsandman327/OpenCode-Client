@@ -64,7 +64,7 @@ export function initNotifications() {
                 '<span class="notify-time">' + escapeHtml(formatNotifyTime(item.time)) + '</span>' +
                 '<span class="notify-level">' + level + '</span>' +
                 '<span class="notify-msg">' + escapeHtml(item.message) + '</span>' +
-                '<button type="button" class="notify-copy" data-copy-index="' + idx + '" title="复制消息">复制</button>' +
+                '<oc-button variant="bare" size="xs" class="notify-copy" data-copy-index="' + idx + '" title="复制消息">复制</oc-button>' +
             '</div>';
         }).join('');
     }

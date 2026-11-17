@@ -564,39 +564,27 @@ input::placeholder, textarea::placeholder {
     letter-spacing: 0.3px;
 }
 .notify-clear {
-    border: none;
-    border-radius: 5px;
-    padding: 3px 6px;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 11px;
-    cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease;
+    /* 已迁移到 <oc-button variant="bare" size="xs">：只传外观变量 */
+    --oc-btn-px: 6px;
+    --oc-btn-py: 3px;
+    --oc-btn-fs: 11px;
+    --oc-btn-radius: 5px;
+    --oc-btn-fg: var(--text-muted);
 }
-.notify-clear:hover {
-    color: var(--danger);
-    background: var(--danger-bg);
+.notify-clear:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--danger-bg);
+    --oc-btn-fg-hover: var(--danger);
 }
 .notify-close {
+    /* 已迁移到 <oc-button variant="ghost" icon-only> */
     width: 22px;
     height: 22px;
-    padding: 0;
-    border: none;
-    border-radius: 5px;
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 12px;
-    line-height: 1;
-    cursor: pointer;
-    /* 图标按钮：内容居中 */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    --oc-btn-icon: 12px;
+    --oc-btn-fg: var(--text-muted);
 }
-.notify-close:hover {
-    color: var(--text-primary);
-    background: var(--bg-card-hover);
+.notify-close:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-card-hover);
+    --oc-btn-fg-hover: var(--text-primary);
 }
 .notify-list {
     overflow-y: auto;
@@ -668,32 +656,31 @@ input::placeholder, textarea::placeholder {
     cursor: text;
 }
 .notify-copy {
-    padding: 0 3px;
-    border: none;
-    border-radius: 3px;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 10px;
-    line-height: 20px;
-    cursor: pointer;
+    /* 已迁移到 <oc-button variant="bare" size="xs">：外观全部走组件变量 */
+    --oc-btn-px: 3px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 10px;
+    --oc-btn-h: 20px;
+    --oc-btn-radius: 3px;
+    --oc-btn-fg: var(--text-muted);
     opacity: 0.55;
-    transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+    transition: opacity 0.15s ease;
 }
 .notify-item:hover .notify-copy,
 .notify-copy:focus-visible {
     opacity: 1;
 }
-.notify-copy:hover {
-    color: var(--accent);
-    background: var(--accent-ghost);
+.notify-copy:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--accent-ghost);
+    --oc-btn-fg-hover: var(--accent);
 }
+/* 复制结果的颜色必须写进 --oc-btn-fg：宿主上的 color 进不了 Shadow DOM */
 .notify-copy.copied {
-    color: var(--success);
+    --oc-btn-fg: var(--success);
     opacity: 1;
 }
 .notify-copy.copy-failed {
-    color: var(--danger);
+    --oc-btn-fg: var(--danger);
     opacity: 1;
 }
 
@@ -1116,17 +1103,6 @@ input::placeholder, textarea::placeholder {
    ============================================================ */
 
 /* ── 工具栏按钮统一体系（Apple 风格，紧凑 30px 高） ── */
-.header-actions .btn {
-    height: 30px;
-    padding: 0 14px;
-    font-size: 13px;
-    border-radius: 7px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: all var(--transition);
-}
 /* 移动端顶栏主题切换（桌面端隐藏，入口在配置弹窗） */
 .header-theme-toggle {
     display: none;
@@ -1147,29 +1123,8 @@ input::placeholder, textarea::placeholder {
 }
 
 /* 次级按钮（网络配置/Web服务/终端）：灰描边，hover 转 accent */
-.header-actions .btn-config {
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    font-weight: 500;
-}
-.header-actions .btn-config:hover:not(:disabled) {
-    background: var(--bg-card-hover);
-    color: var(--accent);
-    border-color: var(--accent);
-}
 /* 主操作（启动）：实心 accent，运行态由 JS 切换为 .btn-danger-outline */
 /* 危险操作（停止）：淡红底红字，hover 实心红 */
-.header-actions .btn-danger-outline {
-    background: var(--danger-bg);
-    color: var(--danger);
-    border: 1px solid var(--danger);
-    font-weight: 600;
-}
-.header-actions .btn-danger-outline:hover:not(:disabled) {
-    background: var(--danger);
-    color: #fff;
-}
 
 .oc-client {
     --tree-panel-width: 240px;
@@ -1535,9 +1490,6 @@ button.oc-head-icon-btn svg {
 .oc-panel-head:hover {
     background: var(--bg-sidebar-hover);
 }
-.oc-panel-head .btn {
-    margin-left: auto;
-}
 /* 面板标题行内的图标按钮同样贴右（如服务状态刷新） */
 .oc-panel-head .oc-head-icon-btn {
     margin-left: auto;
@@ -1634,27 +1586,24 @@ button.oc-head-icon-btn svg {
 }
 /* 「详情」文字链接：紧跟标题，颜色沿用主题强调色 */
 .oc-subtask-detail-btn {
+    /* 已迁移到 <oc-button variant="bare" size="xs">：原本就是无边框文字链接 */
     flex-shrink: 0;
-    padding: 0;
-    border: none;
-    border-radius: 3px;
-    background: none;
-    color: var(--accent);
-    font-size: 11px;
-    line-height: 1.2;
-    cursor: pointer;
     font-family: 'Cascadia Code';
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11px;
+    --oc-btn-fg: var(--accent);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-bg-hover: transparent;
 }
-.oc-subtask-detail-btn:hover:not(:disabled) {
-    color: var(--accent);
+/* 下划线与 hover 反馈都在 shadow 内的文字容器上 */
+.oc-subtask-detail-btn:hover::part(label) {
     text-decoration: underline;
     text-underline-offset: 2px;
 }
-.oc-subtask-detail-btn:disabled {
-    color: var(--text-muted);
-    text-decoration: none;
-    opacity: 0.55;
-    cursor: default;
+/* 自定义元素不匹配 :disabled，用属性选择器把字色压暗（组件自带 opacity 0.4） */
+.oc-subtask-detail-btn[disabled] {
+    --oc-btn-fg: var(--text-muted);
 }
 /* 右对齐耗时 */
 .oc-subtask-card-duration {
@@ -3264,24 +3213,7 @@ button.oc-head-icon-btn svg {
     gap: 4px;
     margin-left: 6px;
 }
-.oc-service-actions .btn {
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    border-radius: var(--radius-sm);
-}
 /* 悬停配色沿用原语义：重连 → 品牌蓝；断开（.btn-del）→ 危险红 */
-.oc-service-actions .btn:hover:not(:disabled) {
-    background: var(--bg-card-hover);
-    color: var(--accent);
-}
-.oc-service-actions .btn-del:hover:not(:disabled) {
-    background: var(--danger-bg);
-    color: var(--danger);
-}
 /* 图标本体：线性 stroke 风格（与 .kb-i / .cfg-i 同一语言），
  * 颜色继承按钮 currentColor，尺寸固定 14px，不改动按钮布局。 */
 .oc-service-actions .oc-service-icon {
@@ -3298,14 +3230,6 @@ button.oc-head-icon-btn svg {
 /* 请求在途（handleMcpAction 期间按钮被禁用）：刷新图标自旋作为进度反馈。
  * 注意这里覆盖全局 .btn:disabled 的整按钮 opacity 0.4——禁用时保留整按钮可见
  * （只降低图标透明度），让图标自旋反馈清晰可见。 */
-.oc-service-actions .btn:disabled {
-    opacity: 1;
-    cursor: not-allowed;
-}
-.oc-service-actions .btn:disabled .oc-service-icon {
-    opacity: 0.45;
-    animation: spin 0.8s linear infinite;
-}
 
 .oc-service-field {
     display: flex;
@@ -3365,7 +3289,6 @@ button.oc-head-icon-btn svg {
 .oc-update-ver { font-family: "SF Mono", "Cascadia Code", Consolas, monospace; }
 .oc-update-btn { flex-shrink: 0; }
 /* 横幅内按钮紧凑化（后台下载/立即完成更新/重试），避免在窄横幅里显大 */
-.oc-update-banner .btn { padding: 4px 12px; font-size: 12.5px; border-radius: var(--radius-sm); }
 .oc-update-mini-bar { height: 5px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-pill); overflow: hidden; margin-top: 7px; }
 .oc-update-mini-fill { height: 100%; width: 0%; background: var(--accent); border-radius: var(--radius-pill); transition: width 0.18s ease; }
 .oc-update-meta { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-top: 4px; font-family: "SF Mono", "Cascadia Code", Consolas, monospace; }
@@ -3646,19 +3569,22 @@ button.oc-head-icon-btn svg {
     border-radius: var(--radius-sm);
 }
 
-.oc-input-wrap textarea {
-    width: 100%;
-    min-height: 72px;
-    border: none;
-    padding: 0;
-    background: transparent;
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: 14px;
-    line-height: 1.5;
+/* 聊天输入框已迁移到 <oc-textarea>：外壳（.oc-input-wrap）负责边框与底色，
+   控件本体只留文字区，所以下面全部走组件变量，不再写裸 textarea 选择器 */
+.oc-input-wrap oc-textarea {
+    flex: 1;
+    --oc-input-border-width: 0;
+    --oc-input-bg: transparent;
+    --oc-input-padding: 0;
+    --oc-input-radius: 0;
+    --oc-input-fs: 14px;
+    --oc-input-font: inherit;
+    --oc-textarea-min-h: 72px;
+}
+/* resize 与行高组件没有对外变量，用 ::part 覆盖内部 textarea */
+.oc-input-wrap oc-textarea::part(textarea) {
     resize: none;
-    outline: none;
-    box-sizing: border-box;
+    line-height: 1.5;
 }
 
 .oc-input-actions {
@@ -3668,12 +3594,6 @@ button.oc-head-icon-btn svg {
     padding-top: 2px;
 }
 
-.oc-input-actions .btn {
-    padding: 4px 12px;
-    font-size: 12px;
-    height: 28px;
-    line-height: 1;
-}
 
 /* 聊天输入区的发送按钮（已换成 oc-button）：沿用原来输入区的小号尺寸 28px / 12px */
 #btnSendPrompt {
@@ -3739,7 +3659,7 @@ button.oc-head-icon-btn svg {
     flex: 1;
     min-height: 0;
 }
-.oc-input-bar.input-expanded .oc-input-wrap textarea {
+.oc-input-bar.input-expanded .oc-input-wrap oc-textarea {
     flex: 1;
 }
 
@@ -3827,7 +3747,6 @@ svg.i.is-spinning {
 .oc-tree-config svg.i,
 .oc-tree-search-close svg.i,
 .file-browser-search-clear svg.i,
-.notify-close svg.i,
 .pc-file-del svg.i,
 .oc-attach-chip-remove svg.i,
 .mcp-kv-del svg.i,
@@ -4239,21 +4158,6 @@ svg.i.is-spinning {
     user-select: text;
     -webkit-user-select: text;
 }
-button.btn-cancel {
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    padding: 7px 17px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    font-family: inherit;
-    letter-spacing: -0.01em;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
 
 /* ============================================================
    View 2: OMO 配置
@@ -4574,29 +4478,8 @@ button.btn-cancel {
 /* ============================================================
    技能管理视图：path-bar 操作按钮统一为「灰边 + 灰字」胶囊
    ============================================================ */
-#view-skills .path-bar .btn-sm {
-    padding: 6px 16px;          /* 6 个按钮同 padding，保证体量一致 */
-    font-size: 13px;
-    font-weight: 500;
-    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
-    color: var(--text-muted);        /* 灰字 */
-    background: var(--bg-input);         /* 浅底 */
-    border: 1px solid var(--border);     /* 细灰边 */
-    border-radius: var(--radius-md);   /* 胶囊圆角 */
-    /* 状态过渡只做背景/文字/边框/位移，保持克制，不加渐变与重阴影 */
-    transition: background .15s ease, color .15s ease,
-                border-color .15s ease, transform .1s ease;
-}
 /* 悬停反馈：同灰色系内轻微加深，不改变色相 */
-#view-skills .path-bar .btn-sm:hover:not(:disabled) {
-    color: var(--text-primary);
-    border-color: var(--border-light);
-    background: var(--bg-card-hover);
-}
 /* 按下微沉：统一覆盖全局 .btn:active 的缩放，给出「按得下去」的物理反馈 */
-#view-skills .path-bar .btn-sm:active:not(:disabled) {
-    transform: translateY(1px);
-}
 /* 按钮紧跟下拉框：本页取消 .toolbar-spacer 的右推（margin-left:auto），
    使「添加目录 / 方案入库」贴住各自控件排列，不再甩到最右侧 */
 #view-skills .path-bar .toolbar-spacer {
@@ -5218,40 +5101,6 @@ button.btn-cancel {
 }
 .btn-toggle-abilities[aria-expanded="true"] .toggle-arrow {
     transform: rotate(180deg);
-}
-
-button.btn-del {
-    background: transparent;
-    color: var(--text-muted);
-    border: none;
-    font-weight: 500;
-    border-radius: var(--radius-sm);
-    padding: 4px 12px;
-    font-size: 12px;
-    cursor: pointer;
-}
-button.btn-del:hover {
-    background: var(--danger-bg);
-    color: var(--danger);
-}
-button.btn-del:active {
-    transform: scale(0.95);
-}
-/* 供应商卡片内的「手动添加/获取模型列表」：弱化次级样式，小圆角 */
-.provider-card button.btn-add-model-card,
-.provider-card button.btn-fetch-models {
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xs);
-    padding: 4px 12px;
-    font-family: Cascadia Code;
-}
-.provider-card button.btn-add-model-card:hover,
-.provider-card button.btn-fetch-models:hover {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border-color: var(--border-light);
 }
 
 /* 供应商卡片内输入框统一样式 */
@@ -5888,8 +5737,6 @@ button.btn-del:active {
 }
 .oc-search-bar { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
 .oc-search-bar input { flex: 1; padding: 6px 10px; }
-.oc-search-bar .btn { background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border); }
-.oc-search-bar .btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 .oc-search-count { font-size: 11px; color: var(--text-dim); min-width: 60px; text-align: center; }
 .oc-search-highlight { background: #ffeb3b; color: #000; border-radius: 2px; padding: 0 1px; }
 .oc-search-highlight.oc-search-active { background: var(--accent); color: var(--text-on-accent); }
@@ -6923,7 +6770,6 @@ button.file-browser-upload-plus:hover:not(:disabled) {
 }
 [data-theme="dark"] .fb-external-change { color: #ffcf6b; }
 .fb-external-change-text { flex: 1; }
-.fb-external-change .btn { flex-shrink: 0; }
 
 /* ======== 文件浏览器：内嵌终端 ======== */
 /* 顶部「终端」入口：与「刷新」同排，数量角标贴在文字右侧 */
@@ -7569,17 +7415,11 @@ body.file-browser-diff-dragging {
 }
 /* 悬停背景块：light 用黑色 6% 叠加 / dark 用白色 8%（与 modal-close-btn 同款双主题方案，保证两主题下都可见） */
 .model-list-row button.btn-add:hover,
-.model-list-row button.btn-del:hover {
-    background: rgba(0, 0, 0, 0.06);
-}
 [data-theme="dark"] .model-list-row button.btn-add:hover,
 [data-theme="dark"] .model-list-row button.btn-del:hover {
     background: rgba(255, 255, 255, 0.08);
 }
 /* 悬停语义色：增加→主色；删除→危险色 */
-.model-list-row button.btn-add:hover {
-    color: var(--accent);
-}
 .model-list-row button.btn-del:hover {
     color: var(--danger);
 }
@@ -8037,22 +7877,6 @@ oc-button.oc-tree-config:hover:not([disabled]) {
 }
 .pc-import-tag.imported { color: var(--text-muted); background: var(--bg-secondary); border: 1px solid var(--border); }
 .pc-import-tag.global { color: var(--warning); background: var(--warning-bg, #fff3cd); }
-
-/* ===== 幽灵按钮 ===== */
-.btn-ghost,
-[data-btn="ghost"] {
-    background: transparent;
-    color: var(--text-muted);
-    border: 1px solid transparent;
-    border-radius: 6px;
-    padding: 5px 12px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background .12s, color .12s;
-}
-.btn-ghost:hover,
-[data-btn="ghost"]:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
 /* 弹窗内按钮组 */
 .btn-group {
@@ -8562,24 +8386,26 @@ button.oc-head-icon-btn.is-loading svg {
 }
 
 .kb-cat-new {
+    /* 已迁移到 <oc-button variant="bare">：整宽虚线块 + 强调色 */
     margin: 6px 6px 0;
-    padding: 7px 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    font-family: inherit;
-    color: var(--accent);
-    background: var(--accent-ghost);
-    border: 1px dashed var(--accent-glow);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all var(--transition);
+    width: 100%;
     flex-shrink: 0;
+    --oc-btn-px: 10px;
+    --oc-btn-py: 7px;
+    --oc-btn-fs: 12px;
+    --oc-btn-gap: 6px;
+    --oc-btn-fg: var(--accent);
+    --oc-btn-bg: var(--accent-ghost);
+    --oc-btn-border-width: 1px;
+    --oc-btn-border-style: dashed;
+    --oc-btn-border: var(--accent-glow);
+    --oc-btn-radius: var(--radius-sm);
 }
-.kb-cat-new:hover { background: var(--accent-glow); }
+.kb-cat-new:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--accent-glow);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-border-hover: var(--accent-glow);
+}
 /* 底部留白，避免「新建分类」紧贴面板下沿 */
 .kb-cat-pane .kb-cat-new { margin-bottom: 8px; }
 
@@ -9028,32 +8854,16 @@ oc-textarea.kb-field-input {
     gap: 10px;
 }
 .kb-entry-foot-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+/* 知识库弹窗底栏按钮已全部是 <oc-button>：30px 高 / 14px 内边距 / 13.5px 字号 */
 .kb-btn-ghost {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 30px;
-    padding: 0 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition);
+    --oc-btn-h: 30px;
+    --oc-btn-px: 14px;
+    --oc-btn-fs: 13.5px;
 }
-.kb-btn-ghost:hover { background: var(--bg-card-hover); color: var(--text-primary); }
-/* 底部按钮统一高度，保证同一行严格对齐 */
-.kb-entry-foot .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 30px;
-    padding: 0 14px;
-    font-size: 13.5px;
-    border-radius: var(--radius-sm);
+.kb-btn-ghost:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-card-hover);
+    --oc-btn-fg-hover: var(--text-primary);
+    --oc-btn-border-hover: var(--border);
 }
 
 /* ---------------- 分类右键菜单项（复用项目树菜单底色与阴影） ---------------- */
@@ -9080,25 +8890,18 @@ oc-textarea.kb-field-input {
    ============================================================ */
 
 /* 编辑弹窗底部的「转化为资产」：层级次于主操作「保存」，用品牌色描边保持醒目 */
+/* 已迁移到 <oc-button variant="config">：强调色描边 + 淡蓝底 + 字重 600 */
 .kb-btn-convert {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 30px;
-    padding: 0 14px;
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    background: var(--accent-ghost);
-    color: var(--accent);
-    font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition);
+    --oc-btn-h: 30px;
+    --oc-btn-px: 14px;
+    --oc-btn-fs: 13.5px;
+    --oc-btn-weight: 600;
+    --oc-btn-bg: var(--accent-ghost);
 }
-.kb-btn-convert:hover:not(:disabled) { background: var(--accent); color: #fff; }
-.kb-btn-convert:active:not(:disabled) { transform: scale(0.98); }
-.kb-btn-convert:disabled { opacity: 0.4; cursor: not-allowed; }
+.kb-btn-convert:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--accent);
+    --oc-btn-fg-hover: #fff;
+}
 
 /* 浮层：叠加在编辑弹窗（z-index 300）之上，两层弹窗同时出现时层级一眼可分 */
 .kb-convert-overlay { z-index: 420; }
@@ -10429,20 +10232,28 @@ oc-textarea.kb-field-input {
 .cfg-method.get { color: var(--success); background: var(--success-bg); }
 .cfg-method.post { color: var(--accent); background: var(--accent-ghost); }
 .cfg-copy-btn {
+    /* 已迁移到 <oc-button variant="secondary" size="sm"> */
     flex-shrink: 0;
-    height: 23px;
-    padding: 0 8px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 10px;
-    cursor: pointer;
+    --oc-btn-h: 23px;
+    --oc-btn-px: 8px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 10px;
+    --oc-btn-radius: 5px;
+    --oc-btn-bg: transparent;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-border: var(--border);
     opacity: 0.65;
 }
 .cfg-cmd-row:hover .cfg-copy-btn { opacity: 1; }
-.cfg-copy-btn:hover { color: var(--accent); background: var(--accent-ghost); border-color: transparent; }
-.cfg-copy-btn.copied { color: var(--success); opacity: 1; }
+.cfg-copy-btn:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--accent-ghost);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-border-hover: transparent;
+}
+.cfg-copy-btn.copied {
+    --oc-btn-fg: var(--success);
+    opacity: 1;
+}
 .cfg-cmd-foot { margin-top: 12px; font-size: 10.5px; color: var(--text-muted); }
 .cfg-empty { padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: 11px; }
 
@@ -10527,13 +10338,6 @@ oc-textarea.kb-field-input {
     font-size: 8px;
 }
 /* Web 服务操作按钮：与原型一致的小圆角，不要全局 .btn 的胶囊形 */
-.cfg-web-actions .btn {
-    height: 28px;
-    padding: 0 11px;
-    border-radius: 6px;
-    font-size: 11.5px;
-    font-weight: 500;
-}
 
 /* 顶部主操作：终端 + 启动/停止 */
 .header-actions {
@@ -10586,7 +10390,6 @@ oc-textarea.kb-field-input {
     white-space: pre-line;
 }
 .cfg-network-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
-.cfg-network-actions .btn { height: 28px; padding: 0 12px; border-radius: 6px; font-size: 11.5px; }
 
 .cfg-section-head.has-actions {
     display: flex;
@@ -10700,7 +10503,6 @@ oc-textarea.kb-field-input {
     gap: 6px;
 }
 
-.mcp-nav-foot .btn,
 .mcp-nav-foot oc-button { width: 100%; }
 
 /* 列表项：沿用侧栏/文件列表的视觉语言 */
@@ -10849,22 +10651,6 @@ oc-textarea.kb-field-input {
     gap: 12px;
 }
 
-/* textarea / select 没有现成类，按 .field input 的取值补齐 */
-.mcp-fields textarea,
-.mcp-fields select {
-    width: 100%;
-    padding: 6px 9px;
-}
-
-.mcp-fields select { height: 30px; }
-
-.mcp-fields textarea {
-    min-height: 66px;
-    resize: vertical;
-    line-height: 1.5;
-}
-
-
 /* 三列数字（超时） */
 .mcp-grid-3 {
     display: grid;
@@ -10908,20 +10694,25 @@ oc-textarea.kb-field-input {
 
 .mcp-kv-del:hover { color: var(--danger); background: var(--danger-bg); }
 
+/* 已迁移到 <oc-button>：整宽虚线框 */
 .mcp-kv-add {
     margin-top: 6px;
-    border: 1px dashed var(--border-light);
-    background: transparent;
-    color: var(--text-muted);
     width: 100%;
-    height: 28px;
-    border-radius: var(--radius-sm);
-    font-family: inherit;
-    font-size: 12px;
-    cursor: pointer;
+    --oc-btn-h: 28px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 12px;
+    --oc-btn-border-width: 1px;
+    --oc-btn-border-style: dashed;
+    --oc-btn-border: var(--border-light);
+    --oc-btn-bg: transparent;
+    --oc-btn-fg: var(--text-muted);
 }
-
-.mcp-kv-add:hover { border-color: var(--accent); color: var(--accent); }
+.mcp-kv-add:hover:not([disabled]) {
+    --oc-btn-border-hover: var(--accent);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-bg-hover: transparent;
+}
 
 /* 高级区折叠按钮 */
 .mcp-adv-toggle {
@@ -10953,16 +10744,17 @@ oc-textarea.kb-field-input {
 .mcp-adv-body { padding-top: 4px; }
 
 /* 提示条内的文字按钮（未识别字段「查看 / 收起」） */
+/* 已迁移到 <oc-button variant="bare" size="xs"> */
 .mcp-link-btn {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--accent);
-    font: inherit;
-    font-size: 11px;
-    cursor: pointer;
-    text-decoration: underline;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11px;
+    --oc-btn-fg: var(--accent);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-bg-hover: transparent;
 }
+/* 下划线落在 shadow 内的文字容器上，只能走 ::part */
+.mcp-link-btn::part(label) { text-decoration: underline; }
 
 /* 标题右侧的说明 */
 .mcp-scope {
@@ -11309,12 +11101,10 @@ oc-textarea.kb-field-input {
 }
 
 /* 系统配置行：开关推到行尾（宿主布局，不属于开关控件本身） */
-.cfg-web-enable .sw,
 .cfg-web-enable oc-switch {
     margin-left: auto;
 }
 /* 网络代理整行是 <label>，内层 span 承载开关：覆盖 .proxy-switch-row span 的纵向布局 */
-.proxy-switch-row .sw,
 .proxy-switch-row oc-switch {
     display: inline-flex;
     flex-direction: row;
@@ -11349,16 +11139,6 @@ oc-textarea.kb-field-input {
     --oc-input-padding: 10px 12px;
 }
 
-.modal .field > input,
-.modal .field > select,
-.modal .field > textarea {
-    height: 38px;
-    padding: 0 12px;
-}
-.modal .field > textarea {
-    height: auto;
-    padding: 8px 12px;
-}
 
 /* 技能页搜索：与工具栏同宽，不撑满整行 */
 .stats-bar .search {
@@ -11511,14 +11291,6 @@ oc-button.file-browser-git-commit-btn {
 }
 /* 同一行里仍是原生 <button class="btn btn-sm"> 的（如编辑器「搜索」）单独收窄，
    圆角跟 oc-button 对齐成 6px，避免同一行两个按钮圆角不一致 */
-.file-browser-preview-actions .btn-sm {
-    height: 22px;
-    padding: 0 10px;
-    font-size: 11.5px;
-    line-height: 1;
-    gap: 5px;
-    border-radius: 6px;
-}
 /* 弹窗底栏按钮统一 34px 高（原 .modal-footer .btn 的规则选不中自定义元素） */
 .modal .modal-footer oc-button,
 .modal-card .modal-footer oc-button {

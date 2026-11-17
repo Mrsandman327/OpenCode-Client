@@ -1359,8 +1359,10 @@ export function renderQuestionTool(part) {
     if (isRunning && questions.length) {
         const submitRow = document.createElement('div');
         submitRow.className = 'oc-question-submit-row';
-        const submitBtn = document.createElement('button');
-        submitBtn.className = 'btn btn-xs btn-primary oc-question-finish-btn';
+        const submitBtn = document.createElement('oc-button');
+        submitBtn.className = 'oc-question-finish-btn';
+        submitBtn.setAttribute('variant', 'primary');
+        submitBtn.setAttribute('size', 'xs');
         submitBtn.innerHTML = iconSvg('i-check') + ' 提交回答';
         submitBtn.addEventListener('click', function() {
             submitAllAnswers();

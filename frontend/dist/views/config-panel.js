@@ -160,7 +160,7 @@ function renderConfigCommands() {
                     '<div class="cfg-cmd-name"><span class="cfg-method ' + row.method.toLowerCase() + '">' + row.method + '</span><code>' + escapeHtml(row.path) + '</code></div>' +
                     (row.desc ? '<div class="cfg-cmd-desc">' + escapeHtml(row.desc) + '</div>' : '') +
                 '</div>' +
-                '<button type="button" class="cfg-copy-btn" data-copy="' + escapeHtml(row.method + ' ' + row.path) + '">复制</button>' +
+                '<oc-button variant="secondary" size="sm" class="cfg-copy-btn" data-copy="' + escapeHtml(row.method + ' ' + row.path) + '">复制</oc-button>' +
             '</div>'
         ).join('') || '<div class="cfg-empty">接口文档为空</div>';
         return;
@@ -197,7 +197,7 @@ function renderConfigCommands() {
                     (desc ? '<div class="cfg-cmd-desc">' + escapeHtml(desc) + '</div>' : '') +
                     (options ? '<div class="cfg-cmd-opt">' + (isTui ? '快捷键：' : '参数：') + escapeHtml(options) + '</div>' : '') +
                 '</div>' +
-                '<button type="button" class="cfg-copy-btn" data-copy="' + escapeHtml(name) + '">复制</button>' +
+                '<oc-button variant="secondary" size="sm" class="cfg-copy-btn" data-copy="' + escapeHtml(name) + '">复制</oc-button>' +
             '</div>';
         });
     });

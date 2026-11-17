@@ -352,7 +352,7 @@ export function renderSubtaskCard(s, idx) {
     return '<div class="oc-subtask-card ' + statusClass + '" data-index="' + idx + '" data-parent-message-id="' + escapeHtml(s.parentMessageId) + '" data-child-session-id="' + escapeHtml(s.childSessionId || '') + '">'
         + '<div class="oc-subtask-card-row oc-subtask-card-row-main">'
         + '<span class="oc-subtask-card-title" title="' + escapeHtml(s.title) + '">' + escapeHtml(s.title) + '</span>'
-        + '<button type="button" class="oc-subtask-detail-btn" data-index="' + idx + '" ' + (s.childSessionId ? '' : 'disabled') + '>详情</button>'
+        + '<oc-button variant="bare" size="xs" class="oc-subtask-detail-btn" data-index="' + idx + '" ' + (s.childSessionId ? '' : 'disabled') + '>详情</oc-button>'
         + '<span class="oc-subtask-card-duration"' + (startedAt ? ' data-started-at="' + startedAt + '"' : '') + '>' + durationText + '</span>'
         + '</div>'
         + '<div class="oc-subtask-card-row oc-subtask-card-row-sub">'

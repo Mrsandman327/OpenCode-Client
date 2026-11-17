@@ -467,7 +467,7 @@ function renderKbTagEditor() {
                     '<button type="button" class="kb-tag-x" data-kb-tag-del="' + i + '" title="删除标签">' + ICONS.close + '</button>' +
                 '</span>';
     }).join('');
-    html += '<button type="button" class="kb-tag-add" id="kbAddTagBtn">' + ICONS.plus + '添加</button>';
+    html += '<oc-button variant="bare" size="xs" class="kb-tag-add" id="kbAddTagBtn">' + ICONS.plus + '添加</oc-button>';
     host.innerHTML = html;
 }
 

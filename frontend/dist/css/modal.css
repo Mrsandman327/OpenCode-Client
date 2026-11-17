@@ -131,39 +131,21 @@
 }
 
 /* ---------- 头部关闭按钮 ---------- */
-/* 透明底图标按钮（关闭.svg 遮罩，颜色随主题文字色）。
-   通用类，不限于 .modal-card——项目配置 / 知识库等头部同样使用。 */
+/* 结构已迁移到 <oc-button variant="ghost" icon-only icon-mask="close">：
+   透明底、hover 浅灰块、图标描边全部由组件负责，这里只留布局尺寸。
+   light 主题下组件 ghost 的 hover 底色就是黑色 6%（原值一致），
+   dark 主题改用可见的 --bg-card-hover。 */
 .modal-close-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: 28px;
     height: 28px;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    cursor: pointer;
     flex-shrink: 0;
-    /* 与 .btn 一致：去掉浏览器默认焦点框，避免弹窗打开时按钮上出现黑框 */
-    outline: none;
-    transition: background 0.15s ease, color 0.15s ease;
 }
 
-.modal-close-btn:hover {
-    /* 悬停反馈按主题取「可见对比色」：
-       light 主题下 --bg-card-hover(#f5f5f7) 与弹窗头部底色(--bg-secondary)完全相同、
-       叠上去看不见，故默认(light)用黑色 6% 叠加（浅灰块）；
-       dark 下原变量 #242426→#303032 本就可见，保持现状。 */
-    background: rgba(0, 0, 0, 0.06);
-    color: var(--text-primary);
+[data-theme="dark"] .modal-close-btn {
+    --oc-btn-bg-hover: var(--bg-card-hover);
 }
 
-[data-theme="dark"] .modal-close-btn:hover {
-    background: var(--bg-card-hover);
-}
-
+/* 图标是组件塞进宿主 light DOM 的槽位内容，这条尺寸规则仍然生效 */
 .modal-close-btn .oc-fb-icon {
     width: 14px;
     height: 14px;

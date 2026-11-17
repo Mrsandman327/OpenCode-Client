@@ -10,6 +10,7 @@
 //
 // 对外接口与原生 textarea 一致：
 //   el.value / el.disabled / el.readOnly / el.focus()
+//   el.selectionStart / el.selectionEnd / el.setSelectionRange()（光标位置代理）
 //   el.addEventListener('input' | 'change' | 'keydown' | …)
 //
 // 可覆盖变量与 oc-input 相同：--oc-input-h 不适用，改的是 --oc-input-padding
@@ -84,7 +85,8 @@ class OcTextarea extends HTMLElement {
     _bindForward() {
         if (this._forwarded) return;
         this._forwarded = true;
-        ['input', 'change', 'keydown', 'keyup', 'focus', 'blur'].forEach((type) => {
+        // 转发清单与 oc-input 对齐：聊天输入框要监听 paste（粘贴图片/文件）
+        ['input', 'change', 'keydown', 'keyup', 'keypress', 'paste', 'select', 'focus', 'blur'].forEach((type) => {
             this._ta.addEventListener(type, (event) => {
                 this.dispatchEvent(new CustomEvent(type, {
                     bubbles: type !== 'focus' && type !== 'blur',
@@ -109,6 +111,25 @@ class OcTextarea extends HTMLElement {
 
     get value() { return this._ta ? this._ta.value : ''; }
     set value(v) { if (this._ta) this._ta.value = v == null ? '' : String(v); }
+
+    /* ---------- 光标位置代理 ----------
+       聊天输入框（#ocPrompt）要按光标插入 "@知识库" 引用，
+       它读写的是 el.selectionStart / el.selectionEnd，
+       不代理的话拿到的是宿主的 undefined，插入位置会算错。
+       这四项都是「读写成对」的，缺 setter 会导致赋值静默失效。 */
+    get selectionStart() { return this._ta ? this._ta.selectionStart : 0; }
+    set selectionStart(v) { if (this._ta) this._ta.selectionStart = v; }
+
+    get selectionEnd() { return this._ta ? this._ta.selectionEnd : 0; }
+    set selectionEnd(v) { if (this._ta) this._ta.selectionEnd = v; }
+
+    get selectionDirection() { return this._ta ? this._ta.selectionDirection : 'none'; }
+    set selectionDirection(v) { if (this._ta) this._ta.selectionDirection = v; }
+
+    /** 与原生 textarea 同名：一次设置选区的起点、终点与方向 */
+    setSelectionRange(start, end, direction) {
+        if (this._ta) this._ta.setSelectionRange(start, end, direction);
+    }
 
     get disabled() { return this.hasAttribute('disabled'); }
     set disabled(v) { v ? this.setAttribute('disabled', '') : this.removeAttribute('disabled'); }

@@ -1213,25 +1213,25 @@ export function showAddEntryModal(presetName) {
         <div class="modal modal-card proxy-modal">
             <div class="modal-header">
                 <h3>添加条目 · ${escapeAttr(presetName)}</h3>
-                <button type="button" class="modal-close-btn" id="btnCloseAddEntry" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button>
+                <oc-button variant="ghost" icon-only icon-mask="close" class="modal-close-btn" id="btnCloseAddEntry" title="关闭"></oc-button>
             </div>
             <div class="modal-body">
                 <div class="field field--md">
                     <label>Agent 名</label>
-                    <select id="modalEntryKey" class="modal-select">
+                    <oc-select id="modalEntryKey" class="modal-select">
                         <option value="">（选择内置 agent）</option>
                         ${SLIM_AGENT_KEYS.map(k => `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`).join('')}
                         <option value="__custom__">自定义…</option>
-                    </select>
-                    <input id="modalEntryKeyCustom" placeholder="输入自定义 agent 名" style="display:none;margin-top:6px" />
+                    </oc-select>
+                    <oc-input id="modalEntryKeyCustom" placeholder="输入自定义 agent 名" style="display:none;margin-top:6px"></oc-input>
                 </div>
                 <div class="field field--md">
                     <label>模型</label>
-                    <select id="modalEntryModel" class="modal-select">${modelOptionsHtml('')}</select>
+                    <oc-select id="modalEntryModel" class="modal-select">${modelOptionsHtml('')}</oc-select>
                 </div>
                 <div class="field field--md">
                     <label>variant（思考力度）</label>
-                    <select id="modalEntryVariant" class="modal-select">${variantOptionsHtml('')}</select>
+                    <oc-select id="modalEntryVariant" class="modal-select">${variantOptionsHtml('')}</oc-select>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1304,21 +1304,19 @@ export function showAddPresetModal() {
         <div class="modal-card add-preset-modal" role="dialog" aria-modal="true" aria-label="新增方案">
             <div class="modal-header">
                 <h3>新增方案</h3>
-                <button type="button" class="modal-close-btn" id="btnCloseAddPreset" title="关闭（Esc）" aria-label="关闭">
-                    <span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span>
-                </button>
+                <oc-button variant="ghost" icon-only icon-mask="close" class="modal-close-btn" id="btnCloseAddPreset" title="关闭（Esc）" aria-label="关闭"></oc-button>
             </div>
             <div class="modal-body">
                 <div class="field field--md">
                     <label>方案名</label>
-                    <input id="modalPresetName" placeholder="如 my-plan" />
+                    <oc-input id="modalPresetName" placeholder="如 my-plan"></oc-input>
                 </div>
                 <div class="field field--md">
                     <label>继承自</label>
-                    <select id="modalPresetBase" class="modal-select">
+                    <oc-select id="modalPresetBase" class="modal-select">
                         <option value="">不继承</option>
                         ${names.map(n => `<option value="${escapeAttr(n)}">${escapeAttr(n)}</option>`).join('')}
-                    </select>
+                    </oc-select>
                 </div>
             </div>
             <div class="modal-footer">

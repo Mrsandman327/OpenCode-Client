@@ -736,9 +736,9 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
             '<span class="model-list-name">' + escaped + '</span>';
         if (existingSet[m]) {
             // 行内操作按钮图标化：删除用「关闭.svg」（保留红色语义），title 提供可读提示
-            html += '<oc-button variant="bare" icon-only class="btn-del" data-action="del" data-model="' + escaped + '" title="删除"><span class="oc-fb-icon oc-fb-icon-minus" aria-hidden="true"></span></button>';
+            html += '<oc-button variant="ghost" icon-only size="sm" icon-mask="minus" class="btn-del" data-action="del" data-model="' + escaped + '" title="删除"></oc-button>';
         } else {
-            html += '<oc-button variant="bare" icon-only class="btn-add" data-action="add" data-model="' + escaped + '" title="增加"><span class="oc-fb-icon oc-fb-icon-add" aria-hidden="true"></span></button>';
+            html += '<oc-button variant="ghost" icon-only size="sm" icon-mask="add" class="btn-add" data-action="add" data-model="' + escaped + '" title="增加"></oc-button>';
         }
         html += '</div>';
     });
@@ -749,7 +749,7 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
     overlay.id = 'modelListModal';
     overlay.innerHTML = '<div class="modal modal-card proxy-modal" style="max-width:420px">' +
         '<div class="modal-header"><h3>' + escapeHtml(name) + '-模型</h3>' +
-        '<button type="button" class="modal-close-btn" id="btnCloseModelList" title="关闭"><span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span></button></div>' +
+        '<oc-button variant="ghost" icon-only icon-mask="close" class="modal-close-btn" id="btnCloseModelList" title="关闭"></oc-button></div>' +
         '<div class="modal-body">' + html + '</div>' +
         '</div>';
     document.body.appendChild(overlay);
@@ -779,9 +779,12 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
                 const row = temp.firstElementChild;
                 row.querySelector('.btn-del-model').addEventListener('click', function() { row.remove(); });
                 list.appendChild(row);
-                // 切换删除态图标（不能用 textContent，会清掉图标 span 变纯文字）
-                this.innerHTML = '<span class="oc-fb-icon oc-fb-icon-minus" aria-hidden="true"></span>';
-                this.className = 'btn btn-sm btn-del';
+                // 切换删除态图标：先清掉旧的 slot 图标，再改 icon-mask 让组件重新生成
+                // （oc-button 的 _syncIcon 会优先复用已有 slot="icon" 节点，直接改属性不会换图）
+                this.innerHTML = '';
+                this.setAttribute('icon-mask', 'minus');
+                this.classList.remove('btn-add');
+                this.classList.add('btn-del');
                 this.dataset.action = 'del';
                 this.title = '删除';
             } else if (action === 'del') {
@@ -790,9 +793,12 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
                         input.closest('.model-subcard').remove();
                     }
                 });
-                // 切换增加态图标（不能用 textContent，会清掉图标 span 变纯文字）
-                this.innerHTML = '<span class="oc-fb-icon oc-fb-icon-add" aria-hidden="true"></span>';
-                this.className = 'btn btn-sm btn-add';
+                // 切换增加态图标：先清掉旧的 slot 图标，再改 icon-mask 让组件重新生成
+                // （oc-button 的 _syncIcon 会优先复用已有 slot="icon" 节点，直接改属性不会换图）
+                this.innerHTML = '';
+                this.setAttribute('icon-mask', 'add');
+                this.classList.remove('btn-del');
+                this.classList.add('btn-add');
                 this.dataset.action = 'add';
                 this.title = '增加';
             }

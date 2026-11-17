@@ -65,7 +65,8 @@ button {
     /* 需要固定高度时由宿主给 --oc-btn-h（如聊天输入区 28px） */
     height: var(--oc-btn-h, auto);
     padding: var(--oc-btn-py, 8px) var(--oc-btn-px, 18px);
-    border: 1px solid var(--oc-btn-border, transparent);
+    /* 边框样式可配：MCP 的「添加请求头」用 dashed 虚线框 */
+    border: var(--oc-btn-border-width, 1px) var(--oc-btn-border-style, solid) var(--oc-btn-border, transparent);
     border-radius: var(--oc-btn-radius, var(--radius-sm, 8px));
     background: var(--oc-btn-bg, transparent);
     color: var(--oc-btn-fg, var(--text-primary));
@@ -186,10 +187,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     color: var(--oc-btn-fg-hover, #fff);
 }
 
-/* 裸图标按钮：任何状态都没有背景/边框，悬停与按下只改变图标颜色 */
+/* 裸图标按钮：任何状态都没有背景/边框，悬停与按下只改变图标颜色。
+   边框样式同样走变量：知识库「新建分类」用 dashed 虚线框 */
 :host([variant="bare"]) button {
     background: var(--oc-btn-bg, transparent);
-    border: var(--oc-btn-border-width, 0) solid var(--oc-btn-border, transparent);
+    border: var(--oc-btn-border-width, 0) var(--oc-btn-border-style, solid) var(--oc-btn-border, transparent);
     color: var(--oc-btn-fg, var(--text-secondary));
 }
 :host([variant="bare"]) button:hover:not(:disabled) {

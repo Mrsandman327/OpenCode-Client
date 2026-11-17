@@ -78,9 +78,7 @@ export function modalHtml(opts) {
 
     const titleHtml = opts.titleHtml != null ? opts.titleHtml : (opts.title != null ? escapeHtml(opts.title) : '');
     const closeHtml = opts.showClose === false ? '' :
-        '<button type="button" class="modal-close-btn" data-modal-close title="关闭（Esc）" aria-label="关闭">' +
-            '<span class="oc-fb-icon oc-fb-icon-close" aria-hidden="true"></span>' +
-        '</button>';
+        '<oc-button variant="ghost" icon-only icon-mask="close" class="modal-close-btn" data-modal-close title="关闭（Esc）" aria-label="关闭"></oc-button>';
 
     let html = '<div ' + overlayAttrs.join(' ') + '>' +
         '<div ' + modalAttrs.join(' ') + '>';
@@ -146,8 +144,10 @@ export function openModal(target, opts) {
     overlay.style.display = 'flex';
 
     const modal = overlay.querySelector('.modal, .modal-card');
-    // 默认聚焦正文里的第一个可聚焦控件；没有就聚焦弹窗本身，保证键盘可用
-    const focusSel = opts.focus || 'input:not([type="hidden"]), textarea, select, button:not(.modal-close-btn)';
+    // 默认聚焦正文里的第一个可聚焦控件；没有就聚焦弹窗本身，保证键盘可用。
+    // 控件已组件化：oc-input / oc-textarea / oc-select 自带 focus()，宿主本身不可聚焦，
+    // 所以自定义元素必须排在内置元素前面，否则 focus() 落在宿主上是空操作。
+    const focusSel = opts.focus || 'oc-input, oc-textarea, oc-select, input:not([type="hidden"]), textarea, select, oc-button:not(.modal-close-btn), button:not(.modal-close-btn)';
     const focusEl = (modal && modal.querySelector(focusSel)) || modal;
     if (focusEl) {
         try { focusEl.focus({ preventScroll: true }); } catch (e) { focusEl.focus(); }
