@@ -387,7 +387,9 @@ function adaptMessage(msg, sessionID) {
         if (msg.model) {
             if (msg.model.providerID) info.providerID = msg.model.providerID;
             if (msg.model.id) info.modelID = msg.model.id;
-            if (msg.model.variant) info.variant = msg.model.variant;
+            // v2 用字面量 'default' 表示「未指定档位」，前端空串就是「默认」；
+            // 直接透传会让下拉多出一个 "Default" 选项，且发送时带上服务端不认的档位
+            if (msg.model.variant && msg.model.variant !== 'default') info.variant = msg.model.variant;
         }
         info.cost = msg.cost;
         info.tokens = msg.tokens;

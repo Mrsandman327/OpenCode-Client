@@ -199,7 +199,13 @@ export function restoreSessionSelection(sessionID) {
     // variant 选项依赖当前模型：先按模型重建，再选中该会话的手选/历史值。
     // 严格模式下非法档位会回落「默认」，必须写回 store，保证显示 == 即将发送的值。
     if (variantSel) {
-        store.selectedVariant = syncVariantSelect(variantSel, store.selectedModel, store.selectedVariant);
+        // 会话没记录模型时不能拿空模型校验：variants 一定是空数组，
+        // 手选的档位会被判「不支持」而回落默认，切回该会话就变成默认了。
+        if (!store.selectedModel && manual && manual.variant) {
+            variantSel.value = store.selectedVariant;
+        } else {
+            store.selectedVariant = syncVariantSelect(variantSel, store.selectedModel, store.selectedVariant);
+        }
     }
 }
 
@@ -275,16 +281,18 @@ export function syncVariantSelect(select, modelValue, current, options) {
     const keep = (current === undefined || current === null)
         ? String(select.value || '')
         : String(current);
+    // 服务端用 'default' 表达「未指定档位」，等价于前端空串「默认」，不能当成未知档位塞进选项
+    const wanted = keep === 'default' ? '' : keep;
     const values = variantValuesForModel(modelValue);
     // 模型列表尚未加载时无法判定档位是否合法：保留原值，等列表就绪后由
     // loadAgentModelSelectors / restoreSessionSelection 再次校正，避免误清用户手选。
     const listLoaded = !!((store.modelList && store.modelList.length)
         || (store.availableModels && store.availableModels.length));
     // 当前值不属于该模型：历史回填或列表未就绪时保留，其余场景一律回落到「默认」
-    let selected = keep;
-    if (keep && values.indexOf(keep) < 0) {
+    let selected = wanted;
+    if (wanted && values.indexOf(wanted) < 0) {
         if (keepUnknown || !listLoaded) {
-            values.push(keep);
+            values.push(wanted);
         } else {
             selected = '';
         }

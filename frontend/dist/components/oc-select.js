@@ -98,6 +98,11 @@ class OcSelect extends HTMLElement {
         this._forwarded = true;
         ['change', 'focus', 'blur'].forEach((type) => {
             this._select.addEventListener(type, (event) => {
+                // 用户改选时把值同步回宿主 value 属性：MutationObserver 重建 option 后
+                // 会按属性恢复选中，属性不同步就会退回第一个选项（显示成「默认」）
+                if (type === 'change' && this.getAttribute('value') !== this._select.value) {
+                    this.setAttribute('value', this._select.value);
+                }
                 this.dispatchEvent(new CustomEvent(type, {
                     bubbles: type !== 'focus' && type !== 'blur',
                     composed: true,
@@ -107,9 +112,18 @@ class OcSelect extends HTMLElement {
         });
     }
 
+    /** 内部 select 是否已有某个 value 的选项 */
+    _hasValue(value) {
+        if (!this._select) return false;
+        return Array.from(this._select.options).some((o) => o.value === value);
+    }
+
     /** 把宿主里的 option 克隆进内部 select，保留当前选中值 */
     _syncOptions() {
         if (!this._select) return;
+        // 业务侧常见写法是「先替换宿主 option，再立刻设置 el.value」：
+        // MutationObserver 回调晚于这句赋值，此时内部 select 还只有旧选项，
+        // 赋值会被原生 select 丢弃。所以这里以宿主 value 属性为准兜底。
         const keep = this._select.value || this.getAttribute('value') || '';
         this._select.innerHTML = '';
         const opts = Array.from(this.querySelectorAll('option'));
@@ -118,7 +132,9 @@ class OcSelect extends HTMLElement {
             // 克隆节点保留 value/text，disabled/selected 也一并保留
             this._select.appendChild(clone);
         });
-        if (keep) this._select.value = keep;
+        // 只恢复确实存在的档位：模型不支持的值不能硬塞回下拉。
+        // keep 为空表示「默认」——此时不要写 ''，否则第一个 option 值非空的下拉会变成空白
+        if (keep) this._select.value = this._hasValue(keep) ? keep : '';
     }
 
     _sync() {
@@ -127,8 +143,21 @@ class OcSelect extends HTMLElement {
         if (this.hasAttribute('value')) this._select.value = this.getAttribute('value');
     }
 
-    get value() { return this._select ? this._select.value : ''; }
-    set value(v) { if (this._select) this._select.value = v == null ? '' : String(v); }
+    get value() {
+        if (!this._select) return '';
+        // 选项还没重建完时（MutationObserver 尚未回调），内部 select 是空值；
+        // 此时以宿主 value 属性为准，避免调用方读到假的「默认」
+        if (this._select.value !== '') return this._select.value;
+        return this.getAttribute('value') || '';
+    }
+    set value(v) {
+        if (!this._select) return;
+        const s = v == null ? '' : String(v);
+        this._select.value = s;
+        // 关键：同步到属性。options 整体替换后由 _syncOptions 按属性恢复选中，
+        // 否则「先换 option 再设 value」的写法会静默丢值、显示回第一个选项
+        if (this.getAttribute('value') !== s) this.setAttribute('value', s);
+    }
 
     get options() { return this._select ? this._select.options : []; }
     get selectedIndex() { return this._select ? this._select.selectedIndex : -1; }
