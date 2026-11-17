@@ -272,19 +272,10 @@ export function renderTree(tree) {
     applyTreeSearchFilter();
 }
 
-export function updateTreeSearchStatus(matchCount, totalCount) {
-    var countEl = document.getElementById('ocTreeSearchCount');
-    var clearBtn = document.getElementById('ocTreeSearchClear');
-    if (countEl) {
-        if (!treeSearchQuery) {
-            countEl.textContent = totalCount > 0 ? ('共 ' + totalCount + ' 项') : '-';
-        } else {
-            countEl.textContent = matchCount + '/' + totalCount;
-        }
-    }
-    if (clearBtn) {
-        clearBtn.disabled = !treeSearchQuery;
-    }
+export function updateTreeSearchStatus() {
+    // 会话树搜索栏现在只有「图标 + 输入 + ×」：
+    // 不再显示「共 N 项」计数，也没有单独的「清空」按钮。
+    // 函数保留空实现，因为 setTreeSearchOpen 等调用点仍在调用它。
 }
 
 export function captureTreeSearchSnapshot() {
@@ -440,9 +431,7 @@ function isTreeSearchOpen() {
 
 export function initTreeSearch() {
     var input = document.getElementById('ocTreeSearchInput');
-    var clearBtn = document.getElementById('ocTreeSearchClear');
     var toggleBtn = document.getElementById('ocTreeSearchToggle');
-    var closeBtn = document.getElementById('ocTreeSearchClose');
     if (!input || input.dataset.boundTreeSearch === '1') return;
 
     input.dataset.boundTreeSearch = '1';
@@ -452,21 +441,9 @@ export function initTreeSearch() {
             setTreeSearchQuery(e.target.value || '');
         }, 200);
     });
-    if (clearBtn) {
-        clearBtn.addEventListener('click', function() {
-            clearTreeSearch();
-            input.focus();
-        });
-    }
     if (toggleBtn) {
         toggleBtn.addEventListener('click', function() {
             setTreeSearchOpen(!isTreeSearchOpen());
-        });
-    }
-    if (closeBtn) {
-        closeBtn.addEventListener('click', function() {
-            setTreeSearchOpen(false);
-            if (toggleBtn) toggleBtn.focus();
         });
     }
     // Esc 收起搜索行（输入框失焦后同样有效）

@@ -11,6 +11,7 @@ import { enhanceSwitches } from './components/oc-switch.js';
 import { enhanceModals } from './components/modal.js';
 // 自定义元素（Shadow DOM）组件：导入即注册，模板里直接写标签
 import './components/oc-button.js';
+import './components/oc-icon-button.js';
 import './components/oc-input.js';
 import './components/oc-textarea.js';
 import './components/oc-select.js';

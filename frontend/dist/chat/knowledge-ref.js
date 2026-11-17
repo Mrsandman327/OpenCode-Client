@@ -323,9 +323,9 @@ function addRefChip(entry) {
     chip.title = title;
     chip.innerHTML = '<span class="oc-ref-chip-icon">' + ICONS.doc + '</span>' +
                      '<span class="oc-ref-chip-name">' + escapeHtml(title) + '</span>' +
-                     '<button type="button" class="oc-ref-chip-remove" title="移除引用" aria-label="移除引用">' +
+                     '<oc-icon-button size="xs" class="oc-ref-chip-remove" title="移除引用" aria-label="移除引用">' +
                          ICONS.close +
-                     '</button>';
+                     '</oc-icon-button>';
 
     chip.querySelector('.oc-ref-chip-remove').addEventListener('click', function (e) {
         e.preventDefault();

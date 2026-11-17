@@ -1659,19 +1659,16 @@ export function initFileBrowserSearch() {
     if (fbSearchInited) return;
     fbSearchInited = true;
     var input = document.getElementById('fileBrowserSearchInput');
-    var clearBtn = document.getElementById('btnFileBrowserSearchClear');
     if (input) {
         input.addEventListener('input', function () {
             if (fbSearchTimer) clearTimeout(fbSearchTimer);
             fbSearchTimer = setTimeout(runFileBrowserSearch, 300); // 防抖
         });
+        // 清除按钮在组件内部（有内容才出现），这里只保留键盘习惯：
+        // Esc 清空输入后立即重跑一次搜索
         input.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && clearBtn) clearBtn.click();
-        });
-    }
-    if (clearBtn) {
-        clearBtn.addEventListener('click', function () {
-            if (input) { input.value = ''; input.focus(); }
+            if (e.key !== 'Escape') return;
+            input.value = '';
             runFileBrowserSearch();
         });
     }

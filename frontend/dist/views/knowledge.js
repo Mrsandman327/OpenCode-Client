@@ -22,7 +22,7 @@ var ICONS = {
     caret: '<svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
     folder: '<svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
     layers: '<svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/></svg>',
-    close: '<svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+    close: '<svg slot="icon" class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>',
     search: '<svg class="kb-i kb-i-20" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5l-4.2-4.2"/></svg>',
     plus: '<svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
     // 垃圾桶：条目卡片 / 列表行右上角删除按钮，与分类菜单的删除图标保持同一套线性语言
@@ -297,10 +297,10 @@ function tagListHtml(tags) {
  * @param {string} id 条目 id
  */
 function kbDeleteBtnHtml(id) {
-    return '<oc-button variant="bare" icon-only class="kb-del-btn" data-kb-del="' + escapeAttr(id) + '"' +
+    return '<oc-icon-button size="sm" class="kb-del-btn" data-kb-del="' + escapeAttr(id) + '"' +
                 ' title="删除条目" aria-label="删除条目">' +
                 '<span slot="icon" class="kb-del-ic">' + ICONS.trash + '</span>' +
-           '</oc-button>';
+           '</oc-icon-button>';
 }
 
 export function renderKbEntries() {
@@ -464,7 +464,7 @@ function renderKbTagEditor() {
     if (!host) return;
     var html = kbState.modalTags.map(function (t, i) {
         return '<span class="kb-tag-edit">#' + escapeHtml(t) +
-                    '<button type="button" class="kb-tag-x" data-kb-tag-del="' + i + '" title="删除标签">' + ICONS.close + '</button>' +
+                    '<oc-icon-button size="xs" class="kb-tag-x" data-kb-tag-del="' + i + '" title="删除标签" aria-label="删除标签">' + ICONS.close + '</oc-icon-button>' +
                 '</span>';
     }).join('');
     html += '<oc-button variant="bare" size="xs" class="kb-tag-add" id="kbAddTagBtn">' + ICONS.plus + '添加</oc-button>';

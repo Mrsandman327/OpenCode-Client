@@ -1103,23 +1103,10 @@ input::placeholder, textarea::placeholder {
    ============================================================ */
 
 /* ── 工具栏按钮统一体系（Apple 风格，紧凑 30px 高） ── */
-/* 移动端顶栏主题切换（桌面端隐藏，入口在配置弹窗） */
+/* 移动端顶栏主题切换（桌面端隐藏，入口在配置弹窗） *//* 已迁移到 <oc-icon-button size="lg">：这里只留移动端显示控制与图标尺寸 */
 .header-theme-toggle {
     display: none;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 15px;
-    line-height: 1;
-    align-items: center;
-    justify-content: center;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background var(--transition), color var(--transition), border-color var(--transition);
+    --icon-size: 16px;
 }
 
 /* 次级按钮（网络配置/Web服务/终端）：灰描边，hover 转 accent */
@@ -1469,20 +1456,14 @@ button.oc-head-icon-btn svg {
     white-space: nowrap;
     flex: 1;
 }
+/* 已迁移到 <oc-icon-button size="md"> */
 .oc-chat-head-mobile-toggle {
     display: none;
-    width: 28px;
-    height: 28px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    color: var(--text-primary);
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    line-height: 1;
-    cursor: pointer;
-    flex-shrink: 0;
+    --icon-border-width: 1px;
+    --icon-border: var(--border);
+    --icon-bg: var(--bg-input);
+    --icon-color: var(--text-primary);
+    --icon-radius: var(--radius-sm);
 }
 .oc-mobile-tree-mask {
     display: none;
@@ -1789,63 +1770,16 @@ button.oc-head-icon-btn svg {
 }
 @media (prefers-reduced-motion: reduce) {
     .oc-tree-search-bar.is-open { animation: none; }
-}
+}/* 撑满搜索栏整行：左侧让给输入，右侧留给内置的清除 × */
 .oc-tree-search-field {
     flex: 1;
     min-width: 0;
 }
 /* 提高特异性，覆盖全局 input[type="search"] 的边框 / 内边距 */
-.oc-tree-search-bar input[type="search"] {
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    padding: 0;
-}
 /* 关闭 WebKit 原生搜索清除按钮：本行已有独立的「清空」入口，避免出现两个 ✕ */
-.oc-tree-search-bar input[type="search"]::-webkit-search-cancel-button,
-.oc-tree-search-bar input[type="search"]::-webkit-search-decoration {
-    -webkit-appearance: none;
-    appearance: none;
-    display: none;
-}
-.oc-tree-search-count {
-    flex-shrink: 0;
-    color: var(--text-muted);
-    font-size: 10.5px;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-}
-.oc-tree-search-clear,
-.oc-tree-search-close {
-    flex-shrink: 0;
-    padding: 3px 4px;
-    border: none;
-    border-radius: 5px;
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 11px;
-    line-height: 1.2;
-    cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease;
-}
-.oc-tree-search-close {
-    width: 21px;
-    height: 21px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-}
-.oc-tree-search-clear:hover:not(:disabled),
-.oc-tree-search-close:hover {
-    color: var(--text-primary);
-    background: var(--bg-card-hover);
-}
-.oc-tree-search-clear:disabled {
-    opacity: 0.4;
-    cursor: default;
-}
+/* 会话树搜索框右侧的 ×（<oc-icon-button size="xs">）：
+   搜索行里只有「图标 + 输入 + ×」，计数与清空按钮已移除 */
+/* .oc-tree-search-close 的 hover 已交给组件的 --icon-bg-hover */
 .oc-tree-search-hit > .oc-tree-row,
 .oc-tree-search-hit > .oc-tree-session {
     background: var(--accent-ghost);
@@ -2260,24 +2194,21 @@ button.oc-head-icon-btn svg {
 }
 .oc-messages-tab.active {
     display: flex !important;
-}
+}/* 已迁移到 <oc-icon-button>：定位与动画留在外部，尺寸/边框/底色走组件变量 */
 .oc-scroll-bottom {
     position: absolute;
     right: 17px;
     bottom: 12px;
     z-index: 8;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
+    /* 阴影画在宿主上，宿主自己不圆的话按钮看着就是方的 */
     border-radius: var(--radius-pill);
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--text-primary);
+    --icon-box: 36px;
+    --icon-radius: var(--radius-pill);
+    --icon-border-width: 1px;
+    --icon-border: var(--border);
+    --icon-bg: var(--bg-card);
+    --icon-color: var(--text-primary);
     box-shadow: var(--shadow);
-    cursor: pointer;
     opacity: 0;
     transform: translateY(8px) scale(0.96);
     pointer-events: none;
@@ -2287,10 +2218,9 @@ button.oc-head-icon-btn svg {
     opacity: 0.92;
     transform: translateY(0) scale(1);
     pointer-events: auto;
-}
-.oc-scroll-bottom:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+}.oc-scroll-bottom:hover {
+    --icon-border-hover: var(--accent);
+    --icon-color-hover: var(--accent);
     transform: translateY(-1px) scale(1.04);
 }
 /* ── 用户消息导航按钮 ── */
@@ -2319,31 +2249,14 @@ button.oc-head-icon-btn svg {
 }
 .oc-user-nav:hover {
     border-color: var(--accent);
-}
+}/* 已迁移到 <oc-icon-button size="xs">：点击区不是正方形，宽高单独给 */
 .oc-user-nav-btn {
     width: 28px;
     height: 24px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
     font-size: 10px;
-    cursor: pointer;
-    border-radius: var(--radius-xs);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    line-height: 1;
-    transition: color 0.14s ease, background 0.14s ease;
-}
-.oc-user-nav-btn:hover:not(:disabled) {
-    color: var(--accent);
-    background: var(--accent-ghost);
-}
-.oc-user-nav-btn:disabled {
-    color: var(--text-muted);
-    cursor: not-allowed;
-    opacity: 0.4;
+    --icon-radius: 5px;
+    --icon-color: var(--text-secondary);
+    --icon-color-hover: var(--accent);
 }
 .oc-user-nav-count {
     font-size: 10px;
@@ -3606,11 +3519,9 @@ button.oc-head-icon-btn svg {
 #btnToggleWeb {
     --oc-btn-weight: 600;
 }
-
+/* 输入区里的附件按钮更矮：复用同一个组件，只改点击区 */
 .oc-input-actions .oc-attach-btn {
-    padding: 2px 8px;
-    height: 28px;
-    font-size: 14px;
+    --icon-box: 28px;
 }
 /* ========== 输入区域拖动条 ========== */
 .oc-input-resize-handle {
@@ -3745,11 +3656,6 @@ svg.i.is-spinning {
 .oc-tab-close svg.i,
 .file-browser-tab-close svg.i { width: 10px; height: 10px; }
 .oc-tree-config svg.i,
-.oc-tree-search-close svg.i,
-.file-browser-search-clear svg.i,
-.pc-file-del svg.i,
-.oc-attach-chip-remove svg.i,
-.mcp-kv-del svg.i,
 .btn-del svg.i { width: 12px; height: 12px; }
 /* 16px 圆形悬浮关闭按钮：图标再小一号，避免贴边 */
 .btw-float-close svg.i { width: 10px; height: 10px; }
@@ -3777,7 +3683,6 @@ svg.i.is-spinning {
 .oc-attach-chip-name > svg.i,
 .kb-code-line .kb-txt > svg.i { width: 12px; height: 12px; }
 /* 其余图标容器：按原 emoji 字号缩小并对齐 */
-.header-theme-toggle svg.i { width: 16px; height: 16px; }
 .oc-permission-icon { display: inline-flex; align-items: center; }
 .oc-permission-icon svg.i { width: 14px; height: 14px; }
 .oc-tree-session-icon svg.i { width: 12px; height: 12px; }
@@ -3795,24 +3700,15 @@ svg.i.is-spinning {
     align-items: center;
     gap: 4px;
 }
-
+/* 已迁移到 <oc-icon-button size="md"> */
 .oc-attach-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--bg-input);
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: border-color 0.15s, color 0.15s;
+    --icon-box: 34px;
+    --icon-border-width: 1px;
+    --icon-border: var(--border);
+    --icon-bg: var(--bg-input);
+    --icon-color: var(--text-muted);
+    --icon-radius: var(--radius-sm);
 }
-.oc-attach-btn:hover { border-color: var(--accent); color: var(--accent); }
-.oc-attach-btn:disabled { opacity: 0.4; cursor: default; }
 .oc-attach-list {
     display: flex;
     flex-wrap: wrap;
@@ -3843,18 +3739,16 @@ svg.i.is-spinning {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
+}/* 已迁移到 <oc-icon-button size="xs"> */
 .oc-attach-chip-remove {
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: 13px;
-    line-height: 1;
+    --icon-box: 16px;
+    --icon-size: 12px;
+    --icon-radius: 4px;
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
     margin-left: 2px;
-    /* 图标靠行内基线对齐，随文字行高排布 */
-    display: inline-flex;
-    align-items: center;
+    flex-shrink: 0;
 }
-.oc-attach-chip-remove:hover { color: var(--danger); }
 
 /* ========== 知识库 @ 引用（工作区输入框） ========== */
 /* 引用区：位于 textarea 之上，无引用时整块隐藏，不占空间 */
@@ -3902,27 +3796,17 @@ svg.i.is-spinning {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
+}/* 已迁移到 <oc-icon-button size="xs"> */
 .oc-ref-chip-remove {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    --icon-box: 16px;
+    --icon-size: 11px;
+    --icon-radius: var(--radius-xs);
+    --icon-color: inherit;
+    --icon-color-hover: inherit;
     flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-xs);
-    background: transparent;
-    color: inherit;
     opacity: 0.65;
-    cursor: pointer;
-    transition: opacity var(--transition), background var(--transition);
-}
-.oc-ref-chip-remove:hover {
-    opacity: 1;
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-}
+    transition: opacity var(--transition);
+}.oc-ref-chip-remove:hover { opacity: 1; }
 .oc-ref-chip-remove .kb-i {
     width: 11px;
     height: 11px;
@@ -5115,34 +4999,17 @@ svg.i.is-spinning {
    ID + class 的权重（1,1,0）高于 .btn / .btn-sm 以及 .btn-sm:hover:not(:disabled)（0,3,0），
    因此胶囊改方角、配色、字号都能稳定覆盖，无需 !important */
 /* 删除卡片按钮：无边框、默认弱化色，仅悬浮时变红（与通用 .btn-del 口径一致）；
-   同样用 #view-providers 前缀压过 .btn-del / .btn 的默认样式 */
+   同样用 #view-providers 前缀压过 .btn-del / .btn 的默认样式 *//* 已迁移到 <oc-icon-button>：与知识库卡片删除按钮同一套外观 *//* 已迁移到 <oc-icon-button>：与知识库卡片删除按钮同一套外观
+   （26px 点击区、描边垃圾桶 14px、透明底、hover 危险红） *//* 已迁移到 <oc-icon-button>：与知识库卡片删除按钮同一套外观。
+   悬停只把图标变红——不加底色、不加边框，避免在卡片头部浮出色块。 */
 #view-providers .btn-del-card {
-    background: transparent;
-    color: var(--text-muted);
-    border: none;
-    border-radius: var(--radius-sm);
-    /* 纯图标按钮：收紧横向内边距，保持方形点击区 */
-    padding: 4px 7px;
-    font-size: 12px;
-    cursor: pointer;
-    font-weight: 500;
+    --icon-box: 26px;
+    --icon-size: 14px;
+    --icon-radius: var(--radius-sm);
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
 }
 /* 删除图标：项目 assets/删除.svg，mask 跟随按钮文字色（危险红） */
-.btn-del-card .prov-del-ic {
-    width: 13px;
-    height: 13px;
-    display: block;
-    background: currentColor;
-    -webkit-mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
-    mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
-}
-#view-providers button.btn-del-card:hover {
-    background: var(--danger-bg);
-    color: var(--danger);
-}
-#view-providers .btn-del-card:active {
-    transform: scale(0.97);
-}
 
 /* ============================================================
    文件浏览器预览/编辑
@@ -5731,11 +5598,17 @@ svg.i.is-spinning {
 #view-skills .skill-path { padding-top: 13px; }
 
 /* ======== 搜索栏 ======== */
-.oc-search-bar .search {
+/* 会话消息搜索栏：输入框已迁移成 <oc-search> 自定义元素，
+   原来的 `.oc-search-bar input` 选不中 Shadow DOM 内部的 input，
+   结果搜索框按内容宽度收缩、右侧空出一大片。
+   这里直接给宿主设 flex: 1，让它撑满整行剩余宽度。 */
+.oc-search-bar .search,
+.oc-search-bar oc-search {
     flex: 1;
     min-width: 0;
 }
 .oc-search-bar { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+/* 兼容仍在使用原生 input 的旧位置 */
 .oc-search-bar input { flex: 1; padding: 6px 10px; }
 .oc-search-count { font-size: 11px; color: var(--text-dim); min-width: 60px; text-align: center; }
 .oc-search-highlight { background: #ffeb3b; color: #000; border-radius: 2px; padding: 0 1px; }
@@ -5995,8 +5868,6 @@ svg.i.is-spinning {
     width: 100%;
     flex: none;
 }
-.file-browser-search-clear { color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 2px; user-select: none; display: inline-flex; align-items: center; }
-.file-browser-search-clear:hover { color: var(--text-primary); }
 .file-browser-search-opts { display: flex; align-items: center; gap: 4px; }
 .file-browser-search-opt { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 10.5px; cursor: pointer; font-family: Consolas, monospace; }
 .file-browser-search-opt:hover { background: var(--bg-card-hover); }
@@ -6226,23 +6097,19 @@ button.file-browser-upload-plus:hover:not(:disabled) {
     display: flex;
     align-items: center;
     justify-content: space-between;
-}
+}/* 已迁移到 <oc-button variant="secondary">：
+   外观走组件变量，宿主要留给布局（以前这里写 border/background 会与组件内部
+   的按钮叠成「双层圆角框」） */
 .file-browser-git-stage-all {
-    font-size: 11px;
-    padding: 3px 10px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    cursor: pointer;
-}
-.file-browser-git-stage-all:hover:not(:disabled) {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-.file-browser-git-stage-all:disabled {
-    opacity: 0.5;
-    cursor: default;
+    --oc-btn-px: 10px;
+    --oc-btn-py: 3px;
+    --oc-btn-fs: 11px;
+    --oc-btn-radius: var(--radius-pill);
+    --oc-btn-bg: var(--bg-card);
+    --oc-btn-fg: var(--text-secondary);
+}.file-browser-git-stage-all:hover:not([disabled]) {
+    --oc-btn-border-hover: var(--accent);
+    --oc-btn-fg-hover: var(--accent);
 }
 .file-browser-resize-handle {
     cursor: col-resize;
@@ -6901,34 +6768,20 @@ body.fb-term-resizing .fb-term-host { pointer-events: none; }
     line-height: 1;
     padding: 0 2px;
 }
-.fb-term-tab-close:hover { color: #e53935; }
+.fb-term-tab-close:hover { color: #e53935; }/* 已迁移到 <oc-icon-button>：22px 点击区，hover 出现浅灰块 */
 .fb-terminal-add,
 .fb-terminal-collapse {
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 5px;
-    background: transparent;
-    color: var(--text-muted);
-    line-height: 1;
-    cursor: pointer;
-    flex-shrink: 0;
+    --icon-box: 22px;
+    --icon-radius: 5px;
+    --icon-color: var(--text-muted);
 }
+/* 两个按钮的内联 SVG 尺寸不同，按原值回填 */
+.fb-terminal-add { --icon-size: 15px; }
+.fb-terminal-collapse { --icon-size: 13px; }
+/* 折叠态图标翻转由组件的 --icon-rotate 承担（外部选择器进不了 Shadow DOM） */
+.fb-terminal-collapse.is-collapsed { --icon-rotate: 180deg; }
 /* 图标统一用内联 SVG，避免字符在不同字体下大小/基线不一致 */
-.fb-terminal-add svg,
-.fb-term-add-more svg,
-.fb-terminal-collapse svg {
-    display: block;
-    pointer-events: none;
-}
-.fb-terminal-add:hover,
-.fb-terminal-collapse:hover { background: rgba(127, 127, 127, 0.16); }
 /* 折叠时图标翻转 180°，保持同一个 chevron */
-.fb-terminal-collapse svg { transition: transform 0.14s ease; }
 .fb-terminal-collapse.is-collapsed svg { transform: rotate(180deg); }
 
 /* 新建终端拆分按钮：左侧直接建默认 shell，右侧小三角选 shell */
@@ -6938,23 +6791,14 @@ body.fb-term-resizing .fb-term-host { pointer-events: none; }
     align-items: center;
     flex-shrink: 0;
 }
-.fb-term-add-group .fb-terminal-add { border-radius: 5px 0 0 5px; }
+.fb-term-add-group .fb-terminal-add { --icon-radius: 5px 0 0 5px; }/* 已迁移到 <oc-icon-button size="xs">：右半边窄条，左边界用宿主的 border-left */
 .fb-term-add-more {
-    width: 17px;
-    height: 22px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
+    --icon-box: 17px;
+    --icon-size: 11px;
+    --icon-radius: 0 5px 5px 0;
+    --icon-color: var(--text-muted);
     border-left: 1px solid var(--border);
-    border-radius: 0 5px 5px 0;
-    background: transparent;
-    color: var(--text-muted);
-    line-height: 1;
-    cursor: pointer;
 }
-.fb-term-add-more:hover { background: rgba(127, 127, 127, 0.16); }
 .fb-term-shell-menu {
     position: absolute;
     top: 25px;
@@ -7537,31 +7381,24 @@ body.file-browser-diff-dragging {
 
 .pc-file-item:hover .pc-file-arrow { opacity: 1; }
 
-/* 删除按钮 */
+/* 删除按钮：已迁移到 <oc-icon-button>（size="sm"，22px 点击区），
+   原来写在原生 <button> 上的边框/背景/行高全部作废，改由组件变量控制。
+   默认无边框无底色，悬停只把图标变危险色。 */
 .pc-file-del {
     flex-shrink: 0;
-    width: 22px; height: 22px;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    font-size: 14px;
-    cursor: pointer;
-    border-radius: 4px;
-    text-align: center;
-    line-height: 22px;
-    /* 图标按钮：内容居中 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    --icon-box: 22px;
+    --icon-size: 13px;
+    --icon-stroke: 1.8;
+    --icon-radius: 4px;
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
     opacity: 0;
-    transition: opacity .12s, color .12s, background .12s;
+    transition: opacity .12s;
 }
 
 .pc-file-item:hover .pc-file-del { opacity: 1; }
 
 .pc-skill-card:hover .pc-file-del { opacity: 1; }
-
-.pc-file-del:hover { color: var(--danger); background: var(--bg-card-hover); }
 
 /* 新增按钮底部 */
 .pc-file-list-footer {
@@ -7985,23 +7822,17 @@ input.toolbar-input {
     padding: 10px 14px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-secondary);
-}
+}/* 已迁移到 <oc-icon-button size="md" icon-mask="back"> */
 .dir-browser-up {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    cursor: pointer;
+    --icon-box: 30px;
+    --icon-border-width: 1px;
+    --icon-border: var(--border);
+    --icon-bg: var(--bg-input);
+    --icon-color: var(--text-secondary);
+    --icon-radius: 6px;
 }
-.dir-browser-up:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-}
+/* 遮罩图标的尺寸由文档样式决定（::slotted 优先级低于 .oc-fb-icon 类） */
+.dir-browser-up .oc-fb-icon { width: 14px; height: 14px; }
 .dir-browser-path {
     flex: 1;
     min-width: 0;
@@ -8049,9 +7880,9 @@ input.toolbar-input {
     font-size: 12px;
     color: var(--text-muted);
 }
+/* 目录浏览器行内图标（返回按钮的图标已进组件） */
 .dir-browser-place .oc-fb-icon,
-.dir-browser-item .oc-fb-icon,
-.dir-browser-up .oc-fb-icon {
+.dir-browser-item .oc-fb-icon {
     width: 14px;
     height: 14px;
 }
@@ -8387,8 +8218,9 @@ button.oc-head-icon-btn.is-loading svg {
 
 .kb-cat-new {
     /* 已迁移到 <oc-button variant="bare">：整宽虚线块 + 强调色 */
+    /* 块级 flex：宽度自动等于容器宽度减去左右 margin，不需要 width:100% */
+    display: flex;
     margin: 6px 6px 0;
-    width: 100%;
     flex-shrink: 0;
     --oc-btn-px: 10px;
     --oc-btn-py: 7px;
@@ -8617,28 +8449,30 @@ button.oc-head-icon-btn.is-loading svg {
 
 /* ---- 条目删除按钮：卡片 / 列表行右上角，鼠标悬停在该条目上时才显形 ----
    平时完全透明且不接收点击（pointer-events:none），避免误触与视觉噪音；
-   键盘 Tab 聚焦时同样显形，保证可访问性。 */
+   键盘 Tab 聚焦时同样显形，保证可访问性。
+   已迁移到 <oc-icon-button>：组件默认无边框、无底色，
+   这里不要再设 --icon-border-width / --icon-bg，
+   否则会出现红色描边框（卡片）和白色底块（列表行）。悬停只让图标变危险色。 *//* 已迁移到 <oc-icon-button>：26px 点击区，悬停条目时出现。
+   悬停只把图标变红，不加底色与边框。 */
 .kb-del-btn {
     position: absolute;
     top: 8px;
     right: 8px;
     z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    /* 不透明底：压住下层标题文字，避免按钮图标与文字叠在一起 */
-    background: var(--bg-card);
-    color: var(--text-muted);
-    cursor: pointer;
+    --icon-box: 26px;
+    --icon-size: 14px;
+    --icon-radius: var(--radius-sm);
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
     opacity: 0;
     pointer-events: none;
-    transition: opacity var(--transition), color var(--transition),
-                background var(--transition), border-color var(--transition);
+    transition: opacity var(--transition), color var(--transition);
+}
+/* 列表模式：行高比卡片矮很多，右上角定位会明显偏上；
+   改成垂直居中，和行内文字、图标对齐。 */
+.kb-row .kb-del-btn {
+    top: 50%;
+    transform: translateY(-50%);
 }
 .kb-card:hover .kb-del-btn,
 .kb-row:hover .kb-del-btn,
@@ -8647,14 +8481,6 @@ button.oc-head-icon-btn.is-loading svg {
     pointer-events: auto;
 }
 /* 按钮自身 hover：切到危险色，明确这是破坏性操作 */
-button.kb-del-btn:hover {
-    color: var(--danger);
-    border-color: var(--danger);
-    background: var(--danger-bg);
-}
-oc-button.kb-del-btn:hover:not([disabled]) {
-    --oc-btn-fg-hover: var(--danger);
-}
 /* 触摸设备没有 hover 态：按钮常显，否则移动端 / Web 触屏无法删除条目 */
 @media (hover: none) {
     .kb-del-btn { opacity: 1; pointer-events: auto; }
@@ -8813,22 +8639,14 @@ oc-textarea.kb-field-input {
     color: var(--text-secondary);
     transition: all var(--transition);
 }
-.kb-tag-edit:hover { border-color: var(--border-light); }
+.kb-tag-edit:hover { border-color: var(--border-light); }/* 已迁移到 <oc-icon-button size="xs">：15px 圆形点击区 */
 .kb-tag-x {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 0;
-    transition: all var(--transition);
+    --icon-box: 15px;
+    --icon-size: 14px;
+    --icon-radius: 50%;
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
 }
-.kb-tag-x:hover { background: var(--danger-bg); color: var(--danger); }
 
 .kb-tag-add {
     display: inline-flex;
@@ -10560,28 +10378,20 @@ oc-textarea.kb-field-input {
 .mcp-item {
     position: relative;
 }
-
+/* 已迁移到 <oc-icon-button size="xs">：列表行右侧悬浮出现 */
 .mcp-item-del {
     position: absolute;
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-xs);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 11px;
-    line-height: 1;
-    cursor: pointer;
+    --icon-box: 20px;
+    --icon-size: 14px;
+    --icon-radius: var(--radius-xs);
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+    transition: opacity 0.12s ease;
 }
 
 /* 垃圾桶图标：描边风格，颜色跟随按钮 currentColor */
@@ -10609,12 +10419,7 @@ oc-textarea.kb-field-input {
     margin-right: 22px;
 }
 
-.mcp-item-del:hover:not(:disabled) {
-    color: var(--danger);
-    background: var(--danger-bg);
-}
 
-.mcp-item-del:disabled { opacity: 0.4; cursor: default; }
 
 /* ---- 右表单 ---- */
 .mcp-main {
@@ -10675,24 +10480,15 @@ oc-textarea.kb-field-input {
     gap: 6px;
     align-items: center;
 }
-
+/* 已迁移到 <oc-icon-button size="sm">：hover 只变色 */
 .mcp-kv-del {
-    width: 26px;
-    height: 26px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 13px;
-    line-height: 1;
-    /* 图标按钮：内容居中 */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    --icon-box: 26px;
+    --icon-size: 13px;
+    --icon-radius: var(--radius-sm);
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
 }
 
-.mcp-kv-del:hover { color: var(--danger); background: var(--danger-bg); }
 
 /* 已迁移到 <oc-button>：整宽虚线框 */
 .mcp-kv-add {
@@ -10898,30 +10694,16 @@ oc-textarea.kb-field-input {
     align-items: center;
     gap: 2px;
     flex-shrink: 0;
-}
+}/* 已迁移到 <oc-icon-button size="xs"> */
 .oc-schedule-icon-btn {
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--text-secondary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
+    --icon-box: 20px;
+    --icon-size: 14px;
+    --icon-radius: 4px;
+    --icon-color: var(--text-secondary);
+    --icon-color-hover: var(--text-primary);
+}.oc-schedule-icon-btn.danger:hover:not([disabled]) {
+    --icon-color-hover: var(--danger);
 }
-.oc-schedule-icon-btn:hover {
-    background: var(--bg-card-hover);
-    color: var(--text-primary);
-}
-.oc-schedule-icon-btn.danger:hover {
-    background: var(--danger-bg);
-    color: var(--danger);
-}
-.oc-schedule-icon-btn svg { width: 14px; height: 14px; }
 
 .oc-schedule-modal { width: 640px; max-width: calc(100vw - 32px); }
 .oc-schedule-detail-modal { width: 560px; max-width: calc(100vw - 32px); }

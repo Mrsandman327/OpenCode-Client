@@ -139,10 +139,15 @@
     width: 28px;
     height: 28px;
     flex-shrink: 0;
+    /* 已迁移成 <oc-icon-button> 的关闭按钮：组件默认 hover 无底色，
+       这里补上与 oc-button ghost 一致的浅灰块，两种组件外观保持相同 */
+    --icon-bg-hover: rgba(0, 0, 0, 0.06);
+    --icon-color-hover: var(--text-primary);
 }
 
 [data-theme="dark"] .modal-close-btn {
     --oc-btn-bg-hover: var(--bg-card-hover);
+    --icon-bg-hover: var(--bg-card-hover);
 }
 
 /* 图标是组件塞进宿主 light DOM 的槽位内容，这条尺寸规则仍然生效 */

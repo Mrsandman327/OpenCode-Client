@@ -279,7 +279,7 @@ export function renderSkillsTab(tab) {
     var body = document.getElementById('projectConfigBody');
 
     // 顶部操作栏
-    var actionsHtml = '<div class="pc-skills-actions">' + buttonHtml({ label: '导入技能', size: 'sm', className: 'pc-btn-import-skills' }) + '</div>';
+    var actionsHtml = '<div class="pc-skills-actions">' + buttonHtml({ label: '导入技能', variant: 'secondary', size: 'sm', className: 'pc-btn-import-skills' }) + '</div>';
 
     if (!tab.exists || !tab.files || !tab.files.length) {
         body.innerHTML = actionsHtml + emptyHtml({
@@ -298,8 +298,9 @@ export function renderSkillsTab(tab) {
             }
             html += '</div>';
             html += '<div class="pc-skill-card-actions">';
-            html += buttonHtml({ label: '查看', size: 'sm', className: 'pc-skill-view', attrs: { 'data-path': f.path } });
-            html += '<button class="pc-file-del pc-skill-del" data-del-path="' + escapeHtml(f.path) + '" title="删除" aria-label="删除"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>';
+            html += buttonHtml({ label: '查看', variant: 'secondary', size: 'sm', className: 'pc-skill-view', attrs: { 'data-path': f.path } });
+            // 技能删除：图标按钮统一用 <oc-icon-button>（默认无边框、无底色）
+            html += '<oc-icon-button size="sm" icon="i-x" class="pc-file-del pc-skill-del" data-del-path="' + escapeHtml(f.path) + '" title="删除" aria-label="删除"></oc-icon-button>';
             html += '</div>';
             html += '</div>';
         });
@@ -364,7 +365,7 @@ export function showImportSkillsModal() {
                 if (s.globalExist) {
                     statusHtml = '<span class="pc-import-tag global">全局已有</span>';
                 }
-                btnHtml = buttonHtml({ label: '导入', size: 'sm', className: 'pc-btn-do-import', attrs: { 'data-src': s.sourcePath, 'data-name': s.name } });
+                btnHtml = buttonHtml({ label: '导入', variant: 'secondary', size: 'sm', className: 'pc-btn-do-import', attrs: { 'data-src': s.sourcePath, 'data-name': s.name } });
             }
             html += '<div class="pc-skill-card">';
             html += '<div class="pc-skill-info">';
@@ -446,7 +447,7 @@ export function renderBrowseView(category, dirPath, result, backLabel, backActio
             '<div class="pc-editor-toolbar"><span class="pc-editor-filename"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg>' + escapeHtml(dirPath) + '</span>' +
             '<oc-button variant="ghost" size="sm" class="pc-btn-browse-back">' + backLabel + '</oc-button></div>' +
             renderFileListHtml(category, dirPath, sorted, true) +
-            '<div class="pc-file-list-footer">' + buttonHtml({ label: '+ 新增文件', size: 'sm', className: 'pc-btn-add-entry' }) + '</div></div>';
+            '<div class="pc-file-list-footer">' + buttonHtml({ label: '+ 新增文件', variant: 'secondary', size: 'sm', className: 'pc-btn-add-entry' }) + '</div></div>';
     }
     bindBrowseEvents(category, dirPath);
     bindDeleteButtons(category, dirPath, function() { browseSubDir(category, dirPath); });
@@ -467,7 +468,8 @@ export function renderFileListHtml(category, basePath, files, showDelete) {
         html += '<span class="pc-file-name">' + escapeHtml(f.name) + '</span>';
         html += '<span class="pc-file-arrow">→</span>';
         if (showDelete) {
-            html += '<button class="pc-file-del" data-del-path="' + escapeHtml(fullPath) + '" data-del-type="' + escapeHtml(f.type) + '" title="删除" aria-label="删除"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>';
+            // 文件/目录删除：图标按钮统一用 <oc-icon-button>（默认无边框、无底色）
+            html += '<oc-icon-button size="sm" icon="i-x" class="pc-file-del" data-del-path="' + escapeHtml(fullPath) + '" data-del-type="' + escapeHtml(f.type) + '" title="删除" aria-label="删除"></oc-icon-button>';
         }
         html += '</div>';
     });
@@ -552,7 +554,7 @@ export function renderFileListTab(category, tab, emptyTitle, emptyDesc) {
     }
 
     body.innerHTML = renderFileListHtml(category, '', tab.files, true) +
-        '<div class="pc-file-list-footer">' + buttonHtml({ label: '+ 新增', size: 'sm', className: 'pc-btn-add-entry' }) + '</div>';
+        '<div class="pc-file-list-footer">' + buttonHtml({ label: '+ 新增', variant: 'secondary', size: 'sm', className: 'pc-btn-add-entry' }) + '</div>';
 
     body.querySelectorAll('.pc-file-item').forEach(function(item) {
         item.addEventListener('click', function(e) {
@@ -602,7 +604,7 @@ export function renderPreview(fileName, content, readOnly) {
     var actions = readOnly
         ? '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>'
         : (isMarkdown
-            ? buttonHtml({ label: '编辑', size: 'sm', className: 'pc-btn-edit' }) +
+            ? buttonHtml({ label: '编辑', variant: 'secondary', size: 'sm', className: 'pc-btn-edit' }) +
               '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>'
             : '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>');
 
@@ -673,7 +675,7 @@ export function switchToEditMode(fileName, content) {
             '<div class="pc-editor-actions">' +
                 '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>' +
                 '<oc-button variant="ghost" size="sm" class="pc-editor-search-btn pc-btn-search">搜索</oc-button>' +
-                buttonHtml({ label: '保存', size: 'sm', className: 'pc-btn-save' }) +
+                buttonHtml({ label: '保存', variant: 'secondary', size: 'sm', className: 'pc-btn-save' }) +
                 (allowPreviewToggle ? '<oc-button variant="ghost" size="sm" class="pc-btn-preview">预览</oc-button>' : '') +
             '</div>' +
         '</div>' +
@@ -686,7 +688,7 @@ export function switchToEditMode(fileName, content) {
                 '<span class="pc-editor-filename">' + escapeHtml(fileName) + ' <span style="color:var(--warning);font-size:11px">编辑中</span></span>' +
                 '<div class="pc-editor-actions">' +
                     '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>' +
-                    buttonHtml({ label: '保存', size: 'sm', className: 'pc-btn-save' }) +
+                    buttonHtml({ label: '保存', variant: 'secondary', size: 'sm', className: 'pc-btn-save' }) +
                     (allowPreviewToggle ? '<oc-button variant="ghost" size="sm" class="pc-btn-preview">预览</oc-button>' : '') +
                 '</div>' +
             '</div>' +

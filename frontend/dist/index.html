@@ -135,7 +135,7 @@
             <oc-button variant="config" id="btnWtOpen" title="在终端中打开" disabled><span class="btn-terminal-icon" aria-hidden="true"></span>在终端打开</oc-button>
             <oc-button variant="primary" id="btnToggleWeb" data-mode="start" icon="i-play">启动 OpenCode</oc-button>
             <!-- 移动端顶栏：隐藏上面两个按钮，只保留主题切换 -->
-            <button type="button" class="header-theme-toggle" id="btnTheme" title="切换主题" aria-label="切换主题"><svg class="i" aria-hidden="true"><use href="#i-moon"></use></svg></button>
+            <oc-icon-button icon="i-moon" size="lg" class="header-theme-toggle" id="btnTheme" title="切换主题" aria-label="切换主题"></oc-icon-button>
         </div>
     </header>
 
@@ -199,10 +199,7 @@
                         </div>
                         <div class="oc-tree-search-bar" id="ocTreeSearchBar">
                             <oc-search class="oc-tree-search-field" id="ocTreeSearchInput" placeholder="搜索会话..." aria-label="搜索会话">
-                                <span slot="trailing" class="oc-tree-search-count" id="ocTreeSearchCount">-</span>
                             </oc-search>
-                            <button type="button" class="oc-tree-search-clear" id="ocTreeSearchClear" title="清空搜索" disabled>清空</button>
-                            <button type="button" class="oc-tree-search-close" id="ocTreeSearchClose" title="关闭搜索（Esc）" aria-label="关闭搜索"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
                         </div>
                         <div class="oc-tree" id="ocTree">
                             <div class="empty-state empty-state--sm">启动服务后加载会话列表</div>
@@ -231,7 +228,7 @@
                     <main class="oc-chat">
                         <!-- Tab 标签行常驻：高度与左侧会话列表头、右侧服务状态头一致（44px） -->
                         <div class="oc-tabs-bar" id="ocTabsBar">
-                            <button type="button" class="oc-chat-head-mobile-toggle" id="btnMobileTree" title="打开项目树" aria-label="打开项目树"><svg class="i" aria-hidden="true"><use href="#i-menu"></use></svg></button>
+                            <oc-icon-button icon="i-menu" size="md" class="oc-chat-head-mobile-toggle" id="btnMobileTree" title="打开项目树" aria-label="打开项目树"></oc-icon-button>
                             <!-- 移动端没有 Tab 列表：标题显示在这条栏内 -->
                             <span class="oc-chat-mobile-title" id="ocMobileChatTitle">未选择会话</span>
                             <div class="oc-tabs-list" id="ocTabsList"></div>
@@ -250,11 +247,11 @@
                             <div class="oc-messages-pool" id="ocMessagesPool">
                                 <div class="empty-state empty-state--sm">选择会话后查看消息，或输入内容创建新会话</div>
                             </div>
-                            <button type="button" class="oc-scroll-bottom" id="btnScrollBottom" title="回到会话底部"><svg class="i" aria-hidden="true"><use href="#i-arrow-down"></use></svg></button>
+                            <oc-icon-button icon="i-arrow-down" size="md" class="oc-scroll-bottom" id="btnScrollBottom" title="回到会话底部"></oc-icon-button>
                             <div class="oc-user-nav" id="ocUserNav">
-                                <button type="button" class="oc-user-nav-btn" id="btnUserNavPrev" title="上一条用户消息">▲</button>
+                                <oc-icon-button size="xs" class="oc-user-nav-btn" id="btnUserNavPrev" title="上一条用户消息" aria-label="上一条用户消息"><span slot="icon">▲</span></oc-icon-button>
                                 <span class="oc-user-nav-count" id="ocUserNavCount">-</span>
-                                <button type="button" class="oc-user-nav-btn" id="btnUserNavNext" title="下一条用户消息">▼</button>
+                                <oc-icon-button size="xs" class="oc-user-nav-btn" id="btnUserNavNext" title="下一条用户消息" aria-label="下一条用户消息"><span slot="icon">▼</span></oc-icon-button>
                             </div>
                         </div>
                         <div class="oc-model-info">
@@ -307,7 +304,7 @@
                                 <div class="oc-refs hidden" id="ocRefs"></div>
                                 <oc-textarea id="ocPrompt" disabled></oc-textarea>
                                 <div class="oc-input-actions">
-                                    <button type="button" class="oc-attach-btn" id="btnAttachFile" disabled title="附件"><svg class="i" aria-hidden="true"><use href="#i-paperclip"></use></svg></button>
+                                    <oc-icon-button icon="i-paperclip" size="md" class="oc-attach-btn" id="btnAttachFile" title="附件" disabled></oc-icon-button>
                                     <oc-button variant="primary" id="btnSendPrompt">发送</oc-button>
                                 </div>
                             </div>
@@ -916,9 +913,7 @@
                 <aside class="dir-browser-places" id="dirBrowserPlaces"></aside>
                 <section class="dir-browser-main">
                     <div class="dir-browser-address">
-                        <button type="button" class="dir-browser-up" id="btnDirBrowserBack" title="返回上一级">
-                            <span class="oc-fb-icon oc-fb-icon-back" aria-hidden="true"></span>
-                        </button>
+                        <oc-icon-button icon-mask="back" size="md" class="dir-browser-up" id="btnDirBrowserBack" title="返回上一级"></oc-icon-button>
                         <oc-input id="dirBrowserPath" placeholder="输入路径" class="dir-browser-path"></oc-input>
                         <oc-button variant="secondary" size="sm" id="btnDirBrowserGo">转到</oc-button>
                     </div>
@@ -1008,7 +1003,6 @@
                     <div class="file-browser-search-panel" id="fileBrowserSearchPanel">
                         <div class="file-browser-search-top">
                             <oc-search class="file-browser-search-input-row" id="fileBrowserSearchInput" placeholder="搜索内容（在会话目录内全文检索）">
-                                <span slot="trailing" class="file-browser-search-clear" id="btnFileBrowserSearchClear" title="清空"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>
                             </oc-search>
                             <div class="file-browser-search-opts">
                                 <button type="button" class="file-browser-search-opt" id="btnFbSearchCase" title="区分大小写">Aa</button>
@@ -1049,25 +1043,19 @@
                             <span class="fb-terminal-title">终端</span>
                             <div class="fb-terminal-tabs" id="fileBrowserTerminalTabs"></div>
                             <div class="fb-term-add-group">
-                                <button type="button" class="fb-terminal-add" id="btnFileBrowserTerminalAdd" title="新建终端" aria-label="新建终端">
-                                    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+                                <oc-icon-button size="sm" class="fb-terminal-add" id="btnFileBrowserTerminalAdd" title="新建终端" aria-label="新建终端"><svg slot="icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
                                         <path d="M8 3.2v9.6M3.2 8h9.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-                                    </svg>
-                                </button>
-                                <button type="button" class="fb-term-add-more" id="btnFileBrowserTerminalAddMore" title="选择 shell" aria-label="选择 shell">
-                                    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false">
+                                    </svg></oc-icon-button>
+                                <oc-icon-button size="xs" class="fb-term-add-more" id="btnFileBrowserTerminalAddMore" title="选择 shell" aria-label="选择 shell"><svg slot="icon" viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false">
                                         <path d="M3.5 6.2 8 10.6l4.5-4.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                </button>
+                                    </svg></oc-icon-button>
                                 <div class="fb-term-shell-menu" id="fileBrowserTerminalShellMenu" style="display:none"></div>
                             </div>
                             <span class="fb-terminal-spacer"></span>
                             <span class="fb-terminal-status" id="fileBrowserTerminalStatus">未连接</span>
-                            <button type="button" class="fb-terminal-collapse" id="btnFileBrowserTerminalCollapse" title="折叠终端" aria-label="折叠终端">
-                                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+                            <oc-icon-button size="sm" class="fb-terminal-collapse" id="btnFileBrowserTerminalCollapse" title="折叠终端" aria-label="折叠终端"><svg slot="icon" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
                                     <path d="M3.5 6 8 10.4 12.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                            </button>
+                                </svg></oc-icon-button>
                         </div>
                         <div class="fb-terminal-body" id="fileBrowserTerminalBody"></div>
                     </div>
@@ -1157,7 +1145,7 @@
         <div class="modal project-config-modal modal-card" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <h3 id="projectConfigTitle">项目配置</h3>
-                <oc-button variant="ghost" icon-only icon-mask="close" class="modal-close-btn" id="btnCloseProjectConfig" title="关闭"></oc-button>
+                <oc-icon-button size="md" icon-mask="close" class="modal-close-btn" id="btnCloseProjectConfig" title="关闭"></oc-icon-button>
             </div>
             <div class="project-config-tabs" id="projectConfigTabs">
                 <button type="button" class="pc-tab active" data-pc-tab="coreConfig">核心配置</button>
@@ -1655,6 +1643,7 @@
     <script type="module">
         // 自定义元素先注册：文件浏览器独立窗口不加载 main.js，否则 <oc-button> 不会升级
         import '/components/oc-button.js';
+        import '/components/oc-icon-button.js';
         import '/components/oc-input.js';
         import '/components/oc-textarea.js';
         import '/components/oc-select.js';

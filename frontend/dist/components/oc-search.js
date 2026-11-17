@@ -6,12 +6,13 @@ import { escapeAttr } from '../core/utils.js';
 // 用法：
 //   <oc-search id="providerSearch" placeholder="搜索供应商、模型…"></oc-search>
 //   <oc-search id="forkSearch" placeholder="搜索" no-icon></oc-search>
-//   <oc-search id="fbSearch" clearable>
+//   <oc-search id="fbSearch">{尾部 × 自动出现，点它清空}</oc-search>
 //       <span slot="trailing" class="count">3</span>
 //   </oc-search>
 //
 // 属性：
-//   placeholder / value / no-icon / clearable / size（md 默认 | sm）
+//   placeholder / value / no-icon / size（md 默认 | sm）
+//   尾部 × 是「清空输入内容」，有内容时自动出现；需要关掉时加 noclear
 // 接口：
 //   el.value / el.focus() / el.select() / el.blur()
 // 事件：
@@ -100,7 +101,9 @@ input::-webkit-search-cancel-button { display: none; }
     line-height: 1;
 }
 .clear:hover { color: var(--text-primary); }
-:host([clearable]) .clear { display: inline-flex; }
+/* 尾部 × 的作用是「清空输入内容」，不是关闭：
+   默认有内容才出现；确实不需要清除按钮的搜索框加 noclear */
+:host([has-value]:not([noclear])) .clear { display: inline-flex; }
 
 :host([size="sm"]) .frame { height: var(--search-h, 26px); }
 ::slotted([slot="trailing"]) { flex-shrink: 0; }
@@ -108,7 +111,7 @@ input::-webkit-search-cancel-button { display: none; }
 
 class OcSearch extends HTMLElement {
     static get observedAttributes() {
-        return ['placeholder', 'value', 'no-icon', 'clearable', 'size'];
+        return ['placeholder', 'value', 'no-icon', 'size'];
     }
 
     constructor() {
@@ -133,6 +136,7 @@ class OcSearch extends HTMLElement {
         if (!this._bound) {
             this._bound = true;
             this._input.addEventListener('input', () => {
+                this._syncClear();
                 this.dispatchEvent(new CustomEvent('input', { bubbles: true, composed: true }));
             });
             this._input.addEventListener('keydown', (event) => {
@@ -183,10 +187,21 @@ class OcSearch extends HTMLElement {
         if (!this._input) return;
         this._input.placeholder = this.getAttribute('placeholder') || '';
         if (this.hasAttribute('value')) this._input.value = this.getAttribute('value');
+        this._syncClear();
+    }
+
+    /** 同步「有内容」标记，控制尾部 × 的显隐（不写进 observedAttributes，避免循环） */
+    _syncClear() {
+        if (!this._input) return;
+        this.toggleAttribute('has-value', !!this._input.value);
     }
 
     get value() { return this._input ? this._input.value : ''; }
-    set value(v) { if (this._input) this._input.value = v == null ? '' : String(v); }
+    set value(v) {
+        if (!this._input) return;
+        this._input.value = v == null ? '' : String(v);
+        this._syncClear();
+    }
 
     get placeholder() { return this.getAttribute('placeholder') || ''; }
     set placeholder(v) { v ? this.setAttribute('placeholder', v) : this.removeAttribute('placeholder'); }

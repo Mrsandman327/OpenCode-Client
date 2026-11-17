@@ -382,7 +382,7 @@ export function providerCardHtml(p) {
                     <span class="prov-badge">${allModels.length} 个模型</span>
                 </div>
                 <div class="provider-card-actions">
-                    <oc-button variant="bare" icon-only class="btn-del-card" data-key="${escapeHtml(p.key)}" title="删除供应商" aria-label="删除供应商"><span slot="icon" class="prov-del-ic" aria-hidden="true"></span></oc-button>
+                    <oc-icon-button size="sm" class="btn-del-card" data-key="${escapeHtml(p.key)}" title="删除供应商" aria-label="删除供应商"><span slot="icon" class="kb-del-ic" aria-hidden="true"><svg class="kb-i kb-i-14" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg></span></oc-icon-button>
                 </div>
             </div>
             <div class="provider-summary">

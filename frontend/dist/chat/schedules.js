@@ -25,10 +25,10 @@ const scheduleState = {
     weekdays: [1, 2, 3, 4, 5],
 };
 
-const PAUSE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z" fill="currentColor"/></svg>';
+const PAUSE_SVG = '<svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const PLAY_SVG = '<svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z" fill="currentColor"/></svg>';
 // 垃圾桶图标：与 MCP 连接器列表、知识库卡片保持同一套路径与线宽
-const TRASH_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const TRASH_SVG = '<svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function $(id) { return document.getElementById(id); }
 
@@ -94,11 +94,11 @@ function renderActionButtons(task) {
     const id = escapeHtml(task.id || '');
     let html = '';
     if (task.status === 'active') {
-        html += '<button type="button" class="oc-schedule-icon-btn" data-schedule-action="pause" data-schedule-id="' + id + '" title="暂停" aria-label="暂停">' + PAUSE_SVG + '</button>';
+        html += '<oc-icon-button size="xs" class="oc-schedule-icon-btn" data-schedule-action="pause" data-schedule-id="' + id + '" title="暂停" aria-label="暂停">' + PAUSE_SVG + '</oc-icon-button>';
     } else if (task.status === 'paused') {
-        html += '<button type="button" class="oc-schedule-icon-btn" data-schedule-action="resume" data-schedule-id="' + id + '" title="恢复" aria-label="恢复">' + PLAY_SVG + '</button>';
+        html += '<oc-icon-button size="xs" class="oc-schedule-icon-btn" data-schedule-action="resume" data-schedule-id="' + id + '" title="恢复" aria-label="恢复">' + PLAY_SVG + '</oc-icon-button>';
     }
-    html += '<button type="button" class="oc-schedule-icon-btn danger" data-schedule-action="delete" data-schedule-id="' + id + '" title="删除" aria-label="删除">' + TRASH_SVG + '</button>';
+    html += '<oc-icon-button size="xs" class="oc-schedule-icon-btn danger" data-schedule-action="delete" data-schedule-id="' + id + '" title="删除" aria-label="删除">' + TRASH_SVG + '</oc-icon-button>';
     return html;
 }
 

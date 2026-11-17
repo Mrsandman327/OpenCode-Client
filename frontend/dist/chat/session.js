@@ -1128,7 +1128,7 @@ export function renderAttachedFiles() {
         return;
     }
     list.innerHTML = store.attachedFiles.map((f, i) =>
-        `<span class="oc-attach-chip"><span class="oc-attach-chip-name"><svg class="i" aria-hidden="true"><use href="#i-paperclip"></use></svg> ${escapeHtml(f.filename)}</span><span class="oc-attach-chip-remove" data-index="${i}"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span></span>`
+        `<span class="oc-attach-chip"><span class="oc-attach-chip-name"><svg class="i" aria-hidden="true"><use href="#i-paperclip"></use></svg> ${escapeHtml(f.filename)}</span><oc-icon-button size="xs" class="oc-attach-chip-remove" data-index="${i}" title="移除附件" aria-label="移除附件" icon="i-x"></oc-icon-button></span>`
     ).join('');
     list.querySelectorAll('.oc-attach-chip-remove').forEach(el => {
         el.addEventListener('click', () => removeAttachment(parseInt(el.dataset.index)));

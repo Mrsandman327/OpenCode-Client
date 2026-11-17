@@ -132,12 +132,12 @@ function appendKvRow(container, key, value) {
     valueInput.autocomplete = 'off';
     valueInput.value = value == null ? '' : String(value);
 
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
+    // 图标按钮统一为 <oc-icon-button>：title 会自动写到 aria-label
+    const delBtn = document.createElement('oc-icon-button');
     delBtn.className = 'mcp-kv-del';
-    delBtn.title = '删除这一项';
-    delBtn.setAttribute('aria-label', '删除这一项');
-    delBtn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-x"></use></svg>';
+    delBtn.setAttribute('size', 'sm');
+    delBtn.setAttribute('icon', 'i-x');
+    delBtn.title = '删除这一行';
     delBtn.addEventListener('click', function () { row.remove(); });
 
     row.appendChild(keyInput);
@@ -234,13 +234,13 @@ function renderList() {
             '<span class="mcp-dot' + (server.disabled ? '' : ' on') + '"></span>' +
             '<span class="mcp-name">' + escapeHtml(server.name || '(未命名)') + '</span>' +
             '<span class="mcp-tag">' + escapeHtml(server.type || 'local') + '</span>' +
-            '<button type="button" class="mcp-item-del" title="删除该连接器" aria-label="删除该连接器">' +
+            '<oc-icon-button size="xs" class="mcp-item-del" title="删除该连接器" aria-label="删除该连接器">' +
                 // 复用知识库卡片里的垃圾桶图标路径（描边风格，颜色跟随 currentColor）
-                '<svg class="mcp-item-del-ic" viewBox="0 0 24 24" aria-hidden="true">' +
+                '<svg slot="icon" class="mcp-item-del-ic" viewBox="0 0 24 24" aria-hidden="true">' +
                     '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>' +
                     '<path d="M10 11v5M14 11v5"/>' +
                 '</svg>' +
-            '</button>';
+            '</oc-icon-button>';
         item.title = (server.name || '') + '（' + (server.type || '') + '）' +
             (server.disabled ? ' · 已停用' : '');
         item.addEventListener('click', function () {
