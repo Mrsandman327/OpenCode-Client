@@ -131,6 +131,10 @@ class OcInput extends HTMLElement {
         if (this.hasAttribute('spellcheck')) input.spellcheck = this.getAttribute('spellcheck') !== 'false';
     }
 
+    /** type 需要读写一致：业务代码常用 el.type = 'text' 做明文切换 */
+    get type() { return this.getAttribute('type') || 'text'; }
+    set type(v) { this.setAttribute('type', v || 'text'); }
+
     /** 与原生 input 一致的读写接口 */
     get value() { return this._input ? this._input.value : ''; }
     set value(v) { if (this._input) this._input.value = v == null ? '' : String(v); }
