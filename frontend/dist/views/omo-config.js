@@ -450,6 +450,7 @@ function createGlobalAgentRow(row) {
     } else {
         const sourceSelect = document.createElement('oc-select');
         sourceSelect.className = 'go-select go-source-select';
+        sourceSelect.setAttribute('fit', '');
         sourceSelect.title = '决定该 agent 是否写入配置文件顶层 agents';
         sourceSelect.setAttribute('aria-label', row.key + ' 的模型来源');
         [
@@ -490,6 +491,7 @@ function createGlobalAgentRow(row) {
     } else if (row.source === 'explicit') {
         const modelSelect = document.createElement('oc-select');
         modelSelect.className = 'go-select go-model-pick';
+        modelSelect.setAttribute('fit', '');
         modelSelect.innerHTML = globalModelOptionsHtml(row.model);
         modelSelect.value = row.model || '';
         modelSelect.disabled = !row.enabled;
@@ -502,6 +504,7 @@ function createGlobalAgentRow(row) {
 
         const variantSelect = document.createElement('oc-select');
         variantSelect.className = 'go-select go-variant-pick';
+        variantSelect.setAttribute('fit', '');
         variantSelect.innerHTML = variantOptionsHtml(row.variant);
         variantSelect.value = row.variant || '';
         variantSelect.disabled = !row.enabled;
@@ -556,6 +559,7 @@ function createGlobalAgentRow(row) {
 function createLockedSelect(text, title) {
     const select = document.createElement('oc-select');
     select.className = 'go-select go-locked-select';
+    select.setAttribute('fit', '');
     select.disabled = true;
     select.title = title;
     select.setAttribute('aria-label', text);
@@ -910,10 +914,12 @@ function createPresetGroup(preset) {
         body.querySelectorAll('.model-check').forEach(cb => { cb.checked = checked; });
     });
 
-    const addBtn = document.createElement('button');
+    const addBtn = document.createElement('oc-button');
+    addBtn.setAttribute('variant', 'bare');
+    addBtn.setAttribute('icon-only', '');
     addBtn.className = 'btn-add-entry';
     addBtn.title = '添加条目';
-    addBtn.innerHTML = '<span class="omo-ic omo-ic-add" aria-hidden="true"></span>';
+    addBtn.innerHTML = '<span slot="icon" class="omo-ic omo-ic-add" aria-hidden="true"></span>';
     addBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         showAddEntryModal(preset.name);
@@ -921,20 +927,24 @@ function createPresetGroup(preset) {
     actions.appendChild(addBtn);
 
     // 重命名方案（assets/重命名.svg 图标；prompt 输入新名，同步 extends 引用与激活项，随保存统一提交）
-    const renameBtn = document.createElement('button');
+    const renameBtn = document.createElement('oc-button');
+    renameBtn.setAttribute('variant', 'bare');
+    renameBtn.setAttribute('icon-only', '');
     renameBtn.className = 'btn-rename-preset';
     renameBtn.title = '重命名方案';
-    renameBtn.innerHTML = '<span class="omo-ic omo-ic-rename" aria-hidden="true"></span>';
+    renameBtn.innerHTML = '<span slot="icon" class="omo-ic omo-ic-rename" aria-hidden="true"></span>';
     renameBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await renamePreset(preset);
     });
     actions.appendChild(renameBtn);
 
-    const delBtn = document.createElement('button');
+    const delBtn = document.createElement('oc-button');
+    delBtn.setAttribute('variant', 'bare');
+    delBtn.setAttribute('icon-only', '');
     delBtn.className = 'btn-delete-type';
     delBtn.title = '删除方案';
-    delBtn.innerHTML = '<span class="omo-ic omo-ic-del" aria-hidden="true"></span>';
+    delBtn.innerHTML = '<span slot="icon" class="omo-ic omo-ic-del" aria-hidden="true"></span>';
     delBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!(await showConfirm({
@@ -1045,6 +1055,7 @@ function createAgentRow(preset, agent) {
     const display = presetRowDisplay(agent);
     const select = document.createElement('oc-select');
     select.className = 'model-select';
+    select.setAttribute('fit', '');
     select.title = '模型';
     select.innerHTML = modelOptionsHtml(display.model);
     select.value = display.model;
@@ -1059,6 +1070,7 @@ function createAgentRow(preset, agent) {
     // variant（思考力度）下拉：同样，改动继承行即覆盖
     const variantSelect = document.createElement('oc-select');
     variantSelect.className = 'model-reasoning-select';
+    variantSelect.setAttribute('fit', '');
     variantSelect.title = 'variant（思考力度）';
     variantSelect.innerHTML = variantOptionsHtml(display.variant);
     variantSelect.value = display.variant;
@@ -1071,9 +1083,11 @@ function createAgentRow(preset, agent) {
     top.appendChild(variantSelect);
 
     // 行尾 ✕：按方案是否带 extends / 行的来源决定语义
-    const rowDel = document.createElement('button');
-    rowDel.className = 'btn btn-del';
-    rowDel.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-x"></use></svg>';
+    const rowDel = document.createElement('oc-button');
+    rowDel.setAttribute('variant', 'bare');
+    rowDel.setAttribute('icon-only', '');
+    rowDel.className = 'btn-del';
+    rowDel.innerHTML = '<svg slot="icon" class="i" aria-hidden="true"><use href="#i-x"></use></svg>';
 
     if (!preset.extends) {
         // ① 无继承方案：直接删除该行

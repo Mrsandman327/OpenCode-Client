@@ -124,7 +124,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 34px;
+    height: 30px;
+    padding: 0 14px;
+    /* 底栏按钮字号要小于弹窗标题（14.5px） */
+    font-size: 13px;
 }
 
 /* ---------- 头部关闭按钮 ---------- */

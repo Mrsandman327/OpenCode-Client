@@ -2239,26 +2239,6 @@ button.oc-head-icon-btn svg {
     font-weight: 600;
 }
 /* 删除按钮：hover 时浮现 */
-.oc-tree-del {
-    display: none;
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 11px;
-    padding: 0 6px;
-    line-height: 1;
-    border-radius: var(--radius-sm);
-    /* 图标按钮：内容水平垂直居中（display 由行悬停规则切换为 inline-flex） */
-    align-items: center;
-    justify-content: center;
-}
-.oc-tree-session:hover .oc-tree-del { display: inline-flex; }
-.oc-tree-del:hover {
-    color: var(--danger);
-    background: var(--danger-bg);
-}
 .oc-tree-tooltip {
     position: absolute;
     left: calc(100% + 8px);
@@ -3844,7 +3824,6 @@ svg.i.is-spinning {
    换成图标后按容器缩小，避免撑大按钮或破坏行高；颜色/描边仍由 symbol 与 currentColor 决定 */
 .oc-tab-close svg.i,
 .file-browser-tab-close svg.i { width: 10px; height: 10px; }
-.oc-tree-del svg.i,
 .oc-tree-config svg.i,
 .oc-tree-search-close svg.i,
 .file-browser-search-clear svg.i,
@@ -4501,13 +4480,16 @@ svg.i.is-spinning {
 }
 
 .model-select {
-    flex: 1;
+    /* 按最长选项定宽，最长 400 */
+    width: max-content;
+    flex: 0 1 auto;
     max-width: 400px;
 }
 
 /* 推理等级选项很短（none/minimal/.../max），给固定上限即可，不参与弹性分配 */
 .model-reasoning-select {
-    flex-shrink: 0;
+    width: max-content;
+    flex: 0 0 auto;
     max-width: 160px;
 }
 
@@ -5036,13 +5018,19 @@ svg.i.is-spinning {
     text-align: right;
     white-space: nowrap;
 }
-.model-field input,
-.model-field oc-input {
+.model-field input {
     flex: 1 1 auto;
     width: auto;
     min-width: 0;
     height: 30px;
     padding: 4px 8px;
+}
+/* 自定义元素：高度/内边距必须交给组件内部，宿主设了会把内部输入框挤出去 */
+.model-field oc-input {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    --oc-input-h: 30px;
 }
 .provider-card .model-field input {
     height: 30px;
@@ -5106,9 +5094,10 @@ svg.i.is-spinning {
 }
 .model-abilities .mod-chip-text { font-size: 11.5px; }
 .model-limit-input {
+    /* 宿主只留宽度；高度/内边距交给组件变量，否则内部输入框会被挤出去 */
     width: 140px;
-    height: 30px;
-    padding: 4px 8px;
+    --oc-input-h: 24px;
+    --oc-input-px: 8px;
 }
 /* 覆盖 .provider-card input 的 13px / 大 padding，限制区输入框固定 12px */
 .provider-card .model-limit-input {
@@ -5195,8 +5184,12 @@ svg.i.is-spinning {
 .btn-toggle-abilities {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
-    padding: 4px 8px;
+    /* 与同排输入框保持同一高度，避免中心线差 1px */
+    height: 30px;
+    box-sizing: border-box;
+    padding: 0 8px;
     background: transparent;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
@@ -5216,6 +5209,9 @@ svg.i.is-spinning {
     transform: scale(0.95);
 }
 .btn-toggle-abilities .toggle-arrow {
+    /* 箭头字符容易被基线拉低，用 flex 居中 */
+    display: inline-flex;
+    align-items: center;
     font-size: 20px;
     line-height: 1;
     transition: transform 0.2s ease;
@@ -5224,7 +5220,7 @@ svg.i.is-spinning {
     transform: rotate(180deg);
 }
 
-.btn-del {
+button.btn-del {
     background: transparent;
     color: var(--text-muted);
     border: none;
@@ -5234,11 +5230,11 @@ svg.i.is-spinning {
     font-size: 12px;
     cursor: pointer;
 }
-.btn-del:hover {
+button.btn-del:hover {
     background: var(--danger-bg);
     color: var(--danger);
 }
-.btn-del:active {
+button.btn-del:active {
     transform: scale(0.95);
 }
 /* 供应商卡片内的「手动添加/获取模型列表」：弱化次级样式，小圆角 */
@@ -5291,7 +5287,7 @@ svg.i.is-spinning {
     -webkit-mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
     mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
 }
-#view-providers .btn-del-card:hover {
+#view-providers button.btn-del-card:hover {
     background: var(--danger-bg);
     color: var(--danger);
 }
@@ -7580,19 +7576,19 @@ body.file-browser-diff-dragging {
     height: 13px;
 }
 /* 悬停背景块：light 用黑色 6% 叠加 / dark 用白色 8%（与 modal-close-btn 同款双主题方案，保证两主题下都可见） */
-.model-list-row .btn-add:hover,
-.model-list-row .btn-del:hover {
+.model-list-row button.btn-add:hover,
+.model-list-row button.btn-del:hover {
     background: rgba(0, 0, 0, 0.06);
 }
-[data-theme="dark"] .model-list-row .btn-add:hover,
-[data-theme="dark"] .model-list-row .btn-del:hover {
+[data-theme="dark"] .model-list-row button.btn-add:hover,
+[data-theme="dark"] .model-list-row button.btn-del:hover {
     background: rgba(255, 255, 255, 0.08);
 }
 /* 悬停语义色：增加→主色；删除→危险色 */
-.model-list-row .btn-add:hover {
+.model-list-row button.btn-add:hover {
     color: var(--accent);
 }
-.model-list-row .btn-del:hover {
+.model-list-row button.btn-del:hover {
     color: var(--danger);
 }
 
@@ -7941,27 +7937,37 @@ body.file-browser-diff-dragging {
 
 .oc-tree-config {
     margin-left: auto;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s, color .15s, background .15s;
+}
+button.oc-tree-config {
     padding: 2px 6px;
     border: none;
     background: none;
     color: var(--text-muted);
-    cursor: pointer;
     font-size: 13px;
     border-radius: 4px;
-    opacity: 0;
-    transition: opacity .15s, color .15s, background .15s;
-    /* 图标按钮：内容居中 */
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+oc-button.oc-tree-config {
+    --oc-btn-px: 6px;
+    --oc-btn-py: 2px;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-icon: 12px;
 }
 
 .oc-tree-dir-row:hover .oc-tree-config,
 .oc-tree-directory:hover .oc-tree-config { opacity: 1; }
 
-.oc-tree-config:hover {
+button.oc-tree-config:hover {
     color: var(--accent);
     background: var(--bg-card-hover);
+}
+oc-button.oc-tree-config:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--accent);
 }
 
 /* ===== 技能管理卡片 ===== */
@@ -8301,6 +8307,13 @@ button.oc-head-icon-btn.is-loading svg {
     font-size: 10px;
 }
 .subtask-copy-sid {
+    /* 复制 SessionId 是行内小按钮：默认、hover、边框全部透明，
+       只保留图标颜色变化作为可点击反馈，避免出现灰色块。 */
+    --oc-btn-bg: transparent;
+    --oc-btn-bg-hover: transparent;
+    --oc-btn-border: transparent;
+    --oc-btn-border-hover: transparent;
+    --oc-btn-fg-hover: var(--accent);
     font-size: 10px;
     padding: 0 4px;
     margin-left: 4px;
@@ -8816,10 +8829,13 @@ button.oc-head-icon-btn.is-loading svg {
     pointer-events: auto;
 }
 /* 按钮自身 hover：切到危险色，明确这是破坏性操作 */
-.kb-del-btn:hover {
+button.kb-del-btn:hover {
     color: var(--danger);
     border-color: var(--danger);
     background: var(--danger-bg);
+}
+oc-button.kb-del-btn:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--danger);
 }
 /* 触摸设备没有 hover 态：按钮常显，否则移动端 / Web 触屏无法删除条目 */
 @media (hover: none) {
@@ -9024,8 +9040,8 @@ oc-textarea.kb-field-input {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 34px;
-    padding: 0 18px;
+    height: 30px;
+    padding: 0 14px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--bg-input);
@@ -9042,8 +9058,8 @@ oc-textarea.kb-field-input {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 34px;
-    padding: 0 18px;
+    height: 30px;
+    padding: 0 14px;
     font-size: 13.5px;
     border-radius: var(--radius-sm);
 }
@@ -9076,8 +9092,8 @@ oc-textarea.kb-field-input {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 34px;
-    padding: 0 16px;
+    height: 30px;
+    padding: 0 14px;
     border: 1px solid var(--accent);
     border-radius: var(--radius-sm);
     background: var(--accent-ghost);
@@ -9720,7 +9736,8 @@ oc-textarea.kb-field-input {
     min-width: 0;
 }
 #view-omo .go-source-select {
-    width: 100%;
+    /* 宽度取最长选项，最长不超过 200 */
+    width: max-content;
     max-width: 200px;
 }
 #view-omo .go-row.is-override .go-source-select:not(:disabled) {
@@ -9734,7 +9751,8 @@ oc-textarea.kb-field-input {
     min-width: 0;
 }
 #view-omo .go-model-pick {
-    flex: 1;
+    width: max-content;
+    flex: 0 1 auto;
     min-width: 0;
     max-width: 340px;
     color: var(--text-primary);
@@ -9743,15 +9761,17 @@ oc-textarea.kb-field-input {
     letter-spacing: 0;
 }
 #view-omo .go-variant-pick {
-    width: 82px;
-    flex: 0 0 82px;
+    width: max-content;
+    flex: 0 0 auto;
     color: var(--text-primary);
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     font-size: 11px;
     letter-spacing: 0;
 }
 #view-omo .go-locked-select {
-    flex: 1;
+    /* 宽度跟内容走，不再 flex:1 撑满 */
+    flex: 0 0 auto;
+    width: auto;
     max-width: 340px;
     border-style: dashed;
     cursor: not-allowed;
@@ -9759,6 +9779,7 @@ oc-textarea.kb-field-input {
 /* 宿主那层虚线去掉，虚线改由组件内部画 */
 #view-omo oc-select.go-locked-select {
     border: none;
+    width: max-content;
     --oc-input-border-style: dashed;
     --oc-input-fg: var(--text-muted);
 }
@@ -11316,7 +11337,7 @@ oc-textarea.kb-field-input {
 .oc-model-info oc-select {
     --oc-input-h: 26px;
     --oc-input-px: 10px;
-    width: auto;
+    width: max-content;
     min-width: 80px;
     max-width: 240px;
 }
@@ -11364,9 +11385,9 @@ oc-textarea.kb-field-input {
     --oc-btn-fs: 12.5px;
 }
 .kb-entry-foot oc-button {
-    --oc-btn-h: 34px;
-    --oc-btn-px: 18px;
-    --oc-btn-fs: 13.5px;
+    --oc-btn-h: 30px;
+    --oc-btn-px: 14px;
+    --oc-btn-fs: 13px;
 }
 .oc-panel-head oc-button {
     margin-left: auto;
@@ -11421,15 +11442,90 @@ oc-button.oc-head-icon-btn {
     --oc-btn-radius: 6px;
 }
 .oc-service-actions oc-button[data-mcp-action="connect"]:hover:not([disabled]) {
-    --oc-btn-bg-hover: var(--bg-card-hover);
     --oc-btn-fg-hover: var(--accent);
 }
 .oc-service-actions oc-button[data-mcp-action="disconnect"]:hover:not([disabled]) {
-    --oc-btn-bg-hover: var(--danger-bg);
     --oc-btn-fg-hover: var(--danger);
 }
 /* 在途反馈：按钮禁用时图标自旋（原来是 .btn:disabled .oc-service-icon） */
 .oc-service-actions oc-button[disabled] .oc-service-icon {
     opacity: 0.45;
     animation: spin 0.8s linear infinite;
+}
+
+/* ===== 文件浏览器里已迁移的按钮 =====
+   原来靠 .xxx .btn 定制尺寸，组件化后改走 CSS 变量。 */
+oc-button.file-browser-create-dir-btn {
+    --oc-btn-h: 28px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-icon: 16px;
+    --oc-btn-radius: 6px;
+}
+oc-button.file-browser-git-push-btn {
+    --oc-btn-h: 24px;
+    --oc-btn-fs: 11px;
+    --oc-btn-px: 10px;
+    --oc-btn-py: 0;
+    --oc-btn-radius: var(--radius-pill);
+}
+/* 弹窗底栏按钮统一 34px 高（原 .modal-footer .btn 的规则选不中自定义元素） */
+.modal .modal-footer oc-button,
+.modal-card .modal-footer oc-button {
+    --oc-btn-h: 30px;
+    --oc-btn-px: 14px;
+    --oc-btn-fs: 13px;
+}
+
+/* ===== 行内图标动作按钮（已迁移到 oc-button）=====
+   原设计：无背景、无边框，悬停只改变图标颜色（添加/重命名→强调色，删除→危险色） */
+oc-button.btn-add-entry,
+oc-button.btn-rename-preset,
+oc-button.btn-delete-type,
+oc-button.btn-del-model {
+    --oc-btn-h: 24px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-icon: 13px;
+    --oc-btn-radius: var(--radius-sm);
+}
+oc-button.btn-add-entry:hover:not([disabled]),
+oc-button.btn-rename-preset:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--accent);
+}
+oc-button.btn-delete-type:hover:not([disabled]),
+oc-button.btn-del-model:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--danger);
+}
+
+/* ===== 供应商卡片 / 模型列表行的图标按钮（已迁移到 oc-button）=====
+   与 OMO 方案头一致：无背景无边框，悬停只改变图标颜色 */
+oc-button.btn-del-card,
+.model-list-row oc-button.btn-add,
+.model-list-row oc-button.btn-del {
+    --oc-btn-h: 24px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-radius: var(--radius-sm);
+}
+oc-button.btn-del-card:hover:not([disabled]),
+.model-list-row oc-button.btn-del:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--danger);
+}
+.model-list-row oc-button.btn-add:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--accent);
+}
+
+/* OMO 行尾删除：无背景，悬停只把图标变红 */
+.model-row-top oc-button.btn-del {
+    --oc-btn-h: 22px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-icon: 12px;
+}
+.model-row-top oc-button.btn-del:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--danger);
 }

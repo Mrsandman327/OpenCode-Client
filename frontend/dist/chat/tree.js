@@ -172,7 +172,7 @@ export function renderTree(tree) {
         // 目录行：分组标题 + 会话计数徽章（沿用原目录行标记与类名）
         const dirSesCount = (dir.children || []).length;
         html += `<div class="oc-tree-node oc-tree-directory" data-id="${escapeHtml(dir.id)}">`;
-        html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle ${toggleClass(true)}"></div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><button class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置"><svg class="i" aria-hidden="true"><use href="#i-settings"></use></svg></button></div>`;
+        html += `<div class="oc-tree-row oc-tree-dir-row"><div class="oc-tree-toggle ${toggleClass(true)}"></div><span class="oc-tree-label oc-tree-dir-label" title="${escapeHtml(dir.title)}">${escapeHtml(dir.title)}</span><span class="oc-tree-dir-count">${dirSesCount}</span><oc-button variant="bare" icon-only class="oc-tree-config" data-config-dir="${escapeHtml(dir.title)}" title="项目配置"><svg slot="icon" class="i" aria-hidden="true"><use href="#i-settings"></use></svg></oc-button></div>`;
         html += `<div class="oc-tree-children">`;
         // 目录内会话按更新时间倒序，保持会话位置固定
         var sesList = (dir.children || []).slice();
@@ -189,7 +189,6 @@ export function renderTree(tree) {
             html += `<div class="oc-tree-indent"></div><span class="oc-tree-session-icon"><svg class="i" aria-hidden="true"><use href="#i-message"></use></svg></span><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n'+sesDir+'\n'+updatedAt)}">${escapeHtml(ses.title)}</span>`;
             if (updatedAt) html += `<span class="oc-tree-session-time">${escapeHtml(formatRelativeTime(updatedAt))}</span>`;
             html += `<div class="oc-tree-tooltip"><div class="oc-tree-tooltip-title">${escapeHtml(ses.title)}</div><div class="oc-tree-tooltip-row">${escapeHtml(sesDir)}</div><div class="oc-tree-tooltip-row">${escapeHtml(updatedAt)}</div></div>`;
-            html += `<button class="oc-tree-del" data-del-id="${escapeHtml(ses.id)}" title="删除会话"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>`;
             html += `</div>`;
         }
         html += `</div></div>`;
@@ -246,7 +245,6 @@ export function renderTree(tree) {
 
     container.querySelectorAll('.oc-tree-session').forEach(el => {
         el.addEventListener('click', async (e) => {
-            if (e.target.closest('.oc-tree-del')) return;
             const sid = el.dataset.sessionId;
             if (sid && sid !== store.currentSessionId) {
                 if (isMobileTreeMode()) {
@@ -259,14 +257,6 @@ export function renderTree(tree) {
             if (isMobileTreeMode()) {
                 closeMobileTree();
             }
-        });
-    });
-    container.querySelectorAll('.oc-tree-del').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const sid = btn.dataset.delId;
-            if (!sid) return;
-            await deleteSession(sid);
         });
     });
     container.querySelectorAll('.oc-tree-config').forEach(btn => {

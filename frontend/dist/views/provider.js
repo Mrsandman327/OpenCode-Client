@@ -158,7 +158,7 @@ function modelSubcardHtml(model, capabilities) {
                 <span class="btn-toggle-abilities-text">设置</span>
                 <span class="toggle-arrow">▾</span>
             </button>
-            <button class="btn btn-del btn-del-model" title="删除" aria-label="删除"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
+            <oc-button variant="bare" icon-only class="btn-del-model" title="删除" aria-label="删除"><svg slot="icon" class="i" aria-hidden="true"><use href="#i-x"></use></svg></oc-button>
             ${modelAbilitiesHtml(capabilities, m.limit)}
         </div>`;
 }
@@ -382,7 +382,7 @@ export function providerCardHtml(p) {
                     <span class="prov-badge">${allModels.length} 个模型</span>
                 </div>
                 <div class="provider-card-actions">
-                    <button class="btn btn-del btn-del-card" data-key="${escapeHtml(p.key)}" title="删除供应商" aria-label="删除供应商"><span class="prov-del-ic" aria-hidden="true"></span></button>
+                    <oc-button variant="bare" icon-only class="btn-del-card" data-key="${escapeHtml(p.key)}" title="删除供应商" aria-label="删除供应商"><span slot="icon" class="prov-del-ic" aria-hidden="true"></span></oc-button>
                 </div>
             </div>
             <div class="provider-summary">
@@ -736,9 +736,9 @@ export async function showModelListModal(key, name, baseURL, apiKey) {
             '<span class="model-list-name">' + escaped + '</span>';
         if (existingSet[m]) {
             // 行内操作按钮图标化：删除用「关闭.svg」（保留红色语义），title 提供可读提示
-            html += '<button class="btn btn-sm btn-del" data-action="del" data-model="' + escaped + '" title="删除"><span class="oc-fb-icon oc-fb-icon-minus" aria-hidden="true"></span></button>';
+            html += '<oc-button variant="bare" icon-only class="btn-del" data-action="del" data-model="' + escaped + '" title="删除"><span class="oc-fb-icon oc-fb-icon-minus" aria-hidden="true"></span></button>';
         } else {
-            html += '<button class="btn btn-sm btn-add" data-action="add" data-model="' + escaped + '" title="增加"><span class="oc-fb-icon oc-fb-icon-add" aria-hidden="true"></span></button>';
+            html += '<oc-button variant="bare" icon-only class="btn-add" data-action="add" data-model="' + escaped + '" title="增加"><span class="oc-fb-icon oc-fb-icon-add" aria-hidden="true"></span></button>';
         }
         html += '</div>';
     });

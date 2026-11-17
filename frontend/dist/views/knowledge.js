@@ -297,9 +297,10 @@ function tagListHtml(tags) {
  * @param {string} id 条目 id
  */
 function kbDeleteBtnHtml(id) {
-    return '<button type="button" class="kb-del-btn" data-kb-del="' + escapeAttr(id) + '"' +
-                ' title="删除条目" aria-label="删除条目">' + ICONS.trash +
-           '</button>';
+    return '<oc-button variant="bare" icon-only class="kb-del-btn" data-kb-del="' + escapeAttr(id) + '"' +
+                ' title="删除条目" aria-label="删除条目">' +
+                '<span slot="icon" class="kb-del-ic">' + ICONS.trash + '</span>' +
+           '</oc-button>';
 }
 
 export function renderKbEntries() {

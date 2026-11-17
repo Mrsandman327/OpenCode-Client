@@ -29,6 +29,16 @@ SHEET.replaceSync(`
     vertical-align: middle;
 }
 
+/* fit：宽度 = 最长选项的固有宽度（浏览器原生 auto 的行为），
+   比 auto 更明确，也不会被父容器的 100% 拉宽 */
+:host([fit]) {
+    width: max-content;
+    max-width: var(--oc-input-max-w, min(100%, 520px));
+}
+:host([fit]) select {
+    width: auto;
+}
+
 :host([hidden]) { display: none; }
 
 select {
@@ -53,7 +63,7 @@ select:disabled { opacity: 0.5; cursor: not-allowed; }
 
 class OcSelect extends HTMLElement {
     static get observedAttributes() {
-        return ['value', 'disabled'];
+        return ['value', 'disabled', 'fit'];
     }
 
     constructor() {

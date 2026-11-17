@@ -38,6 +38,9 @@ const SHEET = new CSSStyleSheet();
 SHEET.replaceSync(`
 :host {
     display: inline-flex;
+    /* 宿主被固定成方形（图标按钮）时，内部按钮要居中，否则会靠左导致图标偏移 */
+    justify-content: center;
+    align-items: stretch;
     vertical-align: middle;
     /* 字体默认继承页面，避免组件内变成浏览器默认字体 */
     font-family: inherit;
@@ -176,6 +179,23 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 :host([variant="config"]) button:hover:not(:disabled) {
     background: var(--oc-btn-bg-hover, var(--accent));
     color: var(--oc-btn-fg-hover, #fff);
+}
+
+/* 裸图标按钮：任何状态都没有背景/边框，悬停与按下只改变图标颜色 */
+:host([variant="bare"]) button {
+    background: var(--oc-btn-bg, transparent);
+    border: var(--oc-btn-border-width, 0) solid var(--oc-btn-border, transparent);
+    color: var(--oc-btn-fg, var(--text-secondary));
+}
+:host([variant="bare"]) button:hover:not(:disabled) {
+    background: var(--oc-btn-bg-hover, transparent);
+    border-color: var(--oc-btn-border-hover, var(--oc-btn-border, transparent));
+    /* 默认悬停变强调色（蓝）；删除类按钮各自覆盖成危险色 */
+    color: var(--oc-btn-fg-hover, var(--accent));
+}
+:host([variant="bare"]) button:active:not(:disabled) {
+    background: transparent;
+    transform: none;
 }
 
 /* 幽灵按钮：透明底无边框，hover 才出现浅色块（图标按钮常用） */

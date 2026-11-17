@@ -197,9 +197,9 @@
                     <aside class="oc-sessions">
                         <div class="oc-panel-head oc-sessions-head">
                             <span class="oc-sessions-title">会话列表</span>
-                            <oc-button variant="ghost" icon-only class="oc-head-icon-btn" id="ocTreeSearchToggle" title="搜索会话" aria-label="搜索会话" aria-expanded="false" aria-controls="ocTreeSearchBar"><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></oc-button>
-                            <oc-button variant="ghost" icon-only class="oc-head-icon-btn" id="btnNewSession" title="新建会话" aria-label="新建会话" disabled><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></oc-button>
-                            <oc-button variant="ghost" icon-only class="oc-head-icon-btn" id="btnRefreshTree" title="刷新会话列表" aria-label="刷新会话列表" disabled><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg></oc-button>
+                            <oc-button variant="bare" icon-only class="oc-head-icon-btn" id="ocTreeSearchToggle" title="搜索会话" aria-label="搜索会话" aria-expanded="false" aria-controls="ocTreeSearchBar"><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></oc-button>
+                            <oc-button variant="bare" icon-only class="oc-head-icon-btn" id="btnNewSession" title="新建会话" aria-label="新建会话" disabled><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></oc-button>
+                            <oc-button variant="bare" icon-only class="oc-head-icon-btn" id="btnRefreshTree" title="刷新会话列表" aria-label="刷新会话列表" disabled><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg></oc-button>
                         </div>
                         <div class="oc-tree-search-bar" id="ocTreeSearchBar">
                             <div class="search oc-tree-search-field">
@@ -242,7 +242,7 @@
                             <span class="oc-chat-mobile-title" id="ocMobileChatTitle">未选择会话</span>
                             <div class="oc-tabs-list" id="ocTabsList"></div>
                             <!-- 刷新当前会话：与左右面板头使用同一套图标按钮 -->
-                            <oc-button variant="ghost" icon-only class="oc-head-icon-btn" id="btnRefreshCurrentSession" title="刷新当前会话" aria-label="刷新当前会话"><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg></oc-button>
+                            <oc-button variant="bare" icon-only class="oc-head-icon-btn" id="btnRefreshCurrentSession" title="刷新当前会话" aria-label="刷新当前会话"><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg></oc-button>
                         </div>
                         <div class="oc-search-bar" id="ocSearchBar" style="display:none">
                             <div class="search">
@@ -331,7 +331,7 @@
                         <div class="oc-panel-section" id="servicePanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0">
                                 <span class="oc-panel-arrow" aria-hidden="true"></span><span class="oc-panel-icon oc-panel-icon-service"></span><span>服务状态</span>
-                                <oc-button variant="ghost" icon-only class="oc-head-icon-btn oc-panel-head-refresh" id="btnRefreshStatus" title="刷新服务状态" aria-label="刷新服务状态" disabled><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg></oc-button>
+                                <oc-button variant="bare" icon-only class="oc-head-icon-btn oc-panel-head-refresh" id="btnRefreshStatus" title="刷新服务状态" aria-label="刷新服务状态" disabled><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg></oc-button>
                             </div>
                             <div class="oc-panel-body">
                                 <div class="oc-services" id="ocServices">
@@ -342,7 +342,7 @@
                         <div class="oc-panel-section collapsed" id="schedulePanelSection">
                             <div class="oc-panel-head" role="button" tabindex="0" id="schedulePanelHead">
                                 <span class="oc-panel-arrow" aria-hidden="true"></span><span class="oc-panel-icon oc-panel-icon-schedule"></span><span>定时任务</span>
-                                <oc-button variant="ghost" icon-only class="oc-head-icon-btn" id="btnNewSchedule" title="新建定时任务" aria-label="新建定时任务" style="margin-left:auto"><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></oc-button>
+                                <oc-button variant="bare" icon-only class="oc-head-icon-btn" id="btnNewSchedule" title="新建定时任务" aria-label="新建定时任务" style="margin-left:auto"><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></oc-button>
                             </div>
                             <div class="oc-panel-body">
                                 <div class="oc-schedules" id="ocSchedules">
@@ -986,8 +986,8 @@
                         <div class="file-browser-files-panel" id="fileBrowserFilesPanel">
                             <div class="file-browser-list-header">
                                 <div class="file-browser-list-header-title">文件列表</div>
-                                <oc-button variant="secondary" size="sm" id="btnFileBrowserCreateFile" class="file-browser-create-dir-btn" title="新建文件"><span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-file" aria-hidden="true"></span></oc-button>
-                                <oc-button variant="secondary" size="sm" id="btnFileBrowserCreateDir" class="file-browser-create-dir-btn" title="新建文件夹"><span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-folder" aria-hidden="true"></span></oc-button>
+                                <oc-button variant="bare" size="sm" id="btnFileBrowserCreateFile" class="file-browser-create-dir-btn" title="新建文件"><span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-file" aria-hidden="true"></span></oc-button>
+                                <oc-button variant="bare" size="sm" id="btnFileBrowserCreateDir" class="file-browser-create-dir-btn" title="新建文件夹"><span class="file-browser-create-dir-icon oc-fb-icon oc-fb-icon-new-folder" aria-hidden="true"></span></oc-button>
                             </div>
                             <div class="empty-state empty-state--sm" id="fileBrowserListEmpty">请选择目录</div>
                             <div class="file-browser-list" id="fileBrowserList"></div>

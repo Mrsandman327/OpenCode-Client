@@ -430,10 +430,10 @@ export function renderServiceStatus() {
                 //   - aria-label 保留同一文案，供读屏与无 tooltip 场景使用；
                 //   - 图标尺寸/描边颜色由 .oc-service-icon 统一控制（stroke 取 currentColor 跟随按钮色）。
                 const actions = '<span class="oc-service-actions">' +
-                    '<oc-button variant="ghost" icon-only data-mcp-action="connect" data-mcp-idx="' + idx + '" title="重连" aria-label="重连">' +
+                    '<oc-button variant="bare" icon-only data-mcp-action="connect" data-mcp-idx="' + idx + '" title="重连" aria-label="重连">' +
                         '<svg slot="icon" class="oc-service-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
                     '</oc-button>' +
-                    (running ? '<oc-button variant="ghost" icon-only data-mcp-action="disconnect" data-mcp-idx="' + idx + '" title="断开" aria-label="断开">' +
+                    (running ? '<oc-button variant="bare" icon-only data-mcp-action="disconnect" data-mcp-idx="' + idx + '" title="断开" aria-label="断开">' +
                         '<svg slot="icon" class="oc-service-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
                     '</oc-button>' : '') +
                 '</span>';
