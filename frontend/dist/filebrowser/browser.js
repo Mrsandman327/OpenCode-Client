@@ -1229,7 +1229,7 @@ export function renderFileBrowserGitGroup(title, files, groupName) {
     var html = '<div class="file-browser-git-group">' +
         '<div class="file-browser-git-group-header">' +
             '<div class="file-browser-git-subtitle">' + escapeHtml(title) + '</div>' +
-            (groupName === 'unstaged' ? '<button type="button" class="btn file-browser-git-stage-all" id="btnStageAll" ' + (files.length ? '' : 'disabled') + '>全部暂存</button>' : '') +
+            (groupName === 'unstaged' ? '<oc-button variant="secondary" class="file-browser-git-stage-all" id="btnStageAll" ' + (files.length ? '' : 'disabled') + '>全部暂存</button>' : '') +
         '</div>';
     if (!files.length) {
         return html + '<div class="empty-state empty-state--sm">当前没有' + escapeHtml(title) + '文件</div></div>';

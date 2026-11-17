@@ -9,7 +9,7 @@
 // ============================================================
 
 import { api } from '../core/apicall.js';
-import { buttonHtml } from '../components/button.js';
+import { buttonHtml } from '../components/oc-button.js';
 import { store, currentDir } from '../core/state.js';
 import { showToast, showApiError, escapeHtml, getActiveMessagesEl, updateModelInfo, setRefreshServiceStatusHandler, mcpState, mcpRetryShouldStop, refreshTodoPanel } from '../core/utils.js';
 import { getNetworkConfig } from './config.js';
@@ -903,7 +903,7 @@ function renderUpdateBanner(kind, data) {
         el.className = 'oc-update-banner failed';
         el.innerHTML = '<div class="oc-update-line1"><span class="oc-update-ic err"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>'
             + '<span class="oc-update-grow">' + escapeHtml(data.error || '更新任务失败') + '</span>'
-            + '<button data-btn="secondary" data-btn-size="sm" class="oc-update-btn" id="ocUpdateRetryBtn">重试</button></div>'
+            + '<oc-button variant="secondary" size="sm" class="oc-update-btn" id="ocUpdateRetryBtn">重试</oc-button></div>'
             + '<div class="oc-update-line2">已下载的部分会保留，重试将从中断处继续。</div>';
         bindUpdateClick('ocUpdateRetryBtn', function () { startUpdateDownload(data.version); });
         return;
@@ -1136,7 +1136,7 @@ function showUpdateApplyModal() {
                 + '<div class="oc-update-r-t2">' + escapeHtml(msg) + '</div>'
                 + (rolled ? '<div class="oc-update-rollback-note">已恢复到更新前的版本（备份 tools/opencode.exe.bak），服务已重新启动。</div>' : '');
             var f = overlay.querySelector('#ocUpdateModalFooter');
-            f.innerHTML = '<button data-btn="secondary" data-btn-size="sm" id="ocUpdateModalClose">关闭</button>';
+            f.innerHTML = '<oc-button variant="secondary" size="sm" id="ocUpdateModalClose">关闭</oc-button>';
             f.querySelector('#ocUpdateModalClose').addEventListener('click', function () { overlay.remove(); });
         },
     };

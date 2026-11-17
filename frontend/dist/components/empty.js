@@ -21,7 +21,7 @@
 //   emptyHtml({ title: '请选择目录', size: 'sm' })
 
 import { escapeAttr } from '../core/utils.js';
-import { buttonHtml } from './button.js';
+import { buttonHtml } from './oc-button.js';
 
 /**
  * 生成空态的 HTML 字符串。

@@ -27,7 +27,7 @@ import { store, currentDir } from '../core/state.js';
 import { toModelOptions, formatApiError } from '../core/v2compat.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
 import { createSwitch } from '../components/switch.js';
-import { buttonHtml } from '../components/button.js';
+import { buttonHtml } from '../components/oc-button.js';
 
 // ========== 视图状态（全部由 loadModelConfig 填充） ==========
 export let slimPath = '';           // 配置文件路径
@@ -813,7 +813,7 @@ function renderBatchBar() {
         <oc-select class="batch-model-select" id="batchModelSelect">
             <option value="">-- 批量设置模型 --</option>
             ${modelOptionsHtml('')}</oc-select>
-        <button data-btn="open" data-btn-size="sm" id="btnApplyBatch">应用</button>
+        <oc-button variant="open" size="sm" id="btnApplyBatch">应用</oc-button>
     `;
     batchBar.innerHTML = '';
     batchBar.appendChild(bar);
@@ -1235,7 +1235,7 @@ export function showAddEntryModal(presetName) {
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-cancel" id="btnCancelAddEntry">取消</button>
+                <oc-button variant="secondary" id="btnCancelAddEntry">取消</oc-button>
                 ${buttonHtml({ label: '确定', id: 'btnConfirmAddEntry' })}
             </div>
         </div>`;
@@ -1322,7 +1322,7 @@ export function showAddPresetModal() {
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-cancel" id="btnCancelAddPreset">取消</button>
+                <oc-button variant="secondary" id="btnCancelAddPreset">取消</oc-button>
                 ${buttonHtml({ label: '确定', id: 'btnConfirmAddPreset' })}
             </div>
         </div>`;

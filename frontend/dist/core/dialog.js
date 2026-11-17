@@ -7,7 +7,7 @@
 // ============================================================
 
 import { escapeHtml, escapeAttr } from './utils.js';
-import { buttonHtml } from '../components/button.js';
+import { buttonHtml } from '../components/oc-button.js';
 import { createModal, openModal, closeModal } from '../components/modal.js';
 
 /**

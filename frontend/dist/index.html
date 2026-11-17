@@ -848,8 +848,8 @@
                                     </div>
                                 </div>
                                 <div class="cfg-web-actions">
-                                    <button type="button" class="btn cfg-web-open" id="cfgWebOpen" disabled>打开地址</button>
-                                    <button type="button" class="btn" id="btnCopyFrontendWebUrl" disabled>复制地址</button>
+                                    <oc-button variant="secondary" size="sm" class="cfg-web-open" id="cfgWebOpen" disabled>打开地址</oc-button>
+                                    <oc-button variant="secondary" size="sm" id="btnCopyFrontendWebUrl" disabled>复制地址</oc-button>
                                     <span class="cfg-web-hint">配置即时生效</span>
                                 </div>
                             </div>
@@ -950,7 +950,7 @@
             <div class="modal-footer dir-browser-footer">
                 <span class="dir-browser-selected" id="dirBrowserSelected"></span>
                 <div>
-                    <button type="button" class="btn btn-cancel" id="btnDirBrowserCancel">取消</button>
+                    <oc-button variant="secondary" id="btnDirBrowserCancel">取消</oc-button>
                     <oc-button variant="primary" id="btnDirBrowserSelect">选择此目录</oc-button>
                 </div>
             </div>
@@ -990,7 +990,7 @@
                             <div class="empty-state empty-state--sm" id="fileBrowserListEmpty">请选择目录</div>
                             <div class="file-browser-list" id="fileBrowserList"></div>
                             <div class="file-browser-files-toolbar">
-                                <button type="button" class="btn file-browser-upload-plus" id="btnFileBrowserUpload" title="上传文件"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg>上传文件</button>
+                                <oc-button variant="secondary" class="file-browser-upload-plus" id="btnFileBrowserUpload" title="上传文件" icon="i-upload">上传文件</oc-button>
                         </div>
                     </div>
                     <div class="oc-tree-context-menu" id="fileBrowserContextMenu" style="display:none">
@@ -1125,7 +1125,7 @@
                 </div>
                 <div class="modal-actions">
                     <oc-button variant="primary" id="btnFileBrowserUploadRenameConfirm" style="display:none">确认重命名上传</oc-button>
-                    <button type="button" class="btn-cancel" id="btnFileBrowserUploadConflictCancel">取消</button>
+                    <oc-button variant="secondary" id="btnFileBrowserUploadConflictCancel">取消</oc-button>
                 </div>
             </div>
         </div>

@@ -402,13 +402,13 @@ export function providerCardHtml(p) {
                     <label class="provider-conn-col"><span class="prov-field-label">接口格式</span><oc-select class="prov-edit-npm" data-raw-npm="${escapeHtml(p.package || '')}" aria-label="interface format">${packageOptionsHtml}</oc-select></label>
                 </div>
                 <div class="provider-models">
-                    <div class="provider-models-title">模型 <button class="btn btn-xs btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-xs btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">获取模型列表</button></div>
+                    <div class="provider-models-title">模型 <oc-button variant="secondary" size="xs" class="btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</oc-button><oc-button variant="secondary" size="xs" class="btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">获取模型列表</oc-button></div>
                     <div class="card-models-list" data-key="${escapeHtml(p.key)}">
                         ${modelsHtml}
                     </div>
                 </div>
                 <div class="provider-save-row">
-                    <button class="btn btn-xs btn-primary btn-save-card" data-key="${escapeHtml(p.key)}">保存</button>
+                    <oc-button variant="primary" size="xs" class="btn-save-card" data-key="${escapeHtml(p.key)}">保存</oc-button>
                 </div>
             </div>
         </div>`;

@@ -11,7 +11,7 @@ import { fileBrowserHighlightCode } from '../filebrowser/preview.js';
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { formatApiError } from '../core/v2compat.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
-import { buttonHtml } from '../components/button.js';
+import { buttonHtml } from '../components/oc-button.js';
 import { emptyHtml } from '../components/empty.js';
 
 window._projectConfig = {
@@ -359,7 +359,7 @@ export function showImportSkillsModal() {
             var btnHtml = '';
             if (s.imported) {
                 statusHtml = '<span class="pc-import-tag imported">已导入</span>';
-                btnHtml = '<button data-btn="secondary" data-btn-size="sm" class="pc-btn-imported" disabled>已导入</button>';
+                btnHtml = '<oc-button variant="secondary" size="sm" class="pc-btn-imported" disabled>已导入</oc-button>';
             } else {
                 if (s.globalExist) {
                     statusHtml = '<span class="pc-import-tag global">全局已有</span>';
@@ -386,7 +386,7 @@ export function showImportSkillsModal() {
 }
 
 export function renderSkillsHeader() {
-    return '<div class="pc-skills-actions"><button data-btn="ghost" data-btn-size="sm" class="pc-btn-back-to-skills">← 返回技能列表</button></div>';
+    return '<div class="pc-skills-actions"><oc-button variant="ghost" size="sm" class="pc-btn-back-to-skills">← 返回技能列表</oc-button></div>';
 }
 
 export function bindImportEvents() {
@@ -432,7 +432,7 @@ export function renderBrowseView(category, dirPath, result, backLabel, backActio
     if (!result.exists || !result.files || !result.files.length) {
         body.innerHTML = '<div class="pc-editor">' +
             '<div class="pc-editor-toolbar"><span class="pc-editor-filename"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg>' + escapeHtml(dirPath) + '</span>' +
-            '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-browse-back">' + backLabel + '</button></div>' +
+            '<oc-button variant="ghost" size="sm" class="pc-btn-browse-back">' + backLabel + '</oc-button></div>' +
             emptyHtml({
                 title: '目录为空',
                 action: { label: '+ 新增文件', className: 'pc-btn-add-entry' },
@@ -444,7 +444,7 @@ export function renderBrowseView(category, dirPath, result, backLabel, backActio
 
         body.innerHTML = '<div class="pc-editor">' +
             '<div class="pc-editor-toolbar"><span class="pc-editor-filename"><svg class="i" aria-hidden="true"><use href="#i-folder"></use></svg>' + escapeHtml(dirPath) + '</span>' +
-            '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-browse-back">' + backLabel + '</button></div>' +
+            '<oc-button variant="ghost" size="sm" class="pc-btn-browse-back">' + backLabel + '</oc-button></div>' +
             renderFileListHtml(category, dirPath, sorted, true) +
             '<div class="pc-file-list-footer">' + buttonHtml({ label: '+ 新增文件', size: 'sm', className: 'pc-btn-add-entry' }) + '</div></div>';
     }
@@ -600,11 +600,11 @@ export function renderPreview(fileName, content, readOnly) {
 
     var label = readOnly ? '全局配置 · 只读' : escapeHtml(fileName);
     var actions = readOnly
-        ? '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>'
+        ? '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>'
         : (isMarkdown
             ? buttonHtml({ label: '编辑', size: 'sm', className: 'pc-btn-edit' }) +
-              '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>'
-            : '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>');
+              '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>'
+            : '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>');
 
     var previewHtml = '';
     if (isMarkdown && typeof marked !== 'undefined') {
@@ -671,10 +671,10 @@ export function switchToEditMode(fileName, content) {
         '<div class="pc-editor-toolbar">' +
             '<span class="pc-editor-filename">' + escapeHtml(fileName) + ' <span style="color:var(--warning);font-size:11px">编辑中</span><span class="pc-editor-status-dirty" id="pcEditorDirtyBadge" style="display:none">未保存</span></span>' +
             '<div class="pc-editor-actions">' +
-                '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>' +
-                '<button data-btn="ghost" data-btn-size="sm" class="pc-editor-search-btn pc-btn-search">搜索</button>' +
+                '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>' +
+                '<oc-button variant="ghost" size="sm" class="pc-editor-search-btn pc-btn-search">搜索</oc-button>' +
                 buttonHtml({ label: '保存', size: 'sm', className: 'pc-btn-save' }) +
-                (allowPreviewToggle ? '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-preview">预览</button>' : '') +
+                (allowPreviewToggle ? '<oc-button variant="ghost" size="sm" class="pc-btn-preview">预览</oc-button>' : '') +
             '</div>' +
         '</div>' +
         '<div class="pc-editor-cm-wrap"><div class="pc-code-editor" id="pcCodeEditor"></div></div>' +
@@ -685,9 +685,9 @@ export function switchToEditMode(fileName, content) {
             '<div class="pc-editor-toolbar">' +
                 '<span class="pc-editor-filename">' + escapeHtml(fileName) + ' <span style="color:var(--warning);font-size:11px">编辑中</span></span>' +
                 '<div class="pc-editor-actions">' +
-                    '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-back">← 返回</button>' +
+                    '<oc-button variant="ghost" size="sm" class="pc-btn-back">← 返回</oc-button>' +
                     buttonHtml({ label: '保存', size: 'sm', className: 'pc-btn-save' }) +
-                    (allowPreviewToggle ? '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-preview">预览</button>' : '') +
+                    (allowPreviewToggle ? '<oc-button variant="ghost" size="sm" class="pc-btn-preview">预览</oc-button>' : '') +
                 '</div>' +
             '</div>' +
             '<oc-textarea class="pc-editor-textarea-simple" id="pcEditorTextarea" spellcheck="false">' + escapeHtml(content) + '</oc-textarea>' +

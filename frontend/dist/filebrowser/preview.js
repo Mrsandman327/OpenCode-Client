@@ -12,7 +12,7 @@ import { dirname } from '../core/path.js';
 // Markdown 清洗（白名单 + href 协议校验）统一走 core/sanitize.js 的公共实现
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { formatApiError } from '../core/v2compat.js';
-import { buttonHtml } from '../components/button.js';
+import { buttonHtml } from '../components/oc-button.js';
 
 export async function fileBrowserApiStat(rootDir, relPath) {
     return await api.StatBrowserFile(rootDir, relPath);
@@ -353,14 +353,14 @@ export function renderFilePreviewToolbar() {
     var buttons = '';
 
     if (allowModeToggle && canPreview) {
-        buttons += '<button type="button" class="btn btn-sm' + (state.previewRenderMode === 'preview' ? ' active-file-preview-action' : '') + '" id="btnFilePreviewModePreview">预览</button>';
+        buttons += '<oc-button variant="secondary" size="sm" id="btnFilePreviewModePreview"' + (state.previewRenderMode === 'preview' ? ' active' : '') + '>预览</oc-button>';
     }
     if (canEdit) {
         if (allowModeToggle) {
-            buttons += '<button type="button" class="btn btn-sm' + (state.previewRenderMode === 'edit' ? ' active-file-preview-action' : '') + '" id="btnFilePreviewModeEdit">编辑</button>';
+            buttons += '<oc-button variant="secondary" size="sm" id="btnFilePreviewModeEdit"' + (state.previewRenderMode === 'edit' ? ' active' : '') + '>编辑</oc-button>';
         }
         if (state.previewRenderMode === 'edit') {
-            buttons += '<button type="button" class="btn btn-sm pc-editor-search-btn' + (fileBrowserIsSearchOpen() ? ' active' : '') + '" id="btnFilePreviewSearch">' + (fileBrowserIsSearchOpen() ? '关闭搜索' : '搜索') + '</button>';
+            buttons += '<oc-button variant="secondary" size="sm" class="pc-editor-search-btn" id="btnFilePreviewSearch"' + (fileBrowserIsSearchOpen() ? ' active' : '') + '>' + (fileBrowserIsSearchOpen() ? '关闭搜索' : '搜索') + '</oc-button>';
         }
         buttons += buttonHtml({
             label: state.savingPreview ? '保存中...' : '保存',
@@ -1085,7 +1085,7 @@ export function renderNoExtPreview(item, meta) {
         '<div class="file-browser-noext-hint">系统暂时无法自动判断该文件类型。你可以按普通文本方式尝试预览。</div>' +
         '<div class="file-browser-noext-name">文件：' + escapeHtml(item.name || meta.name || item.path || '') + '</div>' +
         '<div class="file-browser-noext-actions">' +
-            '<button type="button" data-btn="refresh" data-btn-size="sm" id="btnOpenNoExtAsText">按普通文本打开</button>' +
+            '<oc-button variant="refresh" size="sm" type="button" id="btnOpenNoExtAsText">按普通文本打开</oc-button>' +
         '</div>' +
     '</div>';
 }

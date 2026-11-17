@@ -118,9 +118,9 @@
 
 /* 底部按钮统一高度，保证同一行严格对齐（同知识库方案） */
 .modal .modal-footer .btn,
-.modal .modal-footer .btn-cancel,
+.modal .modal-footer button.btn-cancel,
 .modal-card .modal-footer .btn,
-.modal-card .modal-footer .btn-cancel {
+.modal-card .modal-footer button.btn-cancel {
     display: inline-flex;
     align-items: center;
     justify-content: center;

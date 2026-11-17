@@ -4239,7 +4239,7 @@ svg.i.is-spinning {
     user-select: text;
     -webkit-user-select: text;
 }
-.btn-cancel {
+button.btn-cancel {
     background: var(--bg-input);
     color: var(--text-secondary);
     border: 1px solid var(--border);
@@ -5238,8 +5238,8 @@ button.btn-del:active {
     transform: scale(0.95);
 }
 /* 供应商卡片内的「手动添加/获取模型列表」：弱化次级样式，小圆角 */
-.provider-card .btn-add-model-card,
-.provider-card .btn-fetch-models {
+.provider-card button.btn-add-model-card,
+.provider-card button.btn-fetch-models {
     background: transparent;
     color: var(--text-secondary);
     border: 1px solid var(--border);
@@ -5247,8 +5247,8 @@ button.btn-del:active {
     padding: 4px 12px;
     font-family: Cascadia Code;
 }
-.provider-card .btn-add-model-card:hover,
-.provider-card .btn-fetch-models:hover {
+.provider-card button.btn-add-model-card:hover,
+.provider-card button.btn-fetch-models:hover {
     background: var(--bg-secondary);
     color: var(--text-primary);
     border-color: var(--border-light);
@@ -6195,11 +6195,21 @@ button.btn-del:active {
     background: var(--bg-input);
 }
 
-.file-browser-upload-plus {
-	width: 140px;
+oc-button.file-browser-upload-plus {
+    /* 上传按钮：胶囊、固定 140 宽、30 高；尺寸走组件变量 */
+    width: 140px;
+    --oc-btn-h: 30px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 13px;
+    --oc-btn-radius: var(--radius-pill);
+    --oc-btn-icon: 14px;
+}
+button.file-browser-upload-plus {
+    width: 140px;
     height: 30px;
-	padding: 0;
-	font-size: 13px;
+    padding: 0;
+    font-size: 13px;
     border-radius: var(--radius-pill);
     background: var(--bg-input);
     color: var(--text-secondary);
@@ -6207,7 +6217,7 @@ button.btn-del:active {
     flex-shrink: 0;
 }
 
-.file-browser-upload-plus:hover:not(:disabled) {
+button.file-browser-upload-plus:hover:not(:disabled) {
     background: var(--bg-card-hover);
     color: var(--accent);
     border-color: var(--accent);
@@ -11563,4 +11573,19 @@ oc-button.btn-del-card:hover:not([disabled]),
 }
 .model-row-top oc-button.btn-del:hover:not([disabled]) {
     --oc-btn-fg-hover: var(--danger);
+}
+
+/* 供应商卡片里的次级小按钮（已迁移到 oc-button） */
+.provider-card oc-button.btn-add-model-card,
+.provider-card oc-button.btn-fetch-models {
+    --oc-btn-radius: var(--radius-xs);
+    --oc-btn-px: 12px;
+    --oc-btn-py: 4px;
+    --oc-btn-fs: 11.5px;
+}
+.provider-card oc-button.btn-add-model-card:hover:not([disabled]),
+.provider-card oc-button.btn-fetch-models:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-secondary);
+    --oc-btn-fg-hover: var(--text-primary);
+    --oc-btn-border-hover: var(--border-light);
 }
