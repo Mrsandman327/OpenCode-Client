@@ -43,7 +43,7 @@ SHEET.replaceSync(`
 
 select {
     width: 100%;
-    font-family: var(--oc-input-font, "Cascadia Code", Consolas, "SF Mono", Menlo, monospace);
+    font-family: var(--oc-input-font, "Consolas", "Microsoft YaHei", monospace);
     height: var(--oc-input-h, 30px);
     padding: 0 var(--oc-input-px, 9px);
     border: var(--oc-input-border-width, 1px) var(--oc-input-border-style, solid) var(--oc-input-border, var(--border));

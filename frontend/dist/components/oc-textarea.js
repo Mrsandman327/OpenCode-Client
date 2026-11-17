@@ -35,7 +35,7 @@ textarea {
     width: 100%;
     flex: 1 1 auto;
     /* 与 oc-input 保持同一套字体：等宽，便于写 Markdown / 日志 */
-    font-family: var(--oc-input-font, "Cascadia Code", Consolas, "SF Mono", Menlo, monospace);
+    font-family: var(--oc-input-font, "Consolas", "Microsoft YaHei", monospace);
     min-height: var(--oc-textarea-min-h, 64px);
     padding: var(--oc-input-padding, 8px 9px);
     border: var(--oc-input-border-width, 1px) var(--oc-input-border-style, solid) var(--oc-input-border, var(--border));
