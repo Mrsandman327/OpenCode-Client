@@ -1516,7 +1516,7 @@ export function bindKnowledgeEvents() {
             }
             var addBtn = e.target.closest('#kbAddTagBtn');
             if (!addBtn) return;
-            addBtn.outerHTML = '<input class="ctl kb-tag-add-input" id="kbAddTagInput" placeholder="标签名，回车确认" />';
+            addBtn.outerHTML = '<oc-input class="kb-tag-add-input" id="kbAddTagInput" placeholder="标签名，回车确认"></oc-input>';
             var input = $('#kbAddTagInput');
             if (!input) return;
             input.focus();

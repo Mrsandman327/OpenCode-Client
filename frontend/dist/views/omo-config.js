@@ -448,8 +448,8 @@ function createGlobalAgentRow(row) {
         locked.classList.add('go-source-select');
         sourceCell.appendChild(locked);
     } else {
-        const sourceSelect = document.createElement('select');
-        sourceSelect.className = 'ctl go-select go-source-select';
+        const sourceSelect = document.createElement('oc-select');
+        sourceSelect.className = 'go-select go-source-select';
         sourceSelect.title = '决定该 agent 是否写入配置文件顶层 agents';
         sourceSelect.setAttribute('aria-label', row.key + ' 的模型来源');
         [
@@ -488,8 +488,8 @@ function createGlobalAgentRow(row) {
         note.title = '保存时原样保留该行配置';
         modelCell.appendChild(note);
     } else if (row.source === 'explicit') {
-        const modelSelect = document.createElement('select');
-        modelSelect.className = 'ctl go-select go-model-pick';
+        const modelSelect = document.createElement('oc-select');
+        modelSelect.className = 'go-select go-model-pick';
         modelSelect.innerHTML = globalModelOptionsHtml(row.model);
         modelSelect.value = row.model || '';
         modelSelect.disabled = !row.enabled;
@@ -500,8 +500,8 @@ function createGlobalAgentRow(row) {
             commitGlobalValues();
         });
 
-        const variantSelect = document.createElement('select');
-        variantSelect.className = 'ctl go-select go-variant-pick';
+        const variantSelect = document.createElement('oc-select');
+        variantSelect.className = 'go-select go-variant-pick';
         variantSelect.innerHTML = variantOptionsHtml(row.variant);
         variantSelect.value = row.variant || '';
         variantSelect.disabled = !row.enabled;
@@ -554,8 +554,8 @@ function createGlobalAgentRow(row) {
 
 /** 置灰的只读下拉（跟随类来源 / 备选模型链） */
 function createLockedSelect(text, title) {
-    const select = document.createElement('select');
-    select.className = 'ctl go-select go-locked-select';
+    const select = document.createElement('oc-select');
+    select.className = 'go-select go-locked-select';
     select.disabled = true;
     select.title = title;
     select.setAttribute('aria-label', text);
@@ -806,10 +806,9 @@ function renderBatchBar() {
     bar.className = 'batch-model-bar';
     bar.innerHTML = `
         <label class="batch-check"><input type="checkbox" id="selectAllModels" /> <span>全选</span></label>
-        <select class="ctl batch-model-select" id="batchModelSelect">
+        <oc-select class="batch-model-select" id="batchModelSelect">
             <option value="">-- 批量设置模型 --</option>
-            ${modelOptionsHtml('')}
-        </select>
+            ${modelOptionsHtml('')}</oc-select>
         <button data-btn="open" data-btn-size="sm" id="btnApplyBatch">应用</button>
     `;
     batchBar.innerHTML = '';
@@ -1044,8 +1043,8 @@ function createAgentRow(preset, agent) {
     // 模型下拉：改动继承行即标记为「已覆盖」
     // 顶层显式覆盖时展示顶层模型（置灰），其余情况展示方案自身值
     const display = presetRowDisplay(agent);
-    const select = document.createElement('select');
-    select.className = 'ctl model-select';
+    const select = document.createElement('oc-select');
+    select.className = 'model-select';
     select.title = '模型';
     select.innerHTML = modelOptionsHtml(display.model);
     select.value = display.model;
@@ -1058,8 +1057,8 @@ function createAgentRow(preset, agent) {
     top.appendChild(select);
 
     // variant（思考力度）下拉：同样，改动继承行即覆盖
-    const variantSelect = document.createElement('select');
-    variantSelect.className = 'ctl model-reasoning-select';
+    const variantSelect = document.createElement('oc-select');
+    variantSelect.className = 'model-reasoning-select';
     variantSelect.title = 'variant（思考力度）';
     variantSelect.innerHTML = variantOptionsHtml(display.variant);
     variantSelect.value = display.variant;

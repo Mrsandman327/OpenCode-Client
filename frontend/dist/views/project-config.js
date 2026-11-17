@@ -690,7 +690,7 @@ export function switchToEditMode(fileName, content) {
                     (allowPreviewToggle ? '<button data-btn="ghost" data-btn-size="sm" class="pc-btn-preview">预览</button>' : '') +
                 '</div>' +
             '</div>' +
-            '<textarea class="ctl pc-editor-textarea-simple" id="pcEditorTextarea" spellcheck="false">' + escapeHtml(content) + '</textarea>' +
+            '<oc-textarea class="pc-editor-textarea-simple" id="pcEditorTextarea" spellcheck="false">' + escapeHtml(content) + '</oc-textarea>' +
         '</div>';
     }
 

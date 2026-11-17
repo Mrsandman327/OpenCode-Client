@@ -1274,8 +1274,8 @@ export function renderQuestionTool(part) {
             // 自定义输入（仅记录，无独立发送按钮，随底部总提交一起提交）
             const customRow = document.createElement('div');
             customRow.className = 'oc-question-custom';
-            const customInput = document.createElement('input');
-            customInput.className = 'ctl oc-question-custom-input';
+            const customInput = document.createElement('oc-input');
+            customInput.className = 'oc-question-custom-input';
             customInput.placeholder = '输入自定义回答...';
             customInput.value = part.__pendingCustom[qi] || '';
             customInput.addEventListener('input', () => {

@@ -115,13 +115,13 @@ function modelAbilitiesHtml(capabilities, limit) {
             <div class="setting-title">限制</div>
             <div class="mod-row"><span class="mod-label">上下文</span>
                 <div class="limit-row">
-                    <input class="ctl model-limit-input model-limit-context" type="number" min="1" placeholder="默认 200000" value="${contextValue}">
+                    <oc-input class="model-limit-input model-limit-context" type="number" min="1" placeholder="默认 200000" value="${contextValue}"></oc-input>
                     <span class="mod-unit">tokens</span>
                 </div>
             </div>
             <div class="mod-row"><span class="mod-label">最大输出</span>
                 <div class="limit-row">
-                    <input class="ctl model-limit-input model-limit-output" type="number" min="1" placeholder="默认 32000" value="${outputValue}">
+                    <oc-input class="model-limit-input model-limit-output" type="number" min="1" placeholder="默认 32000" value="${outputValue}"></oc-input>
                     <span class="mod-unit">tokens</span>
                 </div>
             </div>
@@ -146,11 +146,11 @@ function modelSubcardHtml(model, capabilities) {
                 <div class="model-head-row">
                     <div class="model-field">
                         <span class="model-head-label">模型ID</span>
-                        <input class="ctl model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr} />
+                        <oc-input class="model-edit-id" value="${escapeHtml(m.id || '')}" placeholder="deepseek-v4-pro" ${readonlyAttr}></oc-input>
                     </div>
                     <div class="model-field">
                         <span class="model-head-label">名称</span>
-                        <input class="ctl model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro" />
+                        <oc-input class="model-edit-name" value="${escapeHtml(m.name || '')}" placeholder="DeepSeek-V4-Pro"></oc-input>
                     </div>
                 </div>
             </div>
@@ -399,7 +399,7 @@ export function providerCardHtml(p) {
                 <div class="provider-conn-row">
                     <label class="provider-conn-col"><span class="prov-field-label">请求地址 (baseURL)</span>${controlHtml({ className: 'prov-edit-url', value: p.baseURL || '', placeholder: 'https://api.xxx.com/v1' })}</label>
                     <label class="provider-conn-col"><span class="prov-field-label">API Key</span><div class="prov-apikey-row">${controlHtml({ className: 'prov-edit-apikey', type: 'password', value: p.apiKey || '', placeholder: 'sk-...' })}<button class="btn-eye" type="button" title="显示密钥" aria-label="显示密钥" aria-pressed="false"><svg class="eye-on" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"></use></svg><svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye-off"></use></svg></button></div></label>
-                    <label class="provider-conn-col"><span class="prov-field-label">接口格式</span><select class="ctl prov-edit-npm" data-raw-npm="${escapeHtml(p.package || '')}" aria-label="interface format">${packageOptionsHtml}</select></label>
+                    <label class="provider-conn-col"><span class="prov-field-label">接口格式</span><oc-select class="prov-edit-npm" data-raw-npm="${escapeHtml(p.package || '')}" aria-label="interface format">${packageOptionsHtml}</oc-select></label>
                 </div>
                 <div class="provider-models">
                     <div class="provider-models-title">模型 <button class="btn btn-xs btn-add-model-card" data-key="${escapeHtml(p.key)}">手动添加</button><button class="btn btn-xs btn-fetch-models" data-key="${escapeHtml(p.key)}" style="margin-left:4px">获取模型列表</button></div>

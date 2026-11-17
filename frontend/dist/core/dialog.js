@@ -106,7 +106,7 @@ export function showPrompt(options) {
             bodyClass: 'confirm-modal-body',
             bodyHtml:
                 (message ? '<p class="prompt-message">' + escapeHtml(message) + '</p>' : '') +
-                '<input type="text" class="ctl prompt-input" value="' + escapeAttr(defaultValue) + '" placeholder="' + escapeAttr(placeholder) + '">',
+                '<oc-input class="prompt-input" value="' + escapeAttr(defaultValue) + '" placeholder="' + escapeAttr(placeholder) + '"></oc-input>',
             footerHtml:
                 buttonHtml({ label: cancelText, variant: 'secondary', className: 'btn-cancel', attrs: { 'data-prompt-cancel': true } }) +
                 buttonHtml({ label: okText, attrs: { 'data-prompt-ok': true } })

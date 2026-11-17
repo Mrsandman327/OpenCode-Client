@@ -120,14 +120,14 @@ function appendKvRow(container, key, value) {
     const row = document.createElement('div');
     row.className = 'mcp-kv-row';
 
-    const keyInput = document.createElement('input');
-    keyInput.className = 'ctl mcp-kv-key';
+    const keyInput = document.createElement('oc-input');
+    keyInput.className = 'mcp-kv-key';
     keyInput.placeholder = 'KEY';
     keyInput.autocomplete = 'off';
     keyInput.value = key == null ? '' : String(key);
 
-    const valueInput = document.createElement('input');
-    valueInput.className = 'ctl mcp-kv-value';
+    const valueInput = document.createElement('oc-input');
+    valueInput.className = 'mcp-kv-value';
     valueInput.placeholder = 'value';
     valueInput.autocomplete = 'off';
     valueInput.value = value == null ? '' : String(value);

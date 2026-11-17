@@ -267,15 +267,15 @@
                         </div>
                         <div class="oc-model-info">
                             <span class="oc-select-icon oc-select-icon-agent"></span>
-                            <select class="ctl" id="ocAgentSelect">
+                            <oc-select id="ocAgentSelect">
                                 <option value="">默认</option>
-                            </select>
+                            </oc-select>
                             <span class="oc-select-icon oc-select-icon-model"></span>
-                            <select class="ctl" id="ocModelSelect">
+                            <oc-select id="ocModelSelect">
                                 <option value="">默认</option>
-                            </select>
+                            </oc-select>
                             <span class="oc-select-icon oc-select-icon-variant"></span>
-                            <select class="ctl" id="ocVariantSelect">
+                            <oc-select id="ocVariantSelect">
                                 <option value="">默认</option>
                                 <option value="minimal">Minimal</option>
                                 <option value="low">Low</option>
@@ -283,7 +283,7 @@
                                 <option value="high">High</option>
                                 <option value="xhigh">xHigh</option>
                                 <option value="max">Max</option>
-                            </select>
+                            </oc-select>
                         </div>
                         <div class="oc-input-resize-handle" id="ocInputResizeHandle" title="拖动调整输入框高度（双击恢复默认）"></div>
                         <div class="oc-attach-list" id="ocAttachList"></div>
@@ -768,17 +768,17 @@
                                 <div class="proxy-field-row">
                                     <div class="field field--md">
                                         <label for="serviceHost">服务地址</label>
-                                        <input class="ctl" id="serviceHost" placeholder="127.0.0.1" />
+                                        <oc-input id="serviceHost" placeholder="127.0.0.1"></oc-input>
                                     </div>
                                     <div class="field field--md">
                                         <label for="servicePort">服务端口</label>
-                                        <input class="ctl" id="servicePort" inputmode="numeric" placeholder="49374" />
+                                        <oc-input id="servicePort" placeholder="49374"></oc-input>
                                     </div>
                                 </div>
                                 <div class="field field--md">
                                     <label for="servicePassword">服务访问口令</label>
                                     <div class="cfg-password-row">
-                                        <input class="ctl" id="servicePassword" type="password" placeholder="12345678" autocomplete="off" />
+                                        <oc-input type="password" id="servicePassword" placeholder="12345678" autocomplete="off"></oc-input>
                                         <button class="cfg-eye-btn" type="button" id="btnToggleServicePwd" title="显示口令" aria-label="显示口令" aria-pressed="false">
                                             <svg class="eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
                                             <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.9 5.2A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 4"/><path d="M6.6 6.6C3.6 8.5 2 12 2 12s3.5 7 10 7c1.3 0 2.5-.3 3.6-.7"/></svg>
@@ -797,16 +797,16 @@
                                 <div class="proxy-field-row">
                                     <div class="field field--md">
                                         <label for="proxyHost">代理地址</label>
-                                        <input class="ctl" id="proxyHost" placeholder="127.0.0.1" />
+                                        <oc-input id="proxyHost" placeholder="127.0.0.1"></oc-input>
                                     </div>
                                     <div class="field field--md">
                                         <label for="proxyPort">代理端口</label>
-                                        <input class="ctl" id="proxyPort" inputmode="numeric" placeholder="7897" />
+                                        <oc-input id="proxyPort" placeholder="7897"></oc-input>
                                     </div>
                                 </div>
                                 <div class="field field--md">
                                     <label for="proxyNoProxy">代理排除地址</label>
-                                    <input class="ctl" id="proxyNoProxy" placeholder="10.0.0.0/8, 192.168.0.0/16, .corp.example" />
+                                    <oc-input id="proxyNoProxy" placeholder="10.0.0.0/8, 192.168.0.0/16, .corp.example"></oc-input>
                                     <small class="field-hint">不走代理的地址，逗号分隔；默认已包含 localhost,127.0.0.1</small>
                                 </div>
                                 <div class="proxy-preview" id="proxyPreview"></div>
@@ -943,7 +943,7 @@
                         <button type="button" class="dir-browser-up" id="btnDirBrowserBack" title="返回上一级">
                             <span class="oc-fb-icon oc-fb-icon-back" aria-hidden="true"></span>
                         </button>
-                        <input type="text" class="ctl dir-browser-path" id="dirBrowserPath" placeholder="输入路径">
+                        <oc-input id="dirBrowserPath" placeholder="输入路径" class="dir-browser-path"></oc-input>
                         <oc-button variant="secondary" size="sm" id="btnDirBrowserGo">转到</oc-button>
                     </div>
                     <div class="dir-browser-list" id="dirBrowserList"></div>
@@ -1008,7 +1008,7 @@
                             <div class="file-browser-git-header" id="fileBrowserGitCurrentTitle">当前变更</div>
                             <div class="file-browser-git-body" id="fileBrowserGitCurrentBody">
                                 <div class="file-browser-git-commit-bar">
-                                    <textarea class="ctl file-browser-git-commit-input" id="fileBrowserGitCommitInput" placeholder="输入提交信息" rows="2"></textarea>
+                                    <oc-textarea id="fileBrowserGitCommitInput" placeholder="输入提交信息" rows="2" class="file-browser-git-commit-input"></oc-textarea>
                                     <oc-button variant="primary" size="sm" id="btnFileBrowserGitCommit" class="file-browser-git-commit-btn">提交</oc-button>
                                 </div>
                                 <div id="fileBrowserGitCurrentList">
@@ -1217,8 +1217,7 @@
                     <div class="kb-field-head">
                         <label class="field__label" for="kbEntryTitle">标题 <span class="kb-field-req">*</span></label>
                     </div>
-                    <input type="text" id="kbEntryTitle" class="ctl kb-field-input kb-field-title"
-                           placeholder="一句话说清这条知识是什么" autocomplete="off" />
+                    <oc-input id="kbEntryTitle" class="kb-field-input kb-field-title" placeholder="一句话说清这条知识是什么"></oc-input>
                     <div class="kb-field-error" id="kbErrTitle"></div>
                 </section>
 
@@ -1227,8 +1226,7 @@
                     <div class="kb-field-head">
                         <label class="field__label" for="kbEntrySummary">说明 <span class="kb-field-req">*</span></label>
                     </div>
-                    <textarea id="kbEntrySummary" class="ctl kb-field-input kb-field-summary" rows="2" wrap="soft"
-                              placeholder="一两句话概括，列表页显示这条"></textarea>
+                    <oc-textarea id="kbEntrySummary" placeholder="一两句话概括，列表页显示这条" rows="2" class="kb-field-input kb-field-summary"></oc-textarea>
                     <div class="kb-field-error" id="kbErrSummary"></div>
                 </section>
 
@@ -1243,8 +1241,7 @@
                         </div>
                     </div>
                     <!-- wrap="soft"：长行按容器宽度软换行，不出现横向滚动条 -->
-                    <textarea id="kbEntryContent" class="ctl kb-field-input kb-field-content" wrap="soft"
-                              placeholder="在这里写正文，支持 Markdown 语法…" spellcheck="false"></textarea>
+                    <oc-textarea id="kbEntryContent" placeholder="在这里写正文，支持 Markdown 语法…" class="kb-field-input kb-field-content" spellcheck="false"></oc-textarea>
                     <!-- 预览容器：默认隐藏，切到「预览」时写入 marked 渲染结果（.oc-text 为项目统一 Markdown 排版） -->
                     <div class="oc-text kb-md-preview" id="kbContentPreview" style="display:none"></div>
                     <div class="kb-field-error" id="kbErrContent"></div>
@@ -1255,7 +1252,7 @@
             <div class="kb-entry-meta">
                 <div class="kb-meta-inline">
                     <label class="field__label" for="kbEntryCat">分类</label>
-                    <select id="kbEntryCat" class="ctl kb-meta-select"></select>
+                    <oc-select id="kbEntryCat" class="kb-meta-select"></oc-select>
                 </div>
                 <div class="kb-meta-inline kb-meta-tags">
                     <label class="field__label">标签</label>
@@ -1354,7 +1351,7 @@
                     <div class="field__label kb-form-label">目标项目</div>
                     <div class="kb-form-main">
                         <div class="kb-input-line">
-                            <select id="kbConvProject" class="ctl kb-conv-select"></select>
+                            <oc-select id="kbConvProject" class="kb-conv-select"></oc-select>
                         </div>
                         <div class="kb-conv-note" id="kbConvProjectNote"></div>
                     </div>
@@ -1384,7 +1381,7 @@
                     <div class="field__label kb-form-label">名称</div>
                     <div class="kb-form-main">
                         <div class="kb-input-line">
-                            <input type="text" id="kbConvName" class="ctl kb-conv-input" autocomplete="off" placeholder="目标名称，如 deploy-flow" />
+                            <oc-input id="kbConvName" placeholder="目标名称，如 deploy-flow" autocomplete="off" class="kb-conv-input"></oc-input>
                             <span class="kb-conv-ext" id="kbConvExtHint">.md</span>
                         </div>
                         <div class="kb-conv-note" id="kbConvNameNote"></div>
@@ -1507,7 +1504,7 @@
                                 <div class="field">
                                     <label for="mcpCwd">工作目录（cwd）</label>
                                     <div class="mcp-input-row">
-                                        <input class="ctl" id="mcpCwd" placeholder="留空表示使用项目目录" autocomplete="off" />
+                                        <oc-input id="mcpCwd" placeholder="留空表示使用项目目录" autocomplete="off"></oc-input>
                                         <oc-button variant="secondary" size="sm" id="btnMcpPickCwd" title="选择目录">选择</oc-button>
                                     </div>
                                 </div>
@@ -1690,6 +1687,9 @@
     <script type="module">
         // 自定义元素先注册：文件浏览器独立窗口不加载 main.js，否则 <oc-button> 不会升级
         import '/components/oc-button.js';
+        import '/components/oc-input.js';
+        import '/components/oc-textarea.js';
+        import '/components/oc-select.js';
         if (new URLSearchParams(window.location.search).get('view') === 'filebrowser') {
             import('/filebrowser/entry.js').then(function(m) { m.initStandaloneFileBrowser(); });
         } else {
@@ -1710,7 +1710,7 @@
                         <div class="oc-schedule-section-body">
                             <div class="field">
                                 <label for="scheduleName">名称</label>
-                                <input class="ctl" id="scheduleName" type="text" placeholder="留空则按规则自动生成" autocomplete="off">
+                                <oc-input id="scheduleName" placeholder="留空则按规则自动生成" autocomplete="off"></oc-input>
                             </div>
                             <div class="field">
                                 <label>触发方式</label>
@@ -1735,15 +1735,15 @@
                                 </div>
                                 <div class="field" id="scheduleDelayRow">
                                     <div class="oc-schedule-inline">
-                                        <input class="ctl oc-schedule-num" id="scheduleDelayValue" type="number" min="1" value="20">
-                                        <select class="ctl" id="scheduleDelayUnit">
+                                        <oc-input type="number" id="scheduleDelayValue" value="20" class="oc-schedule-num"></oc-input>
+                                        <oc-select id="scheduleDelayUnit">
                                             <option value="minutes">分钟后</option>
                                             <option value="hours">小时后</option>
-                                        </select>
+                                        </oc-select>
                                     </div>
                                 </div>
                                 <div class="field" id="scheduleOnceAtRow" hidden>
-                                    <input class="ctl" id="scheduleOnceAt" type="datetime-local">
+                                    <oc-input type="datetime-local" id="scheduleOnceAt"></oc-input>
                                 </div>
                             </div>
 
@@ -1761,25 +1761,25 @@
                                 <div class="field" id="scheduleIntervalRow" hidden>
                                     <label for="scheduleIntervalValue">时间</label>
                                     <div class="oc-schedule-inline">
-                                        <input class="ctl oc-schedule-num" id="scheduleIntervalValue" type="number" min="1" value="2">
-                                        <select class="ctl" id="scheduleIntervalUnit">
+                                        <oc-input type="number" id="scheduleIntervalValue" value="2" class="oc-schedule-num"></oc-input>
+                                        <oc-select id="scheduleIntervalUnit">
                                             <option value="minutes">分钟</option>
                                             <option value="hours" selected>小时</option>
-                                        </select>
+                                        </oc-select>
                                     </div>
                                     <div class="oc-schedule-hint">最短 1 分钟；常用 5 / 15 / 30 分钟或 1 / 2 / 6 小时。</div>
                                 </div>
                                 <div class="field" id="scheduleTimeRow">
                                     <label for="scheduleTime">时间</label>
                                     <div class="oc-schedule-inline">
-                                        <input class="ctl oc-schedule-time" id="scheduleTime" type="time" value="09:00">
-                                        <select class="ctl" id="scheduleTz">
+                                        <oc-input type="time" id="scheduleTime" value="09:00" class="oc-schedule-time"></oc-input>
+                                        <oc-select id="scheduleTz">
                                             <option value="Asia/Shanghai">Asia/Shanghai</option>
                                             <option value="Asia/Tokyo">Asia/Tokyo</option>
                                             <option value="UTC">UTC</option>
                                             <option value="America/Los_Angeles">America/Los_Angeles</option>
                                             <option value="Europe/London">Europe/London</option>
-                                        </select>
+                                        </oc-select>
                                     </div>
                                     <div class="oc-schedule-hint">时区决定「每天 9 点」具体是几点。</div>
                                 </div>
@@ -1797,11 +1797,11 @@
                                 </div>
                                 <div class="field" id="scheduleMonthDayRow" hidden>
                                     <label for="scheduleMonthDay">每月几号</label>
-                                    <input class="ctl oc-schedule-num" id="scheduleMonthDay" type="number" min="1" max="31" value="1">
+                                    <oc-input type="number" id="scheduleMonthDay" value="1" class="oc-schedule-num"></oc-input>
                                 </div>
                                 <div class="field" id="scheduleCronRow" hidden>
                                     <label for="scheduleCron">cron 表达式</label>
-                                    <input class="ctl" id="scheduleCron" type="text" value="0 9 * * *" spellcheck="false">
+                                    <oc-input id="scheduleCron" value="0 9 * * *"></oc-input>
                                     <div class="oc-schedule-hint" id="scheduleCronExplain"></div>
                                 </div>
                             </div>
@@ -1812,13 +1812,13 @@
                                     <label><input type="radio" name="scheduleEndsMode" value="never" checked> 永不</label>
                                     <label><input type="radio" name="scheduleEndsMode" value="times"> 最多
                                         <span class="oc-schedule-ends-control">
-                                            <input class="ctl oc-schedule-num" id="scheduleEndsTimes" type="number" min="1" value="20" disabled>
+                                            <oc-input type="number" id="scheduleEndsTimes" value="20" class="oc-schedule-num" disabled></oc-input>
                                             <span>次</span>
                                         </span>
                                     </label>
                                     <label><input type="radio" name="scheduleEndsMode" value="at"> 到
                                         <span class="oc-schedule-ends-control">
-                                            <input class="ctl" id="scheduleEndsAt" type="datetime-local" disabled>
+                                            <oc-input type="datetime-local" id="scheduleEndsAt" disabled></oc-input>
                                         </span>
                                     </label>
                                 </div>
@@ -1831,7 +1831,7 @@
                         <div class="oc-schedule-section-body">
                             <div class="field">
                                 <label for="schedulePrompt">到点后发送</label>
-                                <textarea class="ctl" id="schedulePrompt" placeholder="例如：检查今天的构建状态并汇总"></textarea>
+                                <oc-textarea id="schedulePrompt" placeholder="例如：检查今天的构建状态并汇总"></oc-textarea>
                             </div>
                         </div>
                     </section>

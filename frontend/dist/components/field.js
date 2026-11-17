@@ -47,13 +47,16 @@ function optionsHtml(options, value) {
 export function controlHtml(opts) {
     opts = opts || {};
     const type = opts.type || 'text';
-    const classes = ['ctl'];
+    // 控件已换成 Web Components（oc-input / oc-select / oc-textarea）：
+    // class 里不再需要 ctl，外观由组件内部样式与 CSS 变量决定
+    const classes = [];
     if (opts.className) classes.push(opts.className);
 
-    const attrs = ['class="' + escapeAttr(classes.join(' ')) + '"'];
+    const attrs = [];
+    if (classes.length) attrs.push('class="' + escapeAttr(classes.join(' ')) + '"');
     if (opts.id) attrs.push('id="' + escapeAttr(opts.id) + '"');
     if (opts.placeholder) attrs.push('placeholder="' + escapeAttr(opts.placeholder) + '"');
-    if (type !== 'select' && type !== 'textarea') {
+    if (type !== 'select' && type !== 'textarea' && type !== 'text') {
         attrs.push('type="' + escapeAttr(type) + '"');
     }
     if (type === 'textarea') {
@@ -71,13 +74,14 @@ export function controlHtml(opts) {
     });
 
     if (type === 'select') {
-        return '<select ' + attrs.join(' ') + '>' + optionsHtml(opts.options, opts.value) + '</select>';
+        return '<oc-select ' + attrs.join(' ') + '>' + optionsHtml(opts.options, opts.value) + '</oc-select>';
     }
     if (type === 'textarea') {
-        return '<textarea ' + attrs.join(' ') + '>' + escapeAttr(opts.value == null ? '' : opts.value) + '</textarea>';
+        return '<oc-textarea ' + attrs.join(' ') + '>' + escapeAttr(opts.value == null ? '' : opts.value) + '</oc-textarea>';
     }
-    return '<input ' + attrs.join(' ') + ' />';
+    return '<oc-input ' + attrs.join(' ') + '></oc-input>';
 }
+
 
 /** 创建控件 DOM 节点 */
 export function createControl(opts) {
