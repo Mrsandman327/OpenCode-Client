@@ -6464,32 +6464,14 @@ button.btn-del:active {
     flex-shrink: 0;
     user-select: none;
 }
-.file-browser-git-push-btn {
-    font-size: 11px;
-    height: 24px;
-    padding: 0 10px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    /* 行盒与 16px 图标同高，文本与图标中心严格对齐 */
-    line-height: 16px;
-}
+/* 拉取 / 推送：胶囊小按钮。
+   这两个按钮已经迁移成 <oc-button>，视觉必须全部走 Shadow DOM 里的 CSS 变量
+   （见文末「文件浏览器里已迁移的按钮」段）。
+   这里如果继续写 border / background / padding，会作用在 host 元素上，
+   和内部真正的 button 叠成「双层描边」——就是之前拉取/推送出现的两个圆角框。
+   所以本段只保留相邻间距，视觉交给变量。 */
 .file-browser-git-push-btn + .file-browser-git-push-btn {
     margin-left: 6px;
-}
-.file-browser-git-push-btn:hover:not(:disabled) {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-.file-browser-git-push-btn:disabled {
-    opacity: 0.5;
-    cursor: default;
 }
 .file-browser-git-body {
     flex: 1;
@@ -11463,11 +11445,50 @@ oc-button.file-browser-create-dir-btn {
     --oc-btn-radius: 6px;
 }
 oc-button.file-browser-git-push-btn {
-    --oc-btn-h: 24px;
-    --oc-btn-fs: 11px;
+    --oc-btn-h: 22px;
+    --oc-btn-fs: 11.5px;
     --oc-btn-px: 10px;
     --oc-btn-py: 0;
+    --oc-btn-gap: 5px;
+    --oc-btn-icon: 12px;
     --oc-btn-radius: var(--radius-pill);
+    /* 胶囊描边样式：背景/边框必须写在变量里，不能落在 host 上 */
+    --oc-btn-bg: var(--bg-card);
+    --oc-btn-fg: var(--text-secondary);
+    --oc-btn-border: var(--border);
+    --oc-btn-bg-hover: var(--bg-card);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-border-hover: var(--accent);
+}
+/* 提交按钮：和左侧提交信息输入框同一行，规格与拉取/推送对齐成 22px，
+   避免主按钮比同面板的次要按钮大一圈显得突兀 */
+oc-button.file-browser-git-commit-btn {
+    --oc-btn-h: 22px;
+    --oc-btn-px: 12px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11.5px;
+    --oc-btn-radius: 6px;
+}
+/* 预览/编辑器工具栏（搜索、保存、下载）：与 14px 标题同一行，统一收窄到 22px */
+.file-browser-preview-actions oc-button,
+.file-browser-preview-header-main > oc-button {
+    --oc-btn-h: 22px;
+    --oc-btn-px: 10px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11.5px;
+    --oc-btn-gap: 5px;
+    --oc-btn-icon: 12px;
+    --oc-btn-radius: 6px;
+}
+/* 同一行里仍是原生 <button class="btn btn-sm"> 的（如编辑器「搜索」）单独收窄，
+   圆角跟 oc-button 对齐成 6px，避免同一行两个按钮圆角不一致 */
+.file-browser-preview-actions .btn-sm {
+    height: 22px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    line-height: 1;
+    gap: 5px;
+    border-radius: 6px;
 }
 /* 弹窗底栏按钮统一 34px 高（原 .modal-footer .btn 的规则选不中自定义元素） */
 .modal .modal-footer oc-button,
