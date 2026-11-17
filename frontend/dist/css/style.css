@@ -1224,7 +1224,7 @@ input::placeholder, textarea::placeholder {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.oc-head-icon-btn {
+button.oc-head-icon-btn {
     width: 24px;
     height: 24px;
     padding: 0;
@@ -1239,20 +1239,20 @@ input::placeholder, textarea::placeholder {
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
-.oc-head-icon-btn:hover:not(:disabled) {
+button.oc-head-icon-btn:hover:not(:disabled) {
     background: var(--bg-card-hover);
     color: var(--text-primary);
 }
-.oc-head-icon-btn.is-active {
+button.oc-head-icon-btn.is-active {
     color: var(--accent);
     background: var(--accent-ghost);
 }
-.oc-head-icon-btn:disabled {
+button.oc-head-icon-btn:disabled {
     color: var(--text-muted);
     opacity: 0.4;
     cursor: not-allowed;
 }
-.oc-head-icon-btn svg {
+button.oc-head-icon-btn svg {
     width: 15px;
     height: 15px;
     fill: none;
@@ -8236,10 +8236,10 @@ input.toolbar-input {
 }
 
 /* 图标按钮的刷新中状态：SVG 旋转（与 MCP/插件刷新按钮同一套 spin 动画） */
-.oc-head-icon-btn.is-loading {
+button.oc-head-icon-btn.is-loading {
     color: var(--accent);
 }
-.oc-head-icon-btn.is-loading svg {
+button.oc-head-icon-btn.is-loading svg {
     animation: spin 0.8s linear infinite;
 }
 
@@ -11366,4 +11366,39 @@ input.toolbar-input {
 .header-actions oc-button[variant="danger"]:hover:not([disabled]) {
     --oc-btn-bg-hover: var(--danger);
     --oc-btn-fg-hover: #fff;
+}
+
+/* 已迁移的头部图标按钮：尺寸走组件变量，外观由 variant="ghost" + icon-only 提供 */
+oc-button.oc-head-icon-btn {
+    --oc-btn-h: 24px;
+    --oc-btn-py: 0;
+    --oc-btn-px: 0;
+    --oc-btn-icon: 15px;
+    --oc-btn-icon-stroke: 1.9;
+    --oc-btn-radius: 6px;
+}
+
+/* ===== MCP 服务行的图标按钮（已迁移到 <oc-button>）=====
+   原来是 20×20 的透明图标按钮，靠 .oc-service-actions .btn 定制。
+   现在尺寸走组件变量；hover 语义保持「重连=强调色、断开=危险色」。 */
+.oc-service-actions oc-button {
+    --oc-btn-h: 20px;
+    --oc-btn-icon: 14px;
+    --oc-btn-icon-stroke: 1.8;
+    --oc-btn-py: 0;
+    --oc-btn-px: 0;
+    --oc-btn-radius: 6px;
+}
+.oc-service-actions oc-button[data-mcp-action="connect"]:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-card-hover);
+    --oc-btn-fg-hover: var(--accent);
+}
+.oc-service-actions oc-button[data-mcp-action="disconnect"]:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--danger-bg);
+    --oc-btn-fg-hover: var(--danger);
+}
+/* 在途反馈：按钮禁用时图标自旋（原来是 .btn:disabled .oc-service-icon） */
+.oc-service-actions oc-button[disabled] .oc-service-icon {
+    opacity: 0.45;
+    animation: spin 0.8s linear infinite;
 }

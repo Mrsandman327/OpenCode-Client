@@ -425,7 +425,7 @@ function setTreeSearchOpen(open) {
     if (open) {
         bar.classList.add('is-open');
         if (toggleBtn) {
-            toggleBtn.classList.add('is-active');
+            toggleBtn.active = true;
             toggleBtn.setAttribute('aria-expanded', 'true');
         }
         updateTreeSearchStatus(0, document.querySelectorAll('#ocTree .oc-tree-label').length);
@@ -436,7 +436,7 @@ function setTreeSearchOpen(open) {
     } else {
         bar.classList.remove('is-open');
         if (toggleBtn) {
-            toggleBtn.classList.remove('is-active');
+            toggleBtn.active = false;
             toggleBtn.setAttribute('aria-expanded', 'false');
         }
         clearTreeSearch();

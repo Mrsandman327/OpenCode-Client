@@ -112,6 +112,16 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     justify-content: center;
     flex-shrink: 0;
 }
+/* 外部塞进来的内联 SVG：尺寸与描边统一在这里，避免每个调用点各写一遍 */
+::slotted(svg[slot="icon"]) {
+    width: var(--oc-btn-icon, 15px);
+    height: var(--oc-btn-icon, 15px);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--oc-btn-icon-stroke, 1.9);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
 
 /* ---------- 变体：只改颜色 ---------- */
 
@@ -168,6 +178,25 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     color: var(--oc-btn-fg-hover, #fff);
 }
 
+/* 幽灵按钮：透明底无边框，hover 才出现浅色块（图标按钮常用） */
+:host([variant="ghost"]) button {
+    background: transparent;
+    color: var(--oc-btn-fg, var(--text-secondary));
+    border-color: transparent;
+}
+:host([variant="ghost"]) button:hover:not(:disabled) {
+    background: var(--oc-btn-bg-hover, rgba(0, 0, 0, 0.06));
+    color: var(--oc-btn-fg-hover, var(--text-primary));
+    border-color: transparent;
+}
+
+/* 激活态：分段控件 / 模式按钮用，叠在任意变体上 */
+:host([active]) button {
+    background: var(--oc-btn-active-bg, var(--accent-ghost, rgba(10, 132, 255, 0.12)));
+    color: var(--oc-btn-active-fg, var(--accent));
+    border-color: var(--oc-btn-active-border, transparent);
+}
+
 /* ---------- 尺寸：只改内边距与字号 ---------- */
 :host([size="sm"]) button {
     padding: var(--oc-btn-py, 5px) var(--oc-btn-px, 14px);
@@ -178,11 +207,14 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     font-size: var(--oc-btn-fs, 12px);
 }
 
-/* 只有图标、没有文字时：正方形，内边距收窄 */
+/* 只有图标、没有文字时：正方形，内边距清零让图标真正居中。
+   这里必须同时隐藏 .label 与 gap，否则空文字容器仍占位，图标会偏左 */
 :host([icon-only]) button {
-    padding: var(--oc-btn-py, 6px);
+    padding: 0;
+    gap: 0;
     aspect-ratio: 1;
 }
+:host([icon-only]) .label { display: none; }
 
 /* 加载态：内容透明度降低，右侧出现一个旋转小圈 */
 :host([loading]) .label { opacity: 0.6; }
@@ -202,7 +234,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 class OcButton extends HTMLElement {
     // 这些属性变化时同步到内部结构
     static get observedAttributes() {
-        return ['variant', 'size', 'disabled', 'loading', 'type', 'icon', 'icon-only', 'class'];
+        return ['variant', 'size', 'disabled', 'loading', 'type', 'icon', 'icon-mask', 'icon-only', 'active', 'class'];
     }
 
     constructor() {
@@ -260,6 +292,9 @@ class OcButton extends HTMLElement {
     get disabled() { return this.hasAttribute('disabled'); }
     set disabled(v) { v ? this.setAttribute('disabled', '') : this.removeAttribute('disabled'); }
 
+    get active() { return this.hasAttribute('active'); }
+    set active(v) { v ? this.setAttribute('active', '') : this.removeAttribute('active'); }
+
     get loading() { return this.hasAttribute('loading'); }
     set loading(v) { v ? this.setAttribute('loading', '') : this.removeAttribute('loading'); }
 
@@ -288,6 +323,25 @@ class OcButton extends HTMLElement {
         if (slotted) {
             // 用回 slot，让外部节点正常显示
             if (!this._icon.querySelector('slot')) this._icon.innerHTML = '<slot name="icon"></slot>';
+            this._icon.hidden = false;
+            return;
+        }
+
+        const mask = this.getAttribute('icon-mask');
+        if (mask) {
+            // 图标资源是 assets/*.svg + .oc-fb-icon-* 遮罩类，直接在 light DOM 造一个 span，
+            // 交给页面样式渲染；Shadow DOM 只负责布局，不用维护 id → 文件名映射表
+            let el = this.querySelector('[data-oc-icon]');
+            if (!el || el.getAttribute('data-oc-icon') !== mask) {
+                if (el) el.remove();
+                el = document.createElement('span');
+                el.setAttribute('slot', 'icon');
+                el.setAttribute('data-oc-icon', mask);
+                el.setAttribute('aria-hidden', 'true');
+                el.className = 'oc-fb-icon oc-fb-icon-' + mask;
+                this.appendChild(el);
+            }
+            this._icon.innerHTML = '<slot name="icon"></slot>';
             this._icon.hidden = false;
             return;
         }

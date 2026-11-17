@@ -316,7 +316,7 @@ export async function refreshCurrentSession() {
     currentSessionRefreshPending = true;
     if (refreshBtn) {
         refreshBtn.disabled = true;
-        refreshBtn.classList.add('is-loading');
+        refreshBtn.loading = true;
         refreshBtn.title = '正在刷新当前会话';
     }
 
@@ -359,7 +359,7 @@ export async function refreshCurrentSession() {
         currentSessionRefreshPending = false;
         if (refreshBtn) {
             refreshBtn.disabled = !store.webRunning || !store.currentSessionId;
-            refreshBtn.classList.remove('is-loading');
+            refreshBtn.loading = false;
             refreshBtn.title = '刷新当前会话';
         }
     }
