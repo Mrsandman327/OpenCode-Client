@@ -45,16 +45,25 @@ select {
     width: 100%;
     font-family: var(--oc-input-font, "Consolas", "Microsoft YaHei", monospace);
     height: var(--oc-input-h, 30px);
-    padding: 0 var(--oc-input-px, 9px);
+    /* 右侧多留出箭头的空间，文字不会压到箭头 */
+    padding: 0 var(--oc-input-pr, 28px) 0 var(--oc-input-px, 9px);
     border: var(--oc-input-border-width, 1px) var(--oc-input-border-style, solid) var(--oc-input-border, var(--border));
     border-radius: var(--oc-input-radius, var(--radius-sm, 8px));
-    background: var(--oc-input-bg, var(--bg-input));
+    background-color: var(--oc-input-bg, var(--bg-input));
     color: var(--oc-input-fg, var(--text-primary));
     font-size: var(--oc-input-fs, 12px);
     box-sizing: border-box;
     outline: none;
     cursor: pointer;
     transition: border-color .15s ease;
+    /* 自绘下拉箭头：原生箭头紧贴右边缘，改成可控的 SVG，离边框留 10px。
+       var(--oc-select-arrow-right) 可继续外调位置 */
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: var(--oc-select-arrow, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23868a8b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"));
+    background-repeat: no-repeat;
+    background-position: right var(--oc-select-arrow-right, 10px) center;
+    background-size: 10px 6px;
 }
 
 select:focus { border-color: var(--accent); }
