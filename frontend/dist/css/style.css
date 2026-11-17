@@ -11369,13 +11369,18 @@ oc-textarea.kb-field-input {
 /* ===== 已迁移到 <oc-button> 的场景覆盖 =====
    原按钮用 .xxx .btn 定制尺寸，换成自定义元素后 .btn 选不中内部按钮，
    这里用组件变量把同样的尺寸再表达一遍；原来的 .btn 规则保留给尚未迁移的按钮。 */
+/* 与模型服务卡片的次小按钮同一套参数：无固定高度、12/4 内边距、
+   11.5px 字号、radius-xs 小圆角（视觉上是白底灰边的迷你按钮） */
 .cfg-web-actions oc-button {
-    --oc-btn-h: 28px;
-    --oc-btn-px: 11px;
-    --oc-btn-py: 0;
+    --oc-btn-px: 12px;
+    --oc-btn-py: 4px;
     --oc-btn-fs: 11.5px;
-    --oc-btn-weight: 500;
-    --oc-btn-radius: 6px;
+    --oc-btn-radius: var(--radius-xs);
+}
+.cfg-web-actions oc-button:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-secondary);
+    --oc-btn-fg-hover: var(--text-primary);
+    --oc-btn-border-hover: var(--border-light);
 }
 .cfg-network-actions oc-button {
     --oc-btn-h: 28px;
