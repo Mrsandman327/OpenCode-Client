@@ -86,8 +86,12 @@
     overflow: hidden;
     animation: kbPopIn 0.14s ease;
 }
-/* 顶部搜索行：显示并允许编辑当前 @ 查询词 */
+/* 顶部搜索行：显示并允许编辑当前 @ 查询词。
+   oc-search 宿主默认是 inline-flex，宽度会收缩到内容宽度；
+   这里改成块级 flex 并显式给出宽度，让搜索框撑满面板（左右各留 12px 外边距）。 */
 .oc-kb-search {
+    display: flex;
+    width: calc(100% - 24px);
     margin: 8px 12px;
 }
 .oc-kb-scroll {
