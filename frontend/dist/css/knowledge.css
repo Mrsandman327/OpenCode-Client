@@ -1,0 +1,1133 @@
+/* ============================================================
+   知识库视图
+   ------------------------------------------------------------
+   从 style.css 拆出（纯搬移，未改任何规则）：
+     · 工作区输入框的知识库 @ 引用与搜索面板
+     · 知识库主视图（分类树 / 列表 / 卡片 / 编辑器）
+     · 知识库 → OpenCode 资产转化表单
+   依赖 tokens.css 的 CSS 变量，需在 style.css 之后加载。
+   ============================================================ */
+
+/* ========== 知识库 @ 引用（工作区输入框） ========== */
+/* 引用区：位于 textarea 之上，无引用时整块隐藏，不占空间 */
+.oc-refs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-bottom: 2px;
+}
+.oc-refs.hidden,
+.oc-refs:empty {
+    display: none;
+}
+/* 引用胶囊：文档图标 + 标题（过长省略） + 移除按钮 */
+.oc-ref-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 220px;
+    padding: 3px 6px 3px 8px;
+    background: var(--accent-ghost);
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    border-radius: var(--radius-xs);
+    color: var(--accent);
+    font-size: 11.5px;
+    line-height: 1.4;
+    cursor: default;
+    transition: background var(--transition), border-color var(--transition);
+}
+.oc-ref-chip:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.oc-ref-chip-icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.oc-ref-chip-icon .kb-i {
+    width: 13px;
+    height: 13px;
+}
+.oc-ref-chip-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}/* 已迁移到 <oc-icon-button size="xs"> */
+.oc-ref-chip-remove {
+    --icon-box: 16px;
+    --icon-size: 11px;
+    --icon-radius: var(--radius-xs);
+    --icon-color: inherit;
+    --icon-color-hover: inherit;
+    flex-shrink: 0;
+    opacity: 0.65;
+    transition: opacity var(--transition);
+}.oc-ref-chip-remove:hover { opacity: 1; }
+.oc-ref-chip-remove .kb-i {
+    width: 11px;
+    height: 11px;
+}
+
+/* ========== 知识库 @ 引用搜索面板 ========== */
+.oc-kb-palette {
+    position: absolute;
+    bottom: 100%;
+    left: 10px;
+    right: 10px;
+    margin-bottom: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    /* 高于命令面板（z-index 100），避免被其它浮层盖住 */
+    z-index: 120;
+    overflow: hidden;
+    animation: kbPopIn 0.14s ease;
+}
+/* 顶部搜索行：显示并允许编辑当前 @ 查询词 */
+.oc-kb-search {
+    margin: 8px 12px;
+}
+.oc-kb-scroll {
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+/* 结果项：文档图标 + 标题/说明 + 标签 */
+.oc-kb-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+.oc-kb-item:hover,
+.oc-kb-item.active {
+    background: var(--accent-ghost);
+}
+.oc-kb-item-icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding-top: 1px;
+    color: var(--accent);
+}
+.oc-kb-item-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+}
+.oc-kb-item-title {
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.oc-kb-item-summary {
+    color: var(--text-muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.oc-kb-item-tags {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+    padding-top: 1px;
+}
+.oc-kb-tag {
+    padding: 1px 5px;
+    background: var(--bg-input);
+    border-radius: var(--radius-xs);
+    color: var(--text-muted);
+    font-size: 10px;
+    white-space: nowrap;
+}
+.oc-kb-empty {
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 14px;
+    text-align: center;
+}
+/* ── 模型信息栏 ── */
+.oc-model-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 1px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+/* 输入栏选择器图标（agent / 模型 / 思考强度）：assets 下 SVG 作遮罩（mask 机制），颜色随文字 */
+.oc-select-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.oc-select-icon-agent {
+    -webkit-mask-image: url("../assets/agent.svg");
+    mask-image: url("../assets/agent.svg");
+}
+.oc-select-icon-model {
+    -webkit-mask-image: url("../assets/model.svg");
+    mask-image: url("../assets/model.svg");
+}
+.oc-select-icon-variant {
+    -webkit-mask-image: url("../assets/variant.svg");
+    mask-image: url("../assets/variant.svg");
+}
+
+/* ============================================================================
+   知识库视图
+   视觉与交互对齐 doc/知识库原型.html（Apple 风格），
+   所有颜色/圆角/阴影一律走既有 CSS 变量，深浅主题自动适配。
+   ============================================================================ */
+
+/* ---------- 内联线性图标（原型 .i 的等价实现，不使用 emoji） ---------- */
+.kb-i {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.kb-i-14 { width: 14px; height: 14px; }
+.kb-i-20 { width: 20px; height: 20px; }
+
+/* ---------------- 顶部工具栏 ---------------- */
+.kb-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+/* 搜索框 */
+.kb-search {
+    flex: 1;
+    min-width: 180px;
+    max-width: 340px;
+}
+/* 提高特异性以覆盖全局 input[type="search"] 样式 */
+.kb-toolbar .kb-search input {
+    flex: 1;
+    min-width: 0;
+}
+
+.kb-toolbar-spacer { flex: 1; }
+
+/* 标签筛选（独立于分类筛选的控件） */
+.kb-tag-filter { position: relative; flex-shrink: 0; }
+.kb-tag-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 220px;
+}
+.kb-tag-btn.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-ghost);
+}
+.kb-tag-btn-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 130px;
+}
+.kb-tag-caret { opacity: 0.7; }
+.kb-tag-pop {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 60;
+    min-width: 180px;
+    max-width: 280px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    animation: kbPopIn 0.14s ease;
+}
+.kb-tag-pop-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 9px;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--transition), color var(--transition);
+}
+.kb-tag-pop-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.kb-tag-pop-item.active { color: var(--accent); background: var(--accent-ghost); font-weight: 600; }
+.kb-tag-pop-count { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+.kb-tag-pop-empty { padding: 10px; text-align: center; font-size: 12px; color: var(--text-muted); }
+
+/* 分段控件（列表 / 卡片） */
+.kb-seg {
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+.kb-seg-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: none;
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+.kb-seg-btn:hover { color: var(--text-primary); }
+.kb-seg-btn.active { background: var(--bg-sidebar-active); color: var(--text-primary); font-weight: 600; }
+
+/* ---------------- 主体：分类树 + 条目区 ---------------- */
+.kb-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ---------- 分类树 ---------- */
+.kb-cat-pane {
+    width: 210px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.kb-cat-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+/* min-height:0：解除 flex 子项默认的「内容最小高度」，
+   否则分类树内容过长时会把面板撑高（再被 overflow:hidden 裁掉）而不出现滚动条 */
+.kb-cat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 6px 8px; }
+
+/* 分类节点（缩进由 JS 按层级写入内联 padding-left，支持任意层级） */
+.kb-cat-node {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    margin: 1px 0;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all var(--transition);
+}
+.kb-cat-node:hover { background: var(--bg-sidebar-hover); color: var(--text-primary); }
+.kb-cat-node.active { background: var(--bg-sidebar-active); color: var(--text-primary); font-weight: 600; }
+.kb-cat-node.active .kb-cat-name { color: var(--accent); }
+
+.kb-cat-caret {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: transform var(--transition);
+}
+.kb-cat-node.collapsed .kb-cat-caret { transform: rotate(-90deg); }
+.kb-cat-caret.is-leaf { visibility: hidden; }
+
+.kb-cat-icon { display: flex; flex-shrink: 0; color: var(--text-muted); }
+.kb-cat-node.active .kb-cat-icon { color: var(--accent); }
+
+.kb-cat-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.kb-cat-count {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 0 6px;
+    line-height: 16px;
+    flex-shrink: 0;
+}
+.kb-cat-node.active .kb-cat-count {
+    color: var(--accent);
+    border-color: var(--accent-glow);
+    background: var(--accent-ghost);
+}
+
+.kb-cat-children.hidden { display: none; }
+/* 「全部条目」与普通分类树之间的细分隔线（1px + 小幅留白，保持克制） */
+.kb-cat-divider {
+    height: 1px;
+    margin: 6px 8px;
+    background: var(--border);
+}
+/* 分支引导线 */
+.kb-cat-children > .kb-cat-node { position: relative; }
+.kb-cat-children > .kb-cat-node::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border);
+}
+
+.kb-cat-new {
+    /* 已迁移到 <oc-button variant="bare">：整宽虚线块 + 强调色 */
+    /* 块级 flex：宽度自动等于容器宽度减去左右 margin，不需要 width:100% */
+    display: flex;
+    margin: 6px 6px 0;
+    flex-shrink: 0;
+    --oc-btn-px: 10px;
+    --oc-btn-py: 7px;
+    --oc-btn-fs: 12px;
+    --oc-btn-gap: 6px;
+    --oc-btn-fg: var(--accent);
+    --oc-btn-bg: var(--accent-ghost);
+    --oc-btn-border-width: 1px;
+    --oc-btn-border-style: dashed;
+    --oc-btn-border: var(--accent-glow);
+    --oc-btn-radius: var(--radius-sm);
+}
+.kb-cat-new:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--accent-glow);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-border-hover: var(--accent-glow);
+}
+/* 底部留白，避免「新建分类」紧贴面板下沿 */
+.kb-cat-pane .kb-cat-new { margin-bottom: 8px; }
+
+/* ---------- 条目区 ---------- */
+.kb-list-pane {
+    flex: 1;
+    /* 横向与纵向都允许被压缩：min-width:0 管横向（.kb-body 为横向 flex），
+       min-height:0 管纵向（自身为纵向 flex 容器，避免被下方滚动区内容撑高） */
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.kb-list-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px 6px;
+    flex-shrink: 0;
+}
+.kb-list-crumb { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.kb-list-count { font-size: 12px; color: var(--text-muted); }
+
+/* min-height:0 是关键：作为纵向 flex 子项，若保持默认 min-height:auto，
+   内容会被用来「撑高」本容器而不是触发内部滚动，多出来的部分再被父级裁掉 —— 表现为标签区看不见且没有滚动条 */
+.kb-list-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 20px; }
+
+/* 列表行 */
+.kb-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    /* 右侧多留 30px：给右上角的删除按钮让位，避免遮住标签与分类 */
+    padding: 10px 42px 10px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background var(--transition);
+    border: 1px solid transparent;
+    /* 作为删除按钮的定位参照 */
+    position: relative;
+    overflow: hidden;
+}
+/* hover 描边统一走中性色（与「常用命令」卡片一致） */
+.kb-row:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
+
+.kb-row-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    /* 缺省中性外观：灰色底 + 弱化图标。
+       知识库内（.kb-card / .kb-row）的配色由下方规则覆盖为淡品牌蓝底 + 品牌蓝图标 */
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+}
+
+/* 卡片与列表行的图标：淡品牌蓝底 + 品牌蓝图标，与标题形成同色系锚点。
+   仅限定在知识库范围内生效；尺寸 / 圆角 / 间距仍由上方 .kb-row-icon 基础规则控制 */
+.kb-card .kb-row-icon,
+.kb-row .kb-row-icon {
+    background: var(--accent-ghost);   /* 品牌蓝 6% 淡底 */
+    color: var(--accent);              /* 品牌蓝图标 */
+}
+
+.kb-row-main { flex: 1; min-width: 0; }
+.kb-row-title-line { display: flex; align-items: center; gap: 8px; }
+.kb-row-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.kb-row-summary {
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.kb-row-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.kb-row-cat {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    /* 分类名保持中性弱化灰，不再染分类色 */
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* 标签胶囊：卡片与列表行统一采用「常用命令」页快捷胶囊的黄色点缀
+   （warning 文字 + 淡黄底 + 胶囊圆角），深浅主题各自取值 */
+.tag-list { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--warning-bg);
+    /* 淡黄底已足够界定胶囊边界，再加一圈描边会显脏 */
+    border: 1px solid transparent;
+    color: var(--warning);
+    font-size: 11.5px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* 卡片视图 */
+.kb-grid {
+    display: grid;
+    /* 最小列宽 300px（比列表行更舒展，标题与摘要都能多露出一截）；
+       min(300px, 100%) 保证容器窄于 300px 时列宽退化为满宽，不产生横向溢出 */
+    grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+    gap: 12px;
+    /* 行紧凑排列在顶部，避免行高被拉伸导致卡片间出现垂直空隙 */
+    align-content: start;
+    /* 行高必须由内容自然高度决定（max-content）。
+       本容器是 .kb-list-pane 的 flex 子项（flex:1 + min-height:0，高度被父级定死），
+       若行轨道保持隐式 auto，浏览器会把容器高度「均分」给每一行：
+       视口变矮时卡片被压扁，内容随之不再溢出，scrollHeight === clientHeight，
+       于是既不出现滚动条、卡片又被裁掉（这正是本 bug 的根因）。
+       显式声明 max-content 后，行高不再随容器高度收缩，内容一溢出
+       就会触发 overflow-y:auto 生成滚动条 */
+    grid-auto-rows: max-content;
+    padding: 4px 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+    /* 与 .kb-list-scroll 同理：必须允许高度被压缩到内容之下，否则卡片堆高后只会撑高容器、被父级裁剪而无滚动条 */
+    min-height: 0;
+}
+.kb-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    /* 纯净卡片底（与「常用命令」卡片一致），不再叠分类色渐变 */
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    /* 通用可悬浮卡片阴影（三层叠加），营造悬浮层次 */
+    box-shadow: var(--card-shadow-float);
+    cursor: pointer;
+    /* 作为右上角删除按钮的定位参照 */
+    position: relative;
+    overflow: hidden;
+    /* 只过渡会变化的视觉属性，避免 transition:all 带来的无谓重绘；
+       transform / box-shadow 走更长的缓出曲线，让「浮起」带一点回弹质感 */
+    transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color var(--transition), background var(--transition);
+}
+/* hover：投影整体加深并向外扩散 + 上浮 3px；
+   描边回到中性色（与「常用命令」卡片一致）；
+   z-index 抬升，避免放大后的阴影被相邻卡片盖住 */
+.kb-card:hover {
+    border-color: var(--border-light);
+    box-shadow: var(--card-shadow-float-hover);
+    transform: translateY(-3px);
+    z-index: 1;
+}
+/* 卡片标题行：右侧留出删除按钮的位置，标题被压短时用省略号收尾 */
+.kb-card-head { display: flex; align-items: center; gap: 10px; padding-right: 22px; }
+/* 卡片内图标容器：比列表视图略大，保持中性灰块 */
+.kb-card .kb-row-icon {
+    width: 32px;
+    height: 32px;
+}
+.kb-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    /* 标题统一走品牌蓝（沿用「常用命令」页 cmd-card-name 用强调色点名的做法） */
+    color: var(--accent);
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.kb-card-summary {
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 38px;
+}
+.kb-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    /* 卡片高度由同行最高者决定，这里把底栏推到底部，保证同排卡片底栏对齐 */
+    margin-top: auto;
+}
+
+/* ---- 条目删除按钮：卡片 / 列表行右上角，鼠标悬停在该条目上时才显形 ----
+   平时完全透明且不接收点击（pointer-events:none），避免误触与视觉噪音；
+   键盘 Tab 聚焦时同样显形，保证可访问性。
+   已迁移到 <oc-icon-button>：组件默认无边框、无底色，
+   这里不要再设 --icon-border-width / --icon-bg，
+   否则会出现红色描边框（卡片）和白色底块（列表行）。悬停只让图标变危险色。 *//* 已迁移到 <oc-icon-button>：26px 点击区，悬停条目时出现。
+   悬停只把图标变红，不加底色与边框。 */
+.kb-del-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    --icon-box: 26px;
+    --icon-size: 14px;
+    --icon-radius: var(--radius-sm);
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition), color var(--transition);
+}
+/* 列表模式：行高比卡片矮很多，右上角定位会明显偏上；
+   改成垂直居中，和行内文字、图标对齐。 */
+.kb-row .kb-del-btn {
+    top: 50%;
+    transform: translateY(-50%);
+}
+.kb-card:hover .kb-del-btn,
+.kb-row:hover .kb-del-btn,
+.kb-del-btn:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+/* 按钮自身 hover：切到危险色，明确这是破坏性操作 */
+/* 触摸设备没有 hover 态：按钮常显，否则移动端 / Web 触屏无法删除条目 */
+@media (hover: none) {
+    .kb-del-btn { opacity: 1; pointer-events: auto; }
+}
+
+/* 空状态 */
+
+/* ---------------- 条目编辑弹窗 ----------------
+   外壳、头部、底栏全部复用公共 .modal 规则，这里只保留面板尺寸与内部布局 */
+.kb-entry-modal {
+    width: min(880px, 90vw);
+    height: min(80vh, 720px);
+}
+/* 中部包裹层：只做纵向布局，不滚动；
+   字段区保留自己的滚动，归属行固定在底部，避免双滚动条。 */
+.kb-entry-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* ---------- 中部：三个必填区上下堆叠 ---------- */
+.kb-entry-fields {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    /* 区块之间留出明显间距，保证三块视觉上彼此独立 */
+    gap: 18px;
+    padding: 16px 18px;
+    overflow-y: auto;
+    background: var(--bg-primary);
+}
+
+/* 单个必填区：标签行 + 输入控件 + 错误提示 */
+.kb-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+/* 内容区吃掉剩余高度，使正文拥有主要编辑面积 */
+.kb-field-grow {
+    flex: 1;
+    min-height: 150px;
+}
+.kb-field-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+/* 必填星号 */
+.kb-field-req { color: var(--danger); font-weight: 700; }
+/* 内容区的「编辑 / 预览」分段控件：复用工具栏 .kb-seg 范式，尺寸再收紧一档 */
+.kb-content-seg { flex-shrink: 0; }
+.kb-content-seg .kb-seg-btn { padding: 3px 10px; font-size: 11.5px; }
+
+/* 统一输入控件形态：表面色 + 描边，聚焦时亮品牌色 */
+oc-input.kb-field-input,
+oc-textarea.kb-field-input {
+    padding: 0;
+    /* 中文长文本不适合等宽字体，这里回到页面字体 */
+    --oc-input-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+}
+.kb-entry-modal input.kb-field-input,
+.kb-entry-modal textarea.kb-field-input {
+    width: 100%;
+    padding: 9px 12px;
+    line-height: 1.6;
+    resize: none;
+    /* 全局 html/body 关闭了文本选择，这个控件在弹窗里需要能选中与复制 */
+    user-select: text;
+    -webkit-user-select: text;
+}
+/* 多行输入（说明 / 内容）的换行行为必须显式声明，不依赖各 WebView 的默认样式：
+   pre-wrap 让长行按容器宽度软换行，break-word 让无空格长串（URL / 代码）也能折断，
+   overflow-x:hidden 彻底杜绝横向滚动条 */
+.kb-entry-modal textarea.kb-field-input {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    overflow: auto;
+    overflow-x: hidden;
+}
+/* 标题：单行输入，字号略大 */
+/* 说明：约 2-3 行高 */
+.kb-entry-modal .kb-field-summary { min-height: 64px; }
+/* 内容：占主要高度，等宽字体便于书写 Markdown（字号与说明区保持一致，避免视觉跳级） */
+.kb-entry-modal .kb-field-content {
+    flex: 1;
+    min-height: 180px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    line-height: 1.7;
+}
+
+/* 内容预览区：复用项目统一的 .oc-text Markdown 排版（见"模型回复"段），
+   这里只补容器形态——与内容输入框一致的表面色/描边/圆角，占据同样高度并可滚动 */
+.kb-md-preview {
+    flex: 1;
+    min-height: 180px;
+    overflow: auto;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13.5px;
+    user-select: text;
+    -webkit-user-select: text;
+}
+/* 预览空态的占位提示 */
+.kb-preview-empty {
+    color: var(--text-muted);
+    font-size: 12.5px;
+}
+
+/* 校验错误态：红框 + 红字提示，聚焦时用柔和红色光晕 */
+.kb-field.invalid .kb-field-input { border-color: var(--danger); }
+.kb-field-error {
+    display: none;
+    font-size: 12px;
+    color: var(--danger);
+}
+.kb-field.invalid .kb-field-error { display: block; }
+
+/* ---------- 归属行：分类 + 标签（弹窗底部一行） ---------- */
+.kb-entry-meta {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+.kb-meta-inline { display: flex; align-items: center; gap: 8px; }
+.kb-meta-inline > label {
+    flex-shrink: 0;
+}
+.kb-meta-select { min-width: 150px; }
+/* 标签区吃掉剩余宽度，标签多时自动换行 */
+.kb-meta-tags { flex: 1; min-width: 0; }
+
+/* 可编辑标签区 */
+.kb-tag-editor { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.kb-tag-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px 3px 9px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: all var(--transition);
+}
+.kb-tag-edit:hover { border-color: var(--border-light); }/* 已迁移到 <oc-icon-button size="xs">：15px 圆形点击区 */
+.kb-tag-x {
+    --icon-box: 15px;
+    --icon-size: 14px;
+    --icon-radius: 50%;
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
+}
+
+.kb-tag-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    border: 1px dashed var(--border-light);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+.kb-tag-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-ghost); }
+
+/* ---------- 底部操作栏 ---------- */
+/* 与 .modal-footer 叠加使用：只保留“左侧提示 + 右侧按钮”的两端分布，
+   内边距、上边框、底色、高度都由公共底栏提供。 */
+.modal-footer.kb-entry-foot {
+    justify-content: space-between;
+    gap: 10px;
+}
+.kb-entry-foot-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+/* 知识库弹窗底栏按钮已全部是 <oc-button>：30px 高 / 14px 内边距 / 13.5px 字号 */
+.kb-btn-ghost {
+    --oc-btn-h: 30px;
+    --oc-btn-px: 14px;
+    --oc-btn-fs: 13.5px;
+}
+.kb-btn-ghost:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-card-hover);
+    --oc-btn-fg-hover: var(--text-primary);
+    --oc-btn-border-hover: var(--border);
+}
+
+/* 轻量弹出动画（供标签下拉与编辑弹窗使用） */
+@keyframes kbPopIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   知识库 · 转化为 OpenCode 资产（P2）
+   结构对齐 doc/知识库原型.html 界面 3：类型 / 作用域 / 目标项目 /
+   同步方式 / 名称 五行表单 + 写入预览区（新建 / 红绿 diff / 追加）
+   ============================================================ */
+
+/* 编辑弹窗底部的「转化为资产」：层级次于主操作「保存」，用品牌色描边保持醒目 */
+/* 已迁移到 <oc-button variant="config">：强调色描边 + 淡蓝底 + 字重 600 */
+.kb-btn-convert {
+    --oc-btn-h: 30px;
+    --oc-btn-px: 14px;
+    --oc-btn-fs: 13.5px;
+    --oc-btn-weight: 600;
+    --oc-btn-bg: var(--accent-ghost);
+}
+.kb-btn-convert:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--accent);
+    --oc-btn-fg-hover: #fff;
+}
+
+/* 浮层：叠加在编辑弹窗（z-index 300）之上，两层弹窗同时出现时层级一眼可分 */
+.kb-convert-overlay { z-index: 420; }
+
+/* 尺寸之外的外壳属性交给公共 .modal；88vh 上限保留以适配较矮窗口 */
+.kb-convert-modal {
+    width: min(660px, 94vw);
+    max-height: 88vh;
+}
+
+/* 正文同时是 .modal-body：公共规则已提供内边距、底色与滚动，
+   这里只补充纵向排列与表单项间距。 */
+.kb-convert-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* ---------- 表单行：左侧固定标签列 + 右侧内容列 ---------- */
+.kb-form-row { display: flex; align-items: flex-start; gap: 12px; }
+/* .kb-form-row 自身是 flex，必须显式覆盖，[hidden] 才能隐藏「目标项目」/「名称」整行 */
+.kb-form-row[hidden] { display: none !important; }
+.kb-form-label {
+    width: 66px;
+    flex-shrink: 0;
+    padding-top: 6px;
+}
+.kb-form-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+/* 单选组：胶囊按钮；input 隐藏，选中态靠 :checked 驱动 */
+.kb-radio-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* 「推荐」角标（同步方式-复制） */
+.kb-rec {
+    font-size: 10.5px;
+    padding: 0 5px;
+    border-radius: var(--radius-xs);
+    background: var(--success-bg);
+    color: var(--success);
+    font-weight: 600;
+}
+
+/* 选项说明：告诉用户产物写到哪、会产生什么效果 */
+.kb-conv-note {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+.kb-conv-note.is-error { color: var(--danger); }
+
+/* ---------- 输入行 ---------- */
+.kb-input-line { display: flex; align-items: center; gap: 8px; }
+.kb-conv-select { flex: 1; min-width: 0; padding: 6px 10px; }
+.kb-conv-input { flex: 1; min-width: 0; padding: 7px 10px; }
+.kb-conv-ext {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ---------- 预览区 ---------- */
+.kb-conv-preview { display: flex; flex-direction: column; gap: 10px; }
+/* 计算中 / 失败 / 未选项目的状态提示 */
+.kb-conv-state { font-size: 12.5px; color: var(--text-muted); }
+.kb-conv-state.is-error { color: var(--danger); }
+
+/* 路径提示条：新建（蓝）/ 覆盖（橙）/ 追加（绿）三态 */
+.kb-path-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    line-height: 1.55;
+    word-break: break-all;
+}
+.kb-path-bar code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    padding: 1px 5px;
+    border-radius: var(--radius-xs);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+.kb-path-bar.create { background: var(--accent-ghost); border: 1px solid var(--accent-glow); color: var(--accent); }
+.kb-path-bar.overwrite { background: var(--warning-bg); border: 1px solid var(--warning); color: var(--warning); }
+.kb-path-bar.append { background: var(--success-bg); border: 1px solid var(--success); color: var(--diff-add-text); }
+
+.kb-preview-block { display: flex; flex-direction: column; gap: 6px; }
+.kb-preview-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+/* 等宽内容区：行数多时内部滚动，绝不撑破弹窗 */
+.kb-preview-code {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--code-bg);
+    padding: 4px 0;
+    max-height: 260px;
+    overflow: auto;
+}
+
+.kb-code-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 1px 0;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--code-text);
+    /* 行内容按原始空白原样展示（缩进的 Markdown 才看得出层级） */
+    white-space: pre;
+}
+.kb-code-line .kb-ln {
+    width: 38px;
+    flex-shrink: 0;
+    padding-right: 6px;
+    text-align: right;
+    font-size: 11px;
+    color: var(--text-muted);
+    user-select: none;
+    -webkit-user-select: none;
+}
+.kb-code-line .kb-sign { width: 12px; flex-shrink: 0; text-align: center; font-weight: 700; user-select: none; -webkit-user-select: none; }
+.kb-code-line .kb-txt { padding-right: 12px; }
+
+.kb-code-line.add { background: var(--diff-add-bg); color: var(--diff-add-text); }
+.kb-code-line.del { background: var(--diff-del-bg); color: var(--diff-del-text); }
+.kb-code-line.add .kb-sign { color: var(--success); }
+.kb-code-line.del .kb-sign { color: var(--danger); }
+.kb-code-line.add .kb-ln, .kb-code-line.del .kb-ln { color: inherit; opacity: 0.6; }
+
+/* 追加模式：插入位置标记行（第 N 行插入 ↓），原有内容一律不动 */
+.kb-code-line.insert-mark {
+    background: var(--accent-ghost);
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+}
+.kb-code-line.insert-mark .kb-txt { font-family: inherit; }
+
+/* diff 图例：删除 / 新增行数与色块 */
+.kb-diff-legend { display: inline-flex; align-items: center; gap: 12px; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.kb-diff-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.kb-diff-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.kb-diff-swatch.add { background: var(--diff-add-bg); border: 1px solid var(--success); }
+.kb-diff-swatch.del { background: var(--diff-del-bg); border: 1px solid var(--danger); }
+
+/* 底部左侧提示（预览与写入均基于已保存的内容） */
+.kb-conv-foot-note { font-size: 11.5px; color: var(--text-muted); }
+
+/* 窄屏：标签列收成上下堆叠，避免右侧内容被压窄到不可读 */
+@media (max-width: 640px) {
+    .kb-convert-modal { width: 94vw; }
+    .kb-form-row { flex-direction: column; gap: 6px; }
+    .kb-form-label { width: auto; padding-top: 0; }
+}
+
+/* ---------------- 响应式收窄 ---------------- */
+@media (max-width: 1080px) {
+    .kb-cat-pane { width: 180px; }
+}
+@media (max-width: 900px) {
+    .kb-cat-pane { display: none; }
+
+    /* 窄屏：列表行的标签不再整块隐藏（原先 display:none 会让用户完全看不到标签），
+       改为允许整行换行 —— 图标 + 标题/说明占第一行，标签与分类折到第二行；
+       元信息占满整行且自身可换行，多标签时自动折行，保持紧凑而不挤压标题 */
+    .kb-row {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+    .kb-row-meta {
+        /* 占满一整行 → 必定折到主信息下方；flex-wrap 让标签在多标签时换行 */
+        flex-basis: 100%;
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    /* 窄屏下 @ 引用面板让标题与说明占满宽度，标签让位（既有设计，保持不动） */
+    .oc-kb-item-tags { display: none; }
+}
+@media (max-width: 760px) {
+    /* 窄屏下放宽弹窗占比并压缩区块间距，保证三个必填区都能完整看到 */
+    .kb-entry-modal { width: 94vw; height: 88vh; }
+    .kb-entry-fields { gap: 12px; padding: 12px; }
+    .kb-entry-meta { gap: 10px; padding: 10px 12px; }
+    .kb-field-grow { min-height: 120px; }
+    /* 标签区独占一行，避免与分类下拉挤压 */
+    .kb-meta-tags { flex-basis: 100%; }
+}
+
+
+/* ===== 组件化后的按钮尺寸/配色覆盖（从 style.css 回填）===== */
+.kb-entry-foot oc-button {
+    --oc-btn-h: 30px;
+    --oc-btn-px: 14px;
+    --oc-btn-fs: 13px;
+}

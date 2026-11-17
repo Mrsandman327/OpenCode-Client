@@ -8,6 +8,11 @@
          style.css 里各弹窗自己的 width / max-height / 圆角覆盖要能压过它 -->
     <link rel="stylesheet" href="/css/modal.css" />
     <link rel="stylesheet" href="/css/style.css" />
+    <!-- 视图级样式：从 style.css 按功能域拆出，这里只是并列加载；
+         各文件的选择器互不重叠，顺序不影响结果，但统一放在 style.css 之后 -->
+    <link rel="stylesheet" href="/css/knowledge.css" />
+    <link rel="stylesheet" href="/css/settings.css" />
+    <link rel="stylesheet" href="/css/filebrowser.css" />
     <!-- 控件级样式：按钮、输入、搜索、开关，按需覆盖 style.css 里的宿主布局 -->
     <!-- 主按钮单独一套：改主按钮样式不会影响普通按钮 -->
     <link rel="stylesheet" href="/css/empty.css" />

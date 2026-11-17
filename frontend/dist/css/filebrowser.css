@@ -1,0 +1,2221 @@
+/* ============================================================
+   文件浏览器
+   ------------------------------------------------------------
+   从 style.css 拆出（纯搬移，未改任何规则）：
+     · 预览 / 编辑区与 Web 端文件浏览弹窗
+     · 变更文件目录树、内嵌终端、Git diff 与 minimap
+     · 代码块与行号（.file-browser-code / .hljs-line）
+     · 项目配置弹窗（.project-config-*）
+     · Web 端目录选择器
+   依赖 tokens.css 的 CSS 变量，需在 style.css 之后加载。
+   ============================================================ */
+
+/* ============================================================
+   文件浏览器预览/编辑
+   ============================================================ */
+
+.active-file-preview-action {
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+    background: var(--accent-ghost) !important;
+}
+
+.file-browser-editor-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    min-height: 0;
+}
+
+.file-browser-editor-hint {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.file-browser-editor-hint.error {
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
+    background: var(--danger-bg);
+}
+
+.file-browser-code-editor {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    outline: none;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.file-browser-code-editor:focus-within {
+    border-color: var(--accent);
+}
+
+
+.file-browser-code-editor .cm-editor {
+    height: 100%;
+    background: var(--bg-card);
+}
+
+.file-browser-code-editor .cm-scroller {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    line-height: 1.6;
+}
+.btn-eye {
+    width: 34px;
+    padding: 0;
+    font-size: 14px;
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+}
+.btn-eye:hover:not(:disabled) {
+    color: var(--accent);
+    background: var(--bg-card-hover);
+}
+/* 只读期间（服务运行中）"显示明文"按钮的禁用态 */
+.btn-eye:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+/* 密钥显隐图标：与「网络配置」的 .cfg-eye-btn 同一套 eye-on / eye-off */
+.btn-eye svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.btn-eye .eye-off { display: none; }
+.btn-eye.is-visible { color: var(--accent); }
+.btn-eye.is-visible .eye-on { display: none; }
+.btn-eye.is-visible .eye-off { display: block; }
+/* 网络配置：服务口令输入行（输入框 + 显示明文按钮，复用 .btn-eye） */
+.field .pwd-row {
+    display: flex;
+    gap: 0;
+}
+.field .pwd-row input {
+    flex: 1;
+    width: auto;
+    border-right: none;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+/* ======== Web 端文件浏览弹窗 ======== */
+.file-browser-modal {
+    width: 96vw;
+    height: 96vh;
+    /* 公共外壳默认 max-height:90vh；文件浏览器需要保持 96vh 的工作区高度 */
+    max-height: 96vh;
+    /* 文件树与 Git 变更树共用的行度量：两处缩进/行高/字号必须一致，
+       否则并排看会出现错位。改这里就能同时影响两侧。 */
+    --fb-row-h: 22px;
+    --fb-indent: 16px;
+    --fb-toggle-w: 16px;
+    --fb-font: 12.5px;
+}
+/* 独立窗口模式（?view=filebrowser）：文件浏览器铺满整个窗口（无模态边距/圆角） */
+#fileBrowserModal.file-browser-standalone {
+    padding: 0;
+}
+#fileBrowserModal.file-browser-standalone .file-browser-modal {
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+}
+/* 独立窗口里关闭按钮无意义（整个窗口即文件浏览器，关窗即退出），隐藏 */
+#fileBrowserModal.file-browser-standalone #btnCloseFileBrowser {
+    display: none;
+}
+
+/* 独立窗口：不显示标题栏，内容占满窗口 */
+#fileBrowserModal.file-browser-standalone .modal-header {
+    display: none;
+}
+/* 文件浏览正文：同时是公共 .modal-body。用双类选择器压过公共正文的
+   16/18 内边距与纵向滚动，避免出现外层滚动 + 内部面板滚动的双滚动条。 */
+.file-browser-modal .file-browser-body {
+    display: grid;
+    grid-template-columns: 52px var(--file-browser-left-width, 320px) 8px minmax(0, 1fr);
+    min-height: 0;
+    flex: 1;
+    /* 标题栏贴边，内边距留在正文；内部面板各自滚动 */
+    padding: 10px;
+    overflow: hidden;
+    /* 公共 .modal-body 是 bg-primary（纯白），文件浏览器原来是 bg-secondary 工作区底色，
+       白色会让内部白色面板失去层次，这里恢复原底色 */
+    background: var(--bg-secondary);
+}
+.file-browser-mode-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 8px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+}
+
+/* 导航栏底部：分隔线 + 终端/刷新图标按钮。
+   margin-top:auto 把它们推到导航栏最底部，上方模式按钮保持顶部排列。 */
+.file-browser-mode-sep {
+    width: 24px;
+    height: 1px;
+    margin: auto 0 0;
+    background: var(--border);
+    flex-shrink: 0;
+}
+
+.file-browser-mode-btn {
+    position: relative;
+}
+
+/* 终端图标：复用「在终端中打开」的同一份 SVG */
+.file-browser-mode-btn .oc-fb-icon-terminal {
+    -webkit-mask-image: url("../assets/终端.svg");
+    mask-image: url("../assets/终端.svg");
+}
+
+/* 刷新图标：改用「刷新文件」版 */
+.file-browser-mode-btn .oc-fb-icon-refresh-file {
+    -webkit-mask-image: url("../assets/刷新文件.svg");
+    mask-image: url("../assets/刷新文件.svg");
+}
+
+/* 终端打开时的选中态（原 .file-browser-terminal-btn.on 的视觉） */
+.file-browser-mode-btn.on {
+    border-color: rgba(64, 128, 255, 0.55);
+    background: rgba(64, 128, 255, 0.14);
+    color: #1565c0;
+}
+
+[data-theme="dark"] .file-browser-mode-btn.on { color: #7cb0ff; }
+
+/* 终端数量角标：压在图标右上角 */
+.file-browser-mode-btn .fb-term-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    line-height: 14px;
+    font-size: 9px;
+    border-radius: 7px;
+    background: var(--accent, #1565c0);
+    color: #fff;
+}
+/* 文件浏览器工具栏图标（会话目录 / Git 变更 / 刷新）：assets 下 SVG 作遮罩，颜色随按钮文字 */
+.oc-fb-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.file-browser-mode-btn .oc-fb-icon {
+    width: 18px;
+    height: 18px;
+}
+.oc-fb-icon-refresh {
+    -webkit-mask-image: url("../assets/刷新.svg");
+    mask-image: url("../assets/刷新.svg");
+}
+.oc-fb-icon-session-dir {
+    -webkit-mask-image: url("../assets/会话目录.svg");
+    mask-image: url("../assets/会话目录.svg");
+}
+.oc-fb-icon-git {
+    -webkit-mask-image: url("../assets/Git变更.svg");
+    mask-image: url("../assets/Git变更.svg");
+}
+.oc-fb-icon-folder {
+    -webkit-mask-image: url("../assets/文件夹.svg");
+    mask-image: url("../assets/文件夹.svg");
+}
+.oc-fb-icon-root {
+    -webkit-mask-image: url("../assets/根目录.svg");
+    mask-image: url("../assets/根目录.svg");
+}
+.oc-fb-icon-back {
+    -webkit-mask-image: url("../assets/返回.svg");
+    mask-image: url("../assets/返回.svg");
+}
+.oc-fb-icon-new-folder {
+    -webkit-mask-image: url("../assets/新建文件夹.svg");
+    mask-image: url("../assets/新建文件夹.svg");
+}
+.oc-fb-icon-new-file {
+    -webkit-mask-image: url("../assets/新建文件.svg");
+    mask-image: url("../assets/新建文件.svg");
+}
+.oc-fb-icon-add {
+    -webkit-mask-image: url("../assets/新增.svg");
+    mask-image: url("../assets/新增.svg");
+}
+.oc-fb-icon-save {
+    -webkit-mask-image: url("../assets/保存.svg");
+    mask-image: url("../assets/保存.svg");
+}
+.oc-fb-icon-search {
+    -webkit-mask-image: url("../assets/搜索.svg");
+    mask-image: url("../assets/搜索.svg");
+}
+.oc-fb-icon-close {
+    -webkit-mask-image: url("../assets/关闭.svg");
+    mask-image: url("../assets/关闭.svg");
+}
+.oc-fb-icon-minus {
+    -webkit-mask-image: url("../assets/减去.svg");
+    mask-image: url("../assets/减去.svg");
+}
+
+.file-browser-mode-btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.file-browser-mode-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+}
+.file-browser-mode-btn.active {
+    background: var(--accent-ghost);
+    color: var(--accent);
+    border-color: rgba(10, 132, 255, 0.16);
+}
+.file-browser-list-panel {
+    background: var(--bg-secondary);
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.file-browser-files-panel,
+.file-browser-git-panel {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+}
+.file-browser-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-primary);
+}
+.file-browser-list-header-title {
+    /* 标题撑满剩余空间，把两个新建按钮推到最右侧并紧靠相邻排列 */
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: -0.01em;
+}
+.file-browser-create-dir-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    cursor: pointer;
+    background-color: transparent;
+}
+
+/* ── 文件浏览器：内容搜索模式 ── */
+.file-browser-search-panel { display: none; flex-direction: column; min-height: 0; height: 100%; }
+.file-browser-search-panel.active { display: flex; }
+
+.file-browser-search-top { padding: 8px 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; background: var(--bg-input); }
+.file-browser-search-input-row {
+    width: 100%;
+    flex: none;
+}
+.file-browser-search-opts { display: flex; align-items: center; gap: 4px; }
+.file-browser-search-opt { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 10.5px; cursor: pointer; font-family: Consolas, monospace; }
+.file-browser-search-opt:hover { background: var(--bg-card-hover); }
+.file-browser-search-opt.active { background: var(--accent-ghost); color: var(--accent); border-color: rgba(10, 132, 255, 0.25); }
+
+.file-browser-search-results { flex: 1; overflow-y: auto; min-height: 0; padding: 2px 0; background: var(--bg-input);}
+.file-browser-search-group-head { display: flex; align-items: center; gap: 5px; padding: 4px 10px; cursor: pointer; user-select: none; }
+.file-browser-search-group-head:hover { background: var(--bg-card-hover); }
+.file-browser-search-group-head .arrow { display: inline-block; color: var(--text-muted); font-size: 8px; width: 9px; text-align: center; }
+.file-browser-search-group-head .fname { font-size: 12px; font-weight: 600; color: var(--text-primary); font-family: Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-browser-search-group-head .badge { margin-left: auto; flex-shrink: 0; font-size: 10px; color: var(--text-muted); background: var(--bg-input); border-radius: 8px; padding: 0 6px; }
+.file-browser-search-group.collapsed .file-browser-search-group-rows { display: none; }
+.file-browser-search-group.collapsed .file-browser-search-group-head .arrow { transform: rotate(-90deg); }
+.file-browser-search-row { display: flex; align-items: baseline; gap: 7px; padding: 1px 10px 1px 24px; cursor: pointer; font-family: Consolas, "Cascadia Code", monospace; font-size: 11.5px; line-height: 18px; }
+.file-browser-search-row:hover { background: var(--bg-card-hover); }
+.file-browser-search-row.selected { background: var(--accent-ghost); }
+.file-browser-search-row .ln { width: 34px; flex-shrink: 0; text-align: right; color: var(--text-muted); font-size: 10.5px; user-select: none; }
+.file-browser-search-row .txt { white-space: pre; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
+.file-browser-search-row .txt mark { background: rgba(10, 132, 255, 0.28); color: #7ab8ff; border-radius: 2px; padding: 0 1px; }
+.file-browser-search-row .ellipsis { color: var(--text-muted); }
+.file-browser-search-empty { padding: 36px 16px; text-align: center; color: var(--text-muted); font-size: 12px; }
+.file-browser-search-empty .big { font-size: 22px; margin-bottom: 8px; opacity: .5; }
+.file-browser-search-stats { flex-shrink: 0; height: 26px; display: flex; align-items: center; gap: 5px; padding: 0 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted); background: var(--bg-input); }
+.file-browser-search-stats .warn { color: #d4a017; margin-left: auto; font-size: 10px; }
+
+.file-browser-create-dir-icon {
+    width: 18px;
+    height: 18px;
+    display: block;
+    flex-shrink: 0;
+}
+.file-browser-create-dir-confirm {
+    color: var(--accent);
+}
+.file-browser-files-toolbar {
+	display: flex;
+	justify-content: center;
+    align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    height: 38px;
+    background: var(--bg-input);
+}
+
+oc-button.file-browser-upload-plus {
+    /* 上传按钮：胶囊、固定 140 宽、30 高；尺寸走组件变量 */
+    width: 140px;
+    --oc-btn-h: 30px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 13px;
+    --oc-btn-radius: var(--radius-pill);
+    --oc-btn-icon: 14px;
+}
+button.file-browser-upload-plus {
+    width: 140px;
+    height: 30px;
+    padding: 0;
+    font-size: 13px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+button.file-browser-upload-plus:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.file-browser-git-current-section {
+    flex: 0 0 var(--git-current-pct, 60%);
+    min-height: 0;
+    border-bottom: 1px solid var(--border);
+}
+.file-browser-git-history-section {
+    flex: 0 0 var(--git-history-pct, 40%);
+    min-height: 0;
+}
+/* 提交工具栏 */
+.file-browser-git-commit-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 0 0 8px 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+.file-browser-git-commit-input {
+    flex: 1;
+    padding: 6px 10px;
+    min-height: 48px;
+    resize: vertical;
+}
+.file-browser-git-commit-btn {
+    margin-top: 0.8em;
+}
+.file-browser-preview-header-main {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+.file-browser-upload-error {
+	margin-top: 6px;
+	font-size: 12px;
+	color: var(--danger);
+}
+.file-browser-upload-conflict-note {
+	font-size: 12px;
+	line-height: 1.6;
+	color: var(--text-secondary);
+	padding: 10px 12px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	background: var(--bg-input);
+}
+/* 冲突弹窗的按钮分两组（覆盖/重命名 与 确认/取消），统一挂到 .modal-footer；
+   清除 .modal-actions 默认的上外边距，避免底部栏被二次撑高。 */
+.file-browser-upload-conflict-footer {
+	flex-wrap: wrap;
+}
+.file-browser-upload-conflict-footer .modal-actions {
+	margin-top: 0;
+}
+.file-browser-upload-conflict-actions {
+	justify-content: flex-start;
+	gap: 8px;
+	/* 左侧“覆盖/重命名”与右侧“确认/取消”分开，保持原弹窗的操作层次 */
+	margin-right: auto;
+}
+/* 只保留冲突弹窗自己的宽度上限；内边距、圆角、阴影交由公共 .modal 外壳统一 */
+#fileBrowserUploadConflictModal .proxy-modal {
+	max-width: 460px;
+}
+
+/* 操作错误提示 */
+.file-browser-git-action-error {
+    font-size: 11px;
+    color: var(--danger);
+    flex-shrink: 0;
+}
+
+/* +/- 操作按钮行 */
+.file-browser-git-item-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: var(--fb-row-h);
+    /* 与目录行保持一致的右侧余量，使 hover 背景右边缘对齐 */
+    padding-right: 2px;
+}
+.file-browser-git-item-row .file-browser-git-item {
+    flex: 1;
+    /* 关键：flex 子项默认 min-width:auto，长文件名会撑开本行把按钮挤出容器；
+       置 0 后允许收缩，文件名走 ellipsis 截断，按钮始终留在行内右端 */
+    min-width: 0;
+}
+.file-browser-git-action-btn {
+    /* 尺寸必须小于行高（--fb-row-h），否则 hover 时按钮会撑高行、造成列表跳动 */
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+.file-browser-git-action-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.file-browser-git-action-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+.file-browser-git-discard-btn:hover:not(:disabled) {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+/* 文件操作按钮（撤销/暂存）：默认不占位隐藏，悬停该文件行或键盘聚焦时显示 */
+.file-browser-git-item-row .file-browser-git-action-btn {
+    display: none;
+}
+.file-browser-git-item-row:hover .file-browser-git-action-btn,
+.file-browser-git-item-row:focus-within .file-browser-git-action-btn {
+    display: flex;
+}
+
+/* 未同步图标 */
+.file-browser-git-sync-icon {
+    color: var(--text-muted);
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+.file-browser-git-sync-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* 发布标签（指向该提交的版本标签）：次要信息，用灰色药丸，不抢提交标题的注意力 */
+.file-browser-git-tag {
+    flex-shrink: 0;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* 全部暂存按钮 */
+.file-browser-git-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}/* 已迁移到 <oc-button variant="secondary">：
+   外观走组件变量，宿主要留给布局（以前这里写 border/background 会与组件内部
+   的按钮叠成「双层圆角框」） */
+.file-browser-git-stage-all {
+    --oc-btn-px: 10px;
+    --oc-btn-py: 3px;
+    --oc-btn-fs: 11px;
+    --oc-btn-radius: var(--radius-pill);
+    --oc-btn-bg: var(--bg-card);
+    --oc-btn-fg: var(--text-secondary);
+}.file-browser-git-stage-all:hover:not([disabled]) {
+    --oc-btn-border-hover: var(--accent);
+    --oc-btn-fg-hover: var(--accent);
+}
+.file-browser-resize-handle {
+    cursor: col-resize;
+    position: relative;
+    background: transparent;
+}
+.file-browser-resize-handle::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: var(--border);
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+.file-browser-resize-handle:hover::before,
+.file-browser-resize-handle.dragging::before {
+    opacity: 1;
+    background: var(--accent);
+}
+.file-browser-git-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+/* Git 区域拖动条 */
+.file-browser-git-resize-handle {
+    cursor: row-resize;
+    position: relative;
+    background: transparent;
+    flex-shrink: 0;
+}
+.file-browser-git-resize-handle::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 50%;
+    height: 2px;
+    transform: translateY(-50%);
+    background: var(--border);
+    border-radius: 1px;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+.file-browser-git-resize-handle:hover::before,
+.file-browser-git-resize-handle.dragging::before {
+    opacity: 1;
+    background: var(--accent);
+}
+
+.file-browser-git-group + .file-browser-git-group {
+    margin-top: 8px;
+}
+.file-browser-git-subtitle {
+    padding: 0 8px 6px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+}
+.file-browser-git-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* 标题栏只留背景，边界线交给外层 section，避免出现两条重复的线 */
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 12px;
+    flex-shrink: 0;
+    user-select: none;
+}
+/* 拉取 / 推送：胶囊小按钮。
+   这两个按钮已经迁移成 <oc-button>，视觉必须全部走 Shadow DOM 里的 CSS 变量
+   （见文末「文件浏览器里已迁移的按钮」段）。
+   这里如果继续写 border / background / padding，会作用在 host 元素上，
+   和内部真正的 button 叠成「双层描边」——就是之前拉取/推送出现的两个圆角框。
+   所以本段只保留相邻间距，视觉交给变量。 */
+.file-browser-git-push-btn + .file-browser-git-push-btn {
+    margin-left: 6px;
+}
+.file-browser-git-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 4px 8px 8px;
+    background: var(--bg-input);
+}
+.file-browser-git-history-actions {
+    padding: 8px 4px 0;
+}
+.file-browser-git-history-load-more {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.file-browser-git-history-load-more:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+}
+.file-browser-git-history-load-more:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+.file-browser-git-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    /* 水平内边距交给外层 .file-browser-git-row-body，避免背景边缘与内容距离翻倍 */
+    padding: 0;
+    min-height: calc(var(--fb-row-h) - 2px);
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: left;
+    font-size: var(--fb-font);
+}
+.file-browser-git-item.active {
+    background: var(--accent-ghost);
+}
+.file-browser-git-item.commit-item {
+    align-items: center;
+    padding-left: 10px;
+}
+.file-browser-git-item.commit-item .file-browser-git-status {
+    min-width: 48px;
+}
+.file-browser-git-item.commit-item .file-browser-git-path {
+    margin-top: 4px;
+}
+.file-browser-git-item.file-item {
+    margin-top: 4px;
+}
+.file-browser-git-item.file-item .file-browser-git-status {
+    min-width: 22px;
+}
+.file-browser-git-item.file-item .file-browser-git-name {
+    font-size: 11px;
+}
+.file-browser-git-status {
+    min-width: 22px;
+    text-align: center;
+    border-radius: var(--radius-pill);
+    padding: 2px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.file-browser-git-status.status-modify {
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+.file-browser-git-status.status-add {
+    background: var(--success-bg);
+    color: var(--success);
+}
+.file-browser-git-status.status-delete {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+.file-browser-git-status.status-rename {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+.file-browser-git-status.status-untracked {
+    background: var(--bg-input);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+.file-browser-git-name {
+    display: block;
+    font-size: 12px;
+    color: var(--text-primary);
+    font-family: "Noto Sans SC", "SF Mono", "Cascadia Code", monospace;
+    font-weight: 500;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.file-browser-git-text {
+    min-width: 0;
+    flex: 1;
+}
+.file-browser-git-path {
+    display: block;
+    word-break: break-all;
+    font-family: "SF Mono", "Cascadia Code", monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+/* 行内容层：hover 背景只覆盖它，不含左侧缩进与折叠箭头 */
+.file-browser-git-row-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    /* 左右各留 2px，背景比内容略宽，视觉上不贴边 */
+    padding: 0 2px;
+    border-radius: var(--radius-sm);
+}
+.file-browser-git-tree-dir:hover .file-browser-git-row-body,
+.file-browser-git-tree-dir:focus-within .file-browser-git-row-body,
+.file-browser-git-item-row:hover .file-browser-git-row-body,
+.file-browser-git-item-row:focus-within .file-browser-git-row-body {
+    background: var(--bg-card-hover);
+}
+
+/* ===== 变更文件目录树 ===== */
+.file-browser-git-tree-dir {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 2px;
+    min-height: var(--fb-row-h);
+    font-size: var(--fb-font);
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    user-select: none;
+    -webkit-user-select: none;
+}
+.file-browser-git-tree-toggle {
+    flex-shrink: 0;
+    width: var(--fb-toggle-w);
+    height: var(--fb-toggle-w);
+    line-height: 1;
+    color: var(--text-muted);
+    text-align: center;
+}
+/* 折叠/展开图标：与文件树保持同一尺寸（16px 容器内 12px 图形） */
+.file-browser-git-tree-toggle.is-collapsed,
+.file-browser-git-tree-toggle.is-expanded {
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: 12px 12px;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: 12px 12px;
+}
+.file-browser-git-tree-toggle.is-collapsed {
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
+}
+.file-browser-git-tree-toggle.is-expanded {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
+}
+/* Git 变更树的文件夹图标：与文件树同尺寸（15px） */
+.file-browser-git-tree-icon {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-image: url("../assets/文件夹.svg");
+    mask-image: url("../assets/文件夹.svg");
+}
+.file-browser-git-tree-name {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* 目录行的操作按钮：与文件行一致，hover 才出现 */
+.file-browser-git-dir-actions {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+.file-browser-git-tree-dir:hover .file-browser-git-dir-actions,
+.file-browser-git-tree-dir:focus-within .file-browser-git-dir-actions {
+    display: flex;
+}
+.file-browser-git-history-files {
+    padding: 0 0 0 10px;
+}
+.file-browser-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--bg-input);
+}
+.file-browser-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 2px;
+    min-height: calc(var(--fb-row-h) - 2px);
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--fb-font);
+}
+.file-browser-item-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: var(--fb-row-h);
+}
+/* 行间距交给统一行高控制，避免两棵树节奏不同 */
+.file-browser-item-row + .file-browser-item-row {
+	margin-top: 0;
+}
+.file-browser-item:hover {
+    background: var(--bg-card-hover);
+}
+.file-browser-item.active {
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+/* 文件列表的文件夹/文件图标：assets 下 SVG 作遮罩，颜色随行文字 */
+.file-browser-item-icon {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+.file-browser-item-icon.folder {
+    -webkit-mask-image: url("../assets/文件夹.svg");
+    mask-image: url("../assets/文件夹.svg");
+}
+.file-browser-item-icon.file {
+    -webkit-mask-image: url("../assets/文件.svg");
+    mask-image: url("../assets/文件.svg");
+}
+.file-browser-item-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* ── 文件树样式 ── */
+.file-browser-tree-row {
+    gap: 2px;
+}
+.file-browser-tree-indent {
+    flex-shrink: 0;
+}
+.file-browser-tree-toggle {
+    flex-shrink: 0;
+    width: var(--fb-toggle-w);
+    height: var(--fb-toggle-w);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+}
+/* 折叠/展开图标：SVG 遮罩，16px 容器内以 12px 呈现，颜色随 hover 变化 */
+.file-browser-tree-toggle.is-collapsed,
+.file-browser-tree-toggle.is-expanded {
+    background: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: 12px 12px;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: 12px 12px;
+}
+.file-browser-tree-toggle.is-collapsed {
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
+}
+.file-browser-tree-toggle.is-expanded {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
+}
+.file-browser-tree-toggle:hover {
+    color: var(--text-primary);
+}
+.file-browser-preview-panel {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+}
+/* 多文件 tab 栏：已打开文件列表（对齐项目树/会话卡片视觉） */
+/* 文件预览 tab 已换成 <oc-tab lift>：这里只保留更紧凑的尺寸与等宽字体 */
+.file-browser-tab {
+    --tab-py: 4px;
+    --tab-px: 10px;
+    --tab-gap: 1px;
+    --tab-fs: 13px;
+    --tab-font: "SF Mono", "Cascadia Code", monospace;
+}
+.file-browser-preview-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+.file-browser-preview-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.file-browser-preview-title-wrap {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	flex: 1;
+}
+.file-browser-preview-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+.file-browser-preview-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.file-browser-preview-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: "SF Mono", "Cascadia Code", monospace;
+}
+.file-browser-preview-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 8px;
+}
+
+/* 外部修改提示条：不阻断预览，只提醒「磁盘上已变」 */
+.fb-external-change {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px;
+    font-size: 12px;
+    color: #8a5a00;
+    background: rgba(255, 184, 0, 0.14);
+    border-bottom: 1px solid rgba(255, 184, 0, 0.32);
+}
+[data-theme="dark"] .fb-external-change { color: #ffcf6b; }
+.fb-external-change-text { flex: 1; }
+
+/* ======== 文件浏览器：内嵌终端 ======== */
+/* 顶部「终端」入口：与「刷新」同排，数量角标贴在文字右侧 */
+.file-browser-terminal-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.file-browser-terminal-btn.on {
+    border-color: rgba(64, 128, 255, 0.55);
+    background: rgba(64, 128, 255, 0.14);
+    color: #1565c0;
+}
+[data-theme="dark"] .file-browser-terminal-btn.on { color: #7cb0ff; }
+.fb-term-badge {
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--accent, #1565c0);
+    color: #ffffff;
+    font-size: 10px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 终端抽屉：默认隐藏，打开后固定在预览区底部（不覆盖文件树） */
+.fb-terminal {
+    display: none;
+    position: relative;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: 0;
+    border-top: 1px solid var(--border);
+    background: var(--bg-card);
+}
+.fb-terminal.open { display: flex; }
+/* 高度由拖拽写入的 CSS 变量控制，默认 280px */
+.fb-terminal.open:not(.collapsed) {
+    height: var(--fb-term-height, 280px);
+    flex: 0 0 var(--fb-term-height, 280px);
+}
+.fb-terminal.collapsed {
+    height: 32px;
+    flex: 0 0 32px;
+}
+.fb-terminal.collapsed .fb-terminal-body { display: none; }
+/* 折叠时只剩标题条，抓手没有意义 */
+.fb-terminal.collapsed .fb-terminal-grip { display: none; }
+/* 顶部拖拽抓手：绝对定位在抽屉上边框，不占布局高度 */
+.fb-terminal-grip {
+    position: absolute;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    z-index: 6;
+    cursor: ns-resize;
+    background: transparent;
+    transition: background 0.12s ease;
+}
+.fb-terminal-grip:hover,
+body.fb-term-resizing .fb-terminal-grip {
+    background: rgba(64, 128, 255, 0.55);
+}
+/* 拖拽期间禁用文本选中与终端鼠标事件，避免选中文字/输入焦点丢失 */
+body.fb-term-resizing {
+    cursor: ns-resize;
+    user-select: none;
+}
+body.fb-term-resizing .fb-term-host { pointer-events: none; }
+.fb-terminal-head {
+    height: 32px;
+    flex: 0 0 32px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(127, 127, 127, 0.06);
+}
+.fb-terminal-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 8px 0 2px;
+}
+.fb-terminal-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+}
+.fb-term-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: var(--text-secondary, var(--text-muted));
+    cursor: pointer;
+    white-space: nowrap;
+}
+.fb-term-tab:hover { background: rgba(127, 127, 127, 0.12); }
+.fb-term-tab.active {
+    background: rgba(64, 128, 255, 0.16);
+    color: #1565c0;
+    font-weight: 600;
+}
+[data-theme="dark"] .fb-term-tab.active { color: #7cb0ff; }
+.fb-term-tab-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #9e9e9e;
+    flex-shrink: 0;
+}
+.fb-term-tab-dot.on { background: #22c55e; }
+.fb-term-tab-close {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+}
+.fb-term-tab-close:hover { color: #e53935; }/* 已迁移到 <oc-icon-button>：22px 点击区，hover 出现浅灰块 */
+.fb-terminal-add,
+.fb-terminal-collapse {
+    --icon-box: 22px;
+    --icon-radius: 5px;
+    --icon-color: var(--text-muted);
+}
+/* 两个按钮的内联 SVG 尺寸不同，按原值回填 */
+.fb-terminal-add { --icon-size: 15px; }
+.fb-terminal-collapse { --icon-size: 13px; }
+/* 折叠态图标翻转由组件的 --icon-rotate 承担（外部选择器进不了 Shadow DOM） */
+.fb-terminal-collapse.is-collapsed { --icon-rotate: 180deg; }
+/* 图标统一用内联 SVG，避免字符在不同字体下大小/基线不一致 */
+/* 折叠时图标翻转 180°，保持同一个 chevron */
+.fb-terminal-collapse.is-collapsed svg { transform: rotate(180deg); }
+
+/* 新建终端拆分按钮：左侧直接建默认 shell，右侧小三角选 shell */
+.fb-term-add-group {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.fb-term-add-group .fb-terminal-add { --icon-radius: 5px 0 0 5px; }/* 已迁移到 <oc-icon-button size="xs">：右半边窄条，左边界用宿主的 border-left */
+.fb-term-add-more {
+    --icon-box: 17px;
+    --icon-size: 11px;
+    --icon-radius: 0 5px 5px 0;
+    --icon-color: var(--text-muted);
+    border-left: 1px solid var(--border);
+}
+.fb-term-shell-menu {
+    position: absolute;
+    top: 25px;
+    left: 0;
+    z-index: 30;
+    min-width: 136px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+.fb-term-shell-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.fb-term-shell-item:hover { background: rgba(64, 128, 255, 0.14); }
+.fb-term-shell-tag {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+.fb-terminal-spacer { flex: 1; }
+.fb-terminal-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding-right: 4px;
+    white-space: nowrap;
+}
+.fb-terminal-status.is-ok { color: #22c55e; }
+.fb-terminal-body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-card);
+}
+/* 每条终端一个绝对定位宿主，切换标签只需切 active，避免重排 xterm */
+.fb-term-host {
+    position: absolute;
+    inset: 0;
+    padding: 4px 6px;
+    display: none;
+}
+.fb-term-host.active { display: block; }
+.fb-term-host .xterm { height: 100%; }
+.fb-term-host .xterm-viewport::-webkit-scrollbar { width: 10px; }
+.fb-term-host .xterm-viewport::-webkit-scrollbar-thumb {
+    background: rgba(127, 127, 127, 0.4);
+    border-radius: 5px;
+}
+
+/* ========== 2. 代码块（如 <pre><code>） ========== */
+.file-browser-code {
+  background: var(--bg-secondary);
+  padding: 0em;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  line-height: 1.4;
+  margin: 0em 0;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.hljs-line {
+    display: grid;
+    grid-template-columns: 4.5em minmax(0, 1fr);
+    align-items: start;
+}
+.hljs-line-no {
+    display: block;
+    padding-right: 0.8em;
+    text-align: center;
+    color: var(--text-muted);
+    user-select: none;
+    -webkit-user-select: none;
+    border-right: 1px solid rgba(0,0,0,0.06);
+    margin-right: 0.8em;
+}
+.hljs-line-content {
+    min-width: 0;
+}
+
+.file-browser-code code {
+  /* 继承 pre 的背景色，覆盖行内代码样式 */
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.8em;  /* 代码块可略小于正文 */
+  white-space: pre-wrap;  /* 保留原格式 */
+  word-break: break-word;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.file-browser-markdown {
+    user-select: text;
+    -webkit-user-select: text;
+}
+.file-browser-noext {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+}
+.file-browser-noext-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.file-browser-noext-hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+.file-browser-noext-name {
+    font-size: 12px;
+    color: var(--text-muted);
+    word-break: break-all;
+}
+.file-browser-noext-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.file-browser-media-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 12px;
+    background: #000;
+    overflow: hidden;
+}
+.file-browser-video {
+    max-width: 100%;
+    max-height: 100%;
+    outline: none;
+}
+.file-browser-audio-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 24px;
+}
+.file-browser-audio {
+    width: min(680px, 100%);
+    outline: none;
+}
+.file-browser-image-wrap {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+.file-browser-image {
+    max-width: 100%;
+    max-height: 62vh;
+    border-radius: var(--radius-sm);
+}
+.file-browser-pdf {
+    width: 100%;
+    height: 100%;
+    min-height: 58vh;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+}
+.file-browser-html-preview {
+    width: 100%;
+    height: 100%;
+    min-height: 58vh;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+}
+.file-browser-table-wrap {
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.file-browser-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.file-browser-table th,
+.file-browser-table td {
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+.file-browser-table th {
+    background: var(--bg-secondary);
+    font-weight: 600;
+}
+.file-browser-unsupported {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 4px 0;
+    color: var(--text-secondary);
+}
+/* ===== Git 编辑器 diff 视图（左右双 CodeMirror 编辑器）===== */
+.file-browser-diff-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    height: 100%;
+    min-height: 0;
+}
+.file-browser-diff-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    position: relative; /* minimap 绝对定位的父级 */
+}
+.file-browser-diff-pane-title {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background: var(--bg-secondary);
+    margin-bottom: 0;
+}
+.file-browser-diff-divider {
+    flex: 0 0 10px;                 /* 加宽命中区，方便拖拽 */
+    margin: 0 2px;
+    cursor: col-resize;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: transparent;
+    transition: background 0.15s;
+    position: relative;
+}
+.file-browser-diff-divider:hover,
+.file-browser-diff-divider:active {
+    background: rgba(96, 165, 250, 0.18);
+}
+body.file-browser-diff-dragging {
+    cursor: col-resize;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.file-browser-diff-pane .file-browser-code-editor {
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+/* diff 行高亮：左栏删除行（红）、右栏新增行（绿） */
+.cm-git-del-line {
+    background: rgba(255, 59, 48, 0.14);
+}
+.cm-git-add-line {
+    background: rgba(52, 199, 89, 0.14);
+}
+/* diff 占位行（另一侧增删后补齐的空白行）：浅斜纹提示 */
+.cm-git-placeholder-line {
+    background: repeating-linear-gradient(
+        -45deg,
+        rgba(128, 128, 128, 0.05),
+        rgba(128, 128, 128, 0.05) 4px,
+        rgba(128, 128, 128, 0.02) 4px,
+        rgba(128, 128, 128, 0.02) 8px
+    );
+}
+/* 自定义行号列（行对模式）：真实文件行号，占位行无行号 */
+.file-browser-diff-pane .cm-gutters {
+    /* 主题里 .cm-gutters 引用了不存在的 var(--bg)，这里用有效变量修复透明背景 */
+    background-color: var(--bg-card);
+    border-right: 1px solid var(--border);
+}
+
+.cm-gutter.cm-git-no-gutter{
+    width: 10px;
+}
+
+.cm-git-no-gutter .cm-git-lno {
+    display: inline-block;
+    /* 紧凑：行号右对齐紧贴内容区，宽度由行号位数决定（spacer 3 位），不额外撑开 */
+    padding: 0 0.35em 0 0.1em;
+    text-align: right;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: inherit;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.cm-git-no-gutter .cm-gutterElement {
+    padding: 0;
+    margin: 0;
+}
+/* 禁折行（wrap=false）：长行启用横向滚动，竖向滚动条保持 auto */
+.file-browser-diff-pane .file-browser-code-editor .cm-scroller {
+    overflow-x: auto;
+    overflow-y: auto;
+}
+/* diff 编辑器正文缩小一号（lib 主题默认 13px → 12px），仅 diff 面板内生效 */
+.file-browser-diff-pane .file-browser-code-editor .cm-editor {
+    font-size: 12px;
+}
+/* ===== Git diff 滚动条 minimap（GitHub 风格）===== */
+/* 容器：悬浮在右编辑器可视区右上角（.file-browser-code-editor 为相对定位父级），
+   纵向铺满编辑器可视区，不占 flex 布局，叠加在代码之上。
+   仅 diff 面板内的编辑器作为定位父级，不影响普通文件编辑器。 */
+.file-browser-diff-pane .file-browser-code-editor {
+    position: relative;
+}
+.file-browser-diff-minimap {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    bottom: 6px;
+    width: 10px;
+    cursor: pointer;
+    border-radius: 5px;
+    background: rgba(128, 128, 128, 0.1);
+    z-index: 5;
+}
+.file-browser-diff-minimap:hover {
+    background: rgba(128, 128, 128, 0.18);
+}
+/* 变更段色块：红=删除、绿=新增、黄=修改（同一段内含 del+add） */
+.file-browser-diff-minimap-seg {
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    border-radius: 2px;
+    min-height: 2px;
+}
+.file-browser-diff-minimap-seg.del {
+    background: rgba(255, 59, 48, 0.75);
+}
+.file-browser-diff-minimap-seg.add {
+    background: rgba(52, 199, 89, 0.75);
+}
+.file-browser-diff-minimap-seg.modified {
+    background: rgba(255, 180, 59, 0.8);
+}
+/* 当前视口指示条：半透明高亮覆盖可视窗口位置 */
+.file-browser-diff-minimap-viewport {
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 0;
+    height: 20%;
+    background: rgba(128, 150, 255, 0.2);
+    border: 1px solid rgba(128, 150, 255, 0.45);
+    border-radius: 3px;
+    pointer-events: none;
+    box-sizing: border-box;
+    transition: top 0.05s linear;
+}
+
+
+
+/* 冲突标签：与卡片内其它标签（.skill-tag）保持同一尺寸基线，仅换用危险色 */
+.conflict-tag {
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 3px 7px;
+    border-radius: var(--radius-xs);
+    background: rgba(239,68,68,0.15);
+    color: var(--danger);
+}
+
+/* 无来源提示横幅 */
+.no-sources-banner {
+    padding: 10px 14px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-input);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    line-height: 1.5;
+}
+
+/* 只保留项目配置自己的宽高；外壳外观、头部边距与标题字号交给公共 .modal */
+.project-config-modal {
+    width: min(92vw, 1600px);
+    max-width: 100%;
+    height: 90vh;
+    max-height: 100%;
+}
+
+/* ===== Tab 栏 ===== */
+
+.project-config-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+}
+
+/* 变量归一化说明：本区块历史代码引用了 5 个从未在 :root/[data-theme="dark"] 中定义的变量，
+   导致声明非法被丢弃、样式静默失效。现按语义映射到既有变量：
+   --primary→--accent（品牌色）、--text→--text-primary（正文色）、--hover→--bg-card-hover（悬停底色）、
+   --surface→--bg-secondary（次级表面）、--bg→--bg-primary（编辑器画布主背景）。 */
+.pc-tab {
+    padding: 11px 20px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    letter-spacing: -0.2px;
+    transition: color .15s, border-color .15s;
+}
+
+.pc-tab:hover { color: var(--text-primary); }
+
+.pc-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+}
+
+/* ===== 内容区 ===== */
+
+/* 项目配置正文同时是 .modal-body：保留原有左右留白与滚动，
+   用双类选择器压过公共正文的 16/18 内边距。 */
+.project-config-modal .project-config-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+    margin: 5px 25px;
+}
+
+/* ===== 空状态 ===== */
+
+
+
+
+
+
+.pc-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* ===== 文件列表 ===== */
+
+.pc-file-list {
+    padding: 8px 20px;
+}
+
+.pc-file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background .12s;
+}
+
+.pc-file-item:hover { background: var(--bg-card-hover); }
+
+.pc-file-icon { font-size: 18px; flex-shrink: 0; }
+
+.pc-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 450; }
+
+.pc-file-arrow { color: var(--text-muted); font-size: 12px; flex-shrink: 0; opacity: 0; transition: opacity .12s; }
+
+.pc-file-item:hover .pc-file-arrow { opacity: 1; }
+
+/* 删除按钮：已迁移到 <oc-icon-button>（size="sm"，22px 点击区），
+   原来写在原生 <button> 上的边框/背景/行高全部作废，改由组件变量控制。
+   默认无边框无底色，悬停只把图标变危险色。 */
+.pc-file-del {
+    flex-shrink: 0;
+    --icon-box: 22px;
+    --icon-size: 13px;
+    --icon-stroke: 1.8;
+    --icon-radius: 4px;
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
+    opacity: 0;
+    transition: opacity .12s;
+}
+
+.pc-file-item:hover .pc-file-del { opacity: 1; }
+
+.pc-skill-card:hover .pc-file-del { opacity: 1; }
+
+/* 新增按钮底部 */
+.pc-file-list-footer {
+    padding: 8px 20px;
+}
+
+/* ===== 编辑器 ===== */
+
+.pc-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.pc-editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+}
+
+.pc-editor-filename {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pc-editor-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* ===== 编辑模式：纯 textarea，无行号 ===== */
+
+.pc-editor-textarea-simple {
+    flex: 1;
+    resize: none;
+    margin: 0;
+    padding: 14px 16px;
+    line-height: 1.6;
+    tab-size: 4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    overflow: auto;
+}
+
+.pc-editor-cm-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-primary);
+}
+
+.pc-code-editor {
+    width: 100%;
+    height: 100%;
+}
+
+.pc-editor-status-dirty {
+    color: var(--warning);
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: 6px;
+}
+
+.pc-editor-search-btn {
+    min-width: 64px;
+}
+
+.pc-editor-search-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.pc-code-editor .cm-panels,
+.file-browser-code-editor .cm-panels {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+}
+
+.pc-code-editor .cm-panel.cm-search,
+.file-browser-code-editor .cm-panel.cm-search {
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.pc-code-editor .cm-panel.cm-search .cm-textfield,
+.file-browser-code-editor .cm-panel.cm-search .cm-textfield {
+    min-width: 220px;
+    height: 30px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 12px;
+    outline: none;
+}
+.pc-code-editor .cm-panel.cm-search .cm-textfield:focus,
+.file-browser-code-editor .cm-panel.cm-search .cm-textfield:focus {
+    border-color: var(--accent);
+}
+
+
+.pc-code-editor .cm-panel.cm-search .cm-button,
+.pc-code-editor .cm-panel.cm-search button,
+.file-browser-code-editor .cm-panel.cm-search .cm-button,
+.file-browser-code-editor .cm-panel.cm-search button {
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.pc-code-editor .cm-panel.cm-search .cm-button:hover,
+.pc-code-editor .cm-panel.cm-search button:hover,
+.file-browser-code-editor .cm-panel.cm-search .cm-button:hover,
+.file-browser-code-editor .cm-panel.cm-search button:hover {
+    background: var(--bg-card-hover);
+}
+
+.pc-code-editor .cm-panel.cm-search label,
+.file-browser-code-editor .cm-panel.cm-search label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.pc-code-editor .cm-panel.cm-search [name=close],
+.file-browser-code-editor .cm-panel.cm-search [name=close] {
+    margin-left: auto;
+    min-width: 28px;
+    padding: 0;
+    background: transparent;
+}
+
+.pc-code-editor .cm-searchMatch,
+.file-browser-code-editor .cm-searchMatch {
+    background: rgba(255, 214, 10, 0.25);
+    border-radius: 2px;
+}
+
+.pc-code-editor .cm-searchMatch.cm-searchMatch-selected,
+.file-browser-code-editor .cm-searchMatch.cm-searchMatch-selected {
+    background: rgba(255, 122, 26, 0.32);
+    outline: 1px solid rgba(255, 122, 26, 0.42);
+}
+
+/* ===== 预览模式（文件浏览器的 hljs-line grid） ===== */
+
+.pc-editor-viewer {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+}
+
+.pc-editor-viewer .hljs-line {
+    display: grid;
+    grid-template-columns: 4.5em minmax(0, 1fr);
+    align-items: start;
+}
+
+.pc-editor-viewer .hljs-line-no {
+    display: block;
+    padding-right: .8em;
+    text-align: right;
+    color: var(--text-muted);
+    user-select: none;
+    border-right: 1px solid rgba(0,0,0,0.06);
+    margin-right: .8em;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.pc-editor-viewer .hljs-line-content {
+    min-width: 0;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* ===== 项目树设置按钮 ===== */
+
+.oc-tree-config {
+    margin-left: auto;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s, color .15s, background .15s;
+}
+button.oc-tree-config {
+    padding: 2px 6px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+oc-button.oc-tree-config {
+    --oc-btn-px: 6px;
+    --oc-btn-py: 2px;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-icon: 12px;
+}
+
+.oc-tree-dir-row:hover .oc-tree-config,
+.oc-tree-directory:hover .oc-tree-config { opacity: 1; }
+
+button.oc-tree-config:hover {
+    color: var(--accent);
+    background: var(--bg-card-hover);
+}
+oc-button.oc-tree-config:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--accent);
+}
+
+/* ========== Web 端目录选择器 ========== */
+.dir-browser-modal {
+    width: 720px;
+    max-width: calc(100vw - 40px);
+    /* 固定高度，避免内容多少导致弹窗忽高忽低；内部列表自己滚动 */
+    height: 62vh;
+    max-height: 620px;
+}
+.modal-card .dir-browser-body {
+    display: flex;
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.dir-browser-places {
+    width: 180px;
+    flex-shrink: 0;
+    padding: 10px 8px;
+    border-right: 1px solid var(--border);
+    background: var(--bg-secondary);
+    overflow-y: auto;
+}
+.dir-browser-places-label {
+    padding: 4px 8px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+.dir-browser-place {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    margin-bottom: 2px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.dir-browser-place:hover {
+    background: var(--bg-sidebar-hover);
+    color: var(--text-primary);
+}
+.dir-browser-place.active {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+}
+.dir-browser-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+}
+.dir-browser-address {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+}/* 已迁移到 <oc-icon-button size="md" icon-mask="back"> */
+.dir-browser-up {
+    --icon-box: 30px;
+    --icon-border-width: 1px;
+    --icon-border: var(--border);
+    --icon-bg: var(--bg-input);
+    --icon-color: var(--text-secondary);
+    --icon-radius: 6px;
+}
+/* 遮罩图标的尺寸由文档样式决定（::slotted 优先级低于 .oc-fb-icon 类） */
+.dir-browser-up .oc-fb-icon { width: 14px; height: 14px; }
+.dir-browser-path {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 10px;
+}
+.dir-browser-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px;
+}
+.dir-browser-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    margin-bottom: 2px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.dir-browser-item:hover {
+    background: var(--bg-sidebar-hover);
+}
+.dir-browser-item.selected {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+}
+.modal-card .dir-browser-footer {
+    justify-content: space-between;
+}
+.dir-browser-selected {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+/* 目录浏览器行内图标（返回按钮的图标已进组件） */
+.dir-browser-place .oc-fb-icon,
+.dir-browser-item .oc-fb-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* 代理弹窗内的服务组标题间距 */
+.proxy-modal .oc-service-group-title {
+    margin-bottom: 10px;
+}
+
+/* 图标按钮的刷新中状态：SVG 旋转（与 MCP/插件刷新按钮同一套 spin 动画） */
+button.oc-head-icon-btn.is-loading {
+    color: var(--accent);
+}
+button.oc-head-icon-btn.is-loading svg {
+    animation: spin 0.8s linear infinite;
+}
+
+
+/* ===== 组件化后的按钮尺寸/配色覆盖（从 style.css 回填）===== */
+/* ===== 文件浏览器里已迁移的按钮 =====
+   原来靠 .xxx .btn 定制尺寸，组件化后改走 CSS 变量。 */
+oc-button.file-browser-create-dir-btn {
+    --oc-btn-h: 28px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-icon: 16px;
+    --oc-btn-radius: 6px;
+}
+
+oc-button.file-browser-git-push-btn {
+    --oc-btn-h: 22px;
+    --oc-btn-fs: 11.5px;
+    --oc-btn-px: 10px;
+    --oc-btn-py: 0;
+    --oc-btn-gap: 5px;
+    --oc-btn-icon: 12px;
+    --oc-btn-radius: var(--radius-pill);
+    /* 胶囊描边样式：背景/边框必须写在变量里，不能落在 host 上 */
+    --oc-btn-bg: var(--bg-card);
+    --oc-btn-fg: var(--text-secondary);
+    --oc-btn-border: var(--border);
+    --oc-btn-bg-hover: var(--bg-card);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-border-hover: var(--accent);
+}
+
+/* 提交按钮：和左侧提交信息输入框同一行，规格与拉取/推送对齐成 22px，
+   避免主按钮比同面板的次要按钮大一圈显得突兀 */
+oc-button.file-browser-git-commit-btn {
+    --oc-btn-h: 22px;
+    --oc-btn-px: 12px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11.5px;
+    --oc-btn-radius: 6px;
+}
+
+/* 预览/编辑器工具栏（搜索、保存、下载）：与 14px 标题同一行，统一收窄到 22px */
+.file-browser-preview-actions oc-button,
+.file-browser-preview-header-main > oc-button {
+    --oc-btn-h: 22px;
+    --oc-btn-px: 10px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11.5px;
+    --oc-btn-gap: 5px;
+    --oc-btn-icon: 12px;
+    --oc-btn-radius: 6px;
+}
+
+/* 文件浏览器：外部变更提示条里的按钮不被压缩 */
+.fb-external-change oc-button {
+    flex-shrink: 0;
+}

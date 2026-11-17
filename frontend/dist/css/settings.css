@@ -1,0 +1,1414 @@
+/* ============================================================
+   配置弹窗 / MCP 连接器 / 定时任务
+   ------------------------------------------------------------
+   从 style.css 拆出（纯搬移，未改任何规则）：
+     · 配置弹窗：界面外观 / Web 服务 / 快捷方式 / 常用命令 / 关于
+     · MCP 连接器配置弹窗（views/mcp-config.js）
+     · 定时任务（右侧面板 + 新建 / 详情弹窗）
+   依赖 tokens.css 的 CSS 变量，需在 style.css 之后加载。
+   ============================================================ */
+
+/* ============================================================
+   配置弹窗：界面外观 / Web 服务 / 快捷方式 / 常用命令 / 关于
+   ============================================================ */
+.nav-icon-config {
+    -webkit-mask-image: url("../assets/配置.svg");
+    mask-image: url("../assets/配置.svg");
+}
+
+/* 配置弹窗遮罩：层级低于命令面板等更高层浮层；背景压暗但不开模糊（后层补丁的最终取值） */
+.cfg-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.cfg-modal {
+    width: 760px;
+    height: 570px;
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    /* 与通用 .modal 共用同一入场动画，不再单独定义 keyframes */
+    animation: modalPopIn 0.18s ease;
+}
+.cfg-shell { flex: 1; display: flex; min-height: 0; }
+.cfg-nav {
+    width: 170px;
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 14px 8px 12px;
+    display: flex;
+    flex-direction: column;
+}
+.cfg-nav-label {
+    padding: 0 10px 9px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+.cfg-nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: 34px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+}
+.cfg-nav-item + .cfg-nav-item { margin-top: 2px; }
+.cfg-nav-item:hover { background: var(--bg-sidebar-hover); color: var(--text-primary); }
+.cfg-nav-item.active { background: var(--accent-ghost); color: var(--accent); font-weight: 600; }
+.cfg-nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 7px;
+    bottom: 7px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+.cfg-nav-item svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.cfg-nav-foot {
+    margin-top: auto;
+    padding: 10px 10px 0;
+    color: var(--text-muted);
+    font-size: 9.5px;
+    line-height: 1.5;
+}
+
+.cfg-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cfg-scroll { flex: 1; overflow-y: auto; padding: 20px 26px 18px; min-height: 0; }
+.cfg-section { display: none; }
+.cfg-section.active { display: block; }
+.cfg-section-head h2 { font-size: 16px; font-weight: 600; letter-spacing: 0.1px; }
+.cfg-section-head p {
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    line-height: 1.55;
+    max-width: 520px;
+}
+.cfg-esc-hint { margin-left: 0; display: flex; align-items: center; gap: 5px; font-size: 10.5px; }
+.cfg-esc-hint kbd { height: 18px; min-width: 18px; padding: 0 5px; font-size: 9px; }
+
+/* 界面外观 */
+.cfg-theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.cfg-theme-card {
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 9px;
+    cursor: pointer;
+    background: var(--bg-primary);
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+.cfg-theme-card:hover { border-color: var(--border-light); }
+.cfg-theme-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ghost); }
+.cfg-theme-preview {
+    height: 176px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid;
+    display: flex;
+    flex-direction: column;
+}
+.cfg-theme-preview.dark-preview { background: #1a1a1c; border-color: #3a3a3c; }
+.cfg-theme-preview.light-preview { background: #ffffff; border-color: #e0e0e0; }
+.cfg-theme-preview .tp-titlebar {
+    height: 18px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 7px;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+}
+.cfg-theme-preview.dark-preview .tp-titlebar { background: #232325; border-bottom-color: #3a3a3c; }
+.cfg-theme-preview.light-preview .tp-titlebar { background: #f5f5f7; border-bottom-color: #e5e5ea; }
+.cfg-theme-preview .tp-titlebar i { width: 5px; height: 5px; border-radius: 50%; background: #ff5f57; }
+.cfg-theme-preview .tp-titlebar i:nth-child(2) { background: #febc2e; }
+.cfg-theme-preview .tp-titlebar i:nth-child(3) { background: #28c840; }
+.cfg-theme-preview .tp-url {
+    height: 6px;
+    flex: 1;
+    max-width: 58%;
+    margin-left: 6px;
+    border-radius: 3px;
+    background: rgba(128, 128, 128, 0.16);
+}
+.cfg-theme-preview .tp-body { flex: 1; display: flex; min-height: 0; }
+.cfg-theme-preview .tp-side {
+    width: 74px;
+    flex-shrink: 0;
+    padding: 7px 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.cfg-theme-preview.dark-preview .tp-side { background: #1e1e20; border-right: 1px solid #3a3a3c; }
+.cfg-theme-preview.light-preview .tp-side { background: #f0f0f3; border-right: 1px solid #e3e3e8; }
+.cfg-theme-preview .tp-side-item {
+    height: 13px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 4px;
+    border-radius: 3px;
+}
+.cfg-theme-preview.dark-preview .tp-side-item.active { background: rgba(41, 151, 255, 0.16); }
+.cfg-theme-preview.light-preview .tp-side-item.active { background: rgba(0, 102, 204, 0.1); }
+.cfg-theme-preview .tp-side-item i { width: 5px; height: 5px; border-radius: 1.5px; flex-shrink: 0; }
+.cfg-theme-preview.dark-preview .tp-side-item i { background: #4a4a4c; }
+.cfg-theme-preview.light-preview .tp-side-item i { background: #c7c7cc; }
+.cfg-theme-preview.dark-preview .tp-side-item.active i { background: #2997ff; }
+.cfg-theme-preview.light-preview .tp-side-item.active i { background: #0066cc; }
+.cfg-theme-preview .tp-side-item em { height: 3px; flex: 1; border-radius: 2px; }
+.cfg-theme-preview.dark-preview .tp-side-item em { background: #363638; }
+.cfg-theme-preview.light-preview .tp-side-item em { background: #dcdce0; }
+.cfg-theme-preview.dark-preview .tp-side-item:first-child em { background: #5a5a5e; }
+.cfg-theme-preview.light-preview .tp-side-item:first-child em { background: #b9b9bf; }
+.cfg-theme-preview .tp-main { flex: 1; min-width: 0; padding: 8px 9px; display: flex; flex-direction: column; gap: 7px; }
+.cfg-theme-preview .tp-top { display: flex; align-items: center; gap: 5px; }
+.cfg-theme-preview .tp-avatar { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: #2997ff; }
+.cfg-theme-preview.light-preview .tp-avatar { background: #0066cc; }
+.cfg-theme-preview .tp-title-line { width: 54px; height: 5px; border-radius: 3px; }
+.cfg-theme-preview.dark-preview .tp-title-line { background: #4a4a4c; }
+.cfg-theme-preview.light-preview .tp-title-line { background: #c7c7cc; }
+.cfg-theme-preview .tp-mini-line { width: 22px; height: 4px; margin-left: auto; border-radius: 2px; }
+.cfg-theme-preview.dark-preview .tp-mini-line { background: #333335; }
+.cfg-theme-preview.light-preview .tp-mini-line { background: #e2e2e6; }
+.cfg-theme-preview .tp-content { display: flex; flex-direction: column; gap: 6px; }
+.cfg-theme-preview .tp-block { display: flex; align-items: center; gap: 6px; }
+.cfg-theme-preview .tp-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: #2997ff; }
+.cfg-theme-preview .tp-dot.green { background: #2fd158; }
+.cfg-theme-preview .tp-line { height: 5px; border-radius: 3px; }
+.cfg-theme-preview.dark-preview .tp-line { background: #38383a; }
+.cfg-theme-preview.light-preview .tp-line { background: #e5e5ea; }
+.cfg-theme-preview .tp-line.long { flex: 1; }
+.cfg-theme-preview .tp-line.short { width: 58%; }
+.cfg-theme-preview .tp-link { width: 46%; height: 4px; border-radius: 2px; background: #2997ff; opacity: 0.9; }
+.cfg-theme-preview.light-preview .tp-link { background: #0066cc; }
+.cfg-theme-preview .tp-composer {
+    margin-top: auto;
+    height: 22px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 5px;
+}
+.cfg-theme-preview.dark-preview .tp-composer { background: #232325; border: 1px solid #3a3a3c; }
+.cfg-theme-preview.light-preview .tp-composer { background: #ffffff; border: 1px solid #dcdce0; }
+.cfg-theme-preview .tp-composer span { height: 3px; flex: 1; border-radius: 2px; }
+.cfg-theme-preview.dark-preview .tp-composer span { background: #3a3a3c; }
+.cfg-theme-preview.light-preview .tp-composer span { background: #e5e5ea; }
+.cfg-theme-preview .tp-composer button { width: 16px; height: 11px; border: none; border-radius: 2px; background: #2997ff; }
+.cfg-theme-preview.light-preview .tp-composer button { background: #0066cc; }
+.cfg-theme-foot { display: flex; align-items: center; gap: 10px; padding: 10px 3px 2px; }
+.cfg-theme-meta { min-width: 0; }
+.cfg-theme-name { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+.cfg-theme-desc { margin-top: 3px; font-size: 10.5px; color: var(--text-muted); }
+.cfg-theme-radio {
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid var(--border-light);
+    position: relative;
+}
+.cfg-theme-card.selected .cfg-theme-radio { border-color: var(--accent); }
+.cfg-theme-card.selected .cfg-theme-radio::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+.cfg-theme-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+.cfg-theme-note svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Web 服务 */
+.cfg-settings-card {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-primary);
+    padding: 14px 16px;
+}
+.cfg-web-enable {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.cfg-web-enable h3 { font-size: 12.5px; font-weight: 600; }
+.cfg-web-enable p { margin-top: 3px; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+/* 配置面板的启用开关统一使用 components/switch.js 的 .sw（见「统一开关控件」） */
+.cfg-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 10px; }
+.cfg-web-status-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 112px;
+    gap: 14px;
+    align-items: center;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg-secondary);
+}
+.cfg-web-status-line { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.cfg-web-sub { color: var(--text-muted); font-size: 10.5px; }
+.cfg-web-url {
+    display: block;
+    margin-top: 7px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    word-break: break-all;
+}
+.cfg-web-url:hover { text-decoration: underline; }
+.cfg-web-url.disabled { color: var(--text-muted); pointer-events: none; text-decoration: none; }
+.cfg-web-desc { margin-top: 5px; color: var(--text-muted); font-size: 10.5px; line-height: 1.5; }
+.cfg-qr-card { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.cfg-qr-card .frontend-web-qr-box {
+    min-width: 104px;
+    min-height: 104px;
+    width: 104px;
+    height: 104px;
+    padding: 6px;
+    border-radius: 7px;
+}
+.cfg-qr-card .frontend-web-qr-box canvas,
+.cfg-qr-card .frontend-web-qr-box img { width: 100%; height: 100%; }
+.cfg-web-actions { display: flex; align-items: center; gap: 7px; margin-top: 12px; flex-wrap: wrap; }
+.cfg-web-hint { margin-left: auto; color: var(--text-muted); font-size: 10px; }
+#frontendWebStatus::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    vertical-align: middle;
+}
+#frontendWebStatus.frontend-web-status-running::before { background: var(--success); }
+#frontendWebStatus.frontend-web-status-running { color: var(--text-primary); font-weight: 600; }
+#frontendWebStatus { font-size: 12px; color: var(--text-secondary); }
+
+/* 快捷方式 */
+.cfg-note-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin-top: 16px;
+    margin-bottom: 10px;
+    padding: 8px 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+.cfg-note-bar svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.cfg-group-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 10px 0 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.4px;
+}
+.cfg-count { font-weight: 500; opacity: 0.8; }
+.cfg-shortcut-list { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.cfg-shortcut-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 32px;
+    padding: 0 13px;
+    background: var(--bg-primary);
+    font-size: 12px;
+}
+.cfg-shortcut-row + .cfg-shortcut-row { border-top: 1px solid var(--border); }
+.cfg-action { color: var(--text-primary); }
+.cfg-scope { margin-left: 6px; color: var(--text-muted); font-size: 10px; }
+.cfg-keys { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.cfg-keys kbd,
+.cfg-esc-hint kbd {
+    min-width: 21px;
+    height: 21px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-bottom-color: var(--border-light);
+    border-radius: 5px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10px;
+    line-height: 1;
+    box-shadow: 0 1px 0 var(--border);
+}
+.cfg-keys .cfg-plus { color: var(--text-muted); font-size: 10px; }
+
+/* 常用命令 */
+.cfg-cmd-tabs {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    margin-top: 16px;
+    margin-bottom: 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.cfg-cmd-tab {
+    height: 26px;
+    padding: 0 15px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11.5px;
+    cursor: pointer;
+}
+.cfg-cmd-tab:hover { color: var(--text-primary); }
+.cfg-cmd-tab.active { background: var(--bg-card); color: var(--text-primary); font-weight: 600; box-shadow: var(--shadow); }
+.cfg-cmd-list { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.cfg-cmd-group-title {
+    padding: 8px 12px 5px;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+}
+.cfg-cmd-group-title + .cfg-cmd-row { border-top: none; }
+.cfg-cmd-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--bg-primary);
+}
+.cfg-cmd-row + .cfg-cmd-row { border-top: 1px solid var(--border); }
+.cfg-cmd-row:hover { background: var(--bg-card-hover); }
+.cfg-cmd-main { min-width: 0; flex: 1; }
+.cfg-cmd-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cfg-cmd-name code {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 11.5px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cfg-cmd-desc { margin-top: 2px; font-size: 10.5px; color: var(--text-muted); line-height: 1.45; }
+.cfg-cmd-opt { margin-top: 3px; font-size: 10px; color: var(--text-muted); font-family: ui-monospace, Consolas, monospace; }
+.cfg-method {
+    flex-shrink: 0;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: ui-monospace, Consolas, monospace;
+    letter-spacing: 0.3px;
+}
+.cfg-method.get { color: var(--success); background: var(--success-bg); }
+.cfg-method.post { color: var(--accent); background: var(--accent-ghost); }
+.cfg-copy-btn {
+    /* 已迁移到 <oc-button variant="secondary" size="sm"> */
+    flex-shrink: 0;
+    --oc-btn-h: 23px;
+    --oc-btn-px: 8px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 10px;
+    --oc-btn-radius: 5px;
+    --oc-btn-bg: transparent;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-border: var(--border);
+    opacity: 0.65;
+}
+.cfg-cmd-row:hover .cfg-copy-btn { opacity: 1; }
+.cfg-copy-btn:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--accent-ghost);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-border-hover: transparent;
+}
+.cfg-copy-btn.copied {
+    --oc-btn-fg: var(--success);
+    opacity: 1;
+}
+.cfg-cmd-foot { margin-top: 12px; font-size: 10.5px; color: var(--text-muted); }
+.cfg-empty { padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: 11px; }
+
+/* 关于 */
+.cfg-about-block {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-primary);
+}
+.cfg-about-icon { width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0; object-fit: cover; }
+.cfg-about-name { font-size: 17px; font-weight: 600; }
+.cfg-about-desc { margin-top: 5px; font-size: 11.5px; color: var(--text-muted); }
+.cfg-version-pill {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 9px;
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10.5px;
+}
+.cfg-about-meta { margin-top: 16px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.cfg-about-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 11.5px;
+    background: var(--bg-primary);
+}
+.cfg-about-row + .cfg-about-row { border-top: 1px solid var(--border); }
+.cfg-about-label { color: var(--text-muted); }
+.cfg-about-value {
+    margin-left: auto;
+    color: var(--text-secondary);
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10.5px;
+}
+
+/* 侧栏底部「配置」入口：与导航项同尺寸/动画，仅贴底显示 */
+#sidebarNotify { margin-top: auto; }
+
+/* 配置弹窗：与现有 modal-card 的头/身/脚保持一致
+   （尺寸/配色/动画已并入文件前部的 .cfg-modal 主定义，此处只保留差异化细节） */
+.cfg-modal .cfg-shell {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    min-height: 0;
+    background: var(--bg-primary);
+}
+/* 底部栏：压缩高度，左右分栏放置版本信息与 Esc 提示（两次补丁取最终值） */
+.cfg-modal .modal-footer.cfg-footer {
+    justify-content: space-between;
+    padding: 0 18px;
+    min-height: 34px;
+    height: 34px;
+}
+/* 配置弹窗底部：比正文更小的辅助信息，避免 v2.0.2 / Esc 提示过大 */
+.cfg-footer {
+    font-size: 10.5px;
+}
+
+.cfg-method.put,
+.cfg-method.patch { color: var(--warning); background: var(--warning-bg); }
+.cfg-method.delete { color: var(--danger); background: var(--danger-bg); }
+
+.cfg-mode .cfg-esc-hint kbd,
+.cfg-footer kbd {
+    height: 16px;
+    min-width: 16px;
+    padding: 0 4px;
+    font-size: 8px;
+}
+/* Web 服务操作按钮：与原型一致的小圆角，不要全局 .btn 的胶囊形 */
+
+/* 顶部主操作：终端 + 启动/停止 */
+.header-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 配置弹窗：网络分区 */
+.cfg-network-title {
+    margin-bottom: 9px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+}
+.cfg-network .proxy-field-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 120px;
+    gap: 10px;
+}
+.cfg-network .field { margin-bottom: 10px; }
+.cfg-network .field input {
+    width: 100%;
+    height: 30px;
+    padding: 0 9px;
+}
+.cfg-network .proxy-separator { margin: 14px 0; border: none; border-top: 1px solid var(--border); }
+.cfg-network .proxy-switch-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    cursor: pointer;
+}
+.cfg-network .proxy-switch-row strong { display: block; font-size: 12px; }
+.cfg-network .proxy-switch-row small { display: block; margin-top: 2px; font-size: 10.5px; color: var(--text-muted); }
+/* 开关已由 components/switch.js 接管，这里不再覆盖 input 尺寸（会给 .sw input 加宽高破坏隐藏） */
+.cfg-network .proxy-preview {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+.cfg-network-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+.cfg-section-head.has-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+.cfg-section-head.has-actions > div:first-child {
+    flex: 1;
+    min-width: 0;
+}
+.cfg-section-head.has-actions .cfg-network-actions {
+    margin-top: 0;
+    flex-shrink: 0;
+}
+
+/* 服务访问口令：独立显示/隐藏按钮，眼睛 / 斜杠眼睛 */
+.cfg-password-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cfg-password-row input {
+    flex: 1;
+    min-width: 0;
+}
+.cfg-eye-btn {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color var(--transition), border-color var(--transition), background var(--transition), opacity var(--transition);
+}
+.cfg-eye-btn:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-ghost);
+}
+.cfg-eye-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.cfg-eye-btn svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.cfg-eye-btn .eye-off { display: none; }
+.cfg-eye-btn.is-visible { color: var(--accent); border-color: var(--accent); background: var(--accent-ghost); }
+.cfg-eye-btn.is-visible .eye-on { display: none; }
+.cfg-eye-btn.is-visible .eye-off { display: block; }
+
+/* ============================================================
+   MCP 连接器配置弹窗（视图：views/mcp-config.js）
+   仅补充布局：颜色 / 字体 / 圆角 / 阴影 / 按钮 / 输入框 / 开关 /
+   提示条全部复用上方既有类（.modal-card / .btn / .cfg-* / .sw）。
+   深色/浅色主题由 html[data-theme] 的变量自动切换，此处不定义颜色变量。
+   ============================================================ */
+
+/* 现有样式表没有全局 [hidden] 规则；本弹窗大量用 hidden 切换面板，
+   必须保证它压过 .mcp-main / .mcp-empty 的 display:flex。 */
+.mcp-modal [hidden] { display: none !important; }
+
+/* 弹窗尺寸：沿用项目弹窗的 90vh 高度策略，宽度按左右分栏需要收窄到 900 */
+.mcp-modal {
+    width: min(92vw, 900px);
+    height: 90vh;
+    max-height: 680px;
+}
+
+/* 覆盖公共 .modal-body 的 padding，改为左右分栏 */
+.mcp-modal .modal-body {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+}
+
+/* ---- 左列表 ---- */
+.mcp-nav {
+    width: 220px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.mcp-nav-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.mcp-nav-foot {
+    padding: 8px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.mcp-nav-foot oc-button { width: 100%; }
+
+/* 列表项：沿用侧栏/文件列表的视觉语言 */
+.mcp-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.mcp-item:hover { background: var(--bg-card-hover); }
+
+.mcp-item.active {
+    background: var(--bg-card);
+    box-shadow: var(--shadow);
+}
+
+.mcp-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--text-muted);
+    opacity: 0.45;
+}
+
+.mcp-dot.on { background: var(--success); opacity: 1; }
+
+.mcp-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mcp-tag {
+    flex-shrink: 0;
+    font-size: 10px;
+    line-height: 16px;
+    padding: 0 6px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-sidebar-active);
+    color: var(--text-muted);
+}
+
+/* 列表项删除按钮：绝对定位在最右侧，默认隐藏；
+   悬停时出现，同时把类型徽章向左挤一点，不改变列表宽度。 */
+.mcp-item {
+    position: relative;
+}
+/* 已迁移到 <oc-icon-button size="xs">：列表行右侧悬浮出现 */
+.mcp-item-del {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    --icon-box: 20px;
+    --icon-size: 14px;
+    --icon-radius: var(--radius-xs);
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+
+/* 垃圾桶图标：描边风格，颜色跟随按钮 currentColor */
+.mcp-item-del-ic {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.mcp-item:hover .mcp-item-del {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 悬停时类型徽章左移，给删除按钮让位 */
+.mcp-tag {
+    transition: margin-right 0.12s ease;
+}
+
+.mcp-item:hover .mcp-tag {
+    margin-right: 22px;
+}
+
+
+
+/* ---- 右表单 ---- */
+.mcp-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+}
+
+.mcp-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 18px;
+}
+
+/* 输入框 + 选择按钮并排（cwd 目录选择） */
+.mcp-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mcp-input-row input {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+}
+
+/* 字段纵向堆叠：.field 本身没有外边距 */
+.mcp-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* 三列数字（超时） */
+.mcp-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+/* 键值对行 */
+.mcp-kv-list { display: flex; flex-direction: column; gap: 6px; }
+
+/* 键值对输入框：复制 .field input 的取值（现有样式只作用于 .field 内） */
+.mcp-kv-row input {
+    width: 100%;
+    height: 30px;
+    padding: 0 9px;
+}
+
+
+.mcp-kv-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) 26px;
+    gap: 6px;
+    align-items: center;
+}
+/* 已迁移到 <oc-icon-button size="sm">：hover 只变色 */
+.mcp-kv-del {
+    --icon-box: 26px;
+    --icon-size: 13px;
+    --icon-radius: var(--radius-sm);
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
+}
+
+
+/* 已迁移到 <oc-button>：整宽虚线框 */
+.mcp-kv-add {
+    margin-top: 6px;
+    width: 100%;
+    --oc-btn-h: 28px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 12px;
+    --oc-btn-border-width: 1px;
+    --oc-btn-border-style: dashed;
+    --oc-btn-border: var(--border-light);
+    --oc-btn-bg: transparent;
+    --oc-btn-fg: var(--text-muted);
+}
+.mcp-kv-add:hover:not([disabled]) {
+    --oc-btn-border-hover: var(--accent);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-bg-hover: transparent;
+}
+
+/* 高级区折叠按钮 */
+.mcp-adv-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+}
+
+.mcp-adv-toggle .chev {
+    display: inline-block;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--text-muted);
+    transition: transform var(--transition);
+}
+
+.mcp-adv-toggle.open .chev { transform: rotate(90deg); }
+
+.mcp-adv-body { padding-top: 4px; }
+
+/* 提示条内的文字按钮（未识别字段「查看 / 收起」） */
+/* 已迁移到 <oc-button variant="bare" size="xs"> */
+.mcp-link-btn {
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11px;
+    --oc-btn-fg: var(--accent);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-bg-hover: transparent;
+}
+/* 下划线落在 shadow 内的文字容器上，只能走 ::part */
+.mcp-link-btn::part(label) { text-decoration: underline; }
+
+/* 标题右侧的说明 */
+.mcp-scope {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-left: 8px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border);
+}
+
+/* 表单底部按钮栏：直接复用公共 .modal-footer 的右对齐，
+   不再重复声明 justify-content */
+
+/* 空状态 / 加载失败 */
+.mcp-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    text-align: center;
+    line-height: 1.7;
+}
+
+/* 未识别字段的 JSON 预览 */
+.mcp-unknown-json {
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--text-secondary);
+    max-height: 160px;
+    overflow: auto;
+}
+
+/* 窄屏：左右分栏改上下（列表在上，表单在下） */
+@media (max-width: 760px) {
+    .mcp-modal { width: 100%; height: 100%; max-height: none; border-radius: 0; }
+    .mcp-modal .modal-body { flex-direction: column; }
+    .mcp-nav {
+        width: 100%;
+        height: 140px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+    }
+}
+
+/* ============================================================
+   定时任务（右侧面板 + 新建/详情弹窗）
+   ============================================================ */
+#schedulePanelSection { flex: 0 0 auto; }
+#schedulePanelSection.collapsed { flex: 0 0 auto; }
+#schedulePanelSection:not(.collapsed) .oc-panel-body {
+    max-height: 240px;
+    overflow-y: auto;
+}
+.oc-schedules { padding: 8px; }
+.oc-schedules .oc-empty {
+    padding: 14px 8px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    line-height: 1.8;
+}
+.oc-schedules .oc-empty code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 10.5px;
+}
+.oc-schedule-item {
+    padding: 8px 9px;
+    margin-bottom: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+}
+.oc-schedule-item:hover { background: var(--bg-card-hover); }
+.oc-schedule-item:last-child { margin-bottom: 0; }
+.oc-schedule-main { min-width: 0; }
+.oc-schedule-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.35;
+}
+.oc-schedule-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--text-muted);
+}
+.oc-schedule-dot.running { background: var(--accent); }
+.oc-schedule-dot.paused { background: var(--warning); }
+.oc-schedule-dot.done { background: var(--success); }
+.oc-schedule-dot.error { background: var(--danger); }
+.oc-schedule-dot.pending { background: var(--text-muted); }
+.oc-schedule-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.oc-schedule-meta {
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.oc-schedule-prompt {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.oc-schedule-actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}/* 已迁移到 <oc-icon-button size="xs"> */
+.oc-schedule-icon-btn {
+    --icon-box: 20px;
+    --icon-size: 14px;
+    --icon-radius: 4px;
+    --icon-color: var(--text-secondary);
+    --icon-color-hover: var(--text-primary);
+}.oc-schedule-icon-btn.danger:hover:not([disabled]) {
+    --icon-color-hover: var(--danger);
+}
+
+.oc-schedule-modal { width: 640px; max-width: calc(100vw - 32px); }
+.oc-schedule-detail-modal { width: 560px; max-width: calc(100vw - 32px); }
+.oc-schedule-form { display: flex; flex-direction: column; gap: 12px; }
+.oc-schedule-section { display: flex; flex-direction: column; gap: 8px; }
+/* 分区标题/容器严格对齐原型：12.5px 标题、12px 内间距、8px 圆角 */
+.oc-schedule-section-title {
+    margin: 0;
+    padding: 0 2px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+.oc-schedule-section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+}
+/* 时间设置内的“不重复/重复”面板：面板本身用列布局；只有重复面板需要 14px 间距（频率→时间），
+   不重复面板不需要额外间距，否则单选行与下方时间输入会离得过远 */
+/* 面板里的多个字段之间要有间距：原来只设了 column 没设 gap，
+   「不重复」里「什么时间」的单选行与下面的延迟输入框会贴在一起 */
+.oc-schedule-section-body > div[id^="schedulePanel"] {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+#schedulePanelRepeat { gap: 14px; }
+/* 全局没有 [hidden] 规则，面板改成 flex 后必须显式回收 */
+.oc-schedule-modal [hidden] { display: none !important; }
+/* 定时任务弹窗按原型保留 13/36 的表单尺寸，不跟随全局 cfg-field 的紧凑尺寸 */
+.oc-schedule-modal .field input,
+.oc-schedule-modal .field select,
+.oc-schedule-modal .field textarea {
+    width: 100%;
+    height: 36px;
+    padding: 8px 12px;
+    box-sizing: border-box;
+}
+.oc-schedule-modal .field textarea {
+    height: auto;
+    min-height: 64px;
+    resize: vertical;
+}
+/* 所有单选框统一：尺寸与原型一致（13px）、颜色一致，不因所在分区不同而变样 */
+.oc-schedule-modal input[type="radio"] {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+}
+.oc-schedule-tabs {
+    display: flex;
+    width: 100%;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    box-sizing: border-box;
+}
+.oc-schedule-tab {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    padding: 6px 0;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 13px;
+    text-align: center;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.oc-schedule-tab.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-weight: 600;
+    box-shadow: var(--shadow);
+}
+.oc-schedule-radios {
+    display: flex;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-primary);
+}/* 单选已换成 <oc-radio-button>，这里只管容器排布 */
+.oc-schedule-radios { }
+.oc-schedule-inline { display: flex; align-items: center; gap: 8px; }.oc-schedule-inline .oc-schedule-num {
+    flex: 1;
+    min-width: 0;
+}/* 行内下拉默认固定 112px（分钟等短选项）；时区下拉例外，撑满剩余宽度 */
+.oc-schedule-inline oc-select {
+    width: 112px;
+    flex: 0 0 112px;
+}
+#scheduleTz {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+}/* 时间输入撑满剩余宽度（右侧时区下拉固定 112px），不再固定 180px 留白 */
+.oc-schedule-inline .oc-schedule-time {
+    flex: 1;
+    min-width: 0;
+}
+.oc-schedule-inline select#scheduleTz { flex: 1; width: auto; }
+.oc-schedule-hint { margin-top: 5px; font-size: 11.5px; line-height: 1.55; color: var(--text-muted); }
+.oc-schedule-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.oc-schedule-chip {
+    min-width: 40px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.oc-schedule-chip:hover { border-color: var(--border-light); }
+.oc-schedule-chip.active {
+    border-color: var(--accent);
+    background: var(--accent-ghost);
+    color: var(--accent);
+    font-weight: 600;
+}
+.oc-schedule-ends {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 24px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}.oc-schedule-ends-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.oc-schedule-ends-control { display: inline-flex; align-items: center; gap: 6px; }
+.oc-schedule-ends-control .oc-schedule-num {
+    width: 72px;
+    flex: 0 0 72px;
+}
+.oc-schedule-ends-control oc-input:not(.oc-schedule-num) {
+    width: 180px;
+    flex: 0 0 180px;
+}
+.oc-schedule-ends-control > span { flex-shrink: 0; }
+.oc-schedule-detail { display: flex; flex-direction: column; gap: 10px; }
+.oc-schedule-detail-row { display: flex; gap: 12px; font-size: 12px; align-items: baseline; }
+.oc-schedule-detail-row > span { width: 72px; color: var(--text-muted); flex-shrink: 0; }
+.oc-schedule-detail-row > strong { font-weight: 500; color: var(--text-primary); }
+.oc-schedule-detail-prompt {
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-secondary);
+    font-family: inherit;
+}
+
+/* 系统配置行：开关推到行尾（宿主布局，不属于开关控件本身） */
+.cfg-web-enable oc-switch {
+    margin-left: auto;
+}
+/* 网络代理整行是 <label>，内层 span 承载开关：覆盖 .proxy-switch-row span 的纵向布局 */
+.proxy-switch-row oc-switch {
+    display: inline-flex;
+    flex-direction: row;
+    gap: 6px;
+}
+
+/* 会话区下拉：紧凑等宽，宽度按内容（min/max 兜底）—— 布局属于宿主 */
+.oc-model-info select {
+    height: 26px;
+    padding: 0 10px;
+    min-width: 80px;
+    max-width: 240px;
+}
+/* 下拉已换成 oc-select：尺寸走组件变量，宽度保持内容自适应 */
+.oc-model-info oc-select {
+    --oc-input-h: 26px;
+    --oc-input-px: 10px;
+    width: max-content;
+    min-width: 80px;
+    max-width: 240px;
+}
+
+/* 弹窗表单：字段组内的控件大一号（宿主按场景覆盖，不影响其它地方的 .ctl） */
+/* 弹窗字段组里的组件化控件：与同组原生控件同高（38px） */
+.modal .field oc-input,
+.modal .field oc-select,
+.modal-card .field oc-input,
+.modal-card .field oc-select {
+    --oc-input-h: 38px;
+    --oc-input-px: 12px;
+}
+.modal .field oc-textarea,
+.modal-card .field oc-textarea {
+    --oc-input-padding: 10px 12px;
+}
+
+
+/* 技能页搜索：与工具栏同宽，不撑满整行 */
+/* 技能页搜索框：旧 .search 规则早已失效，宽度按组件宿主给到 360px */
+.skill-search {
+    width: 360px;
+    flex: 0 1 360px;
+    min-width: 200px;
+}
+
+
+/* ===== 组件化后的按钮尺寸/配色覆盖（从 style.css 回填）===== */
+/* ===== 已迁移到 <oc-button> 的场景覆盖 =====
+   原按钮用 .xxx .btn 定制尺寸，换成自定义元素后 .btn 选不中内部按钮，
+   这里用组件变量把同样的尺寸再表达一遍；原来的 .btn 规则保留给尚未迁移的按钮。 */
+/* 与模型服务卡片的次小按钮同一套参数：无固定高度、12/4 内边距、
+   11.5px 字号、radius-xs 小圆角（视觉上是白底灰边的迷你按钮） */
+.cfg-web-actions oc-button {
+    --oc-btn-px: 12px;
+    --oc-btn-py: 4px;
+    --oc-btn-fs: 11.5px;
+    --oc-btn-radius: var(--radius-xs);
+}
+
+.cfg-web-actions oc-button:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-secondary);
+    --oc-btn-fg-hover: var(--text-primary);
+    --oc-btn-border-hover: var(--border-light);
+}
+
+.cfg-network-actions oc-button {
+    --oc-btn-h: 28px;
+    --oc-btn-px: 12px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11.5px;
+    --oc-btn-weight: 500;
+    --oc-btn-radius: 6px;
+}
+
+/* ===== MCP 服务行的图标按钮（已迁移到 <oc-button>）=====
+   原来是 20×20 的透明图标按钮，靠 .oc-service-actions .btn 定制。
+   现在尺寸走组件变量；hover 语义保持「重连=强调色、断开=危险色」。 */
+.oc-service-actions oc-button {
+    --oc-btn-h: 20px;
+    --oc-btn-icon: 14px;
+    --oc-btn-icon-stroke: 1.8;
+    --oc-btn-py: 0;
+    --oc-btn-px: 0;
+    --oc-btn-radius: 6px;
+}
+
+.oc-service-actions oc-button[data-mcp-action="connect"]:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--accent);
+}
+
+.oc-service-actions oc-button[data-mcp-action="disconnect"]:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--danger);
+}
+
+/* 在途反馈：按钮禁用时图标自旋（原来是 .btn:disabled .oc-service-icon） */
+.oc-service-actions oc-button[disabled] .oc-service-icon {
+    opacity: 0.45;
+    animation: spin 0.8s linear infinite;
+}
