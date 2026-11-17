@@ -1,0 +1,55 @@
+/* ============================================================
+   通用状态与 Toast
+   ------------------------------------------------------------
+   从 style.css 拆出（纯搬移，未改任何规则）：
+     · 加载 / 空 / 错误状态
+     · Toast 通知的补充规则（主要样式在 toast.css）
+   ============================================================ */
+
+/* ========== 加载 / 空 / 错误状态 ========== */
+.loading, .empty, .error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px;
+    color: var(--text-muted);
+    gap: 12px;
+    text-align: center;
+}
+
+/* 工具调用失败时不要被通用 .error 样式误伤 */
+.oc-tool.error {
+    display: block;
+    padding: 0;
+    text-align: left;
+    align-items: normal;
+    justify-content: normal;
+    gap: normal;
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.empty-hint, .error-detail {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.error {
+    color: var(--danger);
+}
+
+/* ========== Toast 通知 ========== */
+/* Toast 样式已抽到 css/toast.css（组件见 components/toast.js） */
+

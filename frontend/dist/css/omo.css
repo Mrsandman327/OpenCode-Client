@@ -1,0 +1,1336 @@
+/* ============================================================
+   OMO 配置视图
+   ------------------------------------------------------------
+   从 style.css 拆出（纯搬移，未改任何规则）：
+     · OMO 配置批量栏
+     · View 2 OMO 配置（模型/agent 方案表）
+     · OMO 方案管理、「新增方案」弹窗宽度
+     · 视图专属样式与全局覆盖（配置文件顶层 agents）
+   ============================================================ */
+
+/* ========== OMO 配置批量栏 ========== */
+.batch-model-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 18px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+}
+.batch-check {
+    white-space: nowrap;
+}
+.batch-model-select {
+    flex: 1;
+    height: 30px;
+    padding: 0 8px;
+}
+/* 已迁移到 <oc-check-button>：尺寸走组件变量 */
+.model-check {
+    --check-box: 15px;
+    --check-radius: 4px;
+    flex-shrink: 0;
+}
+
+#dirBrowserModal {
+    z-index: 360;
+}
+/* 字段说明：比 label 更弱，用于 NO_PROXY 等需要解释格式的输入项 */
+
+/* 网络配置：成对字段（地址 + 端口）排在同一行，减少弹窗高度 */
+.proxy-field-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 10px;
+}
+.proxy-field-row .field {
+    margin-bottom: 12px;
+}
+@media (max-width: 520px) {
+    .proxy-field-row {
+        grid-template-columns: minmax(0, 1fr);
+        column-gap: 0;
+    }
+}
+.frontend-web-status-running {
+    color: var(--success);
+    font-weight: 600;
+}
+/* Web服务二维码：白底卡片保证扫码识别率（深色主题下不随主题变暗） */
+.frontend-web-qr-box { background: #ffffff; border-radius: var(--radius-md); padding: 10px; min-width: 176px; min-height: 176px; display: flex; align-items: center; justify-content: center; }
+.frontend-web-qr-box canvas, .frontend-web-qr-box img { display: block; }
+.frontend-web-qr-empty { color: #9a9a9a; font-size: 12px; text-align: center; line-height: 1.6; }
+.frontend-web-qr-hint { font-size: 11px; color: var(--text-muted); text-align: center; }
+.frontend-web-qr-hint.warn { color: #d97706; }
+.proxy-modal {
+    width: 460px;
+}
+.proxy-separator {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 18px 0 14px;
+}
+.proxy-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px;
+    margin-bottom: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+}
+.proxy-switch-row span {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.proxy-switch-row strong {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+.proxy-switch-row small {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+/* 代理行的开关用 components/switch.js 的 .sw；input 由组件视觉隐藏，
+   不能再给 .proxy-switch-row input 设宽高，否则会破坏隐藏尺寸。 */
+.proxy-preview {
+    min-height: 32px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+/* ============================================================
+   View 2: OMO 配置
+   ============================================================ */
+.model-list {
+    padding: 12px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.model-group {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    /* flex 子项不压缩：同时展开多张卡片时各自保持完整高度，由外层 #modelConfig 整体滚动
+    （flex 默认 flex-shrink:1 会压扁卡片，配合 overflow:hidden 裁掉内容，导致页面无法滚动） */
+    flex-shrink: 0;
+    /* 裁剪子元素（标题栏背景）到卡片圆角内，否则标题栏直角会溢出圆角 */
+    overflow: hidden;
+    /* 与技能 / 知识库卡片共用同一套悬浮层次（只换阴影档位，不做 hover 上浮） */
+    box-shadow: var(--card-shadow-float);
+    /* hover 时抬升 z-index 的定位参照，避免阴影被相邻卡片盖住 */
+    position: relative;
+    transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.model-group:hover {
+    box-shadow: var(--card-shadow-float-hover);
+    z-index: 1;
+}
+
+.model-group-title {
+    padding: 14px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background var(--transition);
+}
+/* 添加条目：纯图标按钮（默认无背景无边框，悬浮图标高亮） */
+
+.btn-add-entry {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-add-entry:hover {
+    background: transparent;
+    color: var(--accent);
+}
+
+.model-group-title:hover {
+    background: var(--bg-card-hover);
+}
+
+/* 折叠指示图标：assets/菜单展开.svg、菜单折叠.svg 作遮罩（mask 机制），灰阶与文字区分 */
+.model-group-title::before {
+    content: '';
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    margin-right: 5px;
+    vertical-align: -1px;
+    background: var(--text-muted);
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
+}
+
+.model-group-label {
+    flex: 1;
+}
+
+.model-group-actions {
+    display: inline-flex;
+    align-items: center;
+    /* 三个图标按钮紧排 */
+    gap: 2px;
+    margin-left: auto;
+}
+
+.model-group-select-all {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    /* 与左侧图标组拉开 */
+    margin-left: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+.model-group-select-all:hover {
+    color: var(--text-secondary);
+}
+.model-group-select-all input {
+    margin: 0;
+    cursor: pointer;
+}
+
+/* 删除方案：纯图标按钮（默认无背景无边框，悬浮图标变红高亮） */
+.btn-delete-type {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-delete-type:hover {
+    background: transparent;
+    color: var(--danger);
+}
+
+/* 组头操作按钮图标（添加条目 / 重命名方案 / 删除方案）：
+   项目 assets 图标以 mask 渲染，颜色跟随按钮文字色（各按钮原有配色不变）。 */
+#view-omo .model-group-actions .omo-ic {
+    display: block;
+    width: 13px;
+    height: 13px;
+    background: currentColor;
+}
+#view-omo .omo-ic-add {
+    -webkit-mask: url("../assets/新增.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/新增.svg") center / 13px 13px no-repeat;
+}
+#view-omo .omo-ic-rename {
+    -webkit-mask: url("../assets/重命名.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/重命名.svg") center / 13px 13px no-repeat;
+}
+#view-omo .omo-ic-del {
+    -webkit-mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
+    mask: url("../assets/删除.svg") center / 13px 13px no-repeat;
+}
+
+.model-group-title.collapsed::before {
+    -webkit-mask-image: url("../assets/菜单折叠.svg");
+    mask-image: url("../assets/菜单折叠.svg");
+}
+
+.model-group-body {
+    overflow: hidden;
+    /* 折叠/展开：max-height 过渡（实际高度由 JS 驱动，见 omo-config.js） */
+    transition: max-height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.model-group-body.collapsed {
+    max-height: 0;
+}
+
+.model-row {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background var(--transition);
+    gap: 4px;
+}
+
+.model-row:last-child {
+    border-bottom: none;
+}
+
+.model-row:hover {
+    background: var(--bg-card-hover);
+}
+
+.model-row.changed {
+    /* 左侧标记改用 inset 阴影：border-left 会占用 3px 布局宽度，
+       让「已改动」的行整体右移，跟其它行的复选框/文字对不齐 */
+    background: var(--accent-ghost);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.model-row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.model-key {
+    min-width: 100px;
+    max-width: 160px;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 模型 / 推理等级两个下拉共用同一套外观（字体、字号、配色、边框、过渡）。
+   推理下拉此前完全没有样式，用的是浏览器默认外观，在暗色主题下与模型下拉割裂。 */
+.model-select,
+.model-reasoning-select {
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: border-color var(--transition);
+}
+
+.model-select {
+    /* 按最长选项定宽，最长 400 */
+    width: max-content;
+    flex: 0 1 auto;
+    max-width: 400px;
+}
+
+/* 推理等级选项很短（none/minimal/.../max），给固定上限即可，不参与弹性分配 */
+.model-reasoning-select {
+    width: max-content;
+    flex: 0 0 auto;
+    max-width: 160px;
+}
+
+.model-select option,
+.model-reasoning-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.model-comment {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding-left: 2px;
+    line-height: 1.4;
+}
+
+.model-group-empty {
+    padding: 14px 20px;
+    color: var(--text-muted);
+    font-size: 12px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--accent-ghost);
+}
+
+.save-status {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.save-status.changed {
+    color: var(--warning);
+    font-weight: 500;
+}
+
+/* ========== OMO 方案管理 ========== */
+/* 配置文件路径行、旧底部操作栏与旧方案选择条已移除：
+   文件操作与保存状态统一收进顶部 .omo-toolbar，这里不再保留对应规则。 */
+
+/* 技能列表：网格卡片布局（由原「全宽横条列表」改造而来）
+   列宽取 420px，理由：
+   - 卡片内要同时容纳「技能名 + 来源标签」「最多两行描述」「等宽字体的技能路径」三块内容，
+     其中等宽路径最长，300px（知识库卡片档）会让路径过早截断，420px 能露出有意义的目录层级；
+   - 桌面端内容区约 1600px 时可排成 3 列，卡片明显大于原横条，又不显空旷；
+   - min(420px, 100%) 保证容器窄于 420px 时列宽退化为满宽，不产生横向溢出。 */
+.skill-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
+    gap: 16px;
+    /* 行紧凑排列在顶部，避免行高被拉伸导致卡片间出现垂直空隙 */
+    align-content: start;
+    /* 行高必须由内容自然高度决定（max-content）。
+       本容器是 #view-skills 的 flex 子项（flex:1 + min-height:0，高度被父级定死），
+       若行轨道保持隐式 auto，浏览器会把容器高度「均分」给每一行：
+       视口变矮时卡片被压扁、内容被裁且不出现滚动条（知识库 .kb-grid 已踩过此坑）。
+       显式声明 max-content 后，行高不再随容器高度收缩，内容一溢出即触发滚动。 */
+    grid-auto-rows: max-content;
+    padding: 8px 24px;
+    /* 以下两行保留原横条列表的取值；技能视图下由 #view-skills .skill-list 覆盖为可滚动 */
+    flex: none;
+    overflow-y: visible;
+}
+
+/* 空态、加载态与提示横幅不是卡片，需跨越所有列占满整行 */
+.skill-list > .oc-empty,
+.skill-list > .loading,
+.skill-list > .no-sources-banner {
+    grid-column: 1 / -1;
+}
+
+/* 技能卡片：采用原型「配置收起」布局——顶部一行（图标 + 信息 + 右上开关），
+   底部独立一行路径；与知识库卡片（.kb-card）共用同一套「悬浮卡片」视觉语言 */
+.skill-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    /* 与知识库卡片同档的三层阴影，让卡片从列表底色上浮起 */
+    box-shadow: var(--card-shadow-float);
+    min-height: 150px;
+    /* 只过渡会变化的视觉属性，避免 transition:all 带来的无谓重绘；
+       transform / box-shadow 走更长的缓出曲线，与知识库卡片完全一致 */
+    transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color var(--transition), background var(--transition);
+    /* 作为 hover 时 z-index 的定位参照，避免阴影被相邻卡片盖住 */
+    position: relative;
+    overflow: hidden;
+}
+
+.skill-card:hover {
+    border-color: var(--border-light);
+    /* 切到更大扩散的一档阴影；卡片化后回到知识库网格卡片同款的 3px 上浮——
+       卡片已不再是 1800px 全宽横条，3px 的位移在卡片尺度上正合适 */
+    box-shadow: var(--card-shadow-float-hover);
+    transform: translateY(-3px);
+    z-index: 1;
+    /* 不再叠加 --bg-card-hover 底色：与知识库卡片同理，浮起 + 换底会显脏，
+       层次感交给阴影与描边承担 */
+}
+
+/* 卡片顶部一行：图标 + 信息 + 右上开关（开关是第三个子元素，故位于右上） */
+.skill-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+/* 技能图标：低饱和柔和底 + 同色描边图标（与知识库卡片 .kb-row-icon 同一视觉语言） */
+.skill-icon {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+/* 图标本体：线性 stroke 风格，颜色继承 .skill-icon 的 currentColor */
+#view-skills .skill-icon-i {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* 信息区：占据顶部行的剩余宽度，与右侧开关同一基线对齐 */
+.skill-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.skill-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: left;
+}
+/* 技能名按钮：作为「打开技能」入口之一，去除按钮默认外观；
+   默认使用品牌蓝（强调色）以恢复改造前的视觉，hover 提亮作为可点击反馈 */
+.skill-name-btn {
+    max-width: 100%;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    /* 默认即品牌蓝，覆盖 .skill-name 的深色（同优先级，靠后的规则生效） */
+    color: var(--accent);
+    cursor: pointer;
+    transition: color var(--transition);
+}
+/* 默认已为蓝色，hover 改用提亮色，保持品牌蓝语义的同时给出可点击反馈 */
+.skill-name-btn:hover { color: var(--accent-hover); }
+.skill-name-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+}
+
+.skill-desc {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    line-height: 1.55;
+    /* 描述最多 3 行，超出省略；预留三行高度让同排卡片底部路径对齐 */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 72px;
+}
+
+/* 统一开关控件的样式已抽到 css/switch.css（组件见 components/switch.js） */
+
+/* ========== 项目配置弹窗 ========== */
+
+/* 新增方案弹窗：沿用统一 modal-card 结构，仅收敛宽度 */
+.add-preset-modal {
+    width: min(92vw, 420px);
+    max-width: 100%;
+    border: 1px solid var(--border);
+}
+
+/* ============================================================
+   OMO 配置（oh-my-opencode-slim 方案管理）— 视图专属样式
+   ------------------------------------------------------------
+   改造说明：本视图复用 .model-group / .model-row / .batch-* /
+   .btn* 等既有组件，仅补充少量「方案 radio 与继承标记」样式；
+   全部沿用现有 CSS 变量，克制、朴素，不引入新的视觉语言。
+   ============================================================ */
+/* 方案单选按钮（组头最左；radio 是唯一表达「启用」的元素） */
+#view-omo .preset-radio {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+}
+/* 方案名：默认中等字重；选中的方案加粗（唯一的高亮差异） */
+#view-omo .model-group-title .model-group-label {
+    flex: 0 0 auto;
+    font-weight: 500;
+}
+#view-omo .model-group.active .model-group-label {
+    font-weight: 600;
+}
+/* 灰色小字标记：「启用中」「继承自 X」「继承」「已覆盖」 */
+#view-omo .active-tag,
+#view-omo .inherit-note,
+#view-omo .inherit-tag {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+/* 行内「继承 / 已覆盖」标记紧跟 agent 名（收紧与名字的间距） */
+#view-omo .inherit-tag {
+    margin-left: -4px;
+}
+/* 继承异常警示（继承环 / 继承源缺失；此类方案禁止保存） */
+#view-omo .inherit-error {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--danger);
+    white-space: nowrap;
+}
+/* 纯继承行：左边缘一条浅灰竖线（padding 补偿 2px，保持内容对齐） */
+#view-omo .model-row.inherited {
+    /* 不再加左侧竖线：2px 边框会让这一行的边缘与其它行错开，
+       继承状态已经由行内的「继承」标签表达 */
+    padding-left: 20px;
+}
+/* 组头「重命名方案」按钮：纯图标（默认无背景无边框，悬浮图标高亮） */
+#view-omo .btn-rename-preset {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#view-omo .btn-rename-preset:hover {
+    background: transparent;
+    color: var(--accent);
+}
+/* 顶部覆盖提示条：环境变量 / 项目级配置优先、本文件可能不生效时的提示 */
+#view-omo .slim-override-hint {
+    padding: 8px 12px;
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-sm);
+    background: var(--warning-bg);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* ============================================================
+   全局覆盖（配置文件顶层 agents）
+   ------------------------------------------------------------
+   位置固定在 OMO 工具栏下方、批量栏上方，默认收起。
+   只复用项目现有变量与字体栈，不引入新的视觉语言：
+   - 覆盖行用 accent 左侧竖线 + 极浅底色；
+   - 禁用行用 danger 浅底，控件压暗但保留原值；
+   - 收起/展开用 grid-template-rows 过渡，不写死高度。
+   ============================================================ */
+#view-omo .go-override {
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+}
+
+/* ---------- 收起态表头：一行摘要 + 展开 ---------- */
+#view-omo .go-header {
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px 16px;
+    border: none;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+#view-omo .go-header:hover {
+    background: var(--bg-card-hover);
+}
+#view-omo .go-header:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+#view-omo .go-chevron {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+/* 纯 CSS 箭头：默认指右，展开后转向下 */
+#view-omo .go-chevron::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#view-omo .go-override.open .go-chevron::before {
+    transform: rotate(45deg);
+}
+#view-omo .go-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+#view-omo .go-code-chip {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 7px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    background: var(--accent-ghost);
+    color: var(--accent);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 10px;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+#view-omo .go-sub {
+    min-width: 0;
+    max-width: 260px;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+#view-omo .go-summary {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+/* 覆盖/禁用摘要：只保留小圆点 + 文字，不再画胶囊底色和边框；
+   文字统一中性色，仅小圆点带颜色 */
+#view-omo .go-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: color var(--transition);
+}
+#view-omo .go-chip b {
+    font-weight: 600;
+}
+#view-omo .go-chip .go-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+}
+#view-omo .go-chip-override:not(.is-zero) .go-dot {
+    background: var(--accent);
+}
+#view-omo .go-chip-disabled:not(.is-zero) .go-dot {
+    background: var(--danger);
+}
+#view-omo .go-chip.is-zero {
+    color: var(--text-muted);
+}
+
+/* ---------- 展开/收起过渡 ---------- */
+#view-omo .go-body {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#view-omo .go-override.open .go-body {
+    grid-template-rows: 1fr;
+}
+#view-omo .go-override.no-motion .go-body {
+    transition: none;
+}
+#view-omo .go-body-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* ---------- 说明与列头 ---------- */
+#view-omo .go-intro {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 16px 8px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+#view-omo .go-intro p {
+    min-width: 0;
+}
+/* 正文里的字段名：行内代码样式。注意不能进入下面的 grid 选择器组，
+   否则 display:grid 会把「顶层 agents，覆盖…」拆成多行。 */
+#view-omo .go-intro code {
+    display: inline;
+    padding: 0 4px;
+    border-radius: var(--radius-xs);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 0.94em;
+}
+#view-omo .go-col-head,
+#view-omo .go-row {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.05fr) minmax(142px, 0.68fr) minmax(230px, 1.3fr) 76px;
+    gap: 12px;
+    align-items: center;
+}
+#view-omo .go-col-head {
+    padding: 6px 16px 5px;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+}
+#view-omo .go-col-head span:last-child {
+    text-align: right;
+}
+
+/* ---------- 数据行 ---------- */
+#view-omo .go-rows {
+    border-top: 1px solid var(--border);
+}
+#view-omo .go-row {
+    min-height: 42px;
+    padding: 6px 16px;
+    border-top: 1px solid var(--border);
+    background: transparent;
+    transition: background var(--transition);
+}
+#view-omo .go-rows .go-row:first-child {
+    border-top: none;
+}
+#view-omo .go-row:hover {
+    background: var(--bg-card-hover);
+}
+/* 存在顶层覆盖：左侧 accent 竖线 + 极浅底色 */
+#view-omo .go-row.is-override {
+    background: var(--accent-ghost);
+    box-shadow: inset 2px 0 0 var(--accent);
+}
+#view-omo .go-row.is-override:hover {
+    background: var(--bg-card-hover);
+}
+/* 已禁用：整行 danger 浅底，开关与状态保持可读 */
+#view-omo .go-row.is-disabled {
+    background: var(--danger-bg);
+}
+#view-omo .go-row.is-disabled:hover {
+    background: var(--bg-card-hover);
+}
+#view-omo .go-agent-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+#view-omo .go-agent-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 7px;
+    min-width: 0;
+}
+#view-omo .go-agent-name {
+    color: var(--text-primary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+/* agent 职责注释（agents-comments.json）：与方案行 .model-comment 同口径，
+   独占一行、最多两行，超出省略（title 保留全文） */
+#view-omo .go-agent-comment {
+    flex-basis: 100%;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+#view-omo .go-role-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 17px;
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    color: var(--text-muted);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+#view-omo .go-role-badge.is-primary {
+    border-color: var(--border-light);
+    color: var(--text-secondary);
+}
+#view-omo .go-protected-note {
+    color: var(--text-muted);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+/* 启用开关统一使用 components/switch.js 的 .sw（见「统一开关控件」） */
+
+/* ---------- 模型来源 / 模型控件 ---------- */
+#view-omo oc-select.go-select {
+    height: auto;
+    padding: 0;
+    --oc-input-h: 28px;
+    --oc-input-px: 8px;
+}
+#view-omo .go-select {
+    height: 28px;
+    min-width: 0;
+    padding: 0 8px;
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition), opacity var(--transition);
+}
+#view-omo .go-select:hover:not(:disabled) {
+    border-color: var(--border-light);
+}
+#view-omo .go-select:disabled {
+    color: var(--text-muted);
+    -webkit-text-fill-color: var(--text-muted);
+    opacity: 0.86;
+    cursor: not-allowed;
+}
+#view-omo .go-source-cell {
+    min-width: 0;
+}
+#view-omo .go-source-select {
+    /* 宽度取最长选项，最长不超过 200 */
+    width: max-content;
+    max-width: 200px;
+}
+#view-omo .go-row.is-override .go-source-select:not(:disabled) {
+    border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+    color: var(--text-primary);
+}
+#view-omo .go-model-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+#view-omo .go-model-pick {
+    width: max-content;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 340px;
+    color: var(--text-primary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+}
+#view-omo .go-variant-pick {
+    width: max-content;
+    flex: 0 0 auto;
+    color: var(--text-primary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+}
+#view-omo .go-locked-select {
+    /* 宽度跟内容走，不再 flex:1 撑满 */
+    flex: 0 0 auto;
+    width: auto;
+    max-width: 340px;
+    border-style: dashed;
+    cursor: not-allowed;
+}
+/* 宿主那层虚线去掉，虚线改由组件内部画 */
+#view-omo oc-select.go-locked-select {
+    border: none;
+    width: max-content;
+    --oc-input-border-style: dashed;
+    --oc-input-fg: var(--text-muted);
+}
+#view-omo .go-readonly-note {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 9px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.4;
+}
+/* 禁用行：名称与控件整体压暗，但保留可读性；开关和状态色保持清晰 */
+#view-omo .go-row.is-disabled .go-agent-info {
+    opacity: 0.55;
+}
+#view-omo .go-row.is-disabled .go-source-cell,
+#view-omo .go-row.is-disabled .go-model-cell {
+    opacity: 0.84;
+}
+
+/* ---------- 覆盖状态 ---------- */
+#view-omo .go-status-cell {
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
+}
+#view-omo .go-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 21px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+#view-omo .go-status-pill .go-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+#view-omo .go-status-pill.is-override {
+    border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+    background: var(--accent-ghost);
+    color: var(--accent);
+}
+#view-omo .go-status-pill.is-disabled {
+    border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+#view-omo .go-status-text {
+    color: var(--text-muted);
+    font-size: 10.5px;
+    white-space: nowrap;
+}
+#view-omo .go-empty {
+    padding: 14px 16px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+/* ---------- 底部字段说明：已移除（不再展示技术字段名） ---------- */
+
+/* ---------- 方案行内的顶层覆盖 / 全局禁用小标签 ---------- */
+#view-omo .go-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 6px;
+    flex-shrink: 0;
+    border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+    border-radius: var(--radius-xs);
+    background: var(--accent-ghost);
+    color: var(--accent);
+    font-size: 9.5px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+#view-omo .go-tag.danger {
+    border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+/* ---------- 窄屏适配 ---------- */
+@media (max-width: 1080px) {
+    #view-omo .go-sub {
+        display: none;
+    }
+}
+@media (max-width: 980px) {
+    #view-omo .go-col-head,
+    #view-omo .go-row {
+        grid-template-columns: minmax(220px, 1fr) minmax(128px, 0.7fr) minmax(205px, 1.2fr) 68px;
+        gap: 8px;
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+    #view-omo .go-intro {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+    #view-omo .go-model-pick,
+    #view-omo .go-locked-select {
+        max-width: none;
+    }
+    #view-omo .go-variant-pick {
+        width: 74px;
+        flex-basis: 74px;
+    }
+}
+@media (max-width: 840px) {
+    #view-omo .go-col-head {
+        display: none;
+    }
+    #view-omo .go-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "agent status"
+            "source model";
+        gap: 7px 10px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+    }
+    #view-omo .go-agent-cell {
+        grid-area: agent;
+    }
+    #view-omo .go-source-cell {
+        grid-area: source;
+    }
+    #view-omo .go-model-cell {
+        grid-area: model;
+    }
+    #view-omo .go-status-cell {
+        grid-area: status;
+    }
+    #view-omo .go-source-select,
+    #view-omo .go-model-pick,
+    #view-omo .go-locked-select {
+        max-width: none;
+    }
+}
+@media (max-width: 640px) {
+    #view-omo .go-header {
+        gap: 6px;
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    #view-omo .go-title {
+        font-size: 13px;
+    }
+    #view-omo .go-code-chip {
+        display: none;
+    }
+    #view-omo .go-chip {
+        padding: 0 7px;
+    }
+    #view-omo .go-intro {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    #view-omo .go-row {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    #view-omo .go-agent-name {
+        font-size: 11.5px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    #view-omo .go-body,
+    #view-omo .go-chevron::before {
+        transition: none;
+    }
+}
+
+.oc-update-banner oc-button {
+    --oc-btn-py: 4px;
+    --oc-btn-px: 12px;
+    --oc-btn-fs: 12.5px;
+}
+
+.oc-panel-head oc-button {
+    margin-left: auto;
+}
+
+/* 顶栏按钮恢复原 .header-actions .btn-config / .btn-danger-outline 的配色：
+   原来靠类名覆盖全局变体，现在按钮是自定义元素，改用组件变量表达 */
+.header-actions oc-button[variant="config"] {
+    --oc-btn-bg: transparent;
+    --oc-btn-fg: var(--text-secondary);
+    --oc-btn-border: var(--border);
+    --oc-btn-weight: 500;
+}
+
+.header-actions oc-button[variant="config"]:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-card-hover);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-border-hover: var(--accent);
+}
+
+.header-actions oc-button[variant="danger"] {
+    --oc-btn-bg: var(--danger-bg);
+    --oc-btn-fg: var(--danger);
+    --oc-btn-border: var(--danger);
+    --oc-btn-weight: 600;
+}
+
+.header-actions oc-button[variant="danger"]:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--danger);
+    --oc-btn-fg-hover: #fff;
+}
+
+/* 已迁移的头部图标按钮：尺寸走组件变量，外观由 variant="ghost" + icon-only 提供 */
+oc-button.oc-head-icon-btn {
+    --oc-btn-h: 24px;
+    --oc-btn-py: 0;
+    --oc-btn-px: 0;
+    --oc-btn-icon: 15px;
+    --oc-btn-icon-stroke: 1.9;
+    --oc-btn-radius: 6px;
+}
+
+/* 同一行里仍是原生 <button class="btn btn-sm"> 的（如编辑器「搜索」）单独收窄，
+   圆角跟 oc-button 对齐成 6px，避免同一行两个按钮圆角不一致 */
+/* 弹窗底栏按钮统一 34px 高（原 .modal-footer .btn 的规则选不中自定义元素） */
+.modal .modal-footer oc-button,
+.modal-card .modal-footer oc-button {
+    --oc-btn-h: 30px;
+    --oc-btn-px: 14px;
+    --oc-btn-fs: 13px;
+}
+
+
+/* ===== 视图外壳与工具栏（原在 style.css 的 View 面板段尾）===== */
+/* OMO 配置视图专项 */
+#view-omo.active {
+    display: flex !important;
+    flex-direction: column;
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* 顶部工具栏：与供应商 .pv-toolbar / 知识库 .kb-toolbar 同一口径
+   （浅底 + 下描边 + 8/12 内边距），固定不随内容滚动。
+   左侧只放文件操作；右侧整组「保存状态 + 新增方案 + 保存配置」用
+   margin-left:auto 靠右，窄窗口时整组换行仍贴右，不会把主按钮挤成孤行。 */
+.omo-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    row-gap: 6px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    /* flex 列布局下 item 默认 min-width:auto 会被内容撑宽，
+       导致极窄窗口时不换行而被裁切；归零后换行才会真正生效 */
+    min-width: 0;
+}
+
+.omo-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    row-gap: 6px;
+    margin-left: auto;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.omo-toolbar .oc-fb-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* 保存状态：小字单行，位于右侧操作组最左端，作为保存动作的状态提示；
+   文案与 changed 强调色均由 JS 控制，这里只约束排版，不参与压缩。 */
+.omo-toolbar .save-status {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+#view-omo #modelConfig {
+    flex: 1;
+    height: 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* 批量栏固定于工具栏下方；其内部 .batch-model-bar 自带下描边与内边距，
+   外层不再追加空档，避免工具栏与批量栏之间出现松散缝。 */
+.omo-batch-bar-wrap {
+    flex-shrink: 0;
+}
+
+/* 窄屏：模型行换行排列 */
+@media (max-width: 800px) {
+        .model-row-top {
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .model-key {
+            min-width: 100px;
+            flex-basis: 100%;
+        }
+        .model-select {
+            max-width: 100%;
+        }
+}
+
+/* ===== 组件化后的按钮覆盖 ===== */
+/* 行内图标动作按钮：无背景无边框，悬停只改图标颜色（添加/重命名→强调色） */
+oc-button.btn-add-entry,
+oc-button.btn-rename-preset,
+oc-button.btn-delete-type {
+    --oc-btn-h: 24px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-icon: 13px;
+    --oc-btn-radius: var(--radius-sm);
+}
+
+oc-button.btn-add-entry:hover:not([disabled]),
+oc-button.btn-rename-preset:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--accent);
+}
+
+oc-button.btn-delete-type:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--danger);
+}
+
+/* OMO 模型行尾删除：无背景，悬停只把图标变红 */
+.model-row-top oc-button.btn-del {
+    --oc-btn-h: 22px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-icon: 12px;
+}
+
+.model-row-top oc-button.btn-del:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--danger);
+}

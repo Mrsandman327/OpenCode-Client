@@ -1,0 +1,731 @@
+/* ============================================================
+   供应商与模型
+   ------------------------------------------------------------
+   从 style.css 拆出（纯搬移，未改任何规则）：
+     · View 5 供应商配置
+     · 供应商卡片（收起态标题栏 / 摘要 / 启用模型名单）与工具栏
+     · 模型列表弹窗
+   ============================================================ */
+
+/* ============================================================
+   View 5: 供应商配置
+   ============================================================ */
+#view-providers.active {
+    display: flex !important;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+}
+/* 滚动层与内容层分离：CSS columns 内容必须高度自适应（固定高度会导致横向溢出列不可见） */
+.providers-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+/* 多列瀑布流（列优先）：列宽 460，宽屏自动排 3 列；窄屏自动降为 2/1 列 */
+.providers-list {
+    padding: 12px 22px;
+    columns: 3 460px;
+    column-gap: 16px;
+}
+/* 列表模式（单列，卡片全宽） */
+.providers-list.list-mode {
+    columns: auto;
+}
+/* 空态：强制单列，提示居中占满整个列表区（columns 下会挤在左列） */
+.providers-list.is-empty {
+    columns: auto;
+}
+.provider-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    /* 与技能 / 知识库卡片共用同一套悬浮层次（只换阴影档位，不做 hover 上浮） */
+    box-shadow: var(--card-shadow-float);
+    /* hover 时抬升 z-index 的定位参照，避免阴影被相邻卡片盖住 */
+    position: relative;
+    transition: box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    /* 瀑布流：禁止卡片跨列断开 + 纵向间距（columns 无 row-gap） */
+    break-inside: avoid;
+    margin-bottom: 18px;
+}
+.provider-card:hover {
+    box-shadow: var(--card-shadow-float-hover);
+    z-index: 1;
+}
+.provider-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    gap: 16px;
+    /* 点击标题栏展开/折叠 */
+    cursor: pointer;
+    user-select: none;
+}
+.provider-card-header:hover {
+    background: var(--bg-card-hover);
+}
+.provider-card .prov-edit-key {
+    margin-right: 25px;
+}
+.provider-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: center;
+}
+/* 启用开关统一使用 components/switch.js 的 .sw（见上文「统一开关控件」） */
+/* 连接配置：纵向堆叠（窄卡片下三栏会显示不全） */
+.provider-conn-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.provider-conn-col input,
+.provider-conn-col select {
+    width: 100%;
+}
+.prov-field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.provider-conn-col {
+    width: 100%;
+    min-width: 0;
+}
+/* API Key 与明文切换按钮贴合 */
+/* API Key 与明文切换按钮贴合：边框由容器统一提供，
+   聚焦时与其它输入框一致（1px accent + accent-glow），不会只亮一半 */
+.prov-apikey-row {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-card);
+}
+.prov-apikey-row:focus-within {
+    border-color: var(--accent);
+}
+.prov-apikey-row .prov-edit-apikey,
+.prov-apikey-row oc-input {
+    flex: 1;
+    min-width: 0;
+    /* 描边由外层 .prov-apikey-row 提供，组件内部不再画第二层 */
+    --oc-input-border-width: 0;
+    --oc-input-radius: 0;
+    --oc-input-bg: transparent;
+}
+.prov-apikey-row .btn-eye {
+    border: none;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+}
+/* 空状态占位 */
+/* 默认收起：仅标题栏 + 摘要 + 启用模型名单；点击标题栏展开后显示完整编辑区 */
+.provider-card-body {
+    padding: 13px 14px 14px;
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+}
+.provider-card.expanded .provider-card-body {
+    display: flex;
+}
+.provider-models {
+    margin-top: 8px;
+}
+.provider-models-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.model-subcard {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 6px;
+    border: none;
+    border-radius: var(--radius-sm);
+    margin-bottom: 4px;
+    font-size: 13px;
+    transition: background-color 0.15s ease;
+}
+.model-subcard:hover {
+    background: var(--bg-card-hover);
+}
+/* 能力/删除按钮固定在顶部，避免能力区展开撑高后按钮被 align-items:center 下沉 */
+.model-subcard .btn-toggle-abilities,
+.model-subcard .btn-del-model {
+    align-self: flex-start;
+    margin-top: 0;
+}
+.model-subcard .btn-del-model { margin-top: 3px; }
+/* 模型子卡片：ID/名称行与能力区纵向堆叠，占满剩余宽度 */
+.model-subcard-fields {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+/* 能力区默认折叠：display:none 初始隐藏，.abilities-open 时展开为 flex。
+   checkbox 仍在 DOM 中，saveProviderFromDom 用 .mod-input:checked /
+   .mod-output:checked 收集勾选值不受折叠影响 */
+/* 模型 ID / 名称：每组 label + 输入框，label 紧跟输入框，不再用固定列宽 */
+.model-head-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.model-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 0;
+    min-width: 0;
+}
+.model-head-label {
+    width: 32px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+}
+.model-field input {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    height: 30px;
+    padding: 4px 8px;
+}
+/* 自定义元素：高度/内边距必须交给组件内部，宿主设了会把内部输入框挤出去 */
+.model-field oc-input {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+}
+.provider-card .model-field input {
+    height: 30px;
+    padding: 4px 4px;
+}
+
+/* 展开区：二级面板，和卡片主体区分层级 */
+.model-abilities {
+    display: none;
+    flex: 0 0 calc(100% - 34px);
+    width: calc(100% - 34px);
+    margin-left: 0;
+    margin-top: 0;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+}
+.model-subcard.abilities-open .model-abilities {
+    display: flex;
+}
+.setting-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.setting-group + .setting-group {
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+}
+.setting-title {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .4px;
+}
+.mod-row {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    min-height: 28px;
+}
+.mod-label {
+    width: auto;
+    text-align: right;
+    color: var(--text-muted);
+    font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    line-height: 1.43;
+}
+.model-abilities .mod-chip {
+    padding: 2px 10px;
+    font-size: 11.5px;
+    font-family: Cascadia Code;
+}
+.model-abilities .mod-chip-text { font-size: 11.5px; }
+.model-limit-input {
+    /* 宿主只留宽度；高度/内边距交给组件变量，否则内部输入框会被挤出去 */
+    width: 140px;
+    --oc-input-h: 24px;
+    --oc-input-px: 8px;
+}
+/* 覆盖 .provider-card input 的 13px / 大 padding，限制区输入框固定 12px */
+.provider-card .model-limit-input {
+    /* 尺寸交给组件变量：宿主再设 height/padding 会把内部输入框裁掉 */
+    --oc-input-h: 24px;
+    --oc-input-px: 8px;
+    --oc-input-fs: 10px;
+    width: 140px;
+}
+.limit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.mod-unit {
+    color: var(--text-muted);
+    font-size: 10.5px;
+}
+.mod-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+/* 模型能力芯片：紧凑的 Apple configurator-option-chip 语法（pill + caption） */
+.mod-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: -0.2px;
+    line-height: 1.43;
+    user-select: none;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+.mod-chip:hover {
+    border-color: var(--border-light);
+    color: var(--text-secondary);
+}
+.mod-chip:active {
+    transform: scale(0.95);
+}
+.mod-chip input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    appearance: none;
+}
+/* 选中态：输入 / 输出 / 思考强度 / 工具共用同一套描边与文字色。
+   checkbox 仍在 DOM 中，saveProviderFromDom 用 .mod-*:checked 收集勾选值。 */
+.mod-chip:has(.mod-input:checked),
+.mod-chip:has(.mod-output:checked),
+.mod-chip:has(.mod-effort:checked),
+.mod-chip:has(.mod-tools:checked) {
+    border: 1px solid var(--accent);
+    padding: 2px 8px;
+    color: var(--accent);
+    background: var(--bg-secondary);
+}
+.mod-chip:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.mod-chip-text {
+    display: inline-block;
+}
+/* 「能力」展开/折叠按钮：小号 secondary pill（透明 + accent 描边 + accent 字），
+   展开态箭头旋转 180°，press 缩放 0.95 */
+.btn-toggle-abilities {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    /* 与同排输入框保持同一高度，避免中心线差 1px */
+    height: 30px;
+    box-sizing: border-box;
+    padding: 0 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.224px;
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.btn-toggle-abilities:hover {
+    background: var(--accent-ghost);
+}
+.btn-toggle-abilities:active {
+    transform: scale(0.95);
+}
+.btn-toggle-abilities .toggle-arrow {
+    /* 箭头字符容易被基线拉低，用 flex 居中 */
+    display: inline-flex;
+    align-items: center;
+    font-size: 20px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+.btn-toggle-abilities[aria-expanded="true"] .toggle-arrow {
+    transform: rotate(180deg);
+}
+
+/* 供应商卡片内输入框统一样式 */
+.provider-card input {
+    padding: 8px 14px;
+    transition: border-color 0.15s ease;
+}
+.provider-card select {
+    padding: 8px 12px;
+}
+/* 保存按钮：用 #view-providers 提升优先级替代 !important。
+   ID + class 的权重（1,1,0）高于 .btn / .btn-sm 以及 .btn-sm:hover:not(:disabled)（0,3,0），
+   因此胶囊改方角、配色、字号都能稳定覆盖，无需 !important */
+/* 删除卡片按钮：无边框、默认弱化色，仅悬浮时变红（与通用 .btn-del 口径一致）；
+   同样用 #view-providers 前缀压过 .btn-del / .btn 的默认样式 *//* 已迁移到 <oc-icon-button>：与知识库卡片删除按钮同一套外观 *//* 已迁移到 <oc-icon-button>：与知识库卡片删除按钮同一套外观
+   （26px 点击区、描边垃圾桶 14px、透明底、hover 危险红） *//* 已迁移到 <oc-icon-button>：与知识库卡片删除按钮同一套外观。
+   悬停只把图标变红——不加底色、不加边框，避免在卡片头部浮出色块。 */
+#view-providers .btn-del-card {
+    --icon-box: 26px;
+    --icon-size: 14px;
+    --icon-radius: var(--radius-sm);
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
+}
+/* 删除图标：项目 assets/删除.svg，mask 跟随按钮文字色（危险红） */
+
+/* ===== 供应商卡片：收起态标题栏 / 摘要 / 启用模型名单 ===== */
+.provider-title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+/* 标题栏左侧折叠/展开图标：项目 assets 同款（折叠=右三角 / 展开=下三角），mask 跟随文字色 */
+.prov-expand-ic {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    background: currentColor;
+    color: var(--text-muted);
+    -webkit-mask: url("../assets/菜单折叠.svg") center / 12px 12px no-repeat;
+    mask: url("../assets/菜单折叠.svg") center / 12px 12px no-repeat;
+}
+.provider-card.expanded .prov-expand-ic {
+    -webkit-mask-image: url("../assets/菜单展开.svg");
+    mask-image: url("../assets/菜单展开.svg");
+}
+.prov-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+.provider-card.disabled .prov-name {
+    color: var(--text-muted);
+}
+.prov-key {
+    font-size: 10.5px;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    padding: 1px 6px;
+}
+.prov-badge {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 1px 8px;
+    white-space: nowrap;
+}
+/* 收起态摘要行：主机名 · 接口格式 */
+.provider-summary {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+}
+.provider-summary .mono {
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.provider-summary .sep {
+    color: var(--border-light);
+}
+/* 收起态：启用模型名单（禁用模型不显示；超过 4 个截断，展开时隐藏） */
+.prov-models-line {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 0 14px 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+}
+.prov-models-label {
+    font-weight: 600;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.prov-models-names {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+}
+.prov-models-line .more {
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+.prov-models-empty {
+    color: var(--border-light);
+}
+.provider-card.expanded .provider-summary,
+.provider-card.expanded .prov-models-line {
+    display: none;
+}
+/* 保存按钮：展开态右下角 */
+.provider-save-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2px;
+}
+
+/* ===== 供应商工具栏（照知识库 .kb-toolbar） ===== */
+.pv-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.pv-search {
+    flex: 1;
+    min-width: 180px;
+    max-width: 340px;
+}
+.pv-seg {
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+.pv-seg-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border: none;
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+.pv-seg-btn:hover { color: var(--text-primary); }
+.pv-seg-btn.active {
+    background: var(--bg-sidebar-active);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.pv-seg-btn .pv-i {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+/* ======== 模型列表弹窗 ======== */
+.model-list-body {
+    max-height: 360px;
+    overflow-y: auto;
+    margin: 8px 0;
+}
+.model-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+.model-list-row:last-child {
+    border-bottom: none;
+}
+/* 状态圆点：蓝=可新增（未添加）/ 红=可删除（已添加），与按钮悬停语义色对应 */
+.model-list-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+.model-list-dot.add {
+    background: var(--accent);
+}
+.model-list-dot.del {
+    background: var(--danger);
+}
+.model-list-name {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 12px;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 12px;
+}
+/* 模型列表行内操作按钮：中性极简（与弹窗关闭按钮同一套交互语言）——
+   平时灰色图标、无框透明，融入列表；悬停出现浅色背景块 + 语义色
+   （增加→主色蓝、删除→危险色红；语义色只在悬停时出现，避免常驻红绿的廉价感） */
+.model-list-row .btn-add,
+.model-list-row .btn-del {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.model-list-row .btn-add .oc-fb-icon,
+.model-list-row .btn-del .oc-fb-icon {
+    width: 13px;
+    height: 13px;
+}
+/* 悬停背景块：light 用黑色 6% 叠加 / dark 用白色 8%（与 modal-close-btn 同款双主题方案，保证两主题下都可见） */
+.model-list-row button.btn-add:hover,
+[data-theme="dark"] .model-list-row button.btn-add:hover,
+[data-theme="dark"] .model-list-row button.btn-del:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+/* 悬停语义色：增加→主色；删除→危险色 */
+.model-list-row button.btn-del:hover {
+    color: var(--danger);
+}
+
+
+/* ===== 组件化后的按钮覆盖 ===== */
+/* 行内图标动作按钮：无背景无边框，悬停只改图标颜色（删除→危险色） */
+oc-button.btn-del-model {
+    --oc-btn-h: 24px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-icon: 13px;
+    --oc-btn-radius: var(--radius-sm);
+}
+
+oc-button.btn-del-model:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--danger);
+}
+
+/* 供应商卡片 / 模型列表行的图标按钮 */
+oc-button.btn-del-card,
+.model-list-row oc-button.btn-add,
+.model-list-row oc-button.btn-del {
+    --oc-btn-h: 24px;
+    --oc-btn-px: 0;
+    --oc-btn-py: 0;
+    --oc-btn-fg: var(--text-muted);
+    --oc-btn-radius: var(--radius-sm);
+}
+
+oc-button.btn-del-card:hover:not([disabled]),
+.model-list-row oc-button.btn-del:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--danger);
+}
+
+.model-list-row oc-button.btn-add:hover:not([disabled]) {
+    --oc-btn-fg-hover: var(--accent);
+}
+
+/* 供应商卡片里的次级小按钮 */
+.provider-card oc-button.btn-add-model-card,
+.provider-card oc-button.btn-fetch-models {
+    --oc-btn-radius: var(--radius-xs);
+    --oc-btn-px: 12px;
+    --oc-btn-py: 4px;
+    --oc-btn-fs: 11.5px;
+}
+
+.provider-card oc-button.btn-add-model-card:hover:not([disabled]),
+.provider-card oc-button.btn-fetch-models:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-secondary);
+    --oc-btn-fg-hover: var(--text-primary);
+    --oc-btn-border-hover: var(--border-light);
+}
