@@ -9,6 +9,8 @@
 import { isBrowserRuntimeForMain, showToast, showApiError, isDesktopRuntime, loadWailsRuntime, bindOverlayClose } from './core/utils.js';
 import { enhanceSwitches } from './components/switch.js';
 import { enhanceModals } from './components/modal.js';
+// 自定义元素（Shadow DOM）组件：导入即注册，模板里直接写标签
+import './components/oc-button.js';
 import { enhanceButtons } from './components/button.js';
 import { getTheme, setTheme } from './core/theme.js';
 import { api } from './core/apicall.js';

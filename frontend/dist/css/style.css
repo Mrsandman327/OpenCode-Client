@@ -3695,6 +3695,18 @@ input::placeholder, textarea::placeholder {
     line-height: 1;
 }
 
+/* 聊天输入区的发送按钮（已换成 oc-button）：沿用原来输入区的小号尺寸 28px / 12px */
+#btnSendPrompt {
+    --oc-btn-h: 28px;
+    --oc-btn-fs: 12px;
+    --oc-btn-py: 0;
+    --oc-btn-px: 12px;
+}
+/* 顶栏「启动 / 停止 OpenCode」是主操作，保持 600 字重 */
+#btnToggleWeb {
+    --oc-btn-weight: 600;
+}
+
 .oc-input-actions .oc-attach-btn {
     padding: 2px 8px;
     height: 28px;
@@ -11294,4 +11306,64 @@ input.toolbar-input {
 .stats-bar .search {
     width: 260px;
     flex: 0 1 260px;
+}
+
+/* ===== 已迁移到 <oc-button> 的场景覆盖 =====
+   原按钮用 .xxx .btn 定制尺寸，换成自定义元素后 .btn 选不中内部按钮，
+   这里用组件变量把同样的尺寸再表达一遍；原来的 .btn 规则保留给尚未迁移的按钮。 */
+.cfg-web-actions oc-button {
+    --oc-btn-h: 28px;
+    --oc-btn-px: 11px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11.5px;
+    --oc-btn-weight: 500;
+    --oc-btn-radius: 6px;
+}
+.cfg-network-actions oc-button {
+    --oc-btn-h: 28px;
+    --oc-btn-px: 12px;
+    --oc-btn-py: 0;
+    --oc-btn-fs: 11.5px;
+    --oc-btn-weight: 500;
+    --oc-btn-radius: 6px;
+}
+.oc-update-banner oc-button {
+    --oc-btn-py: 4px;
+    --oc-btn-px: 12px;
+    --oc-btn-fs: 12.5px;
+}
+.kb-entry-foot oc-button {
+    --oc-btn-h: 34px;
+    --oc-btn-px: 18px;
+    --oc-btn-fs: 13.5px;
+}
+.oc-panel-head oc-button {
+    margin-left: auto;
+}
+.fb-external-change oc-button {
+    flex-shrink: 0;
+}
+
+/* 顶栏按钮恢复原 .header-actions .btn-config / .btn-danger-outline 的配色：
+   原来靠类名覆盖全局变体，现在按钮是自定义元素，改用组件变量表达 */
+.header-actions oc-button[variant="config"] {
+    --oc-btn-bg: transparent;
+    --oc-btn-fg: var(--text-secondary);
+    --oc-btn-border: var(--border);
+    --oc-btn-weight: 500;
+}
+.header-actions oc-button[variant="config"]:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--bg-card-hover);
+    --oc-btn-fg-hover: var(--accent);
+    --oc-btn-border-hover: var(--accent);
+}
+.header-actions oc-button[variant="danger"] {
+    --oc-btn-bg: var(--danger-bg);
+    --oc-btn-fg: var(--danger);
+    --oc-btn-border: var(--danger);
+    --oc-btn-weight: 600;
+}
+.header-actions oc-button[variant="danger"]:hover:not([disabled]) {
+    --oc-btn-bg-hover: var(--danger);
+    --oc-btn-fg-hover: #fff;
 }

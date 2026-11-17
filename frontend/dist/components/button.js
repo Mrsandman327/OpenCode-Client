@@ -20,6 +20,9 @@
 // 现有的 getElementById、事件委托、addEventListener 可以继续用。
 
 import { escapeAttr } from '../core/utils.js';
+// buttonHtml 的 primary 分支会产出 <oc-button>，这里顺带注册自定义元素，
+// 保证任何 import 本文件的入口（含文件浏览器独立窗口）都能直接使用
+import './oc-button.js';
 
 /** 尺寸档位 → 附加类（默认 md 不需要类） */
 const SIZE_CLASS = { md: '', sm: 'btn-sm', xs: 'btn-xs' };
@@ -53,6 +56,9 @@ const VARIANT_CLASS = {
  */
 export function buttonHtml(opts) {
     opts = opts || {};
+    // 主按钮统一走自定义元素 oc-button（Shadow DOM 隔离样式）。
+    // 其它变体暂时保留 class 版本，等 oc-button 铺开后再逐个替换。
+    if ((opts.variant || 'primary') === 'primary') return ocButtonHtml(opts);
     const classes = ['btn'];
     const sizeClass = SIZE_CLASS[opts.size || 'md'];
     if (sizeClass) classes.push(sizeClass);
@@ -77,6 +83,38 @@ export function buttonHtml(opts) {
     // label 走转义；html 用于需要嵌入图标 SVG 的场景，由调用方保证内容安全
     const content = opts.html != null ? opts.html : escapeAttr(opts.label == null ? '' : opts.label);
     return '<button ' + attrs.join(' ') + '>' + content + '</button>';
+}
+
+/**
+ * 主按钮 → <oc-button> 的 HTML。
+ * 与 class 版本保持同样的参数：id / className / title / size / type / disabled / attrs。
+ * html 里的第一个 <svg> 会被挪到 slot="icon"，避免图标和文字之间丢掉 6px 间距。
+ */
+function ocButtonHtml(opts) {
+    const attrs = ['variant="primary"'];
+    if (opts.size && opts.size !== 'md') attrs.push('size="' + escapeAttr(opts.size) + '"');
+    if (opts.id) attrs.push('id="' + escapeAttr(opts.id) + '"');
+    if (opts.className) attrs.push('class="' + escapeAttr(opts.className) + '"');
+    if (opts.title) attrs.push('title="' + escapeAttr(opts.title) + '"');
+    if (opts.type && opts.type !== 'button') attrs.push('type="' + escapeAttr(opts.type) + '"');
+    if (opts.disabled) attrs.push('disabled');
+
+    const extra = opts.attrs || {};
+    Object.keys(extra).forEach(function(key) {
+        const value = extra[key];
+        if (value === false || value == null) return;
+        if (value === true) attrs.push(key);
+        else attrs.push(key + '="' + escapeAttr(value) + '"');
+    });
+
+    let content = opts.html != null ? opts.html : escapeAttr(opts.label == null ? '' : opts.label);
+    let icon = '';
+    const svg = content.match(/<svg[\s\S]*?<\/svg>/);
+    if (svg) {
+        icon = svg[0].replace('<svg', '<svg slot="icon"');
+        content = content.replace(svg[0], '').trim();
+    }
+    return '<oc-button ' + attrs.join(' ') + '>' + icon + content + '</oc-button>';
 }
 
 /**

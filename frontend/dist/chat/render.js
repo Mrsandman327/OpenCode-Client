@@ -889,20 +889,26 @@ export function getSessionPendingText(id) {
  */
 export function updateSendButton() {
     const btn = document.getElementById('btnSendPrompt');
+    if (!btn) return;
+    // 按钮已换成 <oc-button>：状态用 variant / icon 切换，
+    // 不再改 className（宿主的 .btn 类会套到自定义元素上，出现双层外观）
     if (!store.webRunning || !store.currentSessionId) {
+        btn.icon = '';
         btn.textContent = '发送';
-        btn.className = 'btn btn-primary';
+        btn.variant = 'primary';
         btn.dataset.mode = 'send';
         return;
     }
     const busy = isSessionBusy(store.currentSessionId);
     if (busy) {
-        btn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-square"></use></svg>停止';
-        btn.className = 'btn btn-danger-outline';
+        btn.icon = 'i-square';
+        btn.textContent = '停止';
+        btn.variant = 'danger';
         btn.dataset.mode = 'stop';
     } else {
+        btn.icon = '';
         btn.textContent = '发送';
-        btn.className = 'btn btn-primary';
+        btn.variant = 'primary';
         btn.dataset.mode = 'send';
     }
 }
