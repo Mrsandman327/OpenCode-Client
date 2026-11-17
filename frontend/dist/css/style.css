@@ -1812,33 +1812,7 @@ button.oc-head-icon-btn svg {
     -webkit-mask-image: url("../assets/菜单展开.svg");
     mask-image: url("../assets/菜单展开.svg");
 }
-/* ── 项目树右键菜单 ── */
-.oc-tree-context-menu {
-    position: fixed;
-    z-index: 1000;
-    min-width: 140px;
-    background: var(--bg-card);
-    border: 1px solid rgba(0,0,0,0.08);
-    border-radius: var(--radius-md);
-    box-shadow: rgba(0,0,0,0.08) 0 2px 12px;
-    padding: 4px 0;
-    overflow: hidden;
-}
-.oc-tree-context-menu-item {
-    padding: 7px 16px;
-    font-size: 13px;
-    color: var(--text-primary);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.12s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.oc-tree-context-menu-item:hover {
-    background: rgba(0,0,0,0.04);
-}
-
+/* ── 菜单项图标（oc-context-menu 组件通过 ::part 使用） ── */
 /* 菜单项图标：assets 下对应 SVG 作遮罩，颜色随菜单文字（删除项 hover 变红时同步） */
 .oc-menu-icon {
     width: 14px;
@@ -1853,75 +1827,84 @@ button.oc-head-icon-btn svg {
     mask-size: contain;
 }
 
-.oc-menu-icon-new {
+.oc-menu-icon-new,
+oc-context-menu::part(icon-new) {
     -webkit-mask-image: url("../assets/新建.svg");
     mask-image: url("../assets/新建.svg");
 }
 
-.oc-menu-icon-project-config {
+.oc-menu-icon-project-config,
+oc-context-menu::part(icon-project-config) {
     -webkit-mask-image: url("../assets/项目配置.svg");
     mask-image: url("../assets/项目配置.svg");
 }
 
-.oc-menu-icon-open-dir {
+.oc-menu-icon-open-dir,
+oc-context-menu::part(icon-open-dir) {
     -webkit-mask-image: url("../assets/打开目录.svg");
     mask-image: url("../assets/打开目录.svg");
 }
 
-.oc-menu-icon-new-file {
+.oc-menu-icon-new-file,
+oc-context-menu::part(icon-new-file) {
     -webkit-mask-image: url("../assets/新建文件.svg");
     mask-image: url("../assets/新建文件.svg");
 }
 
-.oc-menu-icon-new-folder {
+.oc-menu-icon-new-folder,
+oc-context-menu::part(icon-new-folder) {
     -webkit-mask-image: url("../assets/新建文件夹.svg");
     mask-image: url("../assets/新建文件夹.svg");
 }
 
-.oc-menu-icon-copy-path {
+.oc-menu-icon-copy-path,
+oc-context-menu::part(icon-copy-path) {
     -webkit-mask-image: url("../assets/复制路径.svg");
     mask-image: url("../assets/复制路径.svg");
 }
-.oc-menu-icon-copy {
+.oc-menu-icon-copy,
+oc-context-menu::part(icon-copy) {
     -webkit-mask-image: url("../assets/复制.svg");
     mask-image: url("../assets/复制.svg");
 }
 
 /* 「打开位置」：复用打开目录图标（在文件管理器中定位） */
-.oc-menu-icon-reveal {
+.oc-menu-icon-reveal,
+oc-context-menu::part(icon-reveal) {
     -webkit-mask-image: url("../assets/打开目录.svg");
     mask-image: url("../assets/打开目录.svg");
 }
 
-.oc-menu-icon-rename {
+.oc-menu-icon-rename,
+oc-context-menu::part(icon-rename) {
     -webkit-mask-image: url("../assets/重命名.svg");
     mask-image: url("../assets/重命名.svg");
 }
 
-.oc-menu-icon-delete {
+.oc-menu-icon-delete,
+oc-context-menu::part(icon-delete) {
     -webkit-mask-image: url("../assets/删除.svg");
     mask-image: url("../assets/删除.svg");
 }
 
-.oc-menu-icon-export {
+.oc-menu-icon-export,
+oc-context-menu::part(icon-export) {
     -webkit-mask-image: url("../assets/导出.svg");
     mask-image: url("../assets/导出.svg");
 }
 
-.oc-menu-icon-move {
+.oc-menu-icon-move,
+oc-context-menu::part(icon-move) {
     -webkit-mask-image: url("../assets/移动.svg");
     mask-image: url("../assets/移动.svg");
 }
 
-.oc-menu-icon-import {
+.oc-menu-icon-import,
+oc-context-menu::part(icon-import) {
     -webkit-mask-image: url("../assets/导入.svg");
     mask-image: url("../assets/导入.svg");
 }
 
-.oc-tree-context-menu-item[data-action="delete"]:hover {
-    color: var(--danger);
-    background: rgba(220,38,38,0.06);
-}
 .oc-tree-indent {
     display: inline-block;
     width: 1px;
@@ -8582,17 +8565,6 @@ oc-textarea.kb-field-input {
     --oc-btn-fg-hover: var(--text-primary);
     --oc-btn-border-hover: var(--border);
 }
-
-/* ---------------- 分类右键菜单项（复用项目树菜单底色与阴影） ---------------- */
-.kb-cat-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 14px;
-    color: var(--text-primary);
-}
-.kb-cat-menu-item .kb-i { color: var(--text-muted); }
-.kb-cat-menu-item:hover .kb-i { color: inherit; }
 
 /* 轻量弹出动画（供标签下拉与编辑弹窗使用） */
 @keyframes kbPopIn {

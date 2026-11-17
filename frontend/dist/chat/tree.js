@@ -4,7 +4,8 @@
 //       core/utils.js（escapeHtml, showToast, setMessagesEmpty, isBrowserRuntimeForMain, updateModelInfo）、
 //       chat/mobile.js（isMobileTreeMode, closeMobileTree）、chat/events.js（switchSession）、
 //       chat/tabs.js（closeSessionTab, renderTabsBar）、chat/search.js（resetUserNav）、
-//       views/project-config.js（openProjectConfig）、filebrowser/dir.js（openDirBrowserModal）
+//       views/project-config.js（openProjectConfig）、filebrowser/dir.js（openDirBrowserModal）、
+//       components/oc-context-menu.js（showContextMenu, hideContextMenu）
 // 解环说明：updateModelInfo 经 core/utils.js 注册中心调用，不再静态 import render.js；
 //           buildTree / wasSessionDeletedLocally 经 setTreeActionHandlers 注册给 events.js 调用，
 //           events.js 不再静态 import 本模块（解 events↔tree 环，本文件对 events 的依赖保持单向）。
@@ -26,6 +27,7 @@ import { openProjectConfig } from '../views/project-config.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { createBuildGate, createRecentlyDeleted, RECENTLY_DELETED_TTL_MS } from './tree-guard.js';
+import { showContextMenu, hideContextMenu } from '../components/oc-context-menu.js';
 
 // 折叠/展开图标：assets/菜单折叠.svg、菜单展开.svg（CSS mask 呈现）。
 // 元素不写字符，改挂状态类（is-expanded / is-collapsed），由 CSS 显示对应图标。
@@ -564,75 +566,49 @@ export async function createNewSession(dir) {
 
 // ===== 会话树右键菜单 =====
 
-/** 当前右键菜单关联的数据 */
-var treeContextData = null;
-
-/** 显示右键菜单 */
+/**
+ * 显示会话树右键菜单。
+ * 菜单由 oc-context-menu 组件统一渲染：定位（视口越界翻转）、
+ * 点击外部 / Esc / 滚动 / 窗口尺寸变化自动关闭都由组件负责。
+ * @param {MouseEvent} e    触发菜单的 contextmenu 事件
+ * @param {'dir'|'session'} type 右键目标类型，其它类型不弹菜单
+ * @param {{title?: string, sid?: string}} data 目标数据（目录路径或会话 ID）
+ */
 export function showTreeContextMenu(e, type, data) {
     e.preventDefault();
     e.stopPropagation();
-    treeContextData = { type: type, data: data };
-    var menu = document.getElementById('ocTreeContextMenu');
-    if (!menu) return;
-    menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
-        var action = item.dataset.action;
-        if (type === 'dir') {
-            // 「导入会话」是全局动作，挂在目录行上保持入口可达
-            item.style.display = (action === 'new-session' || action === 'project-config' || action === 'open-file-browser' || action === 'import') ? '' : 'none';
-        } else if (type === 'session') {
-            item.style.display = (action === 'rename' || action === 'delete'
-                || action === 'export' || action === 'move'
-                || action === 'copy-session-id') ? '' : 'none';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-    menu.style.left = e.clientX + 'px';
-    menu.style.top = e.clientY + 'px';
-    menu.style.display = 'block';
-}
 
-/** 隐藏右键菜单 */
-export function hideTreeContextMenu() {
-    var menu = document.getElementById('ocTreeContextMenu');
-    if (menu) menu.style.display = 'none';
-    treeContextData = null;
-}
+    var items = [];
+    if (type === 'dir') {
+        // 目录行菜单：顺序即显示顺序。
+        // 「导入会话」是全局动作，挂在目录行上保持入口可达。
+        items = [
+            { action: 'new-session', label: '新建会话', iconPart: 'icon-new' },
+            { action: 'project-config', label: '项目配置', iconPart: 'icon-project-config' },
+            { action: 'open-file-browser', label: '打开目录', iconPart: 'icon-open-dir' },
+            { action: 'import', label: '导入会话', iconPart: 'icon-import' }
+        ];
+    } else if (type === 'session') {
+        // 会话行菜单：顺序即显示顺序，删除项用 danger 样式（hover 变红）。
+        items = [
+            { action: 'rename', label: '重命名', iconPart: 'icon-rename' },
+            { action: 'delete', label: '删除会话', danger: true, iconPart: 'icon-delete' },
+            { action: 'export', label: '导出会话', iconPart: 'icon-export' },
+            { action: 'move', label: '移动到…', iconPart: 'icon-move' },
+            { action: 'copy-session-id', label: '复制会话 ID', iconPart: 'icon-copy' }
+        ];
+    } else {
+        // 未知类型不弹菜单
+        return;
+    }
 
-/** 初始化右键菜单事件 */
-export function initTreeContextMenu() {
-    var tree = document.getElementById('ocTree');
-    if (!tree) return;
-    tree.addEventListener('contextmenu', function(e) {
-        var dirRow = e.target.closest('.oc-tree-dir-row');
-        if (dirRow) {
-            // 从 config 按钮的 data-config-dir 取纯净目录路径，避免获取到标签里的 📂 图标
-            var configBtn = dirRow.querySelector('.oc-tree-config');
-            var title = configBtn ? configBtn.dataset.configDir : '';
-            if (!title) {
-                var label = dirRow.querySelector('.oc-tree-label');
-                title = label ? label.textContent.trim() : '';
-            }
-            showTreeContextMenu(e, 'dir', { title: title });
-            return;
-        }
-        var sesDiv = e.target.closest('.oc-tree-session');
-        if (sesDiv) {
-            var sid = sesDiv.dataset.sessionId;
-            if (!sid) return;
-            showTreeContextMenu(e, 'session', { sid: sid });
-            return;
-        }
-    });
-
-    var menu = document.getElementById('ocTreeContextMenu');
-    if (!menu) return;
-    menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
-        item.addEventListener('click', function() {
-            var action = item.dataset.action;
-            if (!treeContextData) return;
-            var type = treeContextData.type;
-            var data = treeContextData.data;
+    // data 由闭包持有，回调里直接用，不再依赖全局变量或遍历菜单 DOM。
+    showContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        items: items,
+        onSelect: function(action) {
+            // 菜单已在选中后自动关闭；这里再调一次是幂等的，保证状态一致。
             hideTreeContextMenu();
             if (type === 'dir' && action === 'new-session') {
                 createNewSession(data.title);
@@ -657,12 +633,41 @@ export function initTreeContextMenu() {
             } else if (action === 'import') {
                 importSessionDialog();
             }
-        });
+        }
     });
+}
 
-    document.addEventListener('click', function(e) {
-        if (menu.style.display !== 'none' && !menu.contains(e.target)) {
-            hideTreeContextMenu();
+/**
+ * 隐藏右键菜单。
+ * 保留导出以兼容可能的外部引用；实际关闭委托给组件。
+ */
+export function hideTreeContextMenu() {
+    hideContextMenu();
+}
+
+/** 初始化右键菜单事件：只负责识别右键目标并调用 showTreeContextMenu */
+export function initTreeContextMenu() {
+    var tree = document.getElementById('ocTree');
+    if (!tree) return;
+    tree.addEventListener('contextmenu', function(e) {
+        var dirRow = e.target.closest('.oc-tree-dir-row');
+        if (dirRow) {
+            // 从 config 按钮的 data-config-dir 取纯净目录路径，避免获取到标签里的 📂 图标
+            var configBtn = dirRow.querySelector('.oc-tree-config');
+            var title = configBtn ? configBtn.dataset.configDir : '';
+            if (!title) {
+                var label = dirRow.querySelector('.oc-tree-label');
+                title = label ? label.textContent.trim() : '';
+            }
+            showTreeContextMenu(e, 'dir', { title: title });
+            return;
+        }
+        var sesDiv = e.target.closest('.oc-tree-session');
+        if (sesDiv) {
+            var sid = sesDiv.dataset.sessionId;
+            if (!sid) return;
+            showTreeContextMenu(e, 'session', { sid: sid });
+            return;
         }
     });
 }

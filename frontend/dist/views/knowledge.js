@@ -15,6 +15,8 @@ import { store } from '../core/state.js';
 import { sanitizeMarkedHtml } from '../core/sanitize.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
 import { emptyHtml } from '../components/empty.js';
+// 分类树右键菜单使用全局 oc-context-menu 组件，不再维护静态菜单节点与手写定位
+import { showContextMenu, hideContextMenu } from '../components/oc-context-menu.js';
 
 // ---------- 内联线性图标（不使用 emoji） ----------
 var ICONS = {
@@ -736,31 +738,46 @@ export async function deleteKbEntryById(id) {
 // ============================================================
 // 分类管理（右键菜单：新建子分类 / 重命名 / 删除）
 // ============================================================
+// 菜单由全局 oc-context-menu 组件渲染（见 components/oc-context-menu.js）：
+// 组件已内置「视口越界翻转」「点击菜单外部 / Esc / 滚动 / 窗口尺寸变化自动关闭」，
+// 因此这里不再保留静态菜单节点、手写定位函数与全局的「当前分类 id」状态；
+// 目标分类 id 由 showContextMenu 的 onSelect 闭包直接捕获，天然不会串到别的节点上。
 
-var kbCatMenuCatId = null;    // 分类右键菜单当前指向的分类 id
-
-/** 弹出菜单定位：写入 left/top 并收敛到视口内，避免越界 */
-function kbPositionMenu(menu, x, y) {
-    var w = menu.offsetWidth;
-    var h = menu.offsetHeight;
-    var left = Math.max(8, Math.min(x, document.documentElement.clientWidth - w - 8));
-    var top = Math.max(8, Math.min(y, document.documentElement.clientHeight - h - 8));
-    menu.style.left = left + 'px';
-    menu.style.top = top + 'px';
-}
-
+/**
+ * 弹出分类右键菜单
+ * @param {number} x 视口坐标 X（取 contextmenu 事件的 clientX）
+ * @param {number} y 视口坐标 Y（取 contextmenu 事件的 clientY）
+ * @param {string} catId 目标分类 id（'all' 汇总节点已在调用处过滤，不会传进来）
+ */
 function showKbCatMenu(x, y, catId) {
-    var menu = $('#kbCatMenu');
-    if (!menu) return;
-    kbCatMenuCatId = catId;
-    menu.style.display = 'block';
-    kbPositionMenu(menu, x, y);
+    showContextMenu({
+        x: x,
+        y: y,
+        items: [
+            // 建分类用「新建文件夹」图标（assets 资源，样式由 ::part 的 mask 规则绘制）
+            { action: 'new-sub', label: '新建子分类', iconPart: 'icon-new-folder' },
+            // 重命名：方框 + 铅笔
+            { action: 'rename', label: '重命名', iconPart: 'icon-rename' },
+            // 删除：垃圾桶，danger 让 hover 变红
+            { action: 'delete', label: '删除', danger: true, iconPart: 'icon-delete' }
+        ],
+        onSelect: async function (action) {
+            // 防御：分类 id 缺失时不做任何操作（父分类被删除等极端情况）
+            if (!catId) return;
+            if (action === 'new-sub') await kbCreateSubCategory(catId);
+            else if (action === 'rename') await kbRenameCategory(catId);
+            else if (action === 'delete') await kbDeleteCategory(catId);
+        }
+    });
 }
 
+/**
+ * 关闭分类右键菜单
+ * 组件自身会响应外部点击/Esc/滚动/尺寸变化自动关闭；
+ * 此函数保留给「切换视图」等需要主动收起的场景调用。
+ */
 function hideKbCatMenu() {
-    var menu = $('#kbCatMenu');
-    if (menu) menu.style.display = 'none';
-    kbCatMenuCatId = null;
+    hideContextMenu();
 }
 
 /** 持久化完整分类树；失败时回滚为服务端状态 */
@@ -1452,29 +1469,7 @@ export function bindKnowledgeEvents() {
             if (node.dataset.kbCat === 'all') return;
             showKbCatMenu(e.clientX, e.clientY, node.dataset.kbCat);
         });
-
-        catTree.addEventListener('scroll', hideKbCatMenu);
     }
-    window.addEventListener('resize', hideKbCatMenu);
-
-    // ---- 右键菜单项 ----
-    var catMenu = $('#kbCatMenu');
-    if (catMenu) {
-        catMenu.addEventListener('click', async function (e) {
-            var item = e.target.closest('[data-cat-action]');
-            if (!item) return;
-            var catId = kbCatMenuCatId;
-            var action = item.dataset.catAction;
-            hideKbCatMenu();
-            if (!catId) return;
-            if (action === 'new-sub') await kbCreateSubCategory(catId);
-            else if (action === 'rename') await kbRenameCategory(catId);
-            else if (action === 'delete') await kbDeleteCategory(catId);
-        });
-    }
-    document.addEventListener('click', function (e) {
-        if (!e.target.closest('#kbCatMenu')) hideKbCatMenu();
-    });
 
     // ---- 条目：左键打开编辑弹窗；右上角删除按钮的点击优先拦截 ----
     ['#kbListView', '#kbCardView'].forEach(function (sel) {

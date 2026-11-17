@@ -20,6 +20,7 @@ import { syncUserNavToScroll, restartSearchForActiveSession } from './search.js'
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { updateTreeActiveSession } from '../core/utils.js';
 import { syncBtwToSession } from './btw.js';
+import { showContextMenu } from '../components/oc-context-menu.js';
 
 /**
  * 会话激活时的加载回调（由 session.js 通过 setTabActivationHandler 注入）。
@@ -75,6 +76,12 @@ export function renderTabsBar() {
             escapeHtml(tab.title || tab.sessionID) +
         '</oc-tab>';
     }).join('');
+
+    // 右键菜单：容器上挂一次即可（tabs 是 innerHTML 重建，但容器本身不变）
+    if (!bar.dataset.ctxBound) {
+        bar.dataset.ctxBound = '1';
+        bar.addEventListener('contextmenu', onTabContextMenu);
+    }
 
     bar.querySelectorAll('oc-tab').forEach(function(el) {
         el.addEventListener('select', function() {
@@ -270,4 +277,51 @@ export function closeSessionTab(sessionID) {
         }
     }
     renderTabsBar();
+}
+
+/**
+ * 标签页右键菜单：关闭 / 关闭右侧 / 关闭全部。
+ * 事件从 oc-tab 的 Shadow DOM 冒泡上来，target 会被重定向为宿主元素。
+ */
+function onTabContextMenu(e) {
+    const tab = e.target.closest && e.target.closest('oc-tab');
+    if (!tab) return;
+    e.preventDefault();
+    // 菜单打开期间列表可能变化，先取快照
+    const tabs = store.openTabs.slice();
+    const sid = tab.dataset.sessionId || '';
+    const index = tabs.findIndex(function(t) { return t.sessionID === sid; });
+    if (index < 0) return;
+    const hasRight = index < tabs.length - 1;
+    showContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        items: [
+            { action: 'close', label: '关闭' },
+            { action: 'close-right', label: '关闭右侧', disabled: !hasRight },
+            { action: 'close-all', label: '关闭全部', danger: true, disabled: tabs.length <= 1 }
+        ],
+        onSelect: function(action) {
+            if (action === 'close') {
+                closeSessionTab(sid);
+            } else if (action === 'close-right') {
+                closeTabs(tabs.slice(index + 1).map(function(t) { return t.sessionID; }));
+            } else if (action === 'close-all') {
+                closeTabs(tabs.map(function(t) { return t.sessionID; }));
+            }
+        }
+    });
+}
+
+/**
+ * 批量关闭标签：先关非当前标签，最后关当前标签。
+ * closeSessionTab 在关掉当前标签时会切到相邻标签，先关其余的可避免反复切换与重复渲染。
+ */
+function closeTabs(ids) {
+    if (!ids || !ids.length) return;
+    const active = store.activeTabId;
+    ids.forEach(function(id) {
+        if (id && id !== active) closeSessionTab(id);
+    });
+    if (ids.indexOf(active) !== -1) closeSessionTab(active);
 }

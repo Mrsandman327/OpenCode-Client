@@ -30,6 +30,7 @@ import {
     fileBrowserReloadActiveFromDisk
 } from './preview.js';
 import { syncTerminalEntry, disposeTerminals } from './terminal.js';
+import { showContextMenu, hideContextMenu } from '../components/oc-context-menu.js';
 
 store.fileBrowserState = {
     rootDir: '',
@@ -2103,11 +2104,17 @@ document.addEventListener('visibilitychange', handleFileBrowserVisibilityChange)
 // ============================================================
 // 文件列表右键菜单
 // 说明：委托绑定在 #fileBrowserList 静态容器上（行 DOM 动态重建不影响）；
-//       目录行显示全部 5 项，文件行仅显示「复制路径 / 重命名 / 删除」。
+//       菜单改由 oc-context-menu 组件渲染，定位（视口越界自动翻转）与
+//       「点击外部 / Esc / 滚动 / 窗口尺寸变化自动关闭」全部交给组件，
+//       本模块不再维护自己的关闭逻辑。
+//       目录行显示全部 6 项，文件行仅显示「复制路径 / 打开位置 / 重命名 / 删除」。
+//       右键目标由 showContextMenu 的 onSelect 闭包持有（原模块级
+//       fileBrowserContextTarget 已确认无其它函数读取，故移除）。
 // ============================================================
-var fileBrowserContextTarget = null;
 
-/** 相对路径转系统原生绝对路径（rootDir + relPath 拼接为系统原生分隔符） */
+/**
+ * 相对路径转系统原生绝对路径（rootDir + relPath 拼接为系统原生分隔符）
+ */
 function fileBrowserAbsolutePath(relPath) {
     var root = String(store.fileBrowserState.rootDir || '').replace(/[\\/]+$/, '');
     var sep = root.indexOf('\\') >= 0 ? '\\' : '/';
@@ -2115,62 +2122,54 @@ function fileBrowserAbsolutePath(relPath) {
     return rel ? root + sep + rel : root;
 }
 
-/** 显示文件列表右键菜单：按目标类型（dir/file）显示或隐藏菜单项 */
+/**
+ * 显示文件列表右键菜单。
+ * 菜单项顺序与原静态菜单保持一致：
+ *   new-file（新建文件）/ new-folder（新建文件夹）/ copy-path（复制路径）/
+ *   reveal（打开位置）/ rename（重命名）/ delete（删除）。
+ * 文件行不显示「新建文件 / 新建文件夹」；「打开位置」仅在桌面端提供
+ * （Web 端无法调起系统文件管理器），非桌面端直接从 items 中省略，而不是置灰。
+ * @param {MouseEvent} e 触发菜单的 contextmenu 事件，用 clientX / clientY 定位
+ * @param {{type: string, path: string, title: string}} target 右键目标节点
+ */
 function showFileBrowserContextMenu(e, target) {
-    var menu = document.getElementById('fileBrowserContextMenu');
-    if (!menu) return;
-    fileBrowserContextTarget = target;
     // 「打开位置」只在桌面端提供：Web 端无法调用系统文件管理器
     var desktop = isDesktopRuntime();
-    menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
-        var action = item.dataset.action;
-        if (target.type === 'dir') {
-            // 目录行：新建文件 / 新建文件夹 / 复制路径 / 打开位置 / 重命名 / 删除 全显
-            item.style.display = '';
-        } else {
-            // 文件行：仅保留复制路径 / 打开位置 / 重命名 / 删除
-            item.style.display = (action === 'copy-path' || action === 'reveal' || action === 'rename' || action === 'delete') ? '' : 'none';
-        }
-        if (action === 'reveal' && !desktop) item.style.display = 'none';
-    });
-    menu.style.left = e.clientX + 'px';
-    menu.style.top = e.clientY + 'px';
-    menu.style.display = 'block';
-}
+    var items = [];
 
-/** 隐藏文件列表右键菜单 */
-export function hideFileBrowserContextMenu() {
-    var menu = document.getElementById('fileBrowserContextMenu');
-    if (menu) menu.style.display = 'none';
-    fileBrowserContextTarget = null;
-}
+    // 目录行：新建文件 / 新建文件夹（只有目录能作为新建条目的父级）
+    if (target.type === 'dir') {
+        items.push(
+            { action: 'new-file', label: '新建文件', iconPart: 'icon-new-file' },
+            { action: 'new-folder', label: '新建文件夹', iconPart: 'icon-new-folder' }
+        );
+    }
 
-/** 初始化文件列表右键菜单事件（只需绑定一次） */
-export function initFileBrowserContextMenu() {
-    var list = document.getElementById('fileBrowserList');
-    if (!list || list.dataset.ctxBound) return;
-    list.dataset.ctxBound = 'true';
-    list.addEventListener('contextmenu', function(e) {
-        var row = e.target.closest('.file-browser-item-row');
-        if (!row) return;
-        var path = row.dataset.path;
-        if (!path) return;
-        var state = store.fileBrowserState;
-        var node = findNodeByPath(state.rootNode, path);
-        if (!node) return;
-        e.preventDefault();
-        showFileBrowserContextMenu(e, { type: node.type, path: node.path, title: node.title });
-    });
+    // 复制路径：目录行与文件行都提供
+    items.push({ action: 'copy-path', label: '复制路径', iconPart: 'icon-copy-path' });
 
-    var menu = document.getElementById('fileBrowserContextMenu');
-    if (!menu || menu.dataset.ctxBound) return;
-    menu.dataset.ctxBound = 'true';
-    menu.querySelectorAll('.oc-tree-context-menu-item').forEach(function(item) {
-        item.addEventListener('click', async function() {
-            var action = item.dataset.action;
-            var target = fileBrowserContextTarget;
+    // 打开位置：仅桌面端出现
+    if (desktop) {
+        items.push({ action: 'reveal', label: '打开位置', iconPart: 'icon-reveal' });
+    }
+
+    // 重命名 / 删除：目录行与文件行都提供，删除用 danger 样式（hover 变红）
+    items.push(
+        { action: 'rename', label: '重命名', iconPart: 'icon-rename' },
+        { action: 'delete', label: '删除', danger: true, iconPart: 'icon-delete' }
+    );
+
+    showContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        items: items,
+        // 组件点中条目后会自动关闭菜单再回调；target 由闭包持有，
+        // 与「点击菜单外 / Esc 自动关闭」一样不依赖模块级状态。
+        onSelect: async function(action) {
             if (!target) return;
+            // 组件已自动关闭菜单，这里再调一次是幂等的，同时清空模块级目标引用
             hideFileBrowserContextMenu();
+
             if (action === 'new-file') {
                 // 右键菜单的新建文件作用于被右键的目录
                 await promptCreateBrowserEntry('create-file', target.path);
@@ -2225,23 +2224,31 @@ export function initFileBrowserContextMenu() {
                 var node = findNodeByPath(store.fileBrowserState.rootNode, target.path);
                 if (node) deleteBrowserTreeItem(node);
             }
-        });
+        }
     });
+}
 
-    // 点击菜单外部任意处关闭：用 pointerdown + 捕获阶段。
-    // 原因：文件浏览器模态根节点在冒泡阶段执行 stopPropagation（防点击穿透），
-    //       依赖 document 冒泡的 click 监听收不到模态内的点击；
-    //       捕获阶段先于目标/冒泡执行，不受 stopPropagation 影响。
-    document.addEventListener('pointerdown', function(e) {
-        if (menu.style.display !== 'none' && !menu.contains(e.target)) {
-            hideFileBrowserContextMenu();
-        }
-    }, true);
-    // Escape 键关闭菜单（与内联输入框的 Escape 互不冲突）
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && menu.style.display !== 'none') {
-            hideFileBrowserContextMenu();
-        }
+/** 隐藏文件列表右键菜单（组件内部已做去重，未显示时调用无副作用） */
+export function hideFileBrowserContextMenu() {
+    hideContextMenu();
+}
+
+/** 初始化文件列表右键菜单事件（只需绑定一次） */
+export function initFileBrowserContextMenu() {
+    var list = document.getElementById('fileBrowserList');
+    if (!list || list.dataset.ctxBound) return;
+    list.dataset.ctxBound = 'true';
+    // 用事件委托：树行 DOM 会被整体重建，绑在静态容器上不受影响
+    list.addEventListener('contextmenu', function(e) {
+        var row = e.target.closest('.file-browser-item-row');
+        if (!row) return;
+        var path = row.dataset.path;
+        if (!path) return;
+        var state = store.fileBrowserState;
+        var node = findNodeByPath(state.rootNode, path);
+        if (!node) return;
+        e.preventDefault();
+        showFileBrowserContextMenu(e, { type: node.type, path: node.path, title: node.title });
     });
 }
 
