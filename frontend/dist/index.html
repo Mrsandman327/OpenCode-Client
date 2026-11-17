@@ -792,7 +792,7 @@
                                         <strong>启用代理</strong>
                                         <small>启动 OpenCode 前注入代理环境变量</small>
                                     </span>
-                                    <span class="sw"><input type="checkbox" id="proxyEnabled" data-switch /></span>
+                                    <oc-switch id="proxyEnabled"></oc-switch>
                                 </label>
                                 <div class="proxy-field-row">
                                     <div class="field field--md">
@@ -825,9 +825,7 @@
                                         <h3>启用 Web 服务</h3>
                                         <p>关闭后，其他设备将无法访问当前工作区。</p>
                                     </div>
-                                    <label class="sw" title="启用 Web 服务">
-                                        <input type="checkbox" id="cfgWebSwitch" data-switch />
-                                    </label>
+                                    <oc-switch id="cfgWebSwitch" title="启用 Web 服务"></oc-switch>
                                 </div>
                                 <div class="cfg-form-grid">
                                     <div class="field"><label for="frontendWebHost">监听地址</label><input id="frontendWebHost" placeholder="127.0.0.1" /></div>
@@ -1465,9 +1463,7 @@
                                         <h3>启用</h3>
                                         <p>关闭时写入 <code>disabled: true</code>，保留配置但不连接</p>
                                     </div>
-                                    <label class="sw" title="启用该连接器">
-                                        <input type="checkbox" id="mcpEnabled" checked data-switch />
-                                    </label>
+                                    <oc-switch id="mcpEnabled" title="启用该连接器" checked></oc-switch>
                                 </div>
                             </div>
                         </div>
@@ -1531,9 +1527,7 @@
                                             <h3>Code Mode</h3>
                                             <p>开启时工具经代码执行通道调用，节省上下文；关闭后工具直接进入模型工具列表（占用更多上下文）</p>
                                         </div>
-                                        <label class="sw" title="Code Mode">
-                                            <input type="checkbox" id="mcpCodemode" checked data-switch />
-                                        </label>
+                                        <oc-switch id="mcpCodemode" title="Code Mode" checked></oc-switch>
                                     </div>
 
                                     <div class="cfg-web-enable" style="margin-bottom:0">
@@ -1541,9 +1535,7 @@
                                             <h3>共享连接（pool）</h3>
                                             <p>多个目录共用同一连接与工具列表，仅 2026-07-28 协议生效</p>
                                         </div>
-                                        <label class="sw" title="共享连接">
-                                            <input type="checkbox" id="mcpPool" data-switch />
-                                        </label>
+                                        <oc-switch id="mcpPool" title="共享连接"></oc-switch>
                                     </div>
 
                                     <div class="field">
@@ -1690,6 +1682,7 @@
         import '/components/oc-input.js';
         import '/components/oc-textarea.js';
         import '/components/oc-select.js';
+        import '/components/oc-switch.js';
         if (new URLSearchParams(window.location.search).get('view') === 'filebrowser') {
             import('/filebrowser/entry.js').then(function(m) { m.initStandaloneFileBrowser(); });
         } else {

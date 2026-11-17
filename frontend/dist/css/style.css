@@ -10690,7 +10690,8 @@ oc-textarea.kb-field-input {
     gap: 6px;
 }
 
-.mcp-nav-foot .btn { width: 100%; }
+.mcp-nav-foot .btn,
+.mcp-nav-foot oc-button { width: 100%; }
 
 /* 列表项：沿用侧栏/文件列表的视觉语言 */
 .mcp-item {
@@ -11298,11 +11299,13 @@ oc-textarea.kb-field-input {
 }
 
 /* 系统配置行：开关推到行尾（宿主布局，不属于开关控件本身） */
-.cfg-web-enable .sw {
+.cfg-web-enable .sw,
+.cfg-web-enable oc-switch {
     margin-left: auto;
 }
 /* 网络代理整行是 <label>，内层 span 承载开关：覆盖 .proxy-switch-row span 的纵向布局 */
-.proxy-switch-row .sw {
+.proxy-switch-row .sw,
+.proxy-switch-row oc-switch {
     display: inline-flex;
     flex-direction: row;
     gap: 6px;
@@ -11325,6 +11328,17 @@ oc-textarea.kb-field-input {
 }
 
 /* 弹窗表单：字段组内的控件大一号（宿主按场景覆盖，不影响其它地方的 .ctl） */
+/* 弹窗字段组里的组件化控件：与同组原生控件同高（38px） */
+.modal .field oc-input,
+.modal-card .field oc-input {
+    --oc-input-h: 38px;
+    --oc-input-px: 12px;
+}
+.modal .field oc-textarea,
+.modal-card .field oc-textarea {
+    --oc-input-padding: 10px 12px;
+}
+
 .modal .field > input,
 .modal .field > select,
 .modal .field > textarea {

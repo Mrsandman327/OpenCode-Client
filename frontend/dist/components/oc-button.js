@@ -55,6 +55,9 @@ button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* 宿主被拉宽时（如侧栏底部整宽按钮）内部按钮跟着撑满 */
+    flex: 1 1 auto;
+    min-width: 0;
     gap: var(--oc-btn-gap, 6px);
     box-sizing: border-box;
     /* 需要固定高度时由宿主给 --oc-btn-h（如聊天输入区 28px） */

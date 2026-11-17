@@ -162,7 +162,7 @@ function renderKv(container, obj) {
 
 /** 当前选中的类型（以高亮按钮为唯一事实源） */
 function currentType() {
-    const active = query('[data-mcp-type].btn-primary');
+    const active = query('[data-mcp-type][variant="primary"]');
     return active ? active.dataset.mcpType : 'local';
 }
 
@@ -170,7 +170,7 @@ function currentType() {
 function applyType(type) {
     if (!el || !el.modal) return;
     el.modal.querySelectorAll('[data-mcp-type]').forEach(function (btn) {
-        btn.classList.toggle('btn-primary', btn.dataset.mcpType === type);
+        btn.variant = btn.dataset.mcpType === type ? 'primary' : 'secondary';
     });
     el.modal.querySelectorAll('[data-mcp-group]').forEach(function (group) {
         group.hidden = group.dataset.mcpGroup !== type;

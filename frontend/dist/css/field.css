@@ -24,7 +24,8 @@ textarea.ctl,
     background: var(--bg-input);
     color: var(--text-primary);
     font-size: 12px;
-    font-family: inherit;
+    /* 与 oc-input / oc-select / oc-textarea 保持同一套字体（等宽，数字/路径/命令对齐） */
+    font-family: var(--control-font, "Cascadia Code", Consolas, "SF Mono", Menlo, monospace);
     outline: none;
     box-sizing: border-box;
 }

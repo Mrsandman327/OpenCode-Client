@@ -64,13 +64,23 @@ export function switchHtml(opts) {
         else inputAttrs.push(key + '="' + escapeAttr(value) + '"');
     });
 
-    const rootClass = SW_CLASS + (opts.extraClass ? ' ' + opts.extraClass : '');
-    const titleAttr = opts.title ? ' title="' + escapeAttr(opts.title) + '"' : '';
-
-    return '<' + tag + ' class="' + rootClass + '"' + titleAttr + '>' +
-        '<input type="checkbox"' + (inputAttrs.length ? ' ' + inputAttrs.join(' ') : '') + ' />' +
-        '<span class="sw-track" aria-hidden="true"><span class="sw-thumb"></span></span>' +
-        '</' + tag + '>';
+    // 已经组件化：直接产出 <oc-switch>，外观与交互在组件内部
+    const hostAttrs = [];
+    if (opts.id) hostAttrs.push('id="' + escapeAttr(opts.id) + '"');
+    if (opts.name) hostAttrs.push('name="' + escapeAttr(opts.name) + '"');
+    if (opts.className) hostAttrs.push('class="' + escapeAttr(opts.className) + '"');
+    if (opts.extraClass) hostAttrs.push('class="' + escapeAttr(opts.extraClass) + '"');
+    if (opts.checked) hostAttrs.push('checked');
+    if (opts.disabled) hostAttrs.push('disabled');
+    if (opts.title) hostAttrs.push('title="' + escapeAttr(opts.title) + '"');
+    if (opts.ariaLabel) hostAttrs.push('aria-label="' + escapeAttr(opts.ariaLabel) + '"');
+    Object.keys(extra).forEach(function(key) {
+        const value = extra[key];
+        if (value === false || value == null) return;
+        if (value === true) hostAttrs.push(key);
+        else hostAttrs.push(key + '="' + escapeAttr(value) + '"');
+    });
+    return '<oc-switch ' + hostAttrs.join(' ') + '></oc-switch>';
 }
 
 /**
@@ -86,8 +96,8 @@ export function createSwitch(opts) {
     const holder = document.createElement('div');
     holder.innerHTML = switchHtml(opts);
     const root = holder.firstElementChild;
-    const input = root.querySelector('input[type="checkbox"]');
-    root.input = input;
+    // 组件化后真正的 checkbox 在 shadow 里，通过 .input 暴露
+    const input = root.input || root.querySelector('input[type="checkbox"]');
     if (typeof opts.onChange === 'function') {
         input.addEventListener('change', function(event) {
             opts.onChange(event, input);

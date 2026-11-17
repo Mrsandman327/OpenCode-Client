@@ -14,6 +14,7 @@ import './components/oc-button.js';
 import './components/oc-input.js';
 import './components/oc-textarea.js';
 import './components/oc-select.js';
+import './components/oc-switch.js';
 import { enhanceButtons } from './components/button.js';
 import { getTheme, setTheme } from './core/theme.js';
 import { api } from './core/apicall.js';

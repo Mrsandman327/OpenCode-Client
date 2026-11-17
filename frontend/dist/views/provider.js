@@ -520,7 +520,7 @@ export function bindProviderEvents(providers) {
             if (!el || el.dataset.expandBound) return;
             el.dataset.expandBound = '1';
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.sw, .btn-del-card, .btn-save-card, .btn-add-model-card, .btn-fetch-models, .btn-toggle-abilities, .btn-del-model, input, select')) return;
+                if (e.target.closest('.sw, oc-switch, .btn-del-card, .btn-save-card, .btn-add-model-card, .btn-fetch-models, .btn-toggle-abilities, .btn-del-model, input, select')) return;
                 // 记住展开/折叠状态：下次打开模型服务仍是这个样子
                 setProviderExpanded(card, !card.classList.contains('expanded'));
             });
