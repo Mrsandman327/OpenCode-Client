@@ -245,7 +245,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* 加载态：内容透明度降低，右侧出现一个旋转小圈 */
 :host([loading]) .label { opacity: 0.6; }
+:host([loading]) .icon { display: none; }
 .spinner {
+    /* 让转圈排在文字前面（替换图标位），否则会变成「图标 文字 转圈」 */
+    order: -1;
     display: none;
     width: 12px;
     height: 12px;
