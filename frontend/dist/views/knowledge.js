@@ -995,15 +995,15 @@ var KB_CONV_SYNC_NOTES = {
 
 /** 读取当前表单选择 */
 function kbConvFormValues() {
-    var kindEl = document.querySelector('input[name="kbConvKind"]:checked');
-    var scopeEl = document.querySelector('input[name="kbConvScope"]:checked');
-    var syncEl = document.querySelector('input[name="kbConvSync"]:checked');
+    var kindEl = document.querySelector('oc-radio-button[name="kbConvKind"][checked]');
+    var scopeEl = document.querySelector('oc-radio-button[name="kbConvScope"][checked]');
+    var syncEl = document.querySelector('oc-radio-button[name="kbConvSync"][checked]');
     var projEl = $('#kbConvProject');
     var nameEl = $('#kbConvName');
     return {
-        kind: kindEl ? kindEl.dataset.kind : 'command',
-        scope: scopeEl ? scopeEl.dataset.scope : 'global',
-        syncMode: syncEl ? syncEl.dataset.sync : 'copy',
+        kind: kindEl ? kindEl.value : 'command',
+        scope: scopeEl ? scopeEl.value : 'global',
+        syncMode: syncEl ? syncEl.value : 'copy',
         projectDir: projEl ? String(projEl.value || '').trim() : '',
         name: nameEl ? String(nameEl.value || '').trim() : ''
     };
@@ -1023,8 +1023,8 @@ function kbConvBuildRequest(v) {
 
 /** 设置单选组选中项（dataKey 为承载取值的 data-* 键名） */
 function kbSetRadio(groupName, dataKey, value) {
-    document.querySelectorAll('input[name="' + groupName + '"]').forEach(function (el) {
-        el.checked = (el.dataset[dataKey] === value);
+    document.querySelectorAll('oc-radio-button[name="' + groupName + '"]').forEach(function (el) {
+        el.checked = (el.value === value);
     });
 }
 

@@ -4797,7 +4797,6 @@ svg.i.is-spinning {
     flex: 1 1 auto;
     width: auto;
     min-width: 0;
-    --oc-input-h: 30px;
 }
 .provider-card .model-field input {
     height: 30px;
@@ -8751,44 +8750,6 @@ oc-textarea.kb-field-input {
 
 /* 单选组：胶囊按钮；input 隐藏，选中态靠 :checked 驱动 */
 .kb-radio-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.kb-radio-opt {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
-    background: var(--bg-input);
-    font-size: 12.5px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all var(--transition);
-}
-.kb-radio-opt:hover { border-color: var(--border-light); color: var(--text-primary); }
-.kb-radio-opt input { display: none; }
-.kb-radio-dot {
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-    border: 1.5px solid var(--border-light);
-    flex-shrink: 0;
-    position: relative;
-    transition: all var(--transition);
-}
-.kb-radio-opt input:checked ~ .kb-radio-dot { border-color: var(--accent); }
-.kb-radio-opt input:checked ~ .kb-radio-dot::after {
-    content: '';
-    position: absolute;
-    inset: 2.5px;
-    border-radius: 50%;
-    background: var(--accent);
-}
-.kb-radio-opt:has(input:checked) {
-    border-color: var(--accent);
-    background: var(--accent-ghost);
-    color: var(--accent);
-    font-weight: 600;
-}
 /* 「推荐」角标（同步方式-复制） */
 .kb-rec {
     font-size: 10.5px;
@@ -10729,9 +10690,12 @@ oc-textarea.kb-field-input {
 }
 /* 时间设置内的“不重复/重复”面板：面板本身用列布局；只有重复面板需要 14px 间距（频率→时间），
    不重复面板不需要额外间距，否则单选行与下方时间输入会离得过远 */
+/* 面板里的多个字段之间要有间距：原来只设了 column 没设 gap，
+   「不重复」里「什么时间」的单选行与下面的延迟输入框会贴在一起 */
 .oc-schedule-section-body > div[id^="schedulePanel"] {
     display: flex;
     flex-direction: column;
+    gap: 12px;
 }
 #schedulePanelRepeat { gap: 14px; }
 /* 全局没有 [hidden] 规则，面板改成 flex 后必须显式回收 */
@@ -10791,29 +10755,24 @@ oc-textarea.kb-field-input {
     gap: 12px;
     font-size: 14px;
     color: var(--text-primary);
-}
-.oc-schedule-radios label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-    white-space: nowrap;
-    cursor: pointer;
-}
-.oc-schedule-inline { display: flex; align-items: center; gap: 8px; }
-.oc-schedule-inline .oc-schedule-num { flex: 1; width: auto; min-width: 0; }
-.oc-schedule-inline select {
+}/* 单选已换成 <oc-radio-button>，这里只管容器排布 */
+.oc-schedule-radios { }
+.oc-schedule-inline { display: flex; align-items: center; gap: 8px; }.oc-schedule-inline .oc-schedule-num {
+    flex: 1;
+    min-width: 0;
+}/* 行内下拉默认固定 112px（分钟等短选项）；时区下拉例外，撑满剩余宽度 */
+.oc-schedule-inline oc-select {
     width: 112px;
     flex: 0 0 112px;
-    height: 36px;
-    padding: 8px 12px;
-    box-sizing: border-box;
 }
+#scheduleTz {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+}/* 时间输入撑满剩余宽度（右侧时区下拉固定 112px），不再固定 180px 留白 */
 .oc-schedule-inline .oc-schedule-time {
-    width: 180px;
-    flex: 0 0 180px;
-    height: 36px;
-    box-sizing: border-box;
+    flex: 1;
+    min-width: 0;
 }
 .oc-schedule-inline select#scheduleTz { flex: 1; width: auto; }
 .oc-schedule-hint { margin-top: 5px; font-size: 11.5px; line-height: 1.55; color: var(--text-muted); }
@@ -10844,22 +10803,18 @@ oc-textarea.kb-field-input {
     gap: 24px;
     font-size: 13px;
     color: var(--text-secondary);
-}
-.oc-schedule-ends label {
+}.oc-schedule-ends-item {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     flex-shrink: 0;
-    white-space: nowrap;
-    cursor: pointer;
 }
 .oc-schedule-ends-control { display: inline-flex; align-items: center; gap: 6px; }
 .oc-schedule-ends-control .oc-schedule-num {
     width: 72px;
     flex: 0 0 72px;
-    text-align: center;
 }
-.oc-schedule-ends-control input[type="datetime-local"] {
+.oc-schedule-ends-control oc-input:not(.oc-schedule-num) {
     width: 180px;
     flex: 0 0 180px;
 }
@@ -10912,7 +10867,9 @@ oc-textarea.kb-field-input {
 /* 弹窗表单：字段组内的控件大一号（宿主按场景覆盖，不影响其它地方的 .ctl） */
 /* 弹窗字段组里的组件化控件：与同组原生控件同高（38px） */
 .modal .field oc-input,
-.modal-card .field oc-input {
+.modal .field oc-select,
+.modal-card .field oc-input,
+.modal-card .field oc-select {
     --oc-input-h: 38px;
     --oc-input-px: 12px;
 }

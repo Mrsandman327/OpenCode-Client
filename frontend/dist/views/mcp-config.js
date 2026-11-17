@@ -180,7 +180,7 @@ function applyType(type) {
 /** 当前 OAuth 单选模式：auto / off / custom */
 function readOauthMode() {
     const checked = el && el.oauthModes
-        ? el.oauthModes.querySelector('input[name="mcpOauthMode"]:checked')
+        ? el.oauthModes.querySelector('oc-radio-button[name="mcpOauthMode"][checked]')
         : null;
     return checked ? checked.value : 'auto';
 }
@@ -345,7 +345,7 @@ function renderForm() {
         ? 'off'
         : (server.oauth && typeof server.oauth === 'object' ? 'custom' : 'auto');
     if (el.oauthModes) {
-        el.oauthModes.querySelectorAll('input[name="mcpOauthMode"]').forEach(function (radio) {
+        el.oauthModes.querySelectorAll('oc-radio-button[name="mcpOauthMode"]').forEach(function (radio) {
             radio.checked = radio.value === mode;
         });
     }

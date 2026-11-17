@@ -259,12 +259,12 @@ function setVisible(el, visible) {
 }
 
 function selectedOnceMode() {
-    const el = document.querySelector('input[name="scheduleOnceMode"]:checked');
+    const el = document.querySelector('oc-radio-button[name="scheduleOnceMode"][checked]');
     return el ? el.value : 'delay';
 }
 
 function selectedEndsMode() {
-    const el = document.querySelector('input[name="scheduleEndsMode"]:checked');
+    const el = document.querySelector('oc-radio-button[name="scheduleEndsMode"][checked]');
     return el ? el.value : 'never';
 }
 
@@ -329,10 +329,12 @@ function resetScheduleForm() {
     if ($('scheduleIntervalUnit')) $('scheduleIntervalUnit').value = 'hours';
     if ($('scheduleMonthDay')) $('scheduleMonthDay').value = '1';
 
-    const delayRadio = document.querySelector('input[name="scheduleOnceMode"][value="delay"]');
-    if (delayRadio) delayRadio.checked = true;
-    const neverRadio = document.querySelector('input[name="scheduleEndsMode"][value="never"]');
-    if (neverRadio) neverRadio.checked = true;
+    document.querySelectorAll('oc-radio-button[name="scheduleOnceMode"]').forEach(function (r) {
+        r.checked = (r.value === 'delay');
+    });
+    document.querySelectorAll('oc-radio-button[name="scheduleEndsMode"]').forEach(function (r) {
+        r.checked = (r.value === 'never');
+    });
     if ($('scheduleEndsTimes')) $('scheduleEndsTimes').disabled = true;
     if ($('scheduleEndsAt')) $('scheduleEndsAt').disabled = true;
 
@@ -521,10 +523,10 @@ export function initSchedules() {
         syncScheduleForm();
     });
 
-    document.querySelectorAll('input[name="scheduleOnceMode"]').forEach(function (input) {
+    document.querySelectorAll('oc-radio-button[name="scheduleOnceMode"]').forEach(function (input) {
         input.addEventListener('change', syncScheduleForm);
     });
-    document.querySelectorAll('input[name="scheduleEndsMode"]').forEach(function (input) {
+    document.querySelectorAll('oc-radio-button[name="scheduleEndsMode"]').forEach(function (input) {
         input.addEventListener('change', function (event) {
             const mode = event.target.value;
             if ($('scheduleEndsTimes')) $('scheduleEndsTimes').disabled = mode !== 'times';

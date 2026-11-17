@@ -1269,22 +1269,10 @@
                     <div class="field__label kb-form-label">类型</div>
                     <div class="kb-form-main">
                         <div class="kb-radio-group">
-                            <label class="kb-radio-opt">
-                                <input type="radio" name="kbConvKind" data-kind="skill" />
-                                <span class="kb-radio-dot"></span>技能
-                            </label>
-                            <label class="kb-radio-opt">
-                                <input type="radio" name="kbConvKind" data-kind="command" checked />
-                                <span class="kb-radio-dot"></span>命令
-                            </label>
-                            <label class="kb-radio-opt">
-                                <input type="radio" name="kbConvKind" data-kind="rule" />
-                                <span class="kb-radio-dot"></span>规则
-                            </label>
-                            <label class="kb-radio-opt">
-                                <input type="radio" name="kbConvKind" data-kind="agents" />
-                                <span class="kb-radio-dot"></span>项目准则
-                            </label>
+                            <oc-radio-button name="kbConvKind" value="skill">技能</oc-radio-button>
+                            <oc-radio-button name="kbConvKind" value="command" checked>命令</oc-radio-button>
+                            <oc-radio-button name="kbConvKind" value="rule">规则</oc-radio-button>
+                            <oc-radio-button name="kbConvKind" value="agents">项目准则</oc-radio-button>
                         </div>
                         <div class="kb-conv-note" id="kbConvKindNote"></div>
                     </div>
@@ -1295,14 +1283,8 @@
                     <div class="field__label kb-form-label">作用域</div>
                     <div class="kb-form-main">
                         <div class="kb-radio-group">
-                            <label class="kb-radio-opt">
-                                <input type="radio" name="kbConvScope" data-scope="global" />
-                                <span class="kb-radio-dot"></span>全局
-                            </label>
-                            <label class="kb-radio-opt">
-                                <input type="radio" name="kbConvScope" data-scope="project" checked />
-                                <span class="kb-radio-dot"></span>项目
-                            </label>
+                            <oc-radio-button name="kbConvScope" value="global">全局</oc-radio-button>
+                            <oc-radio-button name="kbConvScope" value="project" checked>项目</oc-radio-button>
                         </div>
                         <div class="kb-conv-note" id="kbConvScopeNote"></div>
                     </div>
@@ -1324,15 +1306,9 @@
                     <div class="field__label kb-form-label">同步方式</div>
                     <div class="kb-form-main">
                         <div class="kb-radio-group">
-                            <label class="kb-radio-opt">
-                                <input type="radio" name="kbConvSync" data-sync="copy" checked />
-                                <span class="kb-radio-dot"></span>复制
-                                <span class="kb-rec">推荐</span>
-                            </label>
-                            <label class="kb-radio-opt">
-                                <input type="radio" name="kbConvSync" data-sync="symlink" />
-                                <span class="kb-radio-dot"></span>软链接
-                            </label>
+                            <oc-radio-button name="kbConvSync" value="copy" checked>复制
+                                <span class="kb-rec">推荐</span></oc-radio-button>
+                            <oc-radio-button name="kbConvSync" value="symlink">软链接</oc-radio-button>
                         </div>
                         <div class="kb-conv-note" id="kbConvSyncNote"></div>
                     </div>
@@ -1533,15 +1509,9 @@
                                     <div class="field" data-mcp-group="remote">
                                         <label>OAuth</label>
                                         <div id="mcpOauthModes" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px">
-                                            <label style="display:inline-flex;align-items:center;gap:5px">
-                                                <input type="radio" name="mcpOauthMode" value="auto" style="width:auto;height:auto" /> 自动探测
-                                            </label>
-                                            <label style="display:inline-flex;align-items:center;gap:5px">
-                                                <input type="radio" name="mcpOauthMode" value="off" style="width:auto;height:auto" /> 关闭（oauth: false）
-                                            </label>
-                                            <label style="display:inline-flex;align-items:center;gap:5px">
-                                                <input type="radio" name="mcpOauthMode" value="custom" style="width:auto;height:auto" /> 自定义客户端
-                                            </label>
+                                    <oc-radio-button name="mcpOauthMode" value="auto">自动探测</oc-radio-button>
+                                    <oc-radio-button name="mcpOauthMode" value="off">关闭（oauth: false）</oc-radio-button>
+                                    <oc-radio-button name="mcpOauthMode" value="custom">自定义客户端</oc-radio-button>
                                         </div>
 
                                         <div id="mcpOauthCustom" hidden style="margin-top:12px">
@@ -1644,6 +1614,7 @@
         // 自定义元素先注册：文件浏览器独立窗口不加载 main.js，否则 <oc-button> 不会升级
         import '/components/oc-button.js';
         import '/components/oc-icon-button.js';
+        import '/components/oc-radio-button.js';
         import '/components/oc-input.js';
         import '/components/oc-textarea.js';
         import '/components/oc-select.js';
@@ -1688,8 +1659,8 @@
                                 <div class="field">
                                     <label>什么时候</label>
                                     <div class="oc-schedule-radios">
-                                        <label><input type="radio" name="scheduleOnceMode" value="delay" checked> 延迟</label>
-                                        <label><input type="radio" name="scheduleOnceMode" value="at"> 指定时间</label>
+                                    <oc-radio-button name="scheduleOnceMode" value="delay" checked>延迟</oc-radio-button>
+                                    <oc-radio-button name="scheduleOnceMode" value="at">指定时间</oc-radio-button>
                                     </div>
                                 </div>
                                 <div class="field" id="scheduleDelayRow">
@@ -1768,18 +1739,20 @@
                             <div class="field" id="scheduleEndsRow">
                                 <label>结束条件</label>
                                 <div class="oc-schedule-ends">
-                                    <label><input type="radio" name="scheduleEndsMode" value="never" checked> 永不</label>
-                                    <label><input type="radio" name="scheduleEndsMode" value="times"> 最多
+                                    <oc-radio-button name="scheduleEndsMode" value="never" checked>永不</oc-radio-button>
+                                    <div class="oc-schedule-ends-item">
+                                        <oc-radio-button name="scheduleEndsMode" value="times">最多</oc-radio-button>
                                         <span class="oc-schedule-ends-control">
                                             <oc-input type="number" id="scheduleEndsTimes" value="20" class="oc-schedule-num" disabled></oc-input>
                                             <span>次</span>
                                         </span>
-                                    </label>
-                                    <label><input type="radio" name="scheduleEndsMode" value="at"> 到
+                                    </div>
+                                    <div class="oc-schedule-ends-item">
+                                        <oc-radio-button name="scheduleEndsMode" value="at">某日</oc-radio-button>
                                         <span class="oc-schedule-ends-control">
                                             <oc-input type="datetime-local" id="scheduleEndsAt" disabled></oc-input>
                                         </span>
-                                    </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
