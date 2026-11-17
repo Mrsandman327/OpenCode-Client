@@ -8,7 +8,7 @@ import { store } from '../core/state.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { openDirBrowserModal } from '../filebrowser/dir.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
-import { switchHtml } from '../components/switch.js';
+import { switchHtml } from '../components/oc-switch.js';
 import { emptyHtml } from '../components/empty.js';
 export let skills = [];
 

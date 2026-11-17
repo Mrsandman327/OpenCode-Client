@@ -26,7 +26,7 @@ import { dirname } from '../core/path.js';
 import { store, currentDir } from '../core/state.js';
 import { toModelOptions, formatApiError } from '../core/v2compat.js';
 import { showConfirm, showPrompt } from '../core/dialog.js';
-import { createSwitch } from '../components/switch.js';
+import { createSwitch } from '../components/oc-switch.js';
 import { buttonHtml } from '../components/oc-button.js';
 
 // ========== 视图状态（全部由 loadModelConfig 填充） ==========

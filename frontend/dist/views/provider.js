@@ -8,9 +8,9 @@ import { escapeHtml, showToast, showApiError, bindOverlayClose, MODEL_EFFORTS } 
 import { dirname } from '../core/path.js';
 import { openFileBrowserModal } from '../filebrowser/browser.js';
 import { showConfirm } from '../core/dialog.js';
-import { switchHtml } from '../components/switch.js';
+import { switchHtml } from '../components/oc-switch.js';
 import { emptyHtml } from '../components/empty.js';
-import { controlHtml } from '../components/field.js';
+import { controlHtml } from '../components/oc-input.js';
 
 export let providerCache = [];
 

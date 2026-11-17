@@ -15,8 +15,6 @@
     <link rel="stylesheet" href="/css/empty.css" />
     <link rel="stylesheet" href="/css/toast.css" />
     <link rel="stylesheet" href="/css/field.css" />
-    <link rel="stylesheet" href="/css/search.css" />
-    <link rel="stylesheet" href="/css/switch.css" />
     <script src="/lib/marked.min.js"></script>
     <script src="/lib/qrcode.min.js"></script>
 </head>
@@ -202,11 +200,9 @@
                             <oc-button variant="bare" icon-only class="oc-head-icon-btn" id="btnRefreshTree" title="刷新会话列表" aria-label="刷新会话列表" disabled><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg></oc-button>
                         </div>
                         <div class="oc-tree-search-bar" id="ocTreeSearchBar">
-                            <div class="search oc-tree-search-field">
-                                <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                                <input class="search__input" type="search" id="ocTreeSearchInput" placeholder="搜索会话..." aria-label="搜索会话" autocomplete="off" />
-                                <span class="oc-tree-search-count" id="ocTreeSearchCount">-</span>
-                            </div>
+                            <oc-search class="oc-tree-search-field" id="ocTreeSearchInput" placeholder="搜索会话..." aria-label="搜索会话">
+                                <span slot="trailing" class="oc-tree-search-count" id="ocTreeSearchCount">-</span>
+                            </oc-search>
                             <button type="button" class="oc-tree-search-clear" id="ocTreeSearchClear" title="清空搜索" disabled>清空</button>
                             <button type="button" class="oc-tree-search-close" id="ocTreeSearchClose" title="关闭搜索（Esc）" aria-label="关闭搜索"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
                         </div>
@@ -245,10 +241,8 @@
                             <oc-button variant="bare" icon-only class="oc-head-icon-btn" id="btnRefreshCurrentSession" title="刷新当前会话" aria-label="刷新当前会话"><svg slot="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg></oc-button>
                         </div>
                         <div class="oc-search-bar" id="ocSearchBar" style="display:none">
-                            <div class="search">
-                                <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                                <input class="search__input" type="text" id="ocSearchInput" placeholder="搜索当前会话消息..." />
-                            </div>
+                            <oc-search id="ocSearchInput" placeholder="搜索当前会话消息...">
+                            </oc-search>
                             <span class="oc-search-count" id="ocSearchCount"></span>
                             <oc-button variant="secondary" size="sm" id="ocSearchPrev" disabled>▲</oc-button>
                             <oc-button variant="secondary" size="sm" id="ocSearchNext" disabled>▼</oc-button>
@@ -293,10 +287,8 @@
                             </div>
                             <!-- 知识库 @ 引用搜索面板：在 #ocPrompt 输入 @ 时弹出，交互与定位对齐命令面板 -->
                             <div class="oc-kb-palette" id="ocKbPalette" style="display:none">
-                                <div class="search oc-kb-search">
-                                    <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                                    <input class="search__input oc-kb-search-input" type="text" id="ocKbSearchInput" placeholder="搜索知识库..." autocomplete="off" spellcheck="false" />
-                                </div>
+                                <oc-search class="oc-kb-search" id="ocKbSearchInput" placeholder="搜索知识库...">
+                                </oc-search>
                                 <div class="oc-kb-scroll" id="ocKbScroll"></div>
                             </div>
                             <!-- 权限请求弹层：横向铺满会话区，紧凑高度，非全屏遮罩 -->
@@ -448,10 +440,8 @@
                         <span class="stat-label">全局技能</span>
                     </div>
                     <!-- 技能过滤：紧跟在统计项后，与其他视图的搜索框同一套组件 -->
-                    <div class="search skill-search">
-                        <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                        <input class="search__input" type="text" id="skillSearch" placeholder="输入技能名称过滤..." />
-                    </div>
+                    <oc-search class="skill-search" id="skillSearch" placeholder="输入技能名称过滤...">
+                    </oc-search>
                     <div class="stats-spacer"></div>
                     <oc-button variant="refresh" size="sm" id="btnRefresh" title="刷新技能列表"><span class="oc-fb-icon oc-fb-icon-refresh"></span>刷新</oc-button>
                 </section>
@@ -509,10 +499,8 @@
             <div class="view-panel" id="view-knowledge">
                 <!-- 顶部工具栏：搜索 + 标签筛选 + 列表/卡片切换 + 新建 -->
                 <div class="kb-toolbar">
-                    <div class="search kb-search">
-                        <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                        <input class="search__input" type="search" id="kbSearch" placeholder="搜索标题、说明、标签…" autocomplete="off" />
-                    </div>
+                    <oc-search class="kb-search" id="kbSearch" placeholder="搜索标题、说明、标签…">
+                    </oc-search>
 
                     <!-- 标签筛选：与分类筛选相互独立，可与搜索叠加 -->
                     <div class="kb-tag-filter">
@@ -569,10 +557,8 @@
             <div class="view-panel" id="view-providers">
                 <!-- 工具栏（照知识库 .kb-toolbar）：搜索 + 展开/折叠 + 列表/卡片切换 + 打开配置文件 + 添加供应商 -->
                 <div class="pv-toolbar">
-                    <div class="search pv-search">
-                        <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                        <input class="search__input" type="search" id="providerSearch" placeholder="搜索供应商、模型…" autocomplete="off" />
-                    </div>
+                    <oc-search class="pv-search" id="providerSearch" placeholder="搜索供应商、模型…">
+                    </oc-search>
                     <div class="toolbar-spacer"></div>
                     <oc-button variant="secondary" size="sm" id="btnExpandAllProviders" title="展开或折叠全部卡片">展开 / 折叠</oc-button>
                     <div class="pv-seg" id="providerViewSeg">
@@ -613,10 +599,8 @@
             </div>
             <!-- 搜索、消息列表与“加载更多”统一放进正文；列表自己滚动，避免双滚动条 -->
             <div class="modal-body">
-                <div class="search fork-search">
-                    <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                    <input class="search__input" id="forkSearchInput" placeholder="搜索" autocomplete="off" />
-                </div>
+                <oc-search class="fork-search" id="forkSearchInput" placeholder="搜索">
+                </oc-search>
                 <div class="fork-msg-list" id="forkMsgList"></div>
                 <div class="fork-more" id="forkMoreBtn" style="display:none">加载更早消息</div>
             </div>
@@ -1029,11 +1013,9 @@
                     </div>
                     <div class="file-browser-search-panel" id="fileBrowserSearchPanel">
                         <div class="file-browser-search-top">
-                            <div class="search file-browser-search-input-row">
-                                <span class="search__icon" aria-hidden="true"><svg class="i"><use href="#i-search"></use></svg></span>
-                                <input class="search__input" type="text" id="fileBrowserSearchInput" placeholder="搜索内容（在会话目录内全文检索）" spellcheck="false" autocomplete="off" />
-                                <span class="file-browser-search-clear" id="btnFileBrowserSearchClear" title="清空"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>
-                            </div>
+                            <oc-search class="file-browser-search-input-row" id="fileBrowserSearchInput" placeholder="搜索内容（在会话目录内全文检索）">
+                                <span slot="trailing" class="file-browser-search-clear" id="btnFileBrowserSearchClear" title="清空"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>
+                            </oc-search>
                             <div class="file-browser-search-opts">
                                 <button type="button" class="file-browser-search-opt" id="btnFbSearchCase" title="区分大小写">Aa</button>
                                 <button type="button" class="file-browser-search-opt" id="btnFbSearchRegex" title="正则表达式">.*</button>
@@ -1683,6 +1665,7 @@
         import '/components/oc-textarea.js';
         import '/components/oc-select.js';
         import '/components/oc-switch.js';
+        import '/components/oc-search.js';
         if (new URLSearchParams(window.location.search).get('view') === 'filebrowser') {
             import('/filebrowser/entry.js').then(function(m) { m.initStandaloneFileBrowser(); });
         } else {
