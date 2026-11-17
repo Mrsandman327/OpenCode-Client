@@ -4230,8 +4230,10 @@ svg.i.is-spinning {
 }
 
 .model-row.changed {
+    /* 左侧标记改用 inset 阴影：border-left 会占用 3px 布局宽度，
+       让「已改动」的行整体右移，跟其它行的复选框/文字对不齐 */
     background: var(--accent-ghost);
-    border-left: 3px solid var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .model-row-top {
@@ -8964,8 +8966,9 @@ oc-textarea.kb-field-input {
 }
 /* 纯继承行：左边缘一条浅灰竖线（padding 补偿 2px，保持内容对齐） */
 #view-omo .model-row.inherited {
-    border-left: 2px solid var(--border);
-    padding-left: 18px;
+    /* 不再加左侧竖线：2px 边框会让这一行的边缘与其它行错开，
+       继承状态已经由行内的「继承」标签表达 */
+    padding-left: 20px;
 }
 /* 组头「重命名方案」按钮：纯图标（默认无背景无边框，悬浮图标高亮） */
 #view-omo .btn-rename-preset {
@@ -10875,9 +10878,11 @@ oc-textarea.kb-field-input {
 
 
 /* 技能页搜索：与工具栏同宽，不撑满整行 */
-.stats-bar .search {
-    width: 260px;
-    flex: 0 1 260px;
+/* 技能页搜索框：旧 .search 规则早已失效，宽度按组件宿主给到 360px */
+.skill-search {
+    width: 360px;
+    flex: 0 1 360px;
+    min-width: 200px;
 }
 
 /* ===== 已迁移到 <oc-button> 的场景覆盖 =====
