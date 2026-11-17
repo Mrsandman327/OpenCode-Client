@@ -162,6 +162,12 @@
     max-width: calc(100vw - 32px);
 }
 
+/* 小确认框：头尾收紧、内容区放宽。
+   默认三段 padding 让 53 / 54 / 55 几乎等高，一行文字被夹在中间显得局促 */
+.confirm-modal .modal-header { padding: 10px 18px; }
+.confirm-modal .modal-body { padding: 20px 18px; }
+.confirm-modal .modal-footer { padding: 10px 18px; }
+
 .confirm-modal .confirm-modal-body {
     white-space: normal;
     line-height: 1.65;

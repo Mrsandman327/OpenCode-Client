@@ -217,6 +217,12 @@ export function enhanceModals(root) {
         if (overlay.__modalEnhanced) return;
         overlay.__modalEnhanced = true;
 
+        // 记录按下时是否落在遮罩空白处。在弹窗内按下、移出窗口再松开时，
+        // click 的 target 会变成 overlay（共同祖先），只看 target 会把这次操作
+        // 误判成「点空白关闭」，弹窗会在窗外松手时被关掉。
+        overlay.addEventListener('mousedown', function(e) {
+            overlay.__downOnOverlay = (e.target === overlay);
+        });
         overlay.addEventListener('click', function(e) {
             // 关闭按钮
             const closer = e.target.closest && e.target.closest('[data-modal-close], .modal-close-btn');
@@ -225,7 +231,7 @@ export function enhanceModals(root) {
                 return;
             }
             // 遮罩空白：只有点在 overlay 自身时才算
-            if (e.target === overlay && overlay.getAttribute('data-modal-static') !== '1') {
+            if (overlay.__downOnOverlay && e.target === overlay && overlay.getAttribute('data-modal-static') !== '1') {
                 closeModal(overlay);
             }
         });
