@@ -809,7 +809,7 @@ function renderBatchBar() {
     const bar = document.createElement('div');
     bar.className = 'batch-model-bar';
     bar.innerHTML = `
-        <label class="batch-check"><input type="checkbox" id="selectAllModels" /> <span>全选</span></label>
+        <oc-check-button class="batch-check" id="selectAllModels">全选</oc-check-button>
         <oc-select class="batch-model-select" id="batchModelSelect">
             <option value="">-- 批量设置模型 --</option>
             ${modelOptionsHtml('')}</oc-select>
@@ -820,7 +820,7 @@ function renderBatchBar() {
 
     // 全选：勾选 / 取消所有条目复选框
     document.getElementById('selectAllModels').addEventListener('change', e => {
-        document.querySelectorAll('.model-check').forEach(cb => { cb.checked = e.target.checked; });
+        document.querySelectorAll('.model-check').forEach(cb => { cb.checked = e.detail.checked; });
     });
 
     // 应用：把选中模型写入所有勾选行（继承行被改写时标记为「已覆盖」）
@@ -828,7 +828,7 @@ function renderBatchBar() {
         const model = document.getElementById('batchModelSelect').value;
         if (!model) return;
         let count = 0;
-        document.querySelectorAll('.model-check:checked').forEach(cb => {
+        document.querySelectorAll('.model-check[checked]').forEach(cb => {
             const preset = presets.find(p => p.name === cb.dataset.preset);
             const agent = preset && preset.agents.find(a => a.key === cb.dataset.key);
             if (!agent || agent.model === model) return;
@@ -905,12 +905,12 @@ function createPresetGroup(preset) {
     const actions = document.createElement('span');
     actions.className = 'model-group-actions';
 
-    const selectAll = document.createElement('label');
+    const selectAll = document.createElement('oc-check-button');
     selectAll.className = 'model-group-select-all';
-    selectAll.innerHTML = '<input type="checkbox"> 全选';
+    selectAll.textContent = '全选';
     selectAll.addEventListener('click', (e) => e.stopPropagation());
-    selectAll.querySelector('input').addEventListener('change', (e) => {
-        const checked = e.target.checked;
+    selectAll.addEventListener('change', (e) => {
+        const checked = e.detail.checked;
         body.querySelectorAll('.model-check').forEach(cb => { cb.checked = checked; });
     });
 
@@ -1026,8 +1026,7 @@ function createAgentRow(preset, agent) {
     top.className = 'model-row-top';
 
     // 复选框（仅用于批量选择，不参与保存）
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
+    const cb = document.createElement('oc-check-button');
     cb.className = 'model-check';
     cb.dataset.preset = preset.name;
     cb.dataset.key = agent.key;

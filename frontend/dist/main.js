@@ -13,6 +13,7 @@ import { enhanceModals } from './components/modal.js';
 import './components/oc-button.js';
 import './components/oc-icon-button.js';
 import './components/oc-radio-button.js';
+import './components/oc-check-button.js';
 import './components/oc-input.js';
 import './components/oc-textarea.js';
 import './components/oc-select.js';

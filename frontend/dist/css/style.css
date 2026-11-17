@@ -3946,11 +3946,6 @@ svg.i.is-spinning {
     font-size: 12px;
 }
 .batch-check {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    color: var(--text-secondary);
     white-space: nowrap;
 }
 .batch-model-select {
@@ -3958,10 +3953,10 @@ svg.i.is-spinning {
     height: 30px;
     padding: 0 8px;
 }
+/* 已迁移到 <oc-check-button>：尺寸走组件变量 */
 .model-check {
-    width: 15px;
-    height: 15px;
-    cursor: pointer;
+    --check-box: 15px;
+    --check-radius: 4px;
     flex-shrink: 0;
 }
 
