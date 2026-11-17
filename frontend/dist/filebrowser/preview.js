@@ -791,23 +791,18 @@ export function renderFileBrowserTabs() {
     }
     tabsEl.innerHTML = state.fileTabs.map(function(t) {
         var active = t.path === state.activeFileTabPath ? ' active' : '';
-        return '<div class="file-browser-tab' + active + '" data-path="' + escapeHtml(t.path) + '" title="' + escapeHtml(t.path) + '">' +
-            '<span class="file-browser-tab-name">' + escapeHtml(t.name) + '</span>' +
-            '<span class="file-browser-tab-close" data-close="' + escapeHtml(t.path) + '"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>' +
-        '</div>';
+        return '<oc-tab class="file-browser-tab" data-path="' + escapeHtml(t.path) + '" title="' + escapeHtml(t.path) + '"' + active + '>' +
+            escapeHtml(t.name) +
+        '</oc-tab>';
     }).join('');
     tabsEl.style.display = 'flex';
 
-    tabsEl.querySelectorAll('.file-browser-tab').forEach(function(el) {
-        el.addEventListener('click', function(e) {
-            if (e.target.closest('.file-browser-tab-close')) return;
+    tabsEl.querySelectorAll('oc-tab').forEach(function(el) {
+        el.addEventListener('select', function() {
             fileBrowserSwitchTab(el.dataset.path);
         });
-    });
-    tabsEl.querySelectorAll('.file-browser-tab-close').forEach(function(el) {
-        el.addEventListener('click', function(e) {
-            e.stopPropagation();
-            fileBrowserCloseTab(el.dataset.close);
+        el.addEventListener('close', function() {
+            fileBrowserCloseTab(el.dataset.path);
         });
     });
 }

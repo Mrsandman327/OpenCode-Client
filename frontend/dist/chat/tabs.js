@@ -71,25 +71,20 @@ export function renderTabsBar() {
     }
     bar.innerHTML = store.openTabs.map(function(tab) {
         var active = tab.sessionID === store.activeTabId ? ' active' : '';
-        return '<div class="oc-tab' + active + '" data-session-id="' + escapeHtml(tab.sessionID) + '">' +
-            '<span class="oc-tab-title">' + escapeHtml(tab.title || tab.sessionID) + '</span>' +
-            '<span class="oc-tab-close" data-close-id="' + escapeHtml(tab.sessionID) + '"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></span>' +
-        '</div>';
+        return '<oc-tab data-session-id="' + escapeHtml(tab.sessionID) + '"' + active + '>' +
+            escapeHtml(tab.title || tab.sessionID) +
+        '</oc-tab>';
     }).join('');
 
-    bar.querySelectorAll('.oc-tab').forEach(function(tab) {
-        tab.addEventListener('click', function(e) {
-            if (e.target.closest('.oc-tab-close')) return;
-            var sid = tab.dataset.sessionId;
+    bar.querySelectorAll('oc-tab').forEach(function(el) {
+        el.addEventListener('select', function() {
+            var sid = el.dataset.sessionId;
             if (sid && sid !== store.activeTabId) {
                 switchTab(sid);
             }
         });
-    });
-    bar.querySelectorAll('.oc-tab-close').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            closeSessionTab(btn.dataset.closeId || '');
+        el.addEventListener('close', function() {
+            closeSessionTab(el.dataset.sessionId || '');
         });
     });
 }

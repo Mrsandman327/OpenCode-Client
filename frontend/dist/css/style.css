@@ -1393,62 +1393,6 @@ button.oc-head-icon-btn svg {
     font-weight: 600;
     color: var(--text-primary);
 }
-.oc-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-input);
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-primary);
-    cursor: pointer;
-    white-space: nowrap;
-    max-width: 220px;
-    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-    flex-shrink: 0;
-}
-.oc-tab:hover {
-    background: var(--bg-card-hover);
-    border-color: var(--accent);
-}
-.oc-tab.active {
-    background: var(--accent-ghost);
-    color: var(--accent);
-    border-color: var(--accent);
-    font-weight: 600;
-}
-.oc-tab.active .oc-tab-close {
-    color: var(--accent);
-    opacity: 0.7;
-}
-.oc-tab.active .oc-tab-close:hover {
-    color: var(--danger);
-    opacity: 1;
-}
-.oc-tab-title {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.oc-tab-close {
-    flex-shrink: 0;
-    font-size: 10px;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 0 2px;
-    border-radius: var(--radius-xs);
-    line-height: 1;
-    /* 图标按钮：内容居中 */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-.oc-tab-close:hover {
-    color: var(--danger);
-}
 .oc-chat-head-title {
     min-width: 0;
     overflow: hidden;
@@ -3653,8 +3597,6 @@ svg.i.is-spinning {
 }
 /* 紧凑控件内的图标尺寸：这些容器原本靠小字号渲染 ✕ ✓ ☰ ⚙ 文本符号，
    换成图标后按容器缩小，避免撑大按钮或破坏行高；颜色/描边仍由 symbol 与 currentColor 决定 */
-.oc-tab-close svg.i,
-.file-browser-tab-close svg.i { width: 10px; height: 10px; }
 .oc-tree-config svg.i,
 .btn-del svg.i { width: 12px; height: 12px; }
 /* 16px 圆形悬浮关闭按钮：图标再小一号，避免贴边 */
@@ -6524,6 +6466,14 @@ button.file-browser-upload-plus:hover:not(:disabled) {
     background: var(--bg-card);
 }
 /* 多文件 tab 栏：已打开文件列表（对齐项目树/会话卡片视觉） */
+/* 文件预览 tab 已换成 <oc-tab lift>：这里只保留更紧凑的尺寸与等宽字体 */
+.file-browser-tab {
+    --tab-py: 4px;
+    --tab-px: 10px;
+    --tab-gap: 1px;
+    --tab-fs: 13px;
+    --tab-font: "SF Mono", "Cascadia Code", monospace;
+}
 .file-browser-preview-tabs {
     display: flex;
     align-items: center;
@@ -6532,53 +6482,6 @@ button.file-browser-upload-plus:hover:not(:disabled) {
     flex-wrap: nowrap;
     overflow-x: auto;
     flex-shrink: 0;
-}
-.file-browser-tab {
-    display: flex;
-    align-items: center;
-    gap: 1px;
-    padding: 4px 8px 4px 10px;
-    border-radius: 3px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    font-size: 13px;
-    font-family: "SF Mono", "Cascadia Code", monospace;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    max-width: 220px;
-    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-}
-.file-browser-tab .file-browser-tab-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.file-browser-tab:hover {
-    background: var(--bg-card-hover);
-    color: var(--text-primary);
-    transform: translateY(-1px);
-    box-shadow: rgba(0,0,0,0.08) 0 2px 6px;
-}
-.file-browser-tab.active {
-    background: var(--accent-ghost);
-    color: var(--accent);
-    border-color: var(--accent-hover);
-}
-.file-browser-tab-close {
-    flex-shrink: 0;
-    font-size: 10px;
-    color: var(--text-muted);
-    padding: 0 3px;
-    border-radius: 4px;
-    line-height: 1;
-    /* 图标按钮：内容居中 */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-.file-browser-tab-close:hover {
-    color: var(--danger);
-    background: var(--danger-bg);
 }
 .file-browser-preview-header {
     padding: 12px 16px;
