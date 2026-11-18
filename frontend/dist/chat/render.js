@@ -584,13 +584,22 @@ function doUpdateModelInfo(items) {
     let variant = '';
     for (let i = list.length - 1; i >= 0; i--) {
         const info = list[i].info || list[i];
-        if (info.role === 'assistant') {
-            agent = info.agent || '';
-            model = info.modelID || (info.model && info.model.modelID) || '';
-            if (info.providerID) model = info.providerID + '/' + model;
-            variant = info.variant || '';
-            break;
-        }
+        if (info.role !== 'assistant') continue;
+        const ref = info.model || {};
+        const infoAgent = info.agent || '';
+        const infoModel = info.modelID || ref.modelID || ref.id || '';
+        // 发送后、模型还没开始回复时，缓存里最后一条是本地占位 assistant（只有 role，
+        // 没有 agent/model）。这里必须跳过继续往前找，不能 break：
+        // 直接 break 会挡住上一轮真实记录，导致切回会话时三项全部回落「默认」。
+        if (!infoAgent && !infoModel) continue;
+        agent = infoAgent;
+        model = infoModel;
+        const provider = info.providerID || ref.providerID || '';
+        if (provider) model = provider + '/' + model;
+        // 服务端用 'default' 表示未指定档位，等价于前端空串「默认」
+        const infoVariant = info.variant || ref.variant || '';
+        variant = infoVariant === 'default' ? '' : infoVariant;
+        break;
     }
     // 历史里没有可用信息：保持现状，等后续渲染再尝试同步
     if (!agent && !model) return;
