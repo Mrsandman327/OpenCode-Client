@@ -46,8 +46,7 @@ SHEET.replaceSync(`
     max-width: 100%;
     min-width: 0;
     padding: var(--tab-py, 6px) var(--tab-px, 12px);
-    /* 由 JS 按标题自然宽度写入：悬浮让位时总宽不变，只压缩文字 */
-    width: var(--tab-w, auto);
+    /* 宽度由标题内容 + 内边距自然撑开（不再用 JS 量宽锁死） */
     border: 1px solid var(--border);
     border-radius: var(--tab-radius, 3px);
     background: var(--bg-input);
@@ -72,10 +71,12 @@ SHEET.replaceSync(`
     pointer-events: auto;
 }
 
-/* 悬浮时标题最大宽度减 21px（17 按钮 + 4 间距）：标签总宽已锁，文字被直接裁掉 */
+/* 悬浮时标题不再让位：宽度保持原样，右侧用遮罩淡出。
+   渐变只覆盖最后十几个像素：关闭按钮所在区域基本全遮，往左迅速恢复清晰。 */
 .frame:hover .title {
-    max-width: calc(100% - 16px);
     text-overflow: clip;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent calc(100% - 12px));
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent calc(100% - 12px));
 }
 
 /* 键盘聚焦到关闭按钮时也要可见 */
@@ -102,7 +103,8 @@ SHEET.replaceSync(`
 }
 
 .title {
-    flex: 1 1 0;
+    /* 宽度由内容决定，超出宿主上限时省略（悬浮时改由遮罩淡出） */
+    flex: 0 1 auto;
     box-sizing: border-box;
     min-width: 0;
     overflow: hidden;
@@ -111,7 +113,7 @@ SHEET.replaceSync(`
 }
 
 /* ---------- 关闭按钮 ---------- */
-/* 绝对定位：不占布局。悬浮时浮到右侧，标题让出对应宽度后文字被裁掉 */
+/* 绝对定位：不占布局。悬浮时浮到右侧，标题保持原宽、尾部由遮罩淡出，× 压在渐隐区上 */
 .close {
     all: unset;
     position: absolute;
@@ -192,9 +194,6 @@ class OcTab extends HTMLElement {
         this._frame = root.querySelector('.frame');
         this._close = root.querySelector('.close');
         this._title = root.querySelector('.title');
-        const slot = root.querySelector('slot');
-        if (slot) slot.addEventListener('slotchange', () => this._lockWidth());
-
         this._frame.addEventListener('click', () => this._onSelect());
         this._frame.addEventListener('keydown', (e) => {
             if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -210,29 +209,8 @@ class OcTab extends HTMLElement {
 
     connectedCallback() {
         this._sync();
-        // 首帧之后按标题自然宽度锁定标签宽度
-        requestAnimationFrame(() => this._lockWidth());
     }
 
-    /**
-     * 按标题的自然宽度锁定标签宽度（写入 --tab-w）。
-     * 悬浮时关闭按钮浮到右侧、标题加 padding-right 让位；因为总宽已锁死，
-     * 多出来的部分会被直接裁掉，标签整体不会变宽。
-     * 测量前必须把 padding 清零、去掉 --tab-w，否则量到的是上一次的结果。
-     */
-    _lockWidth() {
-        const title = this._title;
-        if (!title) return;
-        // 用 Range 直接量文本自身的宽度：不受 flex 压缩、overflow 裁剪、max-width 影响。
-        // 文本在 light DOM（通过 slot 投影），所以量宿主的文本节点。
-        const range = document.createRange();
-        range.selectNodeContents(this);
-        const rect = range.getBoundingClientRect();
-        range.detach && range.detach();
-        const textW = rect.width || title.scrollWidth;
-        // 26 = 左右内边距 24 + 边框 2
-        this.style.setProperty('--tab-w', Math.ceil(textW + 26) + 'px');
-    }
     attributeChangedCallback() { this._sync(); }
 
     _sync() {
