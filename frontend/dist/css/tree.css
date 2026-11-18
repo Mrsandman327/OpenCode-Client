@@ -284,6 +284,40 @@ oc-context-menu::part(icon-import) {
     margin-left: 6px;
     font-size: 10px;
     color: var(--text-muted);
+    /* 悬浮时给删除按钮让位（按钮是绝对定位，不占布局） */
+    transition: margin-right 0.12s ease;
+}
+/* 会话行删除按钮：平时隐藏，悬浮行时出现；
+   绝对定位在右侧，时间往左让出空间后按钮才压上来 */
+.oc-tree-session-del {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    --icon-box: 20px;
+    --icon-size: 14px;
+    --icon-radius: var(--radius-xs);
+    --icon-color: var(--text-muted);
+    --icon-color-hover: var(--danger);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+.oc-tree-session-del-ic {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.oc-tree-session:hover .oc-tree-session-del {
+    opacity: 1;
+    pointer-events: auto;
+}
+.oc-tree-session:hover .oc-tree-session-time {
+    margin-right: 22px;
 }
 .oc-tree-session:hover {
     background: var(--bg-card-hover);

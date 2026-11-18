@@ -190,6 +190,13 @@ export function renderTree(tree) {
             html += `<div class="oc-tree-node oc-tree-session" data-session-id="${escapeHtml(ses.id)}">`;
             html += `<div class="oc-tree-indent"></div><span class="oc-tree-session-icon"><svg class="i" aria-hidden="true"><use href="#i-message"></use></svg></span><span class="oc-tree-label" title="${escapeHtml(ses.title+'\n'+sesDir+'\n'+updatedAt)}">${escapeHtml(ses.title)}</span>`;
             if (updatedAt) html += `<span class="oc-tree-session-time">${escapeHtml(formatRelativeTime(updatedAt))}</span>`;
+            // 删除按钮：平时隐藏，悬浮会话行时时间往里让一点，按钮出现在让出的位置
+            // （与 MCP 连接器导航栏的删除按钮同一套交互）
+            html += `<oc-icon-button size="xs" class="oc-tree-session-del" title="删除会话" aria-label="删除会话">` +
+                `<svg slot="icon" class="oc-tree-session-del-ic" viewBox="0 0 24 24" aria-hidden="true">` +
+                `<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>` +
+                `<path d="M10 11v5M14 11v5"/>` +
+                `</svg></oc-icon-button>`;
             html += `<div class="oc-tree-tooltip"><div class="oc-tree-tooltip-title">${escapeHtml(ses.title)}</div><div class="oc-tree-tooltip-row">${escapeHtml(sesDir)}</div><div class="oc-tree-tooltip-row">${escapeHtml(updatedAt)}</div></div>`;
             html += `</div>`;
         }
@@ -247,6 +254,8 @@ export function renderTree(tree) {
 
     container.querySelectorAll('.oc-tree-session').forEach(el => {
         el.addEventListener('click', async (e) => {
+            // 删除按钮自己处理点击（阻止冒泡到会话行，避免顺带切换会话）
+            if (e.target.closest('.oc-tree-session-del')) return;
             const sid = el.dataset.sessionId;
             if (sid && sid !== store.currentSessionId) {
                 if (isMobileTreeMode()) {
@@ -260,6 +269,14 @@ export function renderTree(tree) {
                 closeMobileTree();
             }
         });
+        const delBtn = el.querySelector('.oc-tree-session-del');
+        if (delBtn) {
+            delBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const sid = el.dataset.sessionId;
+                if (sid) deleteSession(sid);
+            });
+        }
     });
     container.querySelectorAll('.oc-tree-config').forEach(btn => {
         btn.addEventListener('click', (e) => {
