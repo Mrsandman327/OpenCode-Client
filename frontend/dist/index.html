@@ -1720,13 +1720,6 @@
                                 <div class="oc-schedule-ends">
                                     <oc-radio-button name="scheduleEndsMode" value="never" checked>永不</oc-radio-button>
                                     <div class="oc-schedule-ends-item">
-                                        <oc-radio-button name="scheduleEndsMode" value="times">最多</oc-radio-button>
-                                        <span class="oc-schedule-ends-control">
-                                            <oc-input type="number" id="scheduleEndsTimes" value="20" class="oc-schedule-num" disabled></oc-input>
-                                            <span>次</span>
-                                        </span>
-                                    </div>
-                                    <div class="oc-schedule-ends-item">
                                         <oc-radio-button name="scheduleEndsMode" value="at">某日</oc-radio-button>
                                         <span class="oc-schedule-ends-control">
                                             <oc-input type="datetime-local" id="scheduleEndsAt" disabled></oc-input>
@@ -1766,10 +1759,14 @@
                 <div class="oc-schedule-detail">
                     <div class="oc-schedule-detail-row"><span>名称</span><strong id="scheduleDetailName">—</strong></div>
                     <div class="oc-schedule-detail-row"><span>状态</span><strong id="scheduleDetailStatus">—</strong></div>
+                    <div class="oc-schedule-detail-row"><span>类型</span><strong id="scheduleDetailType">—</strong></div>
                     <div class="oc-schedule-detail-row"><span>触发规则</span><strong id="scheduleDetailRule">—</strong></div>
                     <div class="oc-schedule-detail-row"><span>下次触发</span><strong id="scheduleDetailNext">—</strong></div>
+                    <div class="oc-schedule-detail-row"><span>运行次数</span><strong id="scheduleDetailRuns">—</strong></div>
+                    <div class="oc-schedule-detail-row"><span>上次运行</span><strong id="scheduleDetailLastRun">—</strong></div>
+                    <div class="oc-schedule-detail-row"><span>上次结果</span><strong id="scheduleDetailOutcome">—</strong></div>
                     <div class="field">
-                        <label>到点后发送</label>
+                        <label id="scheduleDetailPayloadLabel">到点后发送</label>
                         <pre class="oc-schedule-detail-prompt" id="scheduleDetailPrompt">—</pre>
                     </div>
                 </div>

@@ -1,7 +1,7 @@
 // ============================================================
 // chat/schedules.js — 会话定时任务
 // 依赖：core/state.js、core/utils.js、core/apicall.js、core/format.js
-// 数据源：/api/experimental/schedule（OpenCode experimental）
+// 数据源：/api/experimental/automation（OpenCode 2.3.1 起 schedules 更名为 automations）
 // ============================================================
 
 import { api } from '../core/apicall.js';
@@ -10,7 +10,7 @@ import { escapeHtml, showToast, showApiError, bindOverlayClose } from '../core/u
 import { showConfirm } from '../core/dialog.js';
 import { formatDateTime } from '../core/format.js';
 
-const API_BASE = '/api/experimental/schedule';
+const API_BASE = '/api/experimental/automation';
 const POLL_MS = 30000;
 
 const scheduleState = {
@@ -45,7 +45,23 @@ function toMs(value) {
 /** 判断 403 是否是「实验性定时任务未启用」。 */
 function isDisabledError(e) {
     const text = String((e && (e.message || e.error)) || e || '');
-    return text.indexOf('Scheduled tasks are disabled') >= 0 || text.indexOf('Forbidden') >= 0;
+    return text.indexOf('Scheduled tasks are disabled') >= 0
+        || text.indexOf('Automations are disabled') >= 0
+        || text.indexOf('Forbidden') >= 0;
+}
+
+/** 运行结果文案：新接口 lastOutcome。 */
+const OUTCOME_TEXT = {
+    fired: '已触发',
+    late: '延迟触发',
+    skipped: '已跳过',
+    disabled: '已禁用',
+    failed: '失败',
+    expired: '已过期',
+};
+
+function outcomeText(value) {
+    return OUTCOME_TEXT[value] || '';
 }
 
 function statusText(status) {
@@ -68,10 +84,21 @@ function statusDotClass(status) {
     return 'pending';
 }
 
-/** 把 Schedule.Info.when 转成可读规则。 */
+/** 把 Automation.Info.trigger 转成可读规则；兼容旧 when 字段。 */
 function describeWhen(task) {
-    const when = task && task.when ? task.when : {};
-    const tz = task.tz || when.tz || '';
+    const trigger = (task && task.trigger) || {};
+    const when = (task && task.when) || {};
+    const tz = task && task.tz ? task.tz : (trigger.tz || when.tz || '');
+    const type = trigger.type || '';
+    if (type === 'every' && trigger.every) return '每 ' + trigger.every;
+    if (type === 'cron' && trigger.cron) return 'cron ' + trigger.cron + (tz ? ' · ' + tz : '');
+    if (type === 'event') return '事件 ' + (trigger.server || '') + (trigger.event ? ' / ' + trigger.event : '');
+    if (type === 'at' && trigger.at) {
+        const at = String(trigger.at);
+        if (/^in\s+/i.test(at)) return '延迟 ' + at.replace(/^in\s+/i, '');
+        return '指定时间 ' + at.replace('T', ' ') + (tz ? ' · ' + tz : '');
+    }
+    // 旧 schedule 接口的字段，仅用于历史数据兜底
     if (when.in) return '延迟 ' + when.in;
     if (when.at) return '指定时间 ' + String(when.at).replace('T', ' ');
     if (when.every) return '每 ' + when.every;
@@ -82,6 +109,18 @@ function describeWhen(task) {
 function schedulePrompt(task) {
     const action = task && task.action;
     return action && action.prompt ? String(action.prompt) : '';
+}
+
+/** 动作类型：新接口 action.type 为 prompt / code。 */
+function scheduleActionType(task) {
+    const action = task && task.action;
+    return action && action.type === 'code' ? 'code' : 'prompt';
+}
+
+/** Code 动作的脚本正文。 */
+function scheduleCode(task) {
+    const action = task && task.action;
+    return action && action.code ? String(action.code) : '';
 }
 
 function scheduleName(task) {
@@ -105,9 +144,20 @@ function renderActionButtons(task) {
 function renderScheduleItem(task) {
     const status = task.status || 'pending';
     const rule = describeWhen(task);
-    const next = task.nextDueAt ? formatDateTime(toMs(task.nextDueAt)) : '';
-    const meta = [rule, next ? '下次 ' + next : ''].filter(Boolean).join(' · ');
-    const prompt = schedulePrompt(task);
+    const next = (task.nextDueAt && status === 'active') ? formatDateTime(toMs(task.nextDueAt)) : '';
+    const runs = Number(task.runCount || 0);
+    const parts = [];
+    if (rule) parts.push(rule);
+    if (next) parts.push('下次 ' + next);
+    if (runs > 0) parts.push('已运行 ' + runs + ' 次');
+    const outcome = outcomeText(task.lastOutcome);
+    if (outcome) parts.push('上次' + outcome);
+    const meta = parts.join(' · ');
+    const isCode = scheduleActionType(task) === 'code';
+    // Code 任务列表只标注「脚本任务」，脚本正文放在详情里看
+    const bodyText = isCode ? '脚本任务' : schedulePrompt(task);
+    // 上次输出（发送目标 / 日志）只做 tooltip，不占列表空间
+    const lastOutput = task.lastOutput ? String(task.lastOutput).slice(0, 300) : '';
 
     return '<div class="oc-schedule-item" data-schedule-id="' + escapeHtml(task.id || '') + '">'
         + '<div class="oc-schedule-main">'
@@ -116,8 +166,8 @@ function renderScheduleItem(task) {
         + '<span class="oc-schedule-name">' + escapeHtml(scheduleName(task)) + '</span>'
         + '<span class="oc-schedule-actions">' + renderActionButtons(task) + '</span>'
         + '</div>'
-        + (meta ? '<div class="oc-schedule-meta">' + escapeHtml(meta) + '</div>' : '')
-        + (prompt ? '<div class="oc-schedule-prompt" title="' + escapeHtml(prompt) + '">' + escapeHtml(prompt) + '</div>' : '')
+        + (meta ? '<div class="oc-schedule-meta"' + (lastOutput ? ' title="' + escapeHtml(lastOutput) + '"' : '') + '>' + escapeHtml(meta) + '</div>' : '')
+        + (bodyText ? '<div class="oc-schedule-prompt' + (isCode ? ' oc-schedule-code' : '') + '" title="' + escapeHtml(bodyText) + '">' + escapeHtml(bodyText) + '</div>' : '')
         + '</div>'
         + '</div>';
 }
@@ -322,7 +372,6 @@ function resetScheduleForm() {
     if ($('schedulePrompt')) $('schedulePrompt').value = '';
     if ($('scheduleCron')) $('scheduleCron').value = '0 9 * * *';
     if ($('scheduleOnceAt')) $('scheduleOnceAt').value = '';
-    if ($('scheduleEndsTimes')) $('scheduleEndsTimes').value = '20';
     if ($('scheduleEndsAt')) $('scheduleEndsAt').value = '';
     if ($('scheduleTime')) $('scheduleTime').value = '09:00';
     if ($('scheduleIntervalValue')) $('scheduleIntervalValue').value = '2';
@@ -335,7 +384,6 @@ function resetScheduleForm() {
     document.querySelectorAll('oc-radio-button[name="scheduleEndsMode"]').forEach(function (r) {
         r.checked = (r.value === 'never');
     });
-    if ($('scheduleEndsTimes')) $('scheduleEndsTimes').disabled = true;
     if ($('scheduleEndsAt')) $('scheduleEndsAt').disabled = true;
 
     scheduleState.freq = 'daily';
@@ -354,16 +402,17 @@ function closeScheduleModal() {
     setVisible(modalEl(), false);
 }
 
-function buildWhen() {
+/** 构造新接口的 trigger（旧 when 结构已废弃） */
+function buildTrigger() {
     const tab = selectedScheduleTab();
     if (tab === 'once') {
         if (selectedOnceMode() === 'delay') {
             const value = ($('scheduleDelayValue') && $('scheduleDelayValue').value) || '20';
             const unit = ($('scheduleDelayUnit') && $('scheduleDelayUnit').value) || 'minutes';
-            return { in: value + ' ' + unit };
+            return { type: 'at', at: 'in ' + value + ' ' + unit };
         }
         const at = $('scheduleOnceAt') && $('scheduleOnceAt').value;
-        return at ? { at: at } : null;
+        return at ? { type: 'at', at: at } : null;
     }
 
     const tz = ($('scheduleTz') && $('scheduleTz').value) || 'Asia/Shanghai';
@@ -371,22 +420,22 @@ function buildWhen() {
     if (freq === 'hourly') {
         const value = ($('scheduleIntervalValue') && $('scheduleIntervalValue').value) || '2';
         const unit = ($('scheduleIntervalUnit') && $('scheduleIntervalUnit').value) || 'hours';
-        return { every: value + ' ' + unit };
+        return { type: 'every', every: value + ' ' + unit, tz: tz };
     }
     if (freq === 'daily') {
-        return { cron: timeCron('*'), tz: tz };
+        return { type: 'cron', cron: timeCron('*'), tz: tz };
     }
     if (freq === 'weekly') {
         if (!scheduleState.weekdays.length) return null;
         const days = scheduleState.weekdays.slice().sort(function (a, b) { return a - b; }).join(',');
-        return { cron: timeCron(days), tz: tz };
+        return { type: 'cron', cron: timeCron(days), tz: tz };
     }
     if (freq === 'monthly') {
         const day = ($('scheduleMonthDay') && $('scheduleMonthDay').value) || '1';
-        return { cron: timeCron(day, true), tz: tz };
+        return { type: 'cron', cron: timeCron(day, true), tz: tz };
     }
     const custom = ($('scheduleCron') && $('scheduleCron').value || '').trim();
-    return custom ? { cron: custom, tz: tz } : null;
+    return custom ? { type: 'cron', cron: custom, tz: tz } : null;
 }
 
 function timeCron(dayPart, monthly) {
@@ -398,16 +447,11 @@ function timeCron(dayPart, monthly) {
     return m + ' ' + h + ' * * ' + dayPart;
 }
 
-function buildEnds() {
-    const mode = selectedEndsMode();
-    if (mode === 'times') {
-        return { times: parseInt(($('scheduleEndsTimes') && $('scheduleEndsTimes').value) || '1', 10) || 1 };
-    }
-    if (mode === 'at') {
-        const at = $('scheduleEndsAt') && $('scheduleEndsAt').value;
-        return at ? { at: at } : null;
-    }
-    return undefined;
+/** 结束条件：新接口只支持过期时间 expires（运行次数上限已移除） */
+function buildExpires() {
+    if (selectedEndsMode() !== 'at') return undefined;
+    const at = $('scheduleEndsAt') && $('scheduleEndsAt').value;
+    return at || undefined;
 }
 
 async function createSchedule() {
@@ -416,21 +460,22 @@ async function createSchedule() {
         showToast('请填写到点后发送的内容', 'warning');
         return;
     }
-    const when = buildWhen();
-    if (!when) {
+    const trigger = buildTrigger();
+    if (!trigger) {
         showToast(selectedScheduleTab() === 'once' ? '请填写指定时间' : '请补全重复规则', 'warning');
         return;
     }
+    const rawName = ($('scheduleName') && $('scheduleName').value || '').trim();
     const body = {
         sessionID: currentSessionID(),
-        prompt: prompt,
-        when: when,
+        // 新接口 name 必填：留空时用提示词摘要兜底
+        name: rawName || prompt.slice(0, 28),
+        trigger: trigger,
+        action: { type: 'prompt', prompt: prompt },
     };
-    const name = ($('scheduleName') && $('scheduleName').value || '').trim();
-    if (name) body.name = name;
     if (selectedScheduleTab() !== 'once') {
-        const ends = buildEnds();
-        if (ends) body.ends = ends;
+        const expires = buildExpires();
+        if (expires) body.expires = expires;
     }
 
     try {
@@ -456,9 +501,20 @@ function openScheduleDetail(id) {
     };
     set('scheduleDetailName', scheduleName(task));
     set('scheduleDetailStatus', statusText(task.status));
+    const isCode = scheduleActionType(task) === 'code';
+    set('scheduleDetailType', isCode ? '脚本任务' : '发送提示词');
     set('scheduleDetailRule', describeWhen(task));
     set('scheduleDetailNext', task.nextDueAt ? formatDateTime(toMs(task.nextDueAt)) : '');
-    set('scheduleDetailPrompt', schedulePrompt(task));
+    set('scheduleDetailRuns', String(Number(task.runCount || 0)) + ' 次');
+    set('scheduleDetailLastRun', task.lastRunAt ? formatDateTime(toMs(task.lastRunAt)) : '');
+    set('scheduleDetailOutcome', outcomeText(task.lastOutcome));
+    // Code 任务展示完整脚本；prompt 任务展示提示词
+    set('scheduleDetailPayloadLabel', isCode ? '脚本代码' : '到点后发送');
+    const payload = $('scheduleDetailPrompt');
+    if (payload) {
+        payload.textContent = isCode ? (scheduleCode(task) || '—') : (schedulePrompt(task) || '—');
+        payload.classList.toggle('is-code', isCode);
+    }
     setVisible($('scheduleDetailModal'), true);
 }
 
@@ -529,7 +585,6 @@ export function initSchedules() {
     document.querySelectorAll('oc-radio-button[name="scheduleEndsMode"]').forEach(function (input) {
         input.addEventListener('change', function (event) {
             const mode = event.target.value;
-            if ($('scheduleEndsTimes')) $('scheduleEndsTimes').disabled = mode !== 'times';
             if ($('scheduleEndsAt')) $('scheduleEndsAt').disabled = mode !== 'at';
             syncScheduleForm();
         });

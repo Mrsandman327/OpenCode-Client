@@ -1120,6 +1120,14 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+/* Code 动作：显示「脚本任务」+ 代码前 3 行，超出用行数截断 */
+.oc-schedule-prompt.oc-schedule-code {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
 .oc-schedule-actions {
     margin-left: auto;
     display: inline-flex;
@@ -1306,6 +1314,15 @@
     word-break: break-word;
     color: var(--text-secondary);
     font-family: inherit;
+}
+/* Code 动作的完整脚本：等宽字体、保留缩进、超长可滚动 */
+.oc-schedule-detail-prompt.is-code {
+    font-family: "SF Mono", "Cascadia Code", "Consolas", "Microsoft YaHei", monospace;
+    font-size: 11px;
+    white-space: pre;
+    word-break: normal;
+    max-height: 260px;
+    overflow: auto;
 }
 
 /* 系统配置行：开关推到行尾（宿主布局，不属于开关控件本身） */
