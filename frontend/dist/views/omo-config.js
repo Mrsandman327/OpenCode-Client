@@ -656,13 +656,54 @@ function createPresetGlobalTag(text, danger) {
     return tag;
 }
 
+/**
+ * 写「生效值」列：展示最终会写进配置文件的 model · variant。
+ * 全局覆盖时用强调色（值来自顶层），全局禁用时直接显示「已禁用」。
+ * @param {HTMLElement} rowOrEl 行容器或该列的 span
+ * @param {object} agent 行对应的 agent 数据
+ */
+function paintPresetRowEffective(rowOrEl, agent) {
+    const el = rowOrEl.classList.contains('model-effective')
+        ? rowOrEl
+        : rowOrEl.querySelector('.model-effective');
+    if (!el || !agent) return;
+    const gs = globalRowState(agent.key);
+    el.classList.toggle('is-override', !!gs.root && !gs.disabled);
+    el.classList.toggle('is-disabled', !!gs.disabled);
+    if (gs.disabled) {
+        el.textContent = '已禁用';
+        return;
+    }
+    const display = presetRowDisplay(agent);
+    const shortModel = String(display.model || '').split('/').pop();
+    el.textContent = shortModel
+        ? shortModel + (display.variant ? ' · ' + display.variant : '')
+        : '—';
+}
+
+/** 方案表格的列头：与行共用同一套网格列宽（见 omo.css 的 --omo-cols）。
+ *  外层保持全宽以承载满行的下边线，内层才是网格容器。 */
+function createColumnHead() {
+    const head = document.createElement('div');
+    head.className = 'model-col-head';
+    const cols = document.createElement('div');
+    cols.className = 'model-col-head-cols';
+    ['', 'Agent', '模型', 'variant', '生效值', ''].forEach((label) => {
+        const cell = document.createElement('span');
+        cell.textContent = label;
+        cols.appendChild(cell);
+    });
+    head.appendChild(cols);
+    return head;
+}
+
 /** 全局覆盖编辑后，原地刷新下方方案行的标签、锁定状态与展示值，避免整块方案列表重绘 */
 function refreshPresetGlobalTags() {
     document.querySelectorAll('#modelConfig .model-row[data-agent-key]').forEach(row => {
         row.querySelectorAll('.go-tag[data-go-tag]').forEach(tag => tag.remove());
-        const top = row.querySelector('.model-row-top');
-        if (!top) return;
-        appendPresetGlobalTags(top, row.dataset.agentKey, top.querySelector('.model-select'));
+        const agentCell = row.querySelector('.model-agent-cell');
+        if (!agentCell) return;
+        appendPresetGlobalTags(agentCell, row.dataset.agentKey);
         applyPresetRowGlobalLock(row, row.dataset.agentKey);
         // 顶层显式覆盖 → 显示顶层模型/variant；撤销覆盖或改成跟随类 → 恢复方案原值
         const agent = row._agentRef;
@@ -678,6 +719,8 @@ function refreshPresetGlobalTags() {
             variantSel.innerHTML = variantOptionsHtml(display.variant);
             variantSel.value = display.variant;
         }
+        // 覆盖/禁用状态变了，生效值列跟着刷新
+        paintPresetRowEffective(row, agent);
     });
 }
 
@@ -1001,6 +1044,8 @@ function createPresetGroup(preset) {
         empty.textContent = '暂无条目，点击标题右侧 + 添加';
         body.appendChild(empty);
     } else {
+        // 表格列头只出现一次，避免每行重复同一组标签
+        body.appendChild(createColumnHead());
         preset.agents.forEach(agent => {
             body.appendChild(createAgentRow(preset, agent));
         });
@@ -1032,22 +1077,34 @@ function createAgentRow(preset, agent) {
     cb.dataset.key = agent.key;
     top.appendChild(cb);
 
-    // agent 名（等宽字体）
+    // agent 单元格：键 + 继承标记 + 描述 + 全局状态标签，全部收进同一格，
+    // 整行只保留一条基线（原布局把描述单独放一行，行高被撑到约 76px）
+    const agentCell = document.createElement('span');
+    agentCell.className = 'model-agent-cell';
+
     const keySpan = document.createElement('span');
     keySpan.className = 'model-key';
     keySpan.textContent = agent.key;
-    top.appendChild(keySpan);
+    agentCell.appendChild(keySpan);
 
     // 「继承 / 已覆盖」灰色小字（仅对继承链上的行显示）
     if (agent.inherited) {
         const tag = document.createElement('span');
         tag.className = 'inherit-tag';
         tag.textContent = agent.overridden ? '已覆盖' : '继承';
-        top.appendChild(tag);
+        agentCell.appendChild(tag);
+    }
+
+    if (agent.comment) {
+        const comment = document.createElement('span');
+        comment.className = 'model-comment';
+        comment.textContent = agent.comment;
+        agentCell.appendChild(comment);
     }
 
     // 顶层覆盖 / 全局禁用小标签（按 rootAgents / disabledAgents 判断）
-    appendPresetGlobalTags(top, agent.key);
+    appendPresetGlobalTags(agentCell, agent.key);
+    top.appendChild(agentCell);
 
     // 模型下拉：改动继承行即标记为「已覆盖」
     // 顶层显式覆盖时展示顶层模型（置灰），其余情况展示方案自身值
@@ -1080,6 +1137,11 @@ function createAgentRow(preset, agent) {
         renderModelConfig();
     });
     top.appendChild(variantSelect);
+
+    // 生效值：最终写进配置文件的 model · variant，右侧用一列常驻展示
+    const effective = document.createElement('span');
+    effective.className = 'model-effective';
+    top.appendChild(effective);
 
     // 行尾 ✕：按方案是否带 extends / 行的来源决定语义
     const rowDel = document.createElement('oc-button');
@@ -1125,13 +1187,8 @@ function createAgentRow(preset, agent) {
 
     // 被全局覆盖 / 全局禁用的 agent：模型与 variant 下拉置灰（保留方案原值展示）
     applyPresetRowGlobalLock(row, agent.key);
-
-    if (agent.comment) {
-        const comment = document.createElement('div');
-        comment.className = 'model-comment';
-        comment.textContent = agent.comment;
-        row.appendChild(comment);
-    }
+    // 锁定状态会影响生效值的呈现（禁用时显示「已禁用」），放在锁定之后刷新
+    paintPresetRowEffective(row, agent);
 
     return row;
 }

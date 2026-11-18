@@ -275,7 +275,14 @@
     mask-image: url("../assets/菜单折叠.svg");
 }
 
+/* ---------- 方案体：表格化 ----------
+   行与列头共用同一套列宽（--omo-cols），列头在整个方案里只出现一次：
+   勾选 / agent（键 + 描述） / 模型 / variant / 生效值 / 操作。
+   原布局描述单独占一行、控件各按内容定宽，行高约 76px 且右侧大片留白。 */
 .model-group-body {
+    /* agent 列给上限，避免它吃掉全部剩余宽度、把后三列挤到最右；
+       列间距统一 20px，三个控件列之间才有呼吸感 */
+    --omo-cols: 18px minmax(260px, 420px) minmax(200px, 300px) 92px minmax(150px, 240px) 26px;
     overflow: hidden;
     /* 折叠/展开：max-height 过渡（实际高度由 JS 驱动，见 omo-config.js） */
     transition: max-height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -285,13 +292,38 @@
     max-height: 0;
 }
 
+/* 列头与行共用网格；整行内容不铺满超宽窗口，最多 1280px。
+   注意：max-width 只加在「列容器」上，列头自身的下边线要满行，
+   所以 .model-col-head 保持全宽，内部再用 .model-col-head-cols 承载网格。 */
+.model-col-head-cols,
+.model-row-top {
+    display: grid;
+    grid-template-columns: var(--omo-cols);
+    gap: 20px;
+    align-items: center;
+    max-width: 1280px;
+}
+
+.model-col-head {
+    height: 32px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.model-col-head-cols {
+    height: 100%;
+}
+
 .model-row {
-    display: flex;
-    flex-direction: column;
-    padding: 12px 20px;
+    padding: 0 20px;
     border-bottom: 1px solid var(--border);
     transition: background var(--transition);
-    gap: 4px;
+}
+
+.model-row .model-row-top {
+    min-height: 44px;
 }
 
 .model-row:last-child {
@@ -306,21 +338,23 @@
     /* 左侧标记改用 inset 阴影：border-left 会占用 3px 布局宽度，
        让「已改动」的行整体右移，跟其它行的复选框/文字对不齐 */
     background: var(--accent-ghost);
-    box-shadow: inset 3px 0 0 var(--accent);
+    box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.model-row-top {
+/* agent 单元格：键 + 继承标记 + 描述 + 全局状态标签，全部落在一条基线上 */
+.model-agent-cell {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 8px;
+    min-width: 0;
 }
 
 .model-key {
-    min-width: 100px;
+    min-width: 0;
     max-width: 160px;
     flex-shrink: 0;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-primary);
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     white-space: nowrap;
@@ -328,40 +362,49 @@
     text-overflow: ellipsis;
 }
 
-/* 模型 / 推理等级两个下拉共用同一套外观（字体、字号、配色、边框、过渡）。
-   推理下拉此前完全没有样式，用的是浏览器默认外观，在暗色主题下与模型下拉割裂。 */
-.model-select,
-.model-reasoning-select {
-    padding: 6px 10px;
-    cursor: pointer;
-    transition: border-color var(--transition);
-}
-
-.model-select {
-    /* 按最长选项定宽，最长 400 */
-    width: max-content;
-    flex: 0 1 auto;
-    max-width: 400px;
-}
-
-/* 推理等级选项很短（none/minimal/.../max），给固定上限即可，不参与弹性分配 */
-.model-reasoning-select {
-    width: max-content;
-    flex: 0 0 auto;
-    max-width: 160px;
-}
-
-.model-select option,
-.model-reasoning-select option {
-    background: var(--bg-card);
-    color: var(--text-primary);
-}
-
+/* 描述：从独占一行改为贴在 agent 键右侧，超长省略 */
 .model-comment {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    min-width: 0;
+    padding-left: 0;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 生效值：最终写进配置文件的 model · variant（全页的签名细节） */
+.model-effective {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     font-size: 11px;
     color: var(--text-muted);
-    padding-left: 2px;
-    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.model-effective.is-override {
+    color: var(--accent);
+}
+
+.model-effective.is-disabled {
+    color: var(--text-muted);
+}
+
+/* 两个下拉由网格分配宽度，尺寸走组件变量（宿主不再自己定宽度） */
+.model-group-body .model-select,
+.model-group-body .model-reasoning-select {
+    --oc-input-h: 28px;
+    --oc-input-fs: 11.5px;
+    width: 100%;
+    min-width: 0;
+}
+
+.model-group-body .model-select option,
+.model-group-body .model-reasoning-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
 }
 
 .model-group-empty {
@@ -635,21 +678,25 @@
    ============================================================ */
 #view-omo .go-override {
     flex-shrink: 0;
+    /* 普通卡片：不着色、不画强调线，差异只通过行内底色与计数圆点体现 */
+    margin: 12px 20px 0;
     background: var(--bg-card);
-    border-bottom: 1px solid var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
 }
 
 /* ---------- 收起态表头：一行摘要 + 展开 ---------- */
 #view-omo .go-header {
     width: 100%;
-    min-height: 44px;
+    min-height: 36px;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 6px 16px;
+    gap: 10px;
+    padding: 0 12px 0 10px;
     border: none;
-    background: var(--bg-secondary);
+    background: transparent;
     color: var(--text-primary);
     font-family: inherit;
     text-align: left;
@@ -686,28 +733,28 @@
     transform: rotate(45deg);
 }
 #view-omo .go-title {
-    font-size: 14px;
+    /* 比方案名更重：这一层是「优先级更高」的全局覆盖，需要第一眼可见 */
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: -0.01em;
     white-space: nowrap;
 }
+/* 「顶层 agents」：纯等宽文本，不再做彩色胶囊 */
 #view-omo .go-code-chip {
-    display: inline-flex;
-    align-items: center;
-    height: 20px;
-    padding: 0 7px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xs);
-    background: var(--accent-ghost);
-    color: var(--accent);
+    display: inline;
+    height: auto;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: var(--text-muted);
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 0;
     white-space: nowrap;
 }
 #view-omo .go-sub {
     min-width: 0;
-    max-width: 260px;
+    max-width: 420px;
     overflow: hidden;
     color: var(--text-muted);
     font-size: 11.5px;
@@ -731,13 +778,14 @@
     border: none;
     background: transparent;
     color: var(--text-secondary);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 400;
     white-space: nowrap;
     transition: color var(--transition);
 }
 #view-omo .go-chip b {
-    font-weight: 600;
+    font-weight: 500;
 }
 #view-omo .go-chip .go-dot {
     width: 5px;
@@ -798,20 +846,24 @@
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     font-size: 0.94em;
 }
+/* 与方案表同一套密度：20px 列间距、32px 列头、44px 行高。
+   agent 列放宽以容纳「名字 + 角色 + 描述」，模型来源列收窄（多数值是「跟随方案」） */
 #view-omo .go-col-head,
 #view-omo .go-row {
     display: grid;
-    grid-template-columns: minmax(240px, 1.05fr) minmax(142px, 0.68fr) minmax(230px, 1.3fr) 76px;
-    gap: 12px;
+    grid-template-columns: minmax(340px, 540px) minmax(150px, 200px) minmax(240px, 360px) 92px;
+    gap: 20px;
     align-items: center;
 }
 #view-omo .go-col-head {
-    padding: 6px 16px 5px;
+    height: 32px;
+    padding: 0 16px;
     background: var(--bg-card);
     color: var(--text-muted);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.03em;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0;
+    border-bottom: 1px solid var(--border);
 }
 #view-omo .go-col-head span:last-child {
     text-align: right;
@@ -819,11 +871,11 @@
 
 /* ---------- 数据行 ---------- */
 #view-omo .go-rows {
-    border-top: 1px solid var(--border);
+    border-top: none;
 }
 #view-omo .go-row {
-    min-height: 42px;
-    padding: 6px 16px;
+    min-height: 44px;
+    padding: 0 16px;
     border-top: 1px solid var(--border);
     background: transparent;
     transition: background var(--transition);
@@ -834,10 +886,9 @@
 #view-omo .go-row:hover {
     background: var(--bg-card-hover);
 }
-/* 存在顶层覆盖：左侧 accent 竖线 + 极浅底色 */
+/* 存在顶层覆盖：只用极浅底色区分，不画彩色竖线（避免装饰性强调） */
 #view-omo .go-row.is-override {
     background: var(--accent-ghost);
-    box-shadow: inset 2px 0 0 var(--accent);
 }
 #view-omo .go-row.is-override:hover {
     background: var(--bg-card-hover);
@@ -852,52 +903,58 @@
 #view-omo .go-agent-cell {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
 }
 #view-omo .go-agent-info {
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px 7px;
+    align-items: baseline;
+    flex-wrap: nowrap;
+    gap: 8px;
     min-width: 0;
+    flex: 1;
 }
 #view-omo .go-agent-name {
     color: var(--text-primary);
     font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: 0;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 /* agent 职责注释（agents-comments.json）：与方案行 .model-comment 同口径，
-   独占一行、最多两行，超出省略（title 保留全文） */
+   单行省略（title 保留全文） */
 #view-omo .go-agent-comment {
-    flex-basis: 100%;
-    font-size: 11px;
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 11.5px;
     line-height: 1.4;
     color: var(--text-muted);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
 }
 #view-omo .go-role-badge {
     display: inline-flex;
     align-items: center;
-    height: 17px;
-    padding: 0 6px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xs);
+    height: auto;
+    padding: 0;
+    border: none;
+    border-radius: 0;
     color: var(--text-muted);
-    font-size: 9.5px;
-    font-weight: 500;
+    font-size: 10.5px;
+    font-weight: 400;
     letter-spacing: 0;
     white-space: nowrap;
+    flex-shrink: 0;
+}
+#view-omo .go-role-badge::before {
+    content: "·";
+    margin-right: 4px;
 }
 #view-omo .go-role-badge.is-primary {
-    border-color: var(--border-light);
-    color: var(--text-secondary);
+    color: var(--text-muted);
 }
 #view-omo .go-protected-note {
     color: var(--text-muted);
@@ -1006,16 +1063,19 @@
     justify-content: flex-end;
     min-width: 0;
 }
+/* 覆盖状态：纯等宽文字 + 小圆点，不再用胶囊承载 */
 #view-omo .go-status-pill {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    height: 21px;
-    padding: 0 8px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-pill);
-    font-size: 10px;
-    font-weight: 600;
+    height: auto;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    font-weight: 400;
     white-space: nowrap;
 }
 #view-omo .go-status-pill .go-dot {
@@ -1026,13 +1086,9 @@
     flex-shrink: 0;
 }
 #view-omo .go-status-pill.is-override {
-    border-color: color-mix(in srgb, var(--accent) 24%, transparent);
-    background: var(--accent-ghost);
     color: var(--accent);
 }
 #view-omo .go-status-pill.is-disabled {
-    border-color: color-mix(in srgb, var(--danger) 24%, transparent);
-    background: var(--danger-bg);
     color: var(--danger);
 }
 #view-omo .go-status-text {
@@ -1049,23 +1105,26 @@
 /* ---------- 底部字段说明：已移除（不再展示技术字段名） ---------- */
 
 /* ---------- 方案行内的顶层覆盖 / 全局禁用小标签 ---------- */
+/* 顶层覆盖 / 全局禁用：纯文字标记（前置中点），与方案表保持同一种语言 */
 #view-omo .go-tag {
     display: inline-flex;
     align-items: center;
-    height: 18px;
-    padding: 0 6px;
+    height: auto;
+    padding: 0;
     flex-shrink: 0;
-    border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
-    border-radius: var(--radius-xs);
-    background: var(--accent-ghost);
+    border: none;
+    border-radius: 0;
+    background: none;
     color: var(--accent);
-    font-size: 9.5px;
-    font-weight: 500;
+    font-size: 10.5px;
+    font-weight: 400;
     white-space: nowrap;
 }
+#view-omo .go-tag::before {
+    content: "·";
+    margin-right: 4px;
+}
 #view-omo .go-tag.danger {
-    border-color: color-mix(in srgb, var(--danger) 24%, transparent);
-    background: var(--danger-bg);
     color: var(--danger);
 }
 
@@ -1285,19 +1344,34 @@ oc-button.oc-head-icon-btn {
     flex-shrink: 0;
 }
 
-/* 窄屏：模型行换行排列 */
+/* 窄屏：表格退回换行排列，隐藏列头与生效值列（列宽在这个宽度下没有意义） */
 @media (max-width: 800px) {
-        .model-row-top {
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .model-key {
-            min-width: 100px;
-            flex-basis: 100%;
-        }
-        .model-select {
-            max-width: 100%;
-        }
+    .model-col-head {
+        display: none;
+    }
+    .model-row {
+        padding: 0 14px;
+    }
+    .model-row-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 0;
+        min-height: 0;
+    }
+    .model-agent-cell {
+        flex: 1 1 100%;
+    }
+    .model-group-body .model-select,
+    .model-group-body .model-reasoning-select {
+        flex: 1 1 140px;
+        width: auto;
+        max-width: none;
+    }
+    .model-effective {
+        display: none;
+    }
 }
 
 /* ===== 组件化后的按钮覆盖 ===== */
