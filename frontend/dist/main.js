@@ -179,7 +179,23 @@ function initMain() {
     updatePromptPlaceholder();
     window.addEventListener('resize', updatePromptPlaceholder);
 
-    document.getElementById('btnRefreshStatus').addEventListener('click', loadServiceStatus);
+    // 刷新服务状态：与「刷新会话列表」一致 —— 按钮转圈 + 完成后 toast，
+    // 否则数据没变化时点击看起来毫无反馈
+    document.getElementById('btnRefreshStatus').addEventListener('click', async () => {
+        const btn = document.getElementById('btnRefreshStatus');
+        if (btn.loading) return;
+        btn.loading = true;
+        btn.title = '正在刷新服务状态';
+        try {
+            await loadServiceStatus();
+            showToast('服务状态已刷新', 'success');
+        } catch (e) {
+            showToast('刷新服务状态失败', 'error');
+        } finally {
+            btn.loading = false;
+            btn.title = '刷新服务状态';
+        }
+    });
     // 权限请求弹窗按钮
     document.getElementById('btnPermReject').addEventListener('click', () => respondPermission('reject'));
     document.getElementById('btnPermOnce').addEventListener('click', () => respondPermission('once'));
@@ -266,11 +282,13 @@ function initMain() {
     });
     loadFrontendWebConfigToInputs();
 
-    // 右侧面板折叠
+    // 右侧面板折叠：点标题行空白处折叠/展开。
+    // 排除条件必须包含自定义元素：面板头里的按钮是 <oc-button> / <oc-icon-button>，
+    // 只判断原生 <button> 会让「刷新服务状态」这类按钮顺带切换折叠态。
     document.querySelector('.oc-sidepanel').addEventListener('click', (e) => {
         const head = e.target.closest('.oc-panel-head');
         if (!head) return;
-        if (e.target.closest('button')) return;
+        if (e.target.closest('button, oc-button, oc-icon-button, oc-check-button, oc-switch, a, input, select, textarea')) return;
         head.closest('.oc-panel-section')?.classList.toggle('collapsed');
     });
 
