@@ -1244,6 +1244,17 @@ button.oc-head-icon-btn svg {
 /* 展开区内文本沿用 .oc-text 排版，仅去掉首尾多余外边距 */
 .oc-synthetic-body .oc-text > :first-child { margin-top: 0; }
 .oc-synthetic-body .oc-text > :last-child { margin-bottom: 0; }
+/* 展开区里的 description（原始描述/命令行），与正文区分开 */
+.oc-synthetic-desc {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+    color: var(--text-muted);
+    font-size: 11.5px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
 
 /* 主消息高亮动画 */
 .oc-message.highlight {

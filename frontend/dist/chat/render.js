@@ -137,20 +137,28 @@ function buildSyntheticNoticeCard(info, partList) {
     const fold = document.createElement('div');
     fold.className = 'oc-part oc-synthetic-fold';
 
-    // 摘要行：固定前缀「系统通知」；有 description 时以全角冒号拼接
+    // 正文 part：摘要行用 text 首行，展开区保留 text 全文
+    const textPart = (Array.isArray(partList) ? partList : []).find(p => p && p.type === 'text');
+    const noticeText = textPart ? String(textPart.text || '') : '';
+    // 摘要行只取纯文本：去掉可能的标签（如 <shell …>）并固定最大长度，超出省略
+    const plainText = noticeText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const headline = plainText.length > 100 ? plainText.slice(0, 100) + '…' : plainText;
+
+    // 摘要行：图标 + 「系统通知：<text>」+ 状态（原样英文，圆点样式）+ 展开
     const head = document.createElement('div');
     head.className = 'oc-synthetic-head';
+    head.innerHTML = iconSvg('i-inbox');
     const label = document.createElement('span');
     label.className = 'oc-synthetic-label';
-    label.textContent = '系统通知' + (notice.description ? '：' + notice.description : '');
+    label.textContent = '系统通知' + (headline ? '：' + headline : '');
+    label.title = noticeText;
     head.appendChild(label);
-    // 状态徽章：仅有 metadata.state 时显示；中文映射，其它值原样
+    // 状态：有 metadata.state 才显示，文字用服务端原值，样式复用工具卡状态圆点
     if (notice.state) {
-        const labelMap = { completed: '完成', failed: '失败', interrupted: '已中断' };
-        const clsMap = { completed: 'completed', failed: 'error', interrupted: 'interrupt' };
+        const clsMap = { completed: 'ok', failed: 'err', interrupted: 'interrupt', cancelled: 'interrupt' };
         const stateEl = document.createElement('span');
-        stateEl.className = 'oc-synthetic-status status-' + (clsMap[notice.state] || 'pending');
-        stateEl.textContent = labelMap[notice.state] || notice.state;
+        stateEl.className = 'oc-tool-status ' + (clsMap[notice.state] || 'pending');
+        stateEl.textContent = String(notice.state);
         head.appendChild(stateEl);
     }
     const toggle = document.createElement('span');
@@ -158,11 +166,17 @@ function buildSyntheticNoticeCard(info, partList) {
     toggle.textContent = expanded ? '收起' : '展开';
     head.appendChild(toggle);
 
-    // 展开区：默认折叠；正文沿用既有文本渲染（renderTextPart），text 为空时渲染空内容
+    // 展开区：默认折叠；正文 = text 全文 + description（如果有）
     const bodyEl = document.createElement('div');
     bodyEl.className = 'oc-synthetic-body' + (expanded ? '' : ' hidden');
-    const textPart = (Array.isArray(partList) ? partList : []).find(p => p && p.type === 'text');
     if (textPart) bodyEl.appendChild(renderTextPart(textPart));
+    const description = String(notice.description || '').trim();
+    if (description) {
+        const descEl = document.createElement('div');
+        descEl.className = 'oc-synthetic-desc';
+        descEl.textContent = '描述：' + description;
+        bodyEl.appendChild(descEl);
+    }
     head.addEventListener('click', () => {
         store.expandedParts[key] = !store.expandedParts[key];
         bodyEl.classList.toggle('hidden', !store.expandedParts[key]);

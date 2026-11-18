@@ -350,7 +350,10 @@ function stripSyntheticWrapper(text) {
         .replace(/^\s*<subagent\b[^>]*>\s*/i, '')
         .replace(/<\/subagent>\s*$/i, '')
         .replace(/^\s*<summary>\s*/i, '')
-        .replace(/<\/summary>\s*$/i, '');
+        .replace(/<\/summary>\s*$/i, '')
+        // 后台 shell 通知：<shell id state command>正文</shell>，只保留正文
+        .replace(/^\s*<shell\b[^>]*>\s*/i, '')
+        .replace(/<\/shell>\s*$/i, '');
 }
 
 /** v2 的单条消息 → v1 的 {info, parts}。 */
