@@ -862,17 +862,23 @@ export async function gitPull() {
 export function setGitRemoteActionLoading(action, loading) {
     var pullBtn = document.getElementById('btnFileBrowserGitPull');
     var pushBtn = document.getElementById('btnFileBrowserGitPush');
+
+    // 与顶栏「启动 / 停止 OpenCode」同一套组件模式（见 chat/service.js 的 updateWebUI）：
+    //   loading 交给 oc-button 的 loading 属性（隐藏原图标、显示内置转圈），
+    //   图标本身不动，只换文案；结束后把 loading 与文案复位。
+    // 之前直接写 innerHTML，会在组件按 icon 属性渲染的那份图标之外再插一份 svg，
+    // 于是点一下按钮就变成「两个图标 + 文字」。
     if (pullBtn) {
+        var pullLoading = action === 'pull' && !!loading;
         pullBtn.disabled = !!loading;
-        pullBtn.innerHTML = action === 'pull' && loading
-            ? '<svg class="i is-spinning" aria-hidden="true"><use href="#i-refresh"></use></svg>拉取中...'
-            : '<svg class="i" aria-hidden="true"><use href="#i-download"></use></svg>拉取';
+        pullBtn.loading = pullLoading;
+        pullBtn.textContent = pullLoading ? '拉取中...' : '拉取';
     }
     if (pushBtn) {
+        var pushLoading = action === 'push' && !!loading;
         pushBtn.disabled = !!loading;
-        pushBtn.innerHTML = action === 'push' && loading
-            ? '<svg class="i is-spinning" aria-hidden="true"><use href="#i-refresh"></use></svg>推送中...'
-            : '<svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg>推送';
+        pushBtn.loading = pushLoading;
+        pushBtn.textContent = pushLoading ? '推送中...' : '推送';
     }
 }
 
