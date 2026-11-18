@@ -148,17 +148,14 @@ function initMain() {
         }
     });
 
-    // 输入框: 回车发送，Ctrl+Enter 换行（Shift+Enter 不再作为换行，也不发送）
+    // 输入框：Enter 发送；Ctrl+Enter 与 Shift+Enter 都换行（桌面端）
+    // 移动端没有修饰键：Enter 换行，只靠按钮发送
     document.getElementById('ocPrompt').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             var mobile = isMobileTreeMode();
-            if (!mobile && e.shiftKey) {
-                e.preventDefault();
-                return;
-            }
-            // 桌面端：Ctrl+Enter=换行，Enter=发送
-            // 移动端：Enter=换行（无 Ctrl 键），仅按钮发送
-            var insertNewline = (!mobile && e.ctrlKey) || (mobile && !e.ctrlKey && !e.shiftKey);
+            var insertNewline = mobile
+                ? (!e.ctrlKey && !e.shiftKey)
+                : (e.ctrlKey || e.shiftKey);
             if (insertNewline) {
                 e.preventDefault();
                 const input = e.target;
@@ -177,7 +174,7 @@ function initMain() {
     function updatePromptPlaceholder() {
         var ta = document.getElementById('ocPrompt');
         if (!ta) return;
-        ta.placeholder = isMobileTreeMode() ? '输入内容' : '输入内容，/ 调用命令 ，@ 调用知识库，Enter 发送，Ctrl+Enter 换行';
+        ta.placeholder = isMobileTreeMode() ? '输入内容' : '输入内容，/ 调用命令 ，@ 调用知识库，Enter 发送，Ctrl/Shift+Enter 换行';
     }
     updatePromptPlaceholder();
     window.addEventListener('resize', updatePromptPlaceholder);
