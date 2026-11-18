@@ -650,14 +650,33 @@ oc-context-menu::part(icon-import) {
 .oc-step-time { font-family: "SF Mono", "Cascadia Code", monospace; font-size: 10px; color: var(--text-muted); }
 
 /* ── 上下文压缩 ── */
-.oc-compaction {
-    display: flex;
-    align-items: center;
-    padding: 8px 0;
-    border-top: 1px dashed var(--border);
-    font-size: 12px;
+/* 头部复用 .oc-tool-head / .oc-tool-status / .oc-tool-duration，
+   模型与用量信息复用助手卡片的 .oc-message-meta，放在折叠卡片外部 */
+.oc-compaction .oc-compaction-meta { margin-top: 4px; }
+/* 压缩卡片跟随内容自适应宽度，只给最小宽度：短内容不缩成一条，长内容可撑开 */
+.oc-message.oc-message-compaction { min-width: 290px; max-width: 90%; }
+.oc-compaction { width: 100%; box-sizing: border-box; }
+/* 标题与状态之间至少留 8px：状态被 margin-left:auto 推到右侧时也保证下限 */
+.oc-compaction .oc-tool-head strong { margin-right: 8px; }
+.oc-compaction-body {
+    padding: 6px 12px 8px;
+    color: var(--text-secondary);
+}
+/* 摘要正文沿用 .oc-text 的 markdown 排版，但字号比普通消息小一档 */
+.oc-compaction-body.oc-text { font-size: 12.5px; }
+/* 压缩失败：错误原因放进折叠区，展开后才显示 */
+.oc-compaction-body.is-error {
+    color: var(--danger);
+    font-size: 11.5px;
+    line-height: 1.5;
+    word-break: break-word;
+}
+/* 压缩进行中：摘要尚未写入时的占位 */
+.oc-compaction-pending {
+    padding: 8px 12px;
     color: var(--text-muted);
-    letter-spacing: 0.02em;
+    font-size: 11.5px;
+    line-height: 1.5;
 }
 
 /* ── 文件快照 ── */

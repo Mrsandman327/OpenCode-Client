@@ -12,7 +12,7 @@
 
 import { store, currentDir } from '../core/state.js';
 import { api } from '../core/apicall.js';
-import { showToast, escapeHtml, safeText, isDesktopRuntime, loadWailsRuntime, refreshServiceStatus, loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity, buildTree, wasSessionDeletedLocally } from '../core/utils.js';
+import { showToast, escapeHtml, safeText, isDesktopRuntime, loadWailsRuntime, refreshServiceStatus, loadMessages, refreshSessionTitle, selectSession, loadAgentModelSelectors, notePromptActivity, buildTree, wasSessionDeletedLocally, getCachedMessages } from '../core/utils.js';
 import { setSessionStatus, isBusyStatus } from './render.js';
 import { scheduleRenderCachedMessages, upsertMessage, upsertPart, applyPartDelta, removePart, removeMessage } from './cache.js';
 import { scheduleSubtaskExtraction } from './sidepanel.js';
@@ -435,6 +435,49 @@ export function handleOcEvent(event) {
         buildTree();
         return;
     }
+    // 上下文压缩：started 刷新出「进行中」卡片；delta 流式追加摘要；
+    // ended/failed 清理本地合成卡片并用服务端最终记录替换
+    if (type === 'session.compaction.delta') {
+        const deltaText = String(props.text || '');
+        if (!sid || !deltaText) return;
+        const list = getCachedMessages(sid);
+        let msg = list.find(function (item) {
+            return (item.parts || []).some(function (p) {
+                return p && p.type === 'compaction' && (p.status === 'running' || !p.status);
+            });
+        });
+        if (!msg) {
+            const synthId = 'msg_compacting_' + sid;
+            upsertMessage({ id: synthId, sessionID: sid, role: 'system', time: { created: Date.now() } });
+            upsertPart({
+                id: synthId + '_compaction', messageID: synthId, sessionID: sid,
+                type: 'compaction', status: 'running', reason: '', summary: '',
+            });
+            msg = getCachedMessages(sid).find(function (item) {
+                return (item.info?.id || item.id) === synthId;
+            });
+        }
+        if (msg) {
+            const part = (msg.parts || []).find(function (p) { return p && p.type === 'compaction'; });
+            if (part) {
+                const prev = String(part.summary || '');
+                // 服务端可能发增量片段，也可能发累计文本：累计以旧文本开头时直接替换
+                part.summary = deltaText.indexOf(prev) === 0 ? deltaText : prev + deltaText;
+                part.status = 'running';
+                bumpTabCacheVersion(sid);
+                scheduleRenderCachedMessages(sid);
+            }
+        }
+        return;
+    }
+    if (type === 'session.compaction') {
+        if (!sid) return;
+        // 本地流式合成卡片由服务端最终记录取代
+        removeMessage({ sessionID: sid, messageID: 'msg_compacting_' + sid });
+        if (sid === store.currentSessionId || isMessageCacheWanted(sid)) loadMessages();
+        return;
+    }
+
     if (type === 'session.updated') {
         // 会话元信息变更——最常见的是服务端异步生成标题后推送。
         // 之前这里是空实现，导致新建会话的标题停在占位值：

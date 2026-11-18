@@ -462,9 +462,27 @@ function adaptMessage(msg, sessionID) {
             };
         }
         case 'compaction': {
-            // 上下文压缩标记：渲染为一条系统说明
+            // 上下文压缩记录：带完整摘要与元信息，渲染为可折叠卡片
             info.role = 'system';
-            return { info, parts: [{ id: msg.id + '_text', messageID: msg.id, sessionID, type: 'text', text: '⟳ 上下文已压缩' }] };
+            const model = msg.model || {};
+            return {
+                info,
+                parts: [{
+                    id: msg.id + '_compaction',
+                    messageID: msg.id,
+                    sessionID,
+                    type: 'compaction',
+                    summary: String(msg.summary || ''),
+                    reason: msg.reason || '',
+                    model: model.id ? (model.providerID ? model.providerID + '/' + model.id : model.id) : '',
+                    status: msg.status || '',
+                    error: (msg.error && (msg.error.message || msg.error.type)) || '',
+                    keepID: (msg.metadata && msg.metadata.keepID) || '',
+                    tokens: msg.tokens || null,
+                    cost: msg.cost || 0,
+                    time: msg.time || null,
+                }],
+            };
         }
         default:
             // idle / agent-switched / model-switched / location-switched / provider-state 等
@@ -929,11 +947,23 @@ export function adaptEvent(event) {
         case 'session.usage.updated':
             return [{ type: 'session.updated', sessionID, cost: data.cost, tokens: data.tokens }];
 
-        // 上下文压缩：v1 侧刷新消息即可反映最新上下文
+        // 上下文压缩：started/ended/failed 驱动卡片状态，delta 负责流式追加摘要
         case 'session.compaction.started':
+            return [{ type: 'session.compaction', sessionID, phase: 'started', reason: data.reason || '' }];
+        case 'session.compaction.delta':
+            return [{ type: 'session.compaction.delta', sessionID, text: data.text || '' }];
         case 'session.compaction.ended':
+            return [{
+                type: 'session.compaction', sessionID, phase: 'ended',
+                reason: data.reason || '', text: data.text || '',
+                model: data.model || null, cost: data.cost || 0, tokens: data.tokens || null,
+            }];
         case 'session.compaction.failed':
-            return [{ type: 'session.updated', sessionID, compacted: true }];
+            return [{
+                type: 'session.compaction', sessionID, phase: 'failed',
+                reason: data.reason || '', error: data.error || null,
+                cost: data.cost || 0, tokens: data.tokens || null,
+            }];
 
         default:
             return [];

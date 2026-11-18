@@ -230,6 +230,11 @@ export function buildMessageNode(item, sessionID) {
     const msgTime = formatDateTime(info.time?.created || info.time?.updated || info.createdAt);
     const node = document.createElement('div');
     node.className = `oc-message ${role}`;
+    // 压缩消息固定卡片宽度：失败/完成都带不同的元信息长度，若不固定，
+    // 系统卡片会按内容收缩，导致同排状态下标题到状态的距离不一致
+    if (role === 'system' && (parts || []).some(function (part) { return part && part.type === 'compaction'; })) {
+        node.classList.add('oc-message-compaction');
+    }
     if (info.id) node.dataset.messageId = info.id;
     // 供增量追加校验：旧 DOM 与新缓存条目的签名不一致时回退全量重建。
     node.dataset.renderSignature = messageRenderSignature(item);
@@ -1849,15 +1854,131 @@ export function renderPatchPart(part) {
     return el;
 }
 
-/** 渲染上下文压缩标记 Part */
+/** 渲染上下文压缩记录：沿用工具卡片的头部样式，默认折叠，进行中展开 */
 export function renderCompaction(part) {
+    const key = partExpandKey(part, 'compaction');
+    const summary = String(part.summary || '');
+    const status = String(part.status || '');
+    const failed = status === 'failed' || (!!part.error && !summary);
+    const completed = !failed && (status === 'completed' || (!status && !!summary));
+    const inProgress = !failed && !completed;
+    const statusClass = failed ? 'err' : (completed ? 'ok' : 'running');
+    const statusText = failed ? '失败' : (completed ? '完成' : '运行中');
+    const reasonText = part.reason === 'auto' ? '自动' : (part.reason === 'manual' ? '手动' : '');
+    const errorText = failed ? String(part.error || '压缩未完成') : '';
+    const hasContent = !!summary || !!errorText;
+
+    // 未手动切换过时：进行中默认展开，完成/失败自动折叠
+    const storedExpand = store.expandedParts[key];
+    const expanded = storedExpand === undefined ? inProgress : !!storedExpand;
+
+    const tokens = part.tokens || null;
+    const totalTokens = tokens
+        ? (Number(tokens.input || 0) + Number(tokens.output || 0) + Number(tokens.reasoning || 0))
+        : 0;
+    const usageText = totalTokens > 0 ? '使用：' + formatCompactNumber(totalTokens) + ' tokens' : '';
+
+    // 外框只负责纵向排列：折叠卡片 + 卡片外的模型/用量元信息（与助手卡片 footer 一致）
+    const wrap = document.createElement('div');
+    wrap.className = 'oc-part oc-compaction';
+
     const el = document.createElement('div');
-    el.className = 'oc-part oc-compaction';
-    const auto = part.auto;
-    el.innerHTML = auto
-        ? iconSvg('i-minimize', INLINE_ICON_STYLE) + ' 自动压缩上下文'
-        : iconSvg('i-minimize', INLINE_ICON_STYLE) + ' 上下文已压缩';
-    return el;
+    el.className = 'oc-tool oc-tool-tool'
+        + (completed ? ' done' : '')
+        + (failed ? ' error' : '')
+        + (inProgress ? ' running' : '');
+
+    // 头部完全复用 .oc-tool-head：图标 + 标题 + 状态（圆点由 .oc-tool-status 提供）
+    const head = document.createElement('div');
+    head.className = 'oc-tool-head';
+    head.setAttribute('role', 'button');
+    head.setAttribute('tabindex', '0');
+    head.innerHTML = iconSvg('i-minimize')
+        + ' 上下文压缩'
+        + (reasonText ? ': <strong>' + escapeHtml(reasonText) + '</strong>' : '')
+        + ' <span class="oc-tool-status ' + statusClass + '">' + statusText + '</span>'
+        + (hasContent ? ' <span class="oc-tool-duration">' + (expanded ? '收起' : '展开') + '</span>' : '');
+    el.appendChild(head);
+
+    // 卡片外的元信息：模型图标 + 模型名 · 用量（复用助手消息的 .oc-message-meta）
+    const metaItems = [];
+    if (part.model) metaItems.push({ icon: 'oc-select-icon-model', text: part.model });
+    if (usageText) metaItems.push({ icon: '', text: usageText });
+    const buildMeta = function () {
+        if (!metaItems.length) return null;
+        const metaEl = document.createElement('div');
+        metaEl.className = 'oc-message-meta oc-compaction-meta';
+        metaItems.forEach(function (item, index) {
+            if (index > 0) {
+                const sep = document.createElement('span');
+                sep.className = 'oc-meta-sep';
+                sep.textContent = '·';
+                metaEl.appendChild(sep);
+            }
+            const row = document.createElement('span');
+            row.className = 'oc-meta-item';
+            if (item.icon) {
+                const icon = document.createElement('span');
+                icon.className = 'oc-select-icon ' + item.icon;
+                icon.setAttribute('aria-hidden', 'true');
+                row.appendChild(icon);
+            }
+            row.appendChild(document.createTextNode(item.text));
+            metaEl.appendChild(row);
+        });
+        return metaEl;
+    };
+
+    const bodyWrap = document.createElement('div');
+    bodyWrap.className = 'oc-tool-body' + (expanded ? '' : ' hidden');
+
+    // 进行中且还没有内容：展开显示占位，等待服务端写入摘要
+    if (inProgress && !hasContent) {
+        const pending = document.createElement('div');
+        pending.className = 'oc-compaction-pending';
+        pending.textContent = '正在生成摘要…';
+        bodyWrap.appendChild(pending);
+        el.appendChild(bodyWrap);
+        wrap.appendChild(el);
+        const metaEl1 = buildMeta();
+        if (metaEl1) wrap.appendChild(metaEl1);
+        return wrap;
+    }
+
+    if (hasContent) {
+        const content = document.createElement('div');
+        content.className = 'oc-compaction-body' + (summary ? ' oc-text' : ' is-error');
+        if (summary) {
+            content.innerHTML = typeof marked !== 'undefined'
+                ? sanitizeMarkedHtml(marked.parse(summary, { breaks: true }))
+                : '<pre>' + escapeHtml(summary) + '</pre>';
+            hydrateLocalImages(content, currentDir());
+        } else {
+            content.textContent = errorText;
+        }
+        bodyWrap.appendChild(content);
+    }
+
+    el.appendChild(bodyWrap);
+    wrap.appendChild(el);
+    const metaEl = buildMeta();
+    if (metaEl) wrap.appendChild(metaEl);
+
+    const toggle = function () {
+        store.expandedParts[key] = !store.expandedParts[key];
+        bodyWrap.classList.toggle('hidden', !store.expandedParts[key]);
+        const label = head.querySelector('.oc-tool-duration');
+        if (label) label.textContent = store.expandedParts[key] ? '收起' : '展开';
+    };
+    head.addEventListener('click', toggle);
+    head.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggle();
+        }
+    });
+
+    return wrap;
 }
 
 /** 渲染文件快照 Part */
