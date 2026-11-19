@@ -30,12 +30,12 @@
 
 .toast.success {
     background: var(--success);
-    color: #fff;
+    color: var(--text-on-accent);;
 }
 
 .toast.error {
     background: var(--danger);
-    color: #fff;
+    color: var(--text-on-accent);;
 }
 
 .toast.info {
@@ -43,10 +43,7 @@
     color: var(--text-on-accent);
 }
 
-/* 警告：使用金色 #ffd700（rgb 255,215,0）。
-   这个底色上白字对比度只有 1.4:1，必须配深色文字：
-   #3a2b00 深棕（同色系）对金色为 9.8:1，清晰且不刺眼 */
-.toast.warning {
-    background: #F2C811;
-    color: #3a2b00;
+.toast.warning { 
+    background: var(--warning);
+    color: var(--text-on-accent);;
 }
