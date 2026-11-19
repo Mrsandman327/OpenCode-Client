@@ -1100,27 +1100,6 @@ oc-context-menu::part(icon-import) {
 }
 
 .hidden { display: none !important; }
-.oc-sidepanel {
-    position: relative;
-    min-width: 0;
-    min-height: 0;
-    border-left: 1px solid var(--border);
-    background: var(--bg-secondary);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    transition: border 0.2s;
-}
-.oc-sidepanel-content {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-}
-.hide-right .oc-sidepanel {
-    border-left: none;
-}
 
 /* 目录栏（属性面板最底部）：方案 A —— 整行可点击（点击 → 独立窗口打开文件浏览器）；
    悬浮时整行背景浮起、文字/图标变亮，右侧「↗」常显并点亮为 accent。

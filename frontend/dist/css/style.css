@@ -933,6 +933,31 @@ button.oc-head-icon-btn svg {
     pointer-events: none;
 }
 
+/* 属性面板（右侧）：布局规则必须留在 style.css。
+   tree.css / omo.css 等在 style.css 之后加载，若把它们搬过去，
+   会覆盖本文件 @media(max-width:800px) 里的 display:none，导致手机端面板重新出现。 */
+.oc-sidepanel {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    border-left: 1px solid var(--border);
+    background: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: border 0.2s;
+}
+.oc-sidepanel-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+}
+.hide-right .oc-sidepanel {
+    border-left: none;
+}
+
 .oc-panel-head,
 .oc-chat-head {
     height: 44px;
