@@ -7,6 +7,8 @@ import { formatApiError } from './v2compat.js';
 // Toast 实现已抽到 components/toast.js（样式 css/toast.css），这里只做转发，
 // 保持全项目既有的 showToast(message, type) 调用签名不变。
 import { showToast } from '../components/toast.js';
+// 空态统一用 components/empty.js 生成（结构与样式见 css/empty.css）
+import { emptyHtml } from '../components/empty.js';
 
 export { showToast };
 
@@ -381,7 +383,7 @@ export function setMessagesEmpty(text) {
     if (!pool) return;
     var active = pool.querySelector('.oc-messages-tab.active');
     if (active) {
-        active.innerHTML = '<div class="empty-state empty-state--sm">' + text + '</div>';
+        active.innerHTML = emptyHtml({ title: text, size: 'sm' });
         return;
     }
     var hasTabs = pool.querySelector('.oc-messages-tab');
@@ -389,14 +391,16 @@ export function setMessagesEmpty(text) {
         var ph = pool.querySelector('.oc-new-session-placeholder');
         if (!ph) {
             ph = document.createElement('div');
+            // oc-empty 供搜索逻辑跳过空态节点（chat/search.js）
             ph.className = 'oc-new-session-placeholder oc-empty';
             pool.appendChild(ph);
         }
-        ph.style.display = 'block';
-        ph.textContent = text;
+        // 占位内容走统一空态组件，只更新它的 HTML；容器本身不带任何样式
+        ph.innerHTML = emptyHtml({ title: text, size: 'sm' });
+        ph.style.display = '';
         return;
     }
-    pool.innerHTML = '<div class="empty-state empty-state--sm">' + text + '</div>';
+    pool.innerHTML = emptyHtml({ title: text, size: 'sm' });
 }
 
 /** 创建指定会话的消息容器（若不存在），返回容器元素 */

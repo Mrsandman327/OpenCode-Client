@@ -28,6 +28,8 @@ import { openDirBrowserModal } from '../filebrowser/dir.js';
 import { openFileBrowserStandaloneFor } from '../filebrowser/browser.js';
 import { createBuildGate, createRecentlyDeleted, RECENTLY_DELETED_TTL_MS } from './tree-guard.js';
 import { showContextMenu, hideContextMenu } from '../components/oc-context-menu.js';
+// 空态统一用 components/empty.js 生成（结构与样式见 css/empty.css）
+import { emptyHtml } from '../components/empty.js';
 
 // 折叠/展开图标：assets/菜单折叠.svg、菜单展开.svg（CSS mask 呈现）。
 // 元素不写字符，改挂状态类（is-expanded / is-collapsed），由 CSS 显示对应图标。
@@ -564,11 +566,13 @@ export async function createNewSession(dir) {
             var ph = poolEl.querySelector('.oc-new-session-placeholder');
             if (!ph) {
                 ph = document.createElement('div');
+                // oc-empty 供搜索逻辑跳过空态节点（chat/search.js）
                 ph.className = 'oc-new-session-placeholder oc-empty';
                 poolEl.appendChild(ph);
             }
-            ph.style.display = 'block';
-            ph.textContent = '输入内容后 Enter 发送，会话将在首次发送时创建';
+            // 占位内容统一走空态组件；容器本身不带样式，只负责显示/移除
+            ph.innerHTML = emptyHtml({ title: '输入内容后 Enter 发送，会话将在首次发送时创建', size: 'sm' });
+            ph.style.display = '';
         }
         // 刷新 Tab 栏激活态（activeTabId 已置空，所有 tab 显示为非激活）
         renderTabsBar();

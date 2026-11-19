@@ -399,6 +399,11 @@ oc-context-menu::part(icon-import) {
     display: flex;
     flex-direction: column;
 }
+/* 新建会话占位只是一个容器：内容由 components/empty.js 生成（.empty-state--sm），
+   这里不要再给它 padding / 字号 / 居中，否则会和统一空态重复。 */
+.oc-new-session-placeholder {
+    flex: 0 0 auto;
+}
 .oc-messages {
     flex: 1;
     overflow-y: auto;
