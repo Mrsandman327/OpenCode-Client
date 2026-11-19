@@ -1319,6 +1319,14 @@ oc-button.oc-head-icon-btn {
     min-width: 0;
 }
 
+/* 顶行左侧的方案搜索：宽度与知识库 / 模型服务 / 技能管理的搜索框一致 */
+.omo-toolbar-search {
+    width: 320px;
+    flex: 0 1 320px;
+    min-width: 180px;
+    max-width: 320px;
+}
+
 .omo-toolbar .oc-fb-icon {
     width: 14px;
     height: 14px;

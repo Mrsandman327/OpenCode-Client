@@ -50,7 +50,7 @@ import {
 import { closeDirBrowserModal, goDirBrowserUp, selectDirBrowserCurrent, goDirBrowserPath } from './filebrowser/dir.js';
 import { bindFileBrowserEvents } from './filebrowser/entry.js';
 import {
-    showAddPresetModal, handleSlimSave, openSlimDir,
+    showAddPresetModal, handleSlimSave, openSlimDir, setPresetSearchQuery,
 } from './views/omo-config.js';
 import {
     loadSkillsData, renderSkillList, bindSkillManagerEvents,
@@ -298,6 +298,14 @@ function initMain() {
 
     // 「📂 打开」：用系统文件管理器打开配置文件所在目录
     document.getElementById('btnOpenSlimDir')?.addEventListener('click', openSlimDir);
+
+    // 顶行方案搜索：只按方案名过滤（每次输入即时生效）
+    const presetSearchEl = document.getElementById('omoPresetSearch');
+    if (presetSearchEl) {
+        presetSearchEl.addEventListener('input', () => {
+            setPresetSearchQuery(presetSearchEl.value);
+        });
+    }
 
     // 「➕ 新增方案」：打开模态（方案名 + 可选「继承自」）
     document.getElementById('btnAddModelType').addEventListener('click', showAddPresetModal);

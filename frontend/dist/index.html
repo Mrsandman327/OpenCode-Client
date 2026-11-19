@@ -372,9 +372,11 @@
             <div class="view-panel" id="view-omo">
                 <!-- 顶部工具栏（固定）：左侧文件操作，右侧保存状态 + 次要操作 + 主操作 -->
                 <div class="omo-toolbar" role="toolbar" aria-label="OMO 配置操作">
-                    <oc-button variant="open" size="sm" id="btnOpenSlimDir" title="在资源管理器中打开配置文件所在目录"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开配置文件</oc-button>
+                    <!-- 左侧：按方案名过滤；右侧：打开配置文件 / 新增方案 / 保存配置 -->
+                    <oc-search id="omoPresetSearch" class="omo-toolbar-search" placeholder="搜索方案"></oc-search>
                     <div class="omo-toolbar-actions">
                         <span class="save-status" id="saveStatus"></span>
+                        <oc-button variant="open" size="sm" id="btnOpenSlimDir" title="在资源管理器中打开配置文件所在目录"><span class="oc-fb-icon oc-fb-icon-folder"></span>打开配置文件</oc-button>
                         <oc-button variant="open" size="sm" id="btnAddModelType"><svg slot="icon" class="kb-i kb-i-14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>新增方案</oc-button>
                         <oc-button variant="primary" size="sm" id="btnSaveModels"><svg slot="icon" class="kb-i kb-i-14" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg><span id="btnSaveModelsText">保存配置</span></oc-button>
                     </div>

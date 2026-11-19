@@ -776,6 +776,44 @@ function updateSaveStatus() {
     }
 }
 
+// ========== 方案搜索 ==========
+/** 当前方案搜索关键字（空串 = 不过滤）；重绘后由 applyPresetSearch 继续生效 */
+let presetSearchQuery = '';
+
+/**
+ * 设置方案搜索关键字并立即过滤（供顶行搜索框调用）。
+ * 只按方案名匹配，不涉及 agent / 模型。
+ */
+export function setPresetSearchQuery(query) {
+    presetSearchQuery = String(query == null ? '' : query);
+    applyPresetSearch();
+}
+
+/** 按方案名过滤方案卡；全部不匹配时给一条空状态提示 */
+function applyPresetSearch() {
+    const container = document.getElementById('modelConfig');
+    if (!container) return;
+    const q = presetSearchQuery.trim().toLowerCase();
+    let shown = 0;
+    container.querySelectorAll('.model-group').forEach((group) => {
+        const name = (group.dataset.preset || '').toLowerCase();
+        const hit = !q || name.includes(q);
+        group.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+    });
+    let hint = container.querySelector('.omo-search-empty');
+    if (q && shown === 0) {
+        if (!hint) {
+            hint = document.createElement('div');
+            hint.className = 'omo-search-empty empty';
+            hint.innerHTML = '<p class="empty-hint">没有匹配的方案</p>';
+            container.appendChild(hint);
+        }
+    } else if (hint) {
+        hint.remove();
+    }
+}
+
 // ========== 渲染 ==========
 /** 渲染整个视图：覆盖提示 → 解析错误/空状态 → 批量栏 → 各方案分组 */
 export function renderModelConfig() {
@@ -824,6 +862,9 @@ export function renderModelConfig() {
     visiblePresets.forEach(preset => {
         container.appendChild(createPresetGroup(preset));
     });
+
+    // 6) 重绘后重新套用顶行的方案搜索（关键字保持不变）
+    applyPresetSearch();
 
     updateSaveStatus();
 }

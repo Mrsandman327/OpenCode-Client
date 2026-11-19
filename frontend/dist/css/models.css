@@ -558,9 +558,11 @@
     flex-wrap: wrap;
 }
 .pv-search {
-    flex: 1;
+    /* 与知识库 / 技能管理 / OMO 的搜索框统一宽度 */
+    width: 320px;
+    flex: 0 1 320px;
     min-width: 180px;
-    max-width: 340px;
+    max-width: 320px;
 }
 .pv-seg {
     display: flex;

@@ -1370,9 +1370,11 @@
 /* 技能页搜索：与工具栏同宽，不撑满整行 */
 /* 技能页搜索框：旧 .search 规则早已失效，宽度按组件宿主给到 360px */
 .skill-search {
-    width: 360px;
-    flex: 0 1 360px;
-    min-width: 200px;
+    /* 与知识库 / 模型服务 / OMO 的搜索框统一宽度 */
+    width: 320px;
+    flex: 0 1 320px;
+    min-width: 180px;
+    max-width: 320px;
 }
 
 

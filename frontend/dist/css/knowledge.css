@@ -231,9 +231,11 @@
 
 /* 搜索框 */
 .kb-search {
-    flex: 1;
+    /* 与模型服务 / 技能管理 / OMO 的搜索框统一宽度 */
+    width: 320px;
+    flex: 0 1 320px;
     min-width: 180px;
-    max-width: 340px;
+    max-width: 320px;
 }
 /* 提高特异性以覆盖全局 input[type="search"] 样式 */
 .kb-toolbar .kb-search input {
