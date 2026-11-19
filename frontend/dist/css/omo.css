@@ -12,10 +12,13 @@
 .batch-model-bar {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 8px 18px;
+    gap: 12px;
+    height: 44px;
+    padding: 0 16px;
+    /* 与「全局覆盖」卡片完全同色同形：同一背景、同一 1px 边框、同一圆角 */
     background: var(--bg-card);
-    border-bottom: 1px solid var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     font-size: 12px;
 }
 .batch-check {
@@ -282,7 +285,8 @@
 .model-group-body {
     /* agent 列给上限，避免它吃掉全部剩余宽度、把后三列挤到最右；
        列间距统一 20px，三个控件列之间才有呼吸感 */
-    --omo-cols: 18px minmax(260px, 420px) minmax(200px, 300px) 92px minmax(150px, 240px) 26px;
+    /* 删掉列标题后，行本身靠固定列宽对齐；间距放大到 24，控件不再挤在一起 */
+    --omo-cols: 18px minmax(260px, 440px) minmax(220px, 320px) 96px minmax(150px, 240px) 26px;
     overflow: hidden;
     /* 折叠/展开：max-height 过渡（实际高度由 JS 驱动，见 omo-config.js） */
     transition: max-height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -292,28 +296,13 @@
     max-height: 0;
 }
 
-/* 列头与行共用网格；整行内容不铺满超宽窗口，最多 1280px。
-   注意：max-width 只加在「列容器」上，列头自身的下边线要满行，
-   所以 .model-col-head 保持全宽，内部再用 .model-col-head-cols 承载网格。 */
-.model-col-head-cols,
+/* 行内网格：删掉列标题后，靠固定列宽对齐；整行最多 1280px */
 .model-row-top {
     display: grid;
     grid-template-columns: var(--omo-cols);
-    gap: 20px;
+    gap: 24px;
     align-items: center;
     max-width: 1280px;
-}
-
-.model-col-head {
-    height: 32px;
-    padding: 0 20px;
-    border-bottom: 1px solid var(--border);
-    font-size: 11px;
-    color: var(--text-muted);
-}
-
-.model-col-head-cols {
-    height: 100%;
 }
 
 .model-row {
@@ -323,7 +312,7 @@
 }
 
 .model-row .model-row-top {
-    min-height: 44px;
+    min-height: 52px;
 }
 
 .model-row:last-child {
@@ -696,7 +685,7 @@
     gap: 10px;
     padding: 0 12px 0 10px;
     border: none;
-    background: transparent;
+    background: var(--bg-secondary);
     color: var(--text-primary);
     font-family: inherit;
     text-align: left;
@@ -1346,17 +1335,14 @@ oc-button.oc-head-icon-btn {
     overflow-y: auto;
 }
 
-/* 批量栏固定于工具栏下方；其内部 .batch-model-bar 自带下描边与内边距，
-   外层不再追加空档，避免工具栏与批量栏之间出现松散缝。 */
+/* 批量栏固定于工具栏下方；与「全局覆盖」卡片同色同形，外层只负责外边距 */
 .omo-batch-bar-wrap {
     flex-shrink: 0;
+    margin: 12px 20px;
 }
 
-/* 窄屏：表格退回换行排列，隐藏列头与生效值列（列宽在这个宽度下没有意义） */
+/* 窄屏：行退回换行排列，隐藏生效值列（列宽在这个宽度下没有意义） */
 @media (max-width: 800px) {
-    .model-col-head {
-        display: none;
-    }
     .model-row {
         padding: 0 14px;
     }

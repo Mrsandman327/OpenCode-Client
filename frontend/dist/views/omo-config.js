@@ -681,22 +681,6 @@ function paintPresetRowEffective(rowOrEl, agent) {
         : '—';
 }
 
-/** 方案表格的列头：与行共用同一套网格列宽（见 omo.css 的 --omo-cols）。
- *  外层保持全宽以承载满行的下边线，内层才是网格容器。 */
-function createColumnHead() {
-    const head = document.createElement('div');
-    head.className = 'model-col-head';
-    const cols = document.createElement('div');
-    cols.className = 'model-col-head-cols';
-    ['', 'Agent', '模型', 'variant', '生效值', ''].forEach((label) => {
-        const cell = document.createElement('span');
-        cell.textContent = label;
-        cols.appendChild(cell);
-    });
-    head.appendChild(cols);
-    return head;
-}
-
 /** 全局覆盖编辑后，原地刷新下方方案行的标签、锁定状态与展示值，避免整块方案列表重绘 */
 function refreshPresetGlobalTags() {
     document.querySelectorAll('#modelConfig .model-row[data-agent-key]').forEach(row => {
@@ -1085,8 +1069,6 @@ function createPresetGroup(preset) {
         empty.textContent = '暂无条目，点击标题右侧 + 添加';
         body.appendChild(empty);
     } else {
-        // 表格列头只出现一次，避免每行重复同一组标签
-        body.appendChild(createColumnHead());
         preset.agents.forEach(agent => {
             body.appendChild(createAgentRow(preset, agent));
         });
