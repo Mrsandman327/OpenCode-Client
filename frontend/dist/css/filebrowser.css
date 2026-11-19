@@ -2032,7 +2032,7 @@ oc-button.oc-tree-config:hover:not([disabled]) {
     overflow: hidden;
 }
 .dir-browser-places {
-    width: 180px;
+    width: 120px;
     flex-shrink: 0;
     padding: 10px 8px;
     border-right: 1px solid var(--border);
