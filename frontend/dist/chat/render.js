@@ -126,6 +126,61 @@ setInterval(refreshLiveToolDurations, 200);
  *  展开态记忆在 store.expandedParts；摘要行右侧仅在 metadata.state 存在时显示状态
  *  （completed→完成 / failed→失败 / interrupted→已中断，其它值原样）。
  *  折叠块只做展开/收起，无任何点击定位交互。 */
+/** 系统指令变更通知：折叠条，description 作标题，text 作正文 */
+function buildSystemNoticeCard(info, partList) {
+    const notice = info.systemNotice || {};
+    const wrapper = document.createElement('div');
+    wrapper.className = 'oc-synthetic-notice';
+
+    const key = 'system:' + (info.id || '');
+    const expanded = !!store.expandedParts[key];
+
+    const fold = document.createElement('div');
+    fold.className = 'oc-part oc-synthetic-fold';
+
+    const textPart = (Array.isArray(partList) ? partList : []).find(p => p && p.type === 'text');
+    const bodyText = textPart ? String(textPart.text || '') : '';
+    const plainText = bodyText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const description = String(notice.description || '').trim();
+    const fallbackTitle = plainText.length > 100 ? plainText.slice(0, 100) + '…' : plainText;
+    const title = description || fallbackTitle;
+
+    const head = document.createElement('div');
+    head.className = 'oc-synthetic-head';
+    head.innerHTML = iconSvg('i-inbox');
+    const label = document.createElement('span');
+    label.className = 'oc-synthetic-label';
+    label.textContent = title;
+    label.title = description || bodyText;
+    head.appendChild(label);
+
+    const hasBody = !!bodyText.trim();
+    const toggle = document.createElement('span');
+    toggle.className = 'oc-synthetic-toggle';
+    if (hasBody) {
+        toggle.textContent = expanded ? '收起' : '展开';
+        head.appendChild(toggle);
+    }
+
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'oc-synthetic-body' + (expanded ? '' : ' hidden');
+    if (textPart) bodyEl.appendChild(renderTextPart(textPart));
+
+    if (hasBody) {
+        head.addEventListener('click', () => {
+            store.expandedParts[key] = !store.expandedParts[key];
+            bodyEl.classList.toggle('hidden', !store.expandedParts[key]);
+            toggle.textContent = store.expandedParts[key] ? '收起' : '展开';
+        });
+    }
+
+    fold.appendChild(head);
+    if (hasBody) fold.appendChild(bodyEl);
+    wrapper.appendChild(fold);
+
+    return wrapper;
+}
+
 function buildSyntheticNoticeCard(info, partList) {
     const notice = info.syntheticNotice || {};
     const wrapper = document.createElement('div');
@@ -186,15 +241,6 @@ function buildSyntheticNoticeCard(info, partList) {
     fold.appendChild(bodyEl);
     wrapper.appendChild(fold);
 
-    // 底部右下角时间：与既有消息卡时间样式一致（.oc-message-time，text-align:right），
-    // 数据取该 synthetic 消息的 time.created（沿用 buildMessageNode 的取值兜底链）
-    const msgTime = formatDateTime(info.time?.created || info.time?.updated || info.createdAt);
-    if (msgTime) {
-        const timeEl = document.createElement('div');
-        timeEl.className = 'oc-message-time';
-        timeEl.textContent = '⏱ ' + msgTime;
-        wrapper.appendChild(timeEl);
-    }
     return wrapper;
 }
 
@@ -271,6 +317,11 @@ export function buildMessageNode(item, sessionID) {
     // synthetic 系统通知（v2compat.js adaptMessage / adaptEvent 写入的通用标记）：
     // 所有 synthetic 消息统一渲染为系统卡内的折叠通知块（摘要 + 状态 + 展开正文），
     // 不再走普通系统文本渲染；折叠块只做展开/收起，无任何点击定位交互。
+    if (role === 'system' && info.systemNotice) {
+        body.appendChild(buildSystemNoticeCard(info, partList));
+        node.appendChild(body);
+        return node;
+    }
     if (role === 'system' && info.syntheticNotice) {
         body.appendChild(buildSyntheticNoticeCard(info, partList));
         node.appendChild(body);

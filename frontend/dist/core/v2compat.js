@@ -430,11 +430,12 @@ function adaptMessage(msg, sessionID) {
     switch (msg.type) {
         case 'system': {
             // {id, time, type, text, description?} —— 服务端注入的说明性消息
-            // （instructions 更新通知等普通系统消息；synthetic 已在上方分支统一处理）
+            // （instructions 更新通知等；description 作为折叠条标题，text 作为正文）
             const text = [msg.description, msg.text].filter(Boolean).join('\n');
             if (!text) return null;
             info.role = 'system';
-            return { info, parts: [{ id: msg.id + '_text', messageID: msg.id, sessionID, type: 'text', text }] };
+            info.systemNotice = { description: msg.description || '' };
+            return { info, parts: [{ id: msg.id + '_text', messageID: msg.id, sessionID, type: 'text', text: msg.text || '' }] };
         }
         case 'skill': {
             // {id, time, type, skill, name, text} —— 技能激活记录
