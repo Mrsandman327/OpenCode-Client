@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/OpenCode-v1%20%2F%20v2-1F1F1F" />
   <img src="https://img.shields.io/badge/平台-Windows%20%7C%20Linux%20%7C%20macOS%20%7C%20Web%20%7C%20Mobile-0066cc" />
   <img src="https://img.shields.io/badge/build-passing-brightgreen" />
+  <img src="https://img.shields.io/badge/license-MIT-green" />
 </p>
 
 **OC Manager** 把 OpenCode 的命令行操作收进一个顺手的桌面窗口：启动服务、管理会话、浏览项目、编辑配置，一站完成。支持 OpenCode **v1 与 v2**。
