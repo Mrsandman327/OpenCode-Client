@@ -101,10 +101,9 @@ func main() {
 	// 系统托盘：单击切换窗口显示，右键菜单（显示主窗口/退出）。
 	setupSystemTray(app, window)
 
-	// 全局快捷键：Shift+X 在任意界面唤起/隐藏主窗口（与托盘单击行为一致）。
-	// 注意：全局快捷键会拦截该组合键的常规输入（Shift+X 即大写 X），如与日常输入冲突，
-	// 可改为 "Ctrl+Shift+X"（此处按需求保留 Shift+X）。
-	if err := app.GlobalShortcut.Register("Shift+X", func() {
+	// 全局快捷键：Ctrl+Shift+X 在任意界面唤起/隐藏主窗口（与托盘单击行为一致）。
+	// 用组合键而不是单独的 Shift+X：后者会拦截正常输入（Shift+X 即大写 X）。
+	if err := app.GlobalShortcut.Register("Ctrl+Shift+X", func() {
 		if window.IsVisible() {
 			// 先隐藏文件浏览器的独立窗口，再隐藏主窗口。
 			// 它们是独立原生窗口，不在主窗口的父子关系里，不处理会留在屏幕上。
@@ -118,9 +117,9 @@ func main() {
 			window.Focus()
 		}
 	}); err != nil {
-		logger.Printf("[shortcut] 注册全局快捷键 Shift+X 失败: %v", err)
+		logger.Printf("[shortcut] 注册全局快捷键 Ctrl+Shift+X 失败: %v", err)
 	} else {
-		logger.Printf("[shortcut] 全局快捷键 Shift+X 已注册（唤起/隐藏主窗口）")
+		logger.Printf("[shortcut] 全局快捷键 Ctrl+Shift+X 已注册（唤起/隐藏主窗口）")
 	}
 
 	// 页面运行时（DOM）就绪后：先按当前屏幕工作区调整窗口（此时屏幕信息才可靠），

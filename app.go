@@ -37,7 +37,7 @@ type App struct {
 	app *application.App // v3 应用引用（由 main 注入），供事件/对话框/浏览器调用
 	sm  *skill.Manager
 
-	// 文件浏览器「独立窗口」登记表：Shift+X 隐藏/显示主窗口时需要一并处理。
+	// 文件浏览器「独立窗口」登记表：Ctrl+Shift+X 隐藏/显示主窗口时需要一并处理。
 	// 这些窗口由 OpenFileBrowserWindow 创建，不在主窗口的父子关系里，
 	// 所以主窗口 Hide/Show 不会自动带上它们。
 	fileBrowserMu   sync.Mutex
@@ -615,14 +615,14 @@ func (a *App) OpenFileBrowserWindow(rootDir string, withGit bool) {
 	win.OnWindowEvent(events.Common.WindowRuntimeReady, func(event *application.WindowEvent) {
 		adaptWindowToScreen(win, 0.85, 0.88, 720, 480, 1800, 1100)
 	})
-	// 登记到独立窗口表：Shift+X 隐藏/显示主窗口时，这些窗口需要一起处理。
+	// 登记到独立窗口表：Ctrl+Shift+X 隐藏/显示主窗口时，这些窗口需要一起处理。
 	a.trackFileBrowserWindow(win)
 	logger.Printf("[popout] 窗口已创建: id=%d url=%s", win.ID(), url)
 }
 
 // trackFileBrowserWindow 登记文件浏览器独立窗口，并在窗口关闭时移除。
 // 窗口由 a.app.Window.NewWithOptions 创建，与主窗口没有父子关系，
-// 因此必须自行维护列表，Shift+X 才能同步隐藏/恢复。
+// 因此必须自行维护列表，Ctrl+Shift+X 才能同步隐藏/恢复。
 func (a *App) trackFileBrowserWindow(win *application.WebviewWindow) {
 	if win == nil {
 		return
@@ -642,7 +642,7 @@ func (a *App) trackFileBrowserWindow(win *application.WebviewWindow) {
 }
 
 // HideFileBrowserWindows 隐藏所有已登记的文件浏览器独立窗口。
-// 由全局快捷键 Shift+X 在隐藏主窗口时调用。
+// 由全局快捷键 Ctrl+Shift+X 在隐藏主窗口时调用。
 func (a *App) HideFileBrowserWindows() {
 	a.fileBrowserMu.Lock()
 	wins := make([]*application.WebviewWindow, 0, len(a.fileBrowserWins))
@@ -660,7 +660,7 @@ func (a *App) HideFileBrowserWindows() {
 }
 
 // ShowFileBrowserWindows 恢复所有已登记的文件浏览器独立窗口。
-// 由全局快捷键 Shift+X 在显示主窗口时调用。
+// 由全局快捷键 Ctrl+Shift+X 在显示主窗口时调用。
 func (a *App) ShowFileBrowserWindows() {
 	a.fileBrowserMu.Lock()
 	wins := make([]*application.WebviewWindow, 0, len(a.fileBrowserWins))
