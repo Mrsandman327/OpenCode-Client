@@ -563,6 +563,11 @@ export async function createNewSession(dir) {
                 c.classList.remove('active');
                 c.style.display = 'none';
             });
+            // 先清掉池子里已有的空态（例如「选择会话后查看消息…」），
+            // 否则它会和下面的新建会话占位同时显示，出现两条提示。
+            poolEl.querySelectorAll(':scope > .empty-state').forEach(function(el) {
+                el.remove();
+            });
             var ph = poolEl.querySelector('.oc-new-session-placeholder');
             if (!ph) {
                 ph = document.createElement('div');
