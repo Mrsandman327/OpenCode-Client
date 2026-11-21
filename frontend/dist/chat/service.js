@@ -726,7 +726,7 @@ export function clearClientUI() {
         // 清掉内容指纹：否则下次刷新若指纹相同会跳过渲染，面板会一直空白
         delete subtaskBox.dataset.fp;
     }
-    document.getElementById('ocTodos').innerHTML = '<div class="empty-state empty-state--sm">当前会话暂无代办</div>';
+    document.getElementById('ocTodos').innerHTML = '<div class="empty-state empty-state--sm">当前会话暂无待办</div>';
     renderServiceStatus();
     document.getElementById('ocPrompt').value = '';
     updateModelInfo(null);

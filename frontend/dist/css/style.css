@@ -308,7 +308,7 @@ textarea {
     mask-image: url("../assets/终端.svg");
 }
 
-/* 右侧面板标题（服务状态/子任务/代办事项）图标：assets 下对应 SVG 作遮罩，固定 #8a8a8a 灰色（不随标题文字色） */
+/* 右侧面板标题（服务状态/子任务/待办事项）图标：assets 下对应 SVG 作遮罩，固定 #8a8a8a 灰色（不随标题文字色） */
 .oc-panel-icon {
     display: inline-block;
     flex-shrink: 0;
@@ -340,8 +340,8 @@ textarea {
 }
 
 .oc-panel-icon-todo {
-    -webkit-mask-image: url("../assets/代办事项.svg");
-    mask-image: url("../assets/代办事项.svg");
+    -webkit-mask-image: url("../assets/待办事项.svg");
+    mask-image: url("../assets/待办事项.svg");
 }
 
 .oc-panel-icon-schedule {
@@ -977,7 +977,7 @@ button.oc-head-icon-btn svg {
     min-width: 0;
 }
 /* 紧贴应用头部（.header）的两个首个面板头：上边框与 header 的 border-bottom 重复，去掉上边框；
-   其余面板头（定时任务 / 子任务 / 代办事项）保留上边框作为分区之间的分隔线 */
+   其余面板头（定时任务 / 子任务 / 待办事项）保留上边框作为分区之间的分隔线 */
 .oc-panel-head.oc-sessions-head,
 .oc-sidepanel-content > .oc-panel-section:first-child > .oc-panel-head {
     border-top: none;
@@ -1379,7 +1379,7 @@ button.oc-head-icon-btn svg {
 }
 
 /* ========== 右侧面板分区高度拖动条 ==========
-   仅「子任务 ↔ 代办事项」分界处一条（服务状态区不参与固定高度分配）；
+   仅「子任务 ↔ 待办事项」分界处一条（服务状态区不参与固定高度分配）；
    视觉与交互对齐输入区域拖动条（.oc-input-resize-handle）：
    默认透明，hover / 拖动时显示居中指示条，垂直拖动调整子任务高度 */
 .oc-panel-resize-handle {
@@ -1429,7 +1429,7 @@ button.oc-head-icon-btn svg {
 #servicePanelSection .oc-panel-body {
     flex: 0 0 auto;
 }
-/* 代办事项区高度规则：
+/* 待办事项区高度规则：
    1) 优先吃满面板剩余高度（flex-grow）；
    2) 内容高于剩余时由内容撑开（min-content 沿 flex 链冒泡 → 分区不被压到内容以下，
       超出部分由整体面板滚动兜底，无内部滚动条）；
@@ -1672,7 +1672,7 @@ button.oc-head-icon-btn svg {
     padding: 8px;
 }
 
-/* ── 代办事项 ── */
+/* ── 待办事项 ── */
 .oc-todo-group {
     margin-bottom: 10px;
 }

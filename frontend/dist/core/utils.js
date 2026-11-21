@@ -566,7 +566,7 @@ export function mcpRetryShouldStop(mcpList, pluginList, attempt, maxAttempts) {
 // ============================================================
 // 待办面板刷新
 // OpenCode 2.1.0 起内置 todowrite（配置 experimental.todo: true），数据在会话消息的
-// tool part（state.input.todos）。右栏代办分区常显，无数据时提示「会话中暂无代办」。
+// tool part（state.input.todos）。右栏待办分区常显，无数据时提示「会话中暂无待办」。
 // service.js 在服务状态变化时触发本刷新通道，渲染实现在 sidepanel.js（renderTodos）。
 // ============================================================
 

@@ -507,13 +507,13 @@ if (document.readyState === 'loading') {
 // ============================
 // 右侧面板分区高度拖动条
 // ============================
-// 规则：仅「子任务 ↔ 代办事项」之间一条拖动条，调整子任务高度；
+// 规则：仅「子任务 ↔ 待办事项」之间一条拖动条，调整子任务高度；
 // 服务状态区不参与固定高度分配（高度完全由内容自适应，见 style.css）；
-// 代办事项不设高、始终填满剩余空间；子任务最小高度 100px（拖动上限必须给代办留 100px）。
+// 待办事项不设高、始终填满剩余空间；子任务最小高度 100px（拖动上限必须给待办留 100px）。
 // 未拖动过时保持现状（CSS auto 高度兜底），首次拖动才以当前实际高度为基准进入固定
 // 分配模式；拖动结果持久化 localStorage，双击拖动条恢复默认（含清理存储）。
 
-/** 子任务区最小高度（同时是拖动上限为代办事项保留的最小高度） */
+/** 子任务区最小高度（同时是拖动上限为待办事项保留的最小高度） */
 var PANEL_MIN_HEIGHT = 100;
 /** 分区高度存储键：JSON 形如 { subtasks: 180 }（缺省键表示子任务区为 auto；
  *  旧版本存储中的 services 键在读取时忽略，不再写入） */
@@ -524,7 +524,7 @@ var PANEL_HEIGHTS_KEY = 'panelHeights';
  * @param {number} desired 期望高度（px）
  * @param {number} containerH 容器总高度（px，.oc-sidepanel-content 的 clientHeight）
  * @param {number} otherH 服务区、拖动条与其它已占用空间的高度（px）
- * @returns {number} 夹取后的高度：不小于 100px；且保证代办区至少保留 100px
+ * @returns {number} 夹取后的高度：不小于 100px；且保证待办区至少保留 100px
  */
 function clampPanelHeight(desired, containerH, otherH) {
     return Math.max(PANEL_MIN_HEIGHT, Math.min(desired, containerH - otherH - PANEL_MIN_HEIGHT));
@@ -556,7 +556,7 @@ function clampPanelHeight(desired, containerH, otherH) {
     }
 
     /** 应用高度分配：只设置子任务区的固定高；
-     *  代办区与服务区一样内容自适应（CSS 里 min-height 保底 + 内容撑高、无内部滚动），
+     *  待办区与服务区一样内容自适应（CSS 里 min-height 保底 + 内容撑高、无内部滚动），
      *  不参与剩余空间分配，也不再由这里写任何 inline 样式。 */
     function applyPanelHeights() {
         applySectionHeight(subtaskSection, heights.subtasks);
@@ -587,7 +587,7 @@ function clampPanelHeight(desired, containerH, otherH) {
         // 容器尚未布局（如侧栏隐藏）时跳过夹取，保留缓存值，等布局恢复后自然生效
         var containerH = content.clientHeight;
         if (containerH <= 0) return;
-        // 服务区已改为内容自适应、不参与高度分配：上限=容器可视高-代办最小高，
+        // 服务区已改为内容自适应、不参与高度分配：上限=容器可视高-待办最小高，
         // 不再扣除服务区高度（服务区超高时若扣除，上限会变负、拖动被瞬间夹到下限）
         var otherH = 0;
         heights.subtasks = clampPanelHeight(heights.subtasks, containerH, otherH);
@@ -610,7 +610,7 @@ function clampPanelHeight(desired, containerH, otherH) {
         if (dragging) return;
         if (isMobileTreeMode()) return;
         // 拖动期间容器高度视为稳定，按下时冻结测量：
-        // 上限只保证代办区至少保留 PANEL_MIN_HEIGHT（=容器可视高-100），
+        // 上限只保证待办区至少保留 PANEL_MIN_HEIGHT（=容器可视高-100），
         // 不扣除服务区高度——服务区内容自适应后可能高于一屏（整体滚动场景），
         // 若扣除会让上限变负、一拖动就被夹到下限，表现为“点一下就回原始高度”。
         var containerH = content.clientHeight;

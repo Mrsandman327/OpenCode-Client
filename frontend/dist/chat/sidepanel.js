@@ -1,5 +1,5 @@
 // ============================================================
-// chat-sidepanel.js — 右侧面板（Diff + 子任务 + 代办）
+// chat-sidepanel.js — 右侧面板（Diff + 子任务 + 待办）
 // 依赖：core/state.js、core/utils.js（escapeHtml, showToast, getActiveMessagesEl, getCachedMessages,
 //       normalizeMessageItem, isInternalUserMessage, safeText）、core/apicall.js（api）、
 //       chat/render.js（buildMessageNode, setRenderTodosHandler）
@@ -13,7 +13,7 @@ import { adaptMessages, formatApiError, unwrapList, nextCursor } from '../core/v
 import { formatSubtaskDuration, formatMinuteTime } from '../core/format.js';
 import { buildMessageNode, setRenderTodosHandler } from './render.js';
 
-// 向 render.js 注入"消息渲染完成后刷新代办面板"的回调（sidepanel→render 单向依赖，无环）。
+// 向 render.js 注入"消息渲染完成后刷新待办面板"的回调（sidepanel→render 单向依赖，无环）。
 // 同时向 core 层注册"待办面板刷新"入口：service.js 在服务状态变化后触发。
 // renderTodos 定义于本文件下方（函数声明提升）。
 // 注意：session→tabs→events→session 仍存在跨模块环（顶层均无立即跨模块调用，运行时函数调用安全），
@@ -24,15 +24,15 @@ queueMicrotask(() => {
 });
 
 // ============================
-// 代办事项 — 从消息中提取并渲染
+// 待办事项 — 从消息中提取并渲染
 // ============================
 
-// 代办事项所用的工具名。
+// 待办事项所用的工具名。
 // OpenCode 2.1.0 起内置 `todowrite`（需配置 experimental.todo: true），
 // 数据在 tool part 的 state.input.todos；同时兼容旧插件 todo_write 与自定义同名工具。
 const TODO_TOOL_NAMES = ['todowrite', 'todo_write', 'todo'];
 
-/** 从当前会话的缓存消息中提取代办事项列表 */
+/** 从当前会话的缓存消息中提取待办事项列表 */
 export function extractTodos() {
     const items = getCachedMessages(store.currentSessionId);
     if (!items.length) return [];
@@ -56,10 +56,10 @@ export function extractTodos() {
     return [];
 }
 
-/** 渲染代办事项面板
+/** 渲染待办事项面板
  *
  *  OpenCode 2.1.0 起内置 todowrite（experimental.todo），面板常显，无数据时显示
- *  「会话中暂无代办」。
+ *  「会话中暂无待办」。
  *  数据来源：模型调用 todowrite 后，从会话消息的 tool part 提取
  *  state.input.todos（见 extractTodos）；刷新时机：消息渲染后（render.js 回调）
  *  与服务状态变化后（service.js 经 core/utils.js 的刷新通道）。 */
@@ -69,7 +69,7 @@ export function renderTodos() {
 
     const todos = extractTodos();
     if (!todos.length) {
-        box.innerHTML = '<div class="empty-state empty-state--sm">会话中暂无代办</div>';
+        box.innerHTML = '<div class="empty-state empty-state--sm">会话中暂无待办</div>';
         return;
     }
     // 按 OpenCode 的三种状态分组：进行中 / 待处理 / 已完成（含 cancelled）。
@@ -78,7 +78,7 @@ export function renderTodos() {
     const pending = todos.filter(t => !t.status || t.status === 'pending');
     const completed = todos.filter(t => t.status === 'completed' || t.status === 'cancelled');
     if (!inProgress.length && !pending.length && !completed.length) {
-        box.innerHTML = '<div class="empty-state empty-state--sm">会话中暂无代办</div>';
+        box.innerHTML = '<div class="empty-state empty-state--sm">会话中暂无待办</div>';
         return;
     }
 
