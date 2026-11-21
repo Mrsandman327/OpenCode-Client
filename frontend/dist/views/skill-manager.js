@@ -139,6 +139,9 @@ export function bindSkillManagerEvents() {
     if (skillList && !skillList.dataset.bound) {
         skillList.dataset.bound = 'true';
         skillList.addEventListener('click', handleSkillManagerActionClick);
+        // oc-switch 把内部 checkbox 的 change 转发成 composed 自定义事件，会冒泡到这里。
+        // 技能开关只由 change 驱动：click 阶段读不到新状态，且一次点击会冒泡两次。
+        skillList.addEventListener('change', handleSkillToggleChange);
     }
     bindSkillConfigEvents();
 }
@@ -219,23 +222,43 @@ export async function handleSkillManagerActionClick(event) {
         await openSkillDir(target.dataset.skillPath || '');
         return;
     }
-    if (action === 'toggle-skill') {
-        var skillPath = target.dataset.skillPath;
-        var skillName = target.dataset.skillName;
-        var enable = target.checked;  // 点击后的目标状态
-        try {
-            await toggleSkill(skillPath, skillName, enable);
-        } catch (e) {
-            // 失败时回滚 checkbox 并提示
-            target.checked = !enable;
-            showApiError('操作失败: ', e);
-        }
-        return;
-    }
+    // 开关不在这里处理，交给 change 事件：
+    //  - click 早于 oc-switch 同步 checked 属性，读到的 enable 是点击前的旧值；
+    //  - 开关在 <label> 内，一次点击会向内部 input 转发，产生两次冒泡的 click。
+    // 两者叠加会把「停用」当成「启用」并执行两次，最终现「文件已存在」的报错。
+    if (action === 'toggle-skill') return;
 }
 
 // ========== Toggle 开关 ==========
 
+// 正在进行中的技能切换（按技能名去重）：请求未返回前忽略同一技能的重复事件，
+// 避免同一次点击或快速连点发出多个并发写操作。
+var togglePending = new Set();
+
+/** 技能开关变更：由 oc-switch 转发的 composed change 事件驱动。
+ *  change 只在状态真正变化后派发一次，且此时宿主 checked 属性已同步，
+ *  读到的 enable 与开关视觉状态一致。 */
+export async function handleSkillToggleChange(event) {
+    var target = event.target.closest('[data-action="toggle-skill"]');
+    if (!target) return;
+    var skillPath = target.dataset.skillPath;
+    var skillName = target.dataset.skillName;
+    var enable = target.checked;
+    if (!skillName) return;
+    if (togglePending.has(skillName)) return;
+    togglePending.add(skillName);
+    try {
+        await toggleSkill(skillPath, skillName, enable);
+    } catch (e) {
+        // 失败时回滚开关到操作前的状态，再提示
+        target.checked = !enable;
+        showApiError('操作失败: ', e);
+    } finally {
+        togglePending.delete(skillName);
+    }
+}
+
+/** 执行一次技能切换：成功则刷新技能列表；失败抛出，由调用方提示并回滚开关。 */
 export async function toggleSkill(skillPath, skillName, enable) {
     var result = await api.ToggleSkill(skillPath, skillName, enable);
     if (result.success) {

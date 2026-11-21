@@ -36,8 +36,28 @@ func (m *Manager) ensureGlobalDir() error {
 	return nil
 }
 
+// createLinkWithRetry 在 linkPath 处建立指向 sourcePath 的链接。
+// 调用前应已尝试删除同名旧条目；若创建仍失败（典型并发场景：另一个调用
+// 在删除与创建之间又建好了同名链接），先再清一次，然后重试一次。
+// 返回的错误保留「创建链接失败」语义，交给上层包装提示。
+func createLinkWithRetry(sourcePath, linkPath string) error {
+	firstErr := symlink.Create(sourcePath, linkPath)
+	if firstErr == nil {
+		return nil
+	}
+	// 清理残留后重试一次；清理失败则直接返回首次错误
+	if err := symlink.Remove(linkPath); err != nil {
+		return firstErr
+	}
+	return symlink.Create(sourcePath, linkPath)
+}
+
 // ToggleSkill 切换技能链接状态。
 func (m *Manager) ToggleSkill(skillPath, skillName string, enable bool) (bool, error) {
+	// 串行化写操作：避免并发 Toggle 时「先删后建」交错导致同名链接已存在
+	m.linkMu.Lock()
+	defer m.linkMu.Unlock()
+
 	topName, topSource := ResolveTopLevelLink(skillPath, skillName)
 	linkPath := filepath.Join(m.globalDir, topName)
 
@@ -50,7 +70,7 @@ func (m *Manager) ToggleSkill(skillPath, skillName string, enable bool) (bool, e
 		if err := symlink.Remove(linkPath); err != nil {
 			return false, fmt.Errorf("移除旧链接失败: %w", err)
 		}
-		if err := symlink.Create(topSource, linkPath); err != nil {
+		if err := createLinkWithRetry(topSource, linkPath); err != nil {
 			return false, fmt.Errorf("创建链接失败: %w", err)
 		}
 		return true, nil
@@ -81,6 +101,10 @@ func ResolveTopLevelLink(skillPath, skillName string) (topName, topSource string
 
 // LinkSkill 创建单个技能链接到全局目录。
 func (m *Manager) LinkSkill(skillPath, skillName string) error {
+	// 与 ToggleSkill 共用同一把锁：两者都会删旧建新，必须互斥
+	m.linkMu.Lock()
+	defer m.linkMu.Unlock()
+
 	topName, topSource := ResolveTopLevelLink(skillPath, skillName)
 	linkPath := filepath.Join(m.globalDir, topName)
 
@@ -93,7 +117,7 @@ func (m *Manager) LinkSkill(skillPath, skillName string) error {
 	if err := symlink.Remove(linkPath); err != nil {
 		return fmt.Errorf("移除旧链接失败: %w", err)
 	}
-	return symlink.Create(topSource, linkPath)
+	return createLinkWithRetry(topSource, linkPath)
 }
 
 // GetManagedLinks 获取全局目录中所有被本应用托管的链接。
@@ -152,6 +176,10 @@ func (m *Manager) GetManagedLinks(sourceDirs []string) ([]string, error) {
 
 // ClearManagedLinks 删除全局目录中的所有托管链接。
 func (m *Manager) ClearManagedLinks(sourceDirs []string) error {
+	// 批量删除同样与单条 Toggle/Link 互斥，避免清理与建链交错
+	m.linkMu.Lock()
+	defer m.linkMu.Unlock()
+
 	managed, err := m.GetManagedLinks(sourceDirs)
 	if err != nil {
 		return err

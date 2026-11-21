@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"oc-manager/internal/portable"
 	"oc-manager/model"
@@ -13,6 +14,11 @@ import (
 // Manager 管理 opencode 技能。
 type Manager struct {
 	globalDir string
+	// linkMu 串行化全局目录里链接的删除与创建。
+	// 前端事件可能并发触发 ToggleSkill：两个「先删旧链接、再建新链接」交错时，
+	// 后一个的 Create 会撞上前一个刚建好的同名链接，Windows 上表现为
+	// 「当文件已存在时，无法创建该文件」。所有写操作都必须持有这把锁。
+	linkMu sync.Mutex
 }
 
 // NewManager 创建新的 Manager 实例，指向全局 opencode 技能目录。
