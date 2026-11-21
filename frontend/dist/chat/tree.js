@@ -575,8 +575,19 @@ export async function createNewSession(dir) {
                 ph.className = 'oc-new-session-placeholder oc-empty';
                 poolEl.appendChild(ph);
             }
-            // 占位内容统一走空态组件；容器本身不带样式，只负责显示/移除
-            ph.innerHTML = emptyHtml({ title: '输入内容后 Enter 发送，会话将在首次发送时创建', size: 'sm' });
+            // 占位内容统一走空态组件；容器本身不带样式，只负责显示/移除。
+            // 第二行显示本次新建会话的目录：太长时中间省略，完整路径放在 title 里。
+            var shortDir = String(dir || '');
+            if (shortDir.length > 64) {
+                shortDir = shortDir.slice(0, 30) + '…' + shortDir.slice(-28);
+            }
+            ph.innerHTML = emptyHtml({
+                title: '输入内容后 Enter 发送，会话将在首次发送时创建',
+                desc: shortDir ? '目录：' + shortDir : '',
+                size: 'sm'
+            });
+            var descEl = ph.querySelector('.empty-state__desc');
+            if (descEl && dir) descEl.title = dir;
             ph.style.display = '';
         }
         // 刷新 Tab 栏激活态（activeTabId 已置空，所有 tab 显示为非激活）
