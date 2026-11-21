@@ -1186,6 +1186,40 @@ button.oc-head-icon-btn svg {
     flex-shrink: 0;
     color: var(--text-secondary);
     vertical-align: middle;
+    transition: opacity 0.12s ease;
+}
+/* 运行中的子任务：悬浮卡片时「运行中」徽标换成「停止」按钮（同一位置切换）。
+   按钮用 ghost 变体：平时就是纯文字，不抢卡片视觉；只有鼠标移到按钮上才出现
+   浅色圆角底 + 红字，给出「可点」的反馈。 */
+.oc-subtask-card-row-sub {
+    position: relative;
+}
+.oc-subtask-stop-btn {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+    --oc-btn-h: 18px;
+    --oc-btn-py: 0;
+    --oc-btn-px: 6px;
+    --oc-btn-fs: 11px;
+    --oc-btn-weight: 400;
+    --oc-btn-radius: var(--radius-xs);
+}
+.oc-subtask-card.status-running:hover .oc-subtask-stop-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+.oc-subtask-card.status-running:hover .oc-subtask-status-badge {
+    opacity: 0;
+}
+/* 悬停按钮：出现浅色圆角底（可点击反馈），文字转危险色（停止属于危险操作） */
+.oc-subtask-stop-btn:hover:not([disabled]) {
+    --oc-btn-bg-hover: rgba(0, 0, 0, 0.05);
+    --oc-btn-fg-hover: var(--danger);
 }
 /* 小圆点：状态区分只在点上体现，文字保持次要色，避免整卡持续高亮 */
 .oc-subtask-status-badge::before {

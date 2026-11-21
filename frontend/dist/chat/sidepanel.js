@@ -7,7 +7,7 @@
 
 import { api } from '../core/apicall.js';
 import { store, currentDir } from '../core/state.js';
-import { escapeHtml, showToast, getActiveMessagesEl, getCachedMessages, modelDisplayLabel, setTodoPanelRefreshHandler, copyToClipboard, bindOverlayClose } from '../core/utils.js';
+import { escapeHtml, showToast, showApiError, getActiveMessagesEl, getCachedMessages, modelDisplayLabel, setTodoPanelRefreshHandler, copyToClipboard, bindOverlayClose } from '../core/utils.js';
 import { adaptMessages, formatApiError, unwrapList, nextCursor } from '../core/v2compat.js';
 // 时间格式化统一走 core/format.js
 import { formatSubtaskDuration, formatMinuteTime } from '../core/format.js';
@@ -358,6 +358,10 @@ export function renderSubtaskCard(s, idx) {
         + '<div class="oc-subtask-card-row oc-subtask-card-row-sub">'
         + '<span class="oc-subtask-card-meta" title="' + escapeHtml(metaText) + '">' + escapeHtml(metaText) + '</span>'
         + '<span class="oc-subtask-status-badge status-' + escapeHtml(s.status || 'pending') + '">' + statusLabel + '</span>'
+        // 运行中的子任务：悬浮时「运行中」徽标换成「停止」按钮（同一位置切换）
+        + (s.status === 'running'
+            ? '<oc-button variant="ghost" size="xs" class="oc-subtask-stop-btn" data-child-session-id="' + escapeHtml(s.childSessionId || '') + '" title="停止子任务">停止</oc-button>'
+            : '')
         + '</div>'
         + '</div>';
 }
@@ -448,8 +452,28 @@ export function extractSubtaskPrompt(part) {
     return '';
 }
 
+/** 停止运行中的子任务（子会话）：中断后刷新子任务面板 */
+async function stopSubtask(childSessionId) {
+    if (!childSessionId) return;
+    try {
+        await api.OpenCodeCall('POST', `/api/session/${encodeURIComponent(childSessionId)}/interrupt`);
+        showToast('已停止子任务', 'info');
+        refreshSubtaskPanel();
+    } catch (e) {
+        showApiError('停止子任务失败: ', e);
+    }
+}
+
 /** 子任务卡片点击处理 */
 export function onSubtaskCardClick(e) {
+    // 停止按钮：先拦截，避免顺带触发卡片的「定位 / 详情」
+    const stopBtn = e.target.closest('.oc-subtask-stop-btn');
+    if (stopBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        stopSubtask(stopBtn.dataset.childSessionId);
+        return;
+    }
     const detailBtn = e.target.closest('.oc-subtask-detail-btn');
     if (detailBtn) {
         e.stopPropagation();
